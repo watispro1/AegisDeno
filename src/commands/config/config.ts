@@ -54,7 +54,7 @@ export const command: Command = {
       if (key === "prefix") config.prefix = value;
       else if (key === "language") config.language = value;
 
-      updateGuildConfig(guildId, config);
+      await updateGuildConfig(guildId, config);
       return interaction.reply(`✅ Configuration updated. **${key}** is now \`${value}\`.`);
     }
   },
