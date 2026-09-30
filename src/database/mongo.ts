@@ -1,0 +1,93 @@
+import mongoose from "mongoose";
+import { logger } from "../utils/logger";
+
+export async function connectDatabase(): Promise<void> {
+  const uri = process.env.MONGO_URI;
+  
+  if (!uri) {
+    logger.error("MONGO_URI is missing in your .env file!");
+    logger.error("Please create a free cluster at MongoDB Atlas (mongodb.com) and paste your connection string.");
+    process.exit(1);
+  }
+
+  try {
+    mongoose.set("strictQuery", false);
+    await mongoose.connect(uri);
+    logger.info("✅ Successfully connected to MongoDB!");
+  } catch (error) {
+    logger.error("Failed to connect to MongoDB:", error);
+    process.exit(1);
+  }
+}
+
+export async function closeDatabase(): Promise<void> {
+  await mongoose.disconnect();
+  logger.info("Closed MongoDB connection.");
+}
+
+// ─── Schemas & Models ────────────────────────────────────────────────────────
+
+const GuildConfigSchema = new mongoose.Schema({
+  guildId: { type: String, required: true, unique: true },
+  prefix: { type: String, default: "!" },
+  language: { type: String, default: "en" },
+  loggingEnabled: { type: Boolean, default: false },
+  loggingChannelId: { type: String, default: null },
+  welcomeEnabled: { type: Boolean, default: false },
+  welcomeChannelId: { type: String, default: null },
+  welcomeMessage: { type: String, default: "Welcome {user} to **{server}**! You are member #{member_count}." },
+});
+export const GuildConfigModel = mongoose.model("GuildConfig", GuildConfigSchema);
+
+const WarningSchema = new mongoose.Schema({
+  guildId: { type: String, required: true },
+  userId: { type: String, required: true },
+  moderatorId: { type: String, required: true },
+  reason: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+export const WarningModel = mongoose.model("Warning", WarningSchema);
+
+const TaskSchema = new mongoose.Schema({
+  guildId: { type: String, required: true },
+  channelId: { type: String, required: true },
+  creatorId: { type: String, required: true },
+  type: { type: String, required: true },
+  payload: { type: String, required: true },
+  executeAt: { type: Date, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+export const TaskModel = mongoose.model("ScheduledTask", TaskSchema);
+
+const AutomodSchema = new mongoose.Schema({
+  guildId: { type: String, required: true, unique: true },
+  words: {
+    enabled: { type: Boolean, default: false },
+    list: { type: [String], default: [] },
+    action: { type: String, default: "delete" },
+  },
+  links: {
+    enabled: { type: Boolean, default: false },
+    action: { type: String, default: "delete" },
+  },
+  mentions: {
+    enabled: { type: Boolean, default: false },
+    threshold: { type: Number, default: 5 },
+    action: { type: String, default: "timeout" },
+  },
+});
+export const AutomodModel = mongoose.model("AutomodConfig", AutomodSchema);
+
+const SuggestionSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  guildId: { type: String, required: true },
+  authorId: { type: String, required: true },
+  content: { type: String, required: true },
+  messageId: { type: String, default: null },
+  channelId: { type: String, default: null },
+  status: { type: String, default: "pending" },
+  upvotes: { type: [String], default: [] },
+  downvotes: { type: [String], default: [] },
+  createdAt: { type: Date, default: Date.now },
+});
+export const SuggestionModel = mongoose.model("Suggestion", SuggestionSchema);

@@ -1,0 +1,42 @@
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, GuildMember } from "discord.js";
+import { Command } from "../../types/discord";
+import { sendGuildLog } from "../../services/logging";
+
+export const command: Command = {
+  data: new SlashCommandBuilder()
+    .setName("removetimeout")
+    .setDescription("Remove a timeout from a member.")
+    .addUserOption(opt =>
+      opt.setName("user").setDescription("The member to untimeout").setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
+  guildOnly: true,
+  userPermissions: [PermissionFlagsBits.ModerateMembers],
+  botPermissions:  [PermissionFlagsBits.ModerateMembers],
+
+  execute: async (interaction: ChatInputCommandInteraction) => {
+    const target  = interaction.options.getMember("user") as GuildMember | null;
+    const guildId = interaction.guildId!;
+
+    if (!target || typeof target === "string") {
+      return interaction.reply({ content: "❌ Member not found.", ephemeral: true });
+    }
+    if (!target.isCommunicationDisabled()) {
+      return interaction.reply({ content: "❌ This member is not currently timed out.", ephemeral: true });
+    }
+
+    await interaction.deferReply();
+    try {
+      await target.timeout(null, `Timeout removed by ${interaction.user.tag}`);
+      await interaction.editReply(`✅ Removed timeout from **${target.user.tag}**.`);
+      await sendGuildLog(interaction.client, guildId, {
+        title: "✅ Timeout Removed",
+        color: 0x57F287,
+        description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Moderator:** ${interaction.user.tag}`,
+      });
+    } catch {
+      await interaction.editReply("❌ Failed to remove the timeout.");
+    }
+  },
+};
