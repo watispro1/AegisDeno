@@ -41,21 +41,21 @@ export const command: Command = {
     if (sub === "toggle") {
       const enabled = interaction.options.getBoolean("enabled", true);
       config.welcomeEnabled = enabled;
-      updateGuildConfig(guildId, config);
+      await updateGuildConfig(guildId, config);
       return interaction.reply(`✅ Welcome messages are now **${enabled ? "enabled" : "disabled"}**.`);
     }
 
     if (sub === "channel") {
       const channel = interaction.options.getChannel("channel", true);
       config.welcomeChannelId = channel.id;
-      updateGuildConfig(guildId, config);
+      await updateGuildConfig(guildId, config);
       return interaction.reply(`✅ Welcome channel set to <#${channel.id}>.`);
     }
 
     if (sub === "message") {
       const text = interaction.options.getString("text", true);
       config.welcomeMessage = text;
-      updateGuildConfig(guildId, config);
+      await updateGuildConfig(guildId, config);
       return interaction.reply(`✅ Welcome message updated.\n\n**Preview:**\n${text.replace(/{user}/g, `<@${interaction.user.id}>`).replace(/{username}/g, interaction.user.username).replace(/{server}/g, interaction.guild!.name).replace(/{member_count}/g, String(interaction.guild!.memberCount))}`);
     }
   },
