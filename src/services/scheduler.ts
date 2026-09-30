@@ -31,33 +31,30 @@ export async function createTask(
     executeAt,
   });
   
-  const obj = task.toObject() as any;
-  obj.id = obj._id.toString();
-  return obj as unknown as ScheduledTask;
+  const obj = task.toObject() as Omit<ScheduledTask, "id"> & { _id: unknown };
+  return { ...obj, id: String(obj._id) } as ScheduledTask;
 }
 
 export async function getTask(guildId: string, id: string): Promise<ScheduledTask | null> {
   try {
     const doc = await TaskModel.findOne({ _id: id, guildId });
     if (!doc) return null;
-    const obj = doc.toObject() as any;
-    obj.id = obj._id.toString();
-    return obj as unknown as ScheduledTask;
+    const obj = doc.toObject() as Omit<ScheduledTask, "id"> & { _id: unknown };
+    return { ...obj, id: String(obj._id) } as ScheduledTask;
   } catch {
     return null; // For invalid ObjectIDs
   }
 }
 
 export async function getTasksForGuild(guildId: string, creatorId?: string): Promise<ScheduledTask[]> {
-  const filter: any = { guildId };
+  const filter: { guildId: string; creatorId?: string } = { guildId };
   if (creatorId) filter.creatorId = creatorId;
 
   const docs = await TaskModel.find(filter).sort({ executeAt: 1 });
   return docs.map(doc => {
-    const obj = doc.toObject() as any;
-    obj.id = obj._id.toString();
-    return obj as unknown as ScheduledTask;
-  }) as ScheduledTask[];
+    const obj = doc.toObject() as Omit<ScheduledTask, "id"> & { _id: unknown };
+    return { ...obj, id: String(obj._id) } as ScheduledTask;
+  });
 }
 
 export async function deleteTask(guildId: string, id: string): Promise<boolean> {
