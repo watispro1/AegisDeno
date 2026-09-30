@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, GuildMember } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
@@ -17,10 +17,10 @@ export const command: Command = {
   botPermissions:  [PermissionFlagsBits.ModerateMembers],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
-    const target  = interaction.options.getMember("user") as GuildMember | null;
+    const target = interaction.options.getMember("user");
     const guildId = interaction.guildId!;
 
-    if (!target || typeof target === "string") {
+    if (!target) {
       return interaction.reply({ content: "❌ Member not found.", ephemeral: true });
     }
     const hierarchyOk = await isRoleHierarchyValid(
