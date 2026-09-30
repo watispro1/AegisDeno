@@ -1,203 +1,74 @@
-# AegisDeno — Discordeno Bot Project Context
+# AegisDeno — Development Context
 
-## 1. Project Identity
-**Project name**: AegisDeno
-**Platform**: Discord
-**Runtime**: Deno
-**Language**: TypeScript
-**Discord library**: Discordeno (@discordeno/bot)
-**Primary purpose**: A modern all-purpose Discord server utility, moderation, automation, and community-management bot.
+## Stack
 
-### One-line description
-AegisDeno is a fast, modular Discord bot built with TypeScript, Deno, and Discordeno that provides moderation, automation, utility, server management, logging, configuration, and community features through clean slash commands and Discord interactions.
+- Runtime: Node.js
+- Language: TypeScript
+- Discord library: discord.js v14
+- Database: MongoDB / Mongoose
+- Package manager: npm
+- Web services: Express where required by the existing application
 
-### Design goals
-*   Fast startup and low overhead.
-*   Slash-command-first architecture.
-*   Modular commands that are easy to add, remove, and maintain.
-*   Strong permission checks before privileged operations.
-*   Predictable and useful error messages.
-*   Safe handling of user input.
-*   Minimal unnecessary state and caching.
-*   Configuration that can be changed per server.
-*   Consistent embeds/components and response formatting.
-*   Production-ready structure without unnecessary complexity.
-*   Clear separation between Discord event handling, commands, services, storage, and configuration.
+**Do not use Deno or Discordeno.** AegisDeno is a Node.js + TypeScript + discord.js project.
 
-## 2. Technology Requirements
-**Use:**
-*   Deno
-*   TypeScript
-*   Discordeno
-*   Discord application commands/interactions
-*   Deno's native tooling where practical
-*   Environment variables for secrets
-*   A database only when persistent data is actually required
+## Command Architecture
 
-Discordeno is the primary Discord API abstraction. Do not introduce another Discord library unless there is a specific, documented reason.
-Discordeno supports Deno and can be imported through the npm: specifier. Prefer the current Discordeno documentation and currently supported package versions rather than copying outdated examples.
-Official documentation:
-*   [https://discordeno.js.org/](https://discordeno.js.org/)
-*   [https://github.com/discordeno/discordeno](https://github.com/discordeno/discordeno)
+Commands live under `src/commands/` and are grouped by category:
 
-## 3. Bot Personality
-AegisDeno should feel:
-*   Professional
-*   Helpful
-*   Direct
-*   Modern
-*   Slightly technical
-*   Not overly verbose
-*   Consistent
+- `general` — basic utility and bot information
+- `moderation` — moderation and member-management commands
+- `config` — server configuration
+- `logging` — logging configuration and controls
+- `automod` — automatic moderation configuration
+- `welcome` — welcome system configuration
+- `community` — community interaction commands
+- `automation` — scheduled and automated tasks
+- `developer` — owner-only developer tools
 
-The bot should avoid unnecessary roleplay, excessive emojis, fake system messages, or overly complicated responses.
+Every command should implement the shared `Command` interface from `src/types/discord.ts`.
 
-**Example response style:**
-> **Configuration Updated**
-> Moderation logging has been enabled for this server.
+A command should define:
 
-Instead of:
-> 🎉🎉 YOOOOOO!!! Your settings have been updated!!! 🚀🔥
+- `data` — its `SlashCommandBuilder`
+- `category` — command category metadata
+- `guildOnly` when applicable
+- `userPermissions` for permissions required from the invoking member
+- `botPermissions` for permissions required from the bot
+- `execute(interaction)` — command implementation
 
-## 4. Core Feature Set
-AegisDeno should be an all-purpose server-management bot.
-**Feature groups:**
-*   General
-*   Moderation
-*   Auto Moderation
-*   Server Management
-*   Logging
-*   Roles
-*   Utility
-*   Automation
-*   Welcome/Goodbye
-*   Community
-*   Information
-*   Developer/Diagnostics
-*   Configuration
+The command loader is responsible for discovery and registration. The centralized command executor is responsible for common validation, permission checks, logging, and error handling. Individual commands should not duplicate those responsibilities unless a command has an additional resource-specific security requirement.
 
-All commands should be implemented as slash commands unless there is a strong Discord-specific reason to use another interaction type.
+## Moderation Rules
 
-## 5. Command Organization
-Commands should be grouped by logical category.
-Recommended command tree:
-```
-/
-├── help
-├── ping
-├── about
-├── invite
-├── support
-│
-├── moderation
-│   ├── warn
-│   ├── warnings
-│   ├── clearwarnings
-│   ├── timeout
-│   ├── removetimeout
-│   ├── kick
-│   ├── ban
-│   ├── unban
-│   ├── softban
-│   ├── purge
-│   └── slowmode
-│
-├── automod
-│   ├── enable
-│   ├── disable
-│   ├── config
-│   ├── words
-│   ├── links
-│   ├── mentions
-│   └── spam
-│
-├── config
-│   ├── view
-│   ├── set
-│   ├── reset
-│   └── permissions
-│
-├── logging
-│   ├── enable
-│   ├── disable
-│   ├── channel
-│   └── events
-│
-├── role
-│   ├── add
-│   ├── remove
-│   ├── create
-│   ├── delete
-│   └── info
-│
-├── utility
-│   ├── avatar
-│   ├── banner
-│   ├── userinfo
-│   ├── serverinfo
-│   ├── roleinfo
-│   ├── channelinfo
-│   ├── snowflake
-│   └── permissions
-│
-├── welcome
-│   ├── enable
-│   ├── disable
-│   ├── channel
-│   ├── message
-│   └── test
-│
-├── automation
-│   ├── reminder
-│   ├── schedule
-│   ├── list
-│   └── cancel
-│
-├── community
-│   ├── poll
-│   ├── announce
-│   └── suggest
-│
-└── developer
-    ├── status
-    ├── stats
-    ├── reload
-    └── debug
-```
-Do not implement every command immediately. Build the foundation first, then add command groups incrementally.
+Moderation commands must:
 
-## 55. Implementation Priority
-Build the project in this order.
+- Reject self-targeting where the action would be invalid.
+- Respect Discord role hierarchy.
+- Never allow a moderator to act on a member with an equal or higher role.
+- Never allow the bot to act on a member above the bot's highest role.
+- Protect the server owner from normal moderation actions.
+- Declare required user and bot permissions.
+- Validate target/member/channel types before performing an action.
+- Log significant moderation actions through the existing logging service.
+- Await database writes before reporting success or derived totals.
 
-**Phase 1 — Foundation**
-Implement:
-*   Bot initialization
-*   Environment loading
-*   Logger
-*   Command loader
-*   Interaction handling
-*   Error handling
-*   `/ping`
-*   `/help`
-*   `/about`
+## TypeScript Rules
 
-[... See full context for more phases]
+- Avoid `any` unless there is a documented unavoidable boundary.
+- Prefer explicit Discord.js types.
+- Prefer `unknown` over `any` for unknown external values.
+- Keep command modules small and focused.
+- Reuse shared utilities instead of duplicating permission or validation logic.
+- Use async/await consistently and await persistence operations.
 
-## 58. AI Coding-Agent Instructions
-When an AI coding agent works on this repository:
-*   Read this context.md before modifying the project.
-*   Inspect existing code before creating new abstractions.
-*   Follow the existing architecture unless there is a concrete reason to change it.
-*   Use current Discordeno documentation when an API detail is uncertain.
-*   Do not invent Discordeno methods or types.
-*   Do not replace Discordeno with another Discord library.
-*   Do not expose tokens or credentials.
-*   Do not weaken permission checks to make a feature work.
-*   Do not add privileged intents without explaining why they are necessary.
-*   Do not create unnecessary database dependencies.
-*   Prefer small, reviewable changes.
-*   Update tests when behavior changes.
-*   Run formatting, linting, type checking, and relevant tests after changes.
-*   If a Discord API behavior is uncertain, verify it against current documentation rather than guessing.
-*   Preserve guild isolation.
-*   Preserve existing command behavior unless the task explicitly requests a breaking change.
+## Error Handling
+
+Commands should fail safely and return a useful ephemeral error when an interaction cannot be completed. Unexpected exceptions should flow through the centralized command executor so users receive a consistent response and the error is logged.
+
+## Developer Commands
+
+Developer commands are owner-only. The owner ID should be supplied through `DISCORD_OWNER_ID`; do not add executable evaluation of arbitrary JavaScript to the bot.
+
+## Project Direction
+
+AegisDeno should be a reliable, maintainable, feature-rich Discord utility/moderation bot with a clean slash-command experience. Favor predictable behavior, strong typing, explicit permissions, safe moderation, and reusable services over unnecessary abstraction.
