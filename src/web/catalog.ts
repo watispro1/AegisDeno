@@ -267,7 +267,7 @@ export function permissionMatrix(): {
     if (bit === undefined) return;
 
     const key = normalisePermission(flag);
-    const entry = used.get(key) ?? { flag, commands: [] };
+    const entry = used.get(key) ?? { flag: bit, commands: [] };
     entry.commands.push(command);
     used.set(key, entry);
   };
