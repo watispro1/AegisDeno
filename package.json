@@ -12,14 +12,12 @@
     "license": "ISC",
     "type": "commonjs",
     "dependencies": {
-        "better-sqlite3": "^13.0.3",
         "discord.js": "^14.27.0",
         "dotenv": "^18.0.4",
         "express": "^5.2.1",
         "mongoose": "^9.10.3"
     },
     "devDependencies": {
-        "@types/better-sqlite3": "^9.6.0",
         "@types/express": "^5.0.6",
         "@types/node": "^26.6.3",
         "ts-node": "^10.9.2",
