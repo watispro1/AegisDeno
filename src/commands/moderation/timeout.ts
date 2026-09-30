@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, GuildMember } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
+import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 
 const DURATION_CHOICES = [
   { name: "60 seconds",  value: 60 },
@@ -48,6 +49,13 @@ export const command: Command = {
     }
     if (!target.moderatable) {
       return interaction.reply({ content: "❌ I cannot timeout this member.", ephemeral: true });
+    }
+
+    const hierarchyOk = await isRoleHierarchyValid(
+      interaction.client, guildId, interaction.user.id, target.id
+    );
+    if (!hierarchyOk) {
+      return interaction.reply({ content: "❌ You cannot timeout this member — they have a higher or equal role.", ephemeral: true });
     }
 
     await interaction.deferReply();
