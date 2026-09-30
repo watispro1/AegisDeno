@@ -5,7 +5,7 @@ import {
   EmbedBuilder,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { isRoleHierarchyValid } from "../../permissions/hierarchy";
+import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
 
 export const command: Command = {
@@ -45,6 +45,16 @@ export const command: Command = {
     if (!hierarchyOk) {
       return interaction.reply({
         content: "❌ You cannot ban this user — they have a higher or equal role.",
+        ephemeral: true,
+      });
+    }
+
+    const botHierarchyOk = await isBotHierarchyValid(
+      interaction.client, guildId, target.id
+    );
+    if (!botHierarchyOk) {
+      return interaction.reply({
+        content: "❌ I cannot ban this user because they are above my highest role.",
         ephemeral: true,
       });
     }
