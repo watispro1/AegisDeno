@@ -64,20 +64,20 @@ export const command: Command = {
       if (sub === "toggle") {
         const enabled = interaction.options.getBoolean("enabled", true);
         config.words.enabled = enabled;
-        updateAutomodConfig(guildId, config);
+        await updateAutomodConfig(guildId, config);
         return interaction.reply(`✅ Blocked words filter is now **${enabled ? "enabled" : "disabled"}**.`);
       }
       if (sub === "add") {
         const word = interaction.options.getString("word", true).toLowerCase();
         if (config.words.list.includes(word)) return interaction.reply("❌ That word is already blocked.");
         config.words.list.push(word);
-        updateAutomodConfig(guildId, config);
+        await updateAutomodConfig(guildId, config);
         return interaction.reply(`✅ Added \`${word}\` to blocked words.`);
       }
       if (sub === "remove") {
         const word = interaction.options.getString("word", true).toLowerCase();
         config.words.list = config.words.list.filter(w => w !== word);
-        updateAutomodConfig(guildId, config);
+        await updateAutomodConfig(guildId, config);
         return interaction.reply(`✅ Removed \`${word}\` from blocked words.`);
       }
     }
@@ -85,7 +85,7 @@ export const command: Command = {
     if (group === "links" && sub === "toggle") {
       const enabled = interaction.options.getBoolean("enabled", true);
       config.links.enabled = enabled;
-      updateAutomodConfig(guildId, config);
+      await updateAutomodConfig(guildId, config);
       return interaction.reply(`✅ Link filtering is now **${enabled ? "enabled" : "disabled"}**.`);
     }
   },
