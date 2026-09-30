@@ -15,12 +15,13 @@ export const command: Command = {
 
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ManageMessages],
+  botPermissions: [PermissionFlagsBits.SendMessages],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const channel = interaction.options.getChannel("channel", true);
     const message = interaction.options.getString("message", true).replace(/\\n/g, "\n");
 
-    if (!channel || !("send" in channel)) {
+    if (!(channel instanceof TextChannel)) {
       return interaction.reply({ content: "❌ You must select a text channel.", ephemeral: true });
     }
 
