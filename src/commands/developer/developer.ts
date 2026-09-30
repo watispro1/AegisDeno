@@ -1,23 +1,17 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
 import { Command } from "../../types/discord";
 
-const OWNER_ID = "123456789012345678"; // Replace with your actual ID
-
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("developer")
     .setDescription("Developer-only commands.")
     .addSubcommand(sub =>
-      sub.setName("eval").setDescription("Evaluate raw JavaScript code")
-        .addStringOption(opt => opt.setName("code").setDescription("Code to execute").setRequired(true))
-    )
-    .addSubcommand(sub =>
       sub.setName("stats").setDescription("View advanced bot statistics")
     ),
 
   execute: async (interaction: ChatInputCommandInteraction) => {
-    // Basic owner check
-    if (interaction.user.id !== OWNER_ID && process.env.DISCORD_OWNER_ID !== interaction.user.id) {
+    const ownerId = process.env.DISCORD_OWNER_ID;
+    if (!ownerId || interaction.user.id !== ownerId) {
       return interaction.reply({ content: "❌ You do not have permission to use developer commands.", ephemeral: true });
     }
 
@@ -38,17 +32,5 @@ export const command: Command = {
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    if (sub === "eval") {
-      const code = interaction.options.getString("code", true);
-      try {
-        let result = await eval(`(async () => { ${code} })()`);
-        if (typeof result !== "string") {
-          result = require("util").inspect(result, { depth: 1 });
-        }
-        return interaction.reply({ content: `**Result:**\n\`\`\`js\n${String(result).substring(0, 1900)}\n\`\`\``, ephemeral: true });
-      } catch (err) {
-        return interaction.reply({ content: `**Error:**\n\`\`\`js\n${String(err)}\n\`\`\``, ephemeral: true });
-      }
-    }
   },
 };
