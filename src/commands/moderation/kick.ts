@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, GuildMember } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
+import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -28,6 +29,13 @@ export const command: Command = {
     }
     if (!target.kickable) {
       return interaction.reply({ content: "❌ I cannot kick this member.", ephemeral: true });
+    }
+
+    const hierarchyOk = await isRoleHierarchyValid(
+      interaction.client, guildId, interaction.user.id, target.id
+    );
+    if (!hierarchyOk) {
+      return interaction.reply({ content: "❌ You cannot kick this member — they have a higher or equal role.", ephemeral: true });
     }
 
     await interaction.deferReply();
