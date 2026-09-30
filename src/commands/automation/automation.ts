@@ -89,7 +89,7 @@ export const command: Command = {
     if (sub === "cancel") {
       const id = interaction.options.getString("id", true);
       const currentTasks = await getTasksForGuild(guildId);
-      const task = currentTasks.find((t: any) => t.id === id);
+      const task = currentTasks.find((t) => t.id === id);
 
       if (!task) {
         return interaction.reply({ content: "❌ Task not found.", ephemeral: true });
