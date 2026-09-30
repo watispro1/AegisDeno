@@ -1,9 +1,9 @@
-import { Command } from "../types/discord";
-import { logger } from "../utils/logger";
-import path from "path";
-import fs from "fs";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-export const commands = new Map<string, Command>();
+import type { Command } from "../types/discord";
+import { logger } from "../utils/logger";
 
 export const COMMAND_CATEGORIES = [
   "general",
@@ -19,30 +19,75 @@ export const COMMAND_CATEGORIES = [
 
 export type CommandCategory = (typeof COMMAND_CATEGORIES)[number];
 
-const COMMAND_DIRS: CommandCategory[] = [...COMMAND_CATEGORIES];
+export const commands = new Map<string, Command>();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function isCommand(value: unknown): value is Command {
+  if (!value || typeof value !== "object") return false;
+
+  const candidate = value as Partial<Command>;
+
+  return Boolean(
+    candidate.data &&
+      typeof candidate.data === "object" &&
+      "name" in candidate.data &&
+      typeof candidate.execute === "function",
+  );
+}
+
+async function importCommand(filePath: string): Promise<Command | null> {
+  const module = await import(pathToFileURL(filePath).href);
+  const candidate = module.command ?? module.default;
+
+  return isCommand(candidate) ? candidate : null;
+}
 
 export async function loadCommands(): Promise<void> {
-  for (const dir of COMMAND_DIRS) {
-    const dirPath = path.join(__dirname, dir);
-    if (!fs.existsSync(dirPath)) {
-      logger.warn(`Command directory not found: ${dir}`);
+  commands.clear();
+
+  for (const category of COMMAND_CATEGORIES) {
+    const directory = path.join(__dirname, category);
+
+    if (!fs.existsSync(directory)) {
+      logger.warn(`Command directory not found: ${category}`);
       continue;
     }
 
-    const files = fs.readdirSync(dirPath).filter(f => f.endsWith(".ts") || f.endsWith(".js"));
+    const files = fs
+      .readdirSync(directory)
+      .filter((file) => /\.(?:js|mjs|cjs|ts)$/.test(file))
+      .sort();
+
     for (const file of files) {
+      const filePath = path.join(directory, file);
+
       try {
-        const filePath = path.join(dirPath, file);
-        // Use require for synchronous loading in CommonJS/tsx
-        const mod = require(filePath);
-        const command: Command = mod.command ?? mod.default;
-        if (command?.data?.name) {
-          command.category = dir;
-          commands.set(command.data.name, command);
-          logger.debug(`Loaded command: /${command.data.name} (${dir})`);
+        const command = await importCommand(filePath);
+
+        if (!command) {
+          logger.warn(`Skipping invalid command module: ${category}/${file}`);
+          continue;
         }
+
+        if (commands.has(command.data.name)) {
+          throw new Error(
+            `Duplicate command name "/${command.data.name}"`,
+          );
+        }
+
+        command.category = category;
+        commands.set(command.data.name, command);
+
+        logger.debug(
+          `Loaded command: /${command.data.name} (${category})`,
+        );
       } catch (error) {
-        logger.error(`Failed to load ${dir}/${file}:`, error);
+        logger.error(
+          `Failed to load ${category}/${file}:`,
+          error,
+        );
       }
     }
   }
