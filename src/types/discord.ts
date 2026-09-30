@@ -1,34 +1,34 @@
-import {
+import type {
   ChatInputCommandInteraction,
   Client,
-  Collection,
+  GuildMember,
+  Message,
+  PermissionResolvable,
   SlashCommandBuilder,
   SlashCommandSubcommandsOnlyBuilder,
-  PermissionResolvable,
-  Message,
-  GuildMember,
 } from "discord.js";
 
-// The main client type used across the bot
 export type BotClient = Client;
 
-// Removed BotInteraction
+export type CommandData =
+  | SlashCommandBuilder
+  | SlashCommandSubcommandsOnlyBuilder;
 
-// Command structure
 export interface Command {
-  data: any;
-  /** Command group directory this command was loaded from (general, moderation, ...) */
-  category?: string;
-  /** Optional permission required for the user to run this command */
+  data: CommandData;
+  /** Command group used for organization and generated help output. */
+  category: string;
+  /** Discord permissions required from the invoking member. */
   userPermissions?: PermissionResolvable[];
-  /** Optional permission required for the bot to run this command */
+  /** Discord permissions required from the bot member. */
   botPermissions?: PermissionResolvable[];
-  /** Whether command is restricted to guild context only */
+  /** Whether the command may only be invoked inside a guild. */
   guildOnly?: boolean;
-  execute(interaction: ChatInputCommandInteraction): Promise<any>;
+  /** Execute the command interaction. */
+  execute(interaction: ChatInputCommandInteraction): Promise<void>;
 }
 
-// Legacy name alias so existing commands don't need mass-rename
+// Compatibility aliases retained for existing modules.
 export type { ChatInputCommandInteraction as Interaction };
 export type { Message };
 export type { GuildMember as Member };
