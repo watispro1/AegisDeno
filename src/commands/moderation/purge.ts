@@ -26,10 +26,10 @@ export const command: Command = {
   execute: async (interaction: ChatInputCommandInteraction) => {
     const amount  = interaction.options.getInteger("amount", true);
     const target  = interaction.options.getUser("user");
-    const channel = interaction.channel as TextChannel;
+    const channel = interaction.channel;
     const guildId = interaction.guildId!;
 
-    if (!channel.isTextBased()) {
+    if (!(channel instanceof TextChannel)) {
       return interaction.reply({ content: "❌ This command can only be used in a text channel.", ephemeral: true });
     }
 
