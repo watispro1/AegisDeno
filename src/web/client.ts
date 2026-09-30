@@ -79,6 +79,8 @@ export const clientScript = String.raw`
     if (!('IntersectionObserver' in window)) {
       for (var r = 0; r < reveals.length; r++) reveals[r].classList.add('visible');
     } else {
+      /* Only hide the elements once we are sure we can reveal them. */
+      root.classList.add('reveal-ready');
       var io = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
           if (entry.isIntersecting) {
@@ -124,18 +126,41 @@ export const clientScript = String.raw`
   document.addEventListener('click', function (e) {
     var btn = e.target.closest && e.target.closest('[data-copy]');
     if (!btn) return;
-    var text = btn.getAttribute('data-copy');
-    var done = function () {
+    e.preventDefault();
+    var text = btn.getAttribute('data-copy') || '';
+    var label = btn.getAttribute('data-copy-label') || 'Copied';
+
+    var restore = function () {
       var original = btn.innerHTML;
-      btn.textContent = 'Copied';
+      btn.textContent = label;
       btn.classList.add('copied');
+      btn.setAttribute('aria-live', 'polite');
       setTimeout(function () {
         btn.innerHTML = original;
         btn.classList.remove('copied');
+        btn.removeAttribute('aria-live');
       }, 1400);
     };
+
+    var fallback = function () {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        restore();
+      } catch (err) {}
+    };
+
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, function () {});
+      navigator.clipboard.writeText(text).then(restore, fallback);
+    } else {
+      fallback();
     }
   });
 
@@ -224,17 +249,64 @@ export const clientScript = String.raw`
     });
 
     if (filterBar) {
+      var chips = Array.prototype.slice.call(filterBar.querySelectorAll('.tab'));
+
+      function selectChip(chip) {
+        activeCat = chip.getAttribute('data-cat') || 'all';
+        chips.forEach(function (c) {
+          c.setAttribute('aria-pressed', String(c === chip));
+        });
+        apply();
+      }
+
       filterBar.addEventListener('click', function (e) {
         var chip = e.target.closest('.tab');
-        if (!chip) return;
-        activeCat = chip.getAttribute('data-cat') || 'all';
-        var all = filterBar.querySelectorAll('.tab');
-        for (var i = 0; i < all.length; i++) {
-          all[i].setAttribute('aria-selected', String(all[i] === chip));
-        }
-        apply();
+        if (chip) selectChip(chip);
+      });
+
+      /* Left/right arrows move between filters, as expected for a group of
+         toggle buttons. */
+      filterBar.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        var current = chips.indexOf(document.activeElement);
+        if (current === -1) return;
+        e.preventDefault();
+        var next = e.key === 'ArrowRight'
+          ? chips[(current + 1) % chips.length]
+          : chips[(current - 1 + chips.length) % chips.length];
+        next.focus();
+        selectChip(next);
       });
     }
+
+    /* Open a command from a deep link such as /commands#cmd-ban */
+    function revealCard(id) {
+      var card = document.getElementById(id);
+      if (!card) return;
+      card.open = true;
+      card.classList.add('flash');
+      setTimeout(function () { card.classList.remove('flash'); }, 2000);
+    }
+
+    if (window.location.hash.indexOf('#cmd-') === 0) {
+      revealCard(window.location.hash.slice(1));
+    }
+
+    /* The permalink sits inside <summary> so it must not collapse the card. */
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest && e.target.closest('.cmd-anchor');
+      if (!link) return;
+      e.preventDefault();
+      var card = link.closest('details');
+      if (card) {
+        card.open = true;
+        card.classList.add('flash');
+        setTimeout(function () { card.classList.remove('flash'); }, 2000);
+      }
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', link.getAttribute('href'));
+      }
+    });
 
     // "/" focuses search, unless already typing somewhere
     document.addEventListener('keydown', function (e) {
@@ -284,21 +356,6 @@ export const clientScript = String.raw`
 
     for (var t2 = 0; t2 < targets.length; t2++) spy.observe(targets[t2].el);
   }
-
-  /* ── Feature tabs ─────────────────────────────────────────────── */
-  var tabGroups = document.querySelectorAll('[data-tabgroup]');
-  tabGroups.forEach(function (group) {
-    group.addEventListener('click', function (e) {
-      var tab = e.target.closest('.tab');
-      if (!tab) return;
-      var target = tab.getAttribute('data-tab');
-      var all = group.querySelectorAll('.tab');
-      for (var i = 0; i < all.length; i++) all[i].setAttribute('aria-selected', String(all[i] === tab));
-      group.querySelectorAll('[data-panel]').forEach(function (panel) {
-        panel.hidden = panel.getAttribute('data-panel') !== target;
-      });
-    });
-  });
 
   /* ── Live uptime ticker ───────────────────────────────────────── */
   var uptimeEl = document.querySelector('[data-uptime-from]');

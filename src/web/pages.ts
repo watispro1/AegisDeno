@@ -13,6 +13,8 @@ export interface SiteConfig {
   inviteUrl: string;
   supportUrl: string;
   version: string;
+  contactEmail: string;
+  assetVersion: string;
 }
 
 export interface Stats {
@@ -30,6 +32,15 @@ export function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/** Emit an href only for same-site or http(s) URLs. */
+function safeUrl(url: string): string {
+  const value = (url ?? "").trim();
+  if (value === "" || value === "#") return "#";
+  if (value.startsWith("/")) return escapeHtml(value);
+  if (/^https?:\/\//i.test(value)) return escapeHtml(value);
+  return "#";
 }
 
 function fmtUptime(ms: number): string {
@@ -70,12 +81,18 @@ function page(cfg: SiteConfig, opts: {
     inviteUrl: cfg.inviteUrl,
     supportUrl: cfg.supportUrl,
     version: cfg.version,
+    assetVersion: cfg.assetVersion,
     ogImage: opts.ogImage ?? "/assets/og.svg",
     noindex: opts.noindex,
     omitCanonical: opts.omitCanonical,
     headExtra: opts.headExtra,
     scripts: opts.scripts,
   });
+}
+
+/** JSON-LD graph injected into a page head. */
+function jsonLd(data: unknown): string {
+  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
 }
 
 /* ── Shared components ─────────────────────────────────────────────── */
@@ -111,8 +128,8 @@ function ctaBox(cfg: SiteConfig, heading: string, sub: string): string {
     <h2>${escapeHtml(heading)}</h2>
     <p>${sub}</p>
     <div class="btn-row center">
-      <a class="btn lg" href="${cfg.inviteUrl}">Add to Discord</a>
-      ${cfg.supportUrl ? `<a class="btn ghost lg" href="${cfg.supportUrl}">Join the support server</a>` : ""}
+      <a class="btn lg" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
+      ${cfg.supportUrl ? `<a class="btn ghost lg" href="${safeUrl(cfg.supportUrl)}">Join the support server</a>` : ""}
       <a class="btn ghost lg" href="/docs">Read the docs</a>
     </div>
   </div>`;
@@ -130,10 +147,10 @@ function homeHero(cfg: SiteConfig, stats: Stats, online: boolean): string {
       <h1><span class="gradient-text">Moderation that keeps up</span><br>with your community.</h1>
       <p class="lead">Aegis is a fast, modular Discord bot for moderation, auto moderation, audit logging, and automation. Configured entirely with slash commands — no dashboard, no database to babysit.</p>
       <div class="btn-row center hero-actions">
-        <a class="btn lg" href="${cfg.inviteUrl}">Add to Discord</a>
+        <a class="btn lg" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
         <a class="btn ghost lg" href="/commands">Browse all commands</a>
       </div>
-      <p class="hero-note">Free to use &middot; ${stats.commands} commands &middot; No administrator permission required</p>
+      <p class="hero-note">Free to use &middot; ${stats.commands} commands &middot; No dashboard, no database to babysit</p>
 
       <div class="stats">
         ${statCard("Servers", stats.guilds.toLocaleString(), 'data-live="guilds" data-count="' + stats.guilds + '"')}
@@ -212,7 +229,7 @@ ${homeHero(cfg, stats, online)}
     <div class="section-head center reveal">
       <span class="eyebrow">Getting started</span>
       <h2>Three steps to a moderated server</h2>
-      <p>Aegis declares permissions per command, so the invite screen only asks for what each feature genuinely needs.</p>
+      <p>Aegis declares permissions per command, so the invite screen only asks for what the bot actually needs to run. Only <code class="inline">/config</code> asks for Administrator.</p>
     </div>
     <div class="steps">
       ${quickstart.map(s => `<div class="step reveal">
@@ -271,6 +288,29 @@ ${homeHero(cfg, stats, online)}
       "Aegis is a fast, modular Discord bot for moderation, auto moderation, audit logging, welcome messages, and automation. Configured with slash commands, no dashboard required.",
     path: "/",
     body,
+    headExtra: jsonLd({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          name: "Aegis",
+          applicationCategory: "SocialNetworkingApplication",
+          operatingSystem: "Cross-platform",
+          description:
+            "A fast, modular Discord bot for moderation, auto moderation, audit logging, welcome messages, and automation.",
+          softwareVersion: cfg.version,
+          url: process.env.SITE_URL || undefined,
+          offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+          featureList: features.map(f => f.title),
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: `${process.env.SITE_URL || ""}/` },
+          ],
+        },
+      ],
+    }),
   });
 }
 
@@ -375,14 +415,29 @@ function optionsTable(cmd: CommandInfo): string {
 }
 
 function commandCard(cmd: CommandInfo): string {
-  const searchBlob = [cmd.name, cmd.description, ...cmd.subcommands.map(s => s.path + " " + s.description)]
+  const options = [
+    ...cmd.options,
+    ...cmd.subcommands.flatMap(s => s.options.map(o => ({ ...o, name: `${s.path} ${o.name}` }))),
+  ];
+
+  const searchBlob = [
+    cmd.name,
+    cmd.category,
+    cmd.description,
+    ...cmd.subcommands.map(s => `${s.path} ${s.description}`),
+    ...options.map(o => `${o.name} ${o.description} ${o.choices.join(" ")}`),
+    ...cmd.declaredPermissions,
+    ...cmd.enforcedPermissions,
+  ]
     .join(" ")
     .toLowerCase();
 
   const perms = [...new Set([...cmd.declaredPermissions, ...cmd.enforcedPermissions])];
+  const anchor = `cmd-${cmd.name}`;
 
-  return `<details class="cmd-card" data-cmd-card data-category="${escapeHtml(cmd.category)}" data-search="${escapeHtml(searchBlob)}">
+  return `<details class="cmd-card" id="${anchor}" data-cmd-card data-category="${escapeHtml(cmd.category)}" data-search="${escapeHtml(searchBlob)}">
   <summary>
+    <a class="cmd-anchor" href="#${anchor}" aria-label="Permalink to /${escapeHtml(cmd.name)}">#</a>
     <span class="cmd-slash" data-cmd-name>/${escapeHtml(cmd.name)}</span>
     <span class="cmd-summary-text">
       <span class="cmd-desc">${escapeHtml(cmd.description)}</span>
@@ -395,6 +450,12 @@ function commandCard(cmd: CommandInfo): string {
     <span class="cmd-chevron" aria-hidden="true"></span>
   </summary>
   <div class="cmd-body">
+    <div class="cmd-run">
+      <code class="inline">/${escapeHtml(cmd.name)}</code>
+      <button class="copy-btn" type="button" data-copy="/${escapeHtml(cmd.name)}" aria-label="Copy /${escapeHtml(cmd.name)} to clipboard">Copy</button>
+      <a class="copy-btn" href="/api/commands/${encodeURIComponent(cmd.name)}">JSON</a>
+    </div>
+
     ${cmd.subcommands.length ? `<div>
       <div class="cmd-section-title">Subcommands</div>
       <div class="sub-list">
@@ -416,6 +477,9 @@ function commandCard(cmd: CommandInfo): string {
       ${perms.length
         ? `<div class="cmd-meta">${perms.map(p => `<span class="pill warn">${escapeHtml(p)}</span>`).join("")}</div>`
         : `<p class="faint">Anyone in the server can run this command.</p>`}
+      ${cmd.botPermissions.length
+        ? `<p class="faint" style="margin-top:0.5rem;font-size:0.83rem">Aegis needs ${cmd.botPermissions.map(escapeHtml).join(", ")} to run this.</p>`
+        : ""}
     </div>
   </div>
 </details>`;
@@ -426,9 +490,9 @@ export function renderCommands(cfg: SiteConfig): string {
   const s = catalogStats();
 
   const filterChips = [
-    `<button class="tab" type="button" data-cat="all" aria-selected="true">• All <span class="faint">${s.commands}</span></button>`,
+    `<button class="tab" type="button" data-cat="all" aria-pressed="true">All <span class="faint">${s.commands}</span></button>`,
     ...cat.map(
-      g => `<button class="tab" type="button" data-cat="${escapeHtml(g.category)}" aria-selected="false">${escapeHtml(g.icon)} ${escapeHtml(g.label)} <span class="faint">${g.commands.length}</span></button>`
+      g => `<button class="tab" type="button" data-cat="${escapeHtml(g.category)}" aria-pressed="false">${escapeHtml(g.icon)} ${escapeHtml(g.label)} <span class="faint">${g.commands.length}</span></button>`
     ),
   ].join("\n        ");
 
@@ -465,7 +529,7 @@ export function renderCommands(cfg: SiteConfig): string {
     <span class="cmd-count" id="cmd-count" role="status">${s.commands} commands</span>
   </div>
 
-  <div class="tabs" id="cmd-filters" role="tablist" aria-label="Filter by category">
+  <div class="tabs" id="cmd-filters" role="group" aria-label="Filter by category">
         ${filterChips}
   </div>
 
@@ -480,6 +544,7 @@ export function renderCommands(cfg: SiteConfig): string {
 <section class="block">
   <div class="wrap">
     ${ctaBox(cfg, "Commands work better in Discord", "The Discord client handles autocomplete, permission hints, and required arguments natively. Press <code class=\"inline\">/</code> in any channel to see the live list.")}
+    <p class="feed-note">Follow releases automatically: <a href="/changelog.xml">Atom feed</a>.</p>
   </div>
 </section>`;
 
@@ -489,6 +554,15 @@ export function renderCommands(cfg: SiteConfig): string {
       "Full searchable reference for every Aegis slash command, including subcommands, options, and required permissions.",
     path: "/commands",
     body,
+    headExtra: jsonLd({
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      headline: "Aegis command reference",
+      description:
+        "Searchable reference for every Aegis slash command, including subcommands, options, and required permissions.",
+      url: `${process.env.SITE_URL || ""}/commands`,
+      softwareVersion: cfg.version,
+    }),
   });
 }
 
@@ -508,7 +582,6 @@ const DOC_SECTIONS = [
 ];
 
 function permissionTable(): string {
-  const { permissionMatrix } = require("./catalog") as typeof import("./catalog");
   const rows = permissionMatrix();
 
   return `<div class="table-wrap">
@@ -529,17 +602,17 @@ const PERMISSION_WHY: Record<string, string> = {
   "Ban Members": "Removing members from the server entirely.",
   "Kick Members": "Removing a member without a permanent ban.",
   "Moderate Members": "Applying and lifting communication timeouts.",
-  "Manage Messages": "Bulk deleting messages and managing slowmode.",
+  "Manage Messages": "Bulk deleting messages.",
   "Manage Channels": "Setting per-channel slowmode durations.",
   "Manage Server": "Editing server-wide Aegis configuration.",
-  Administrator: "Reserved for configuration commands that rewrite server settings.",
+  Administrator: "Only for /config, which writes server-wide settings.",
 };
 
 export function renderDocs(cfg: SiteConfig): string {
   const s = catalogStats();
 
   const side = DOC_SECTIONS.map(sec => {
-    const match = cat_sectionMatches(sec.id);
+    const match = sectionCommandCount(sec.id);
     return `<li><a href="#${sec.id}">${escapeHtml(sec.label)}${match ? ` <span class="faint">(${match})</span>` : ""}</a></li>`;
   }).join("\n        ");
 
@@ -653,7 +726,7 @@ export function renderDocs(cfg: SiteConfig): string {
       ${permissionTable()}
       <div class="callout">
         <span class="callout-icon" aria-hidden="true">i</span>
-        <div>Aegis never requires Administrator. The few configuration commands that touch server-wide settings do require it, and that is stated on the command itself.</div>
+        <div><code class="inline">/config</code> is the only command that asks for <code class="inline">Administrator</code>, because it writes server-wide settings. Every other command requests a specific permission, and the invite screen asks for the union of those.</div>
       </div>
 
       <h2 id="troubleshooting">Troubleshooting</h2>
@@ -691,7 +764,7 @@ export function renderDocs(cfg: SiteConfig): string {
 }
 
 /** Map a docs section to the commands that cover it, for the sidebar. */
-function cat_sectionMatches(section: string): number {
+function sectionCommandCount(section: string): number {
   const mapping: Record<string, string[]> = {
     configuration: ["config"],
     automod: ["automod"],
@@ -711,14 +784,14 @@ function cat_sectionMatches(section: string): number {
 
 /* ── Changelog ─────────────────────────────────────────────────────── */
 
-interface Release {
+export interface Release {
   version: string;
   date: string;
   tag?: string;
   highlights: string[];
 }
 
-const RELEASES: Release[] = [
+export const RELEASES: Release[] = [
   {
     version: "1.0.0",
     date: "2026-09-29",
@@ -767,10 +840,10 @@ export function renderChangelog(cfg: SiteConfig): string {
   <div class="wrap">
     <div class="wrap-prose" style="margin-inline:auto">
       <div class="timeline">
-        ${RELEASES.map(r => `<article class="release">
+        ${RELEASES.map(r => `<article class="release" id="${escapeHtml(r.version)}">
           <div class="release-head">
             <h3>${escapeHtml(r.version)}</h3>
-            ${r.tag ? `<span class="pill primary">${r.tag}</span>` : ""}
+            ${r.tag ? `<span class="pill primary">${escapeHtml(r.tag)}</span>` : ""}
             <time datetime="${r.date}">${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time>
           </div>
           <ul>
@@ -793,6 +866,19 @@ export function renderChangelog(cfg: SiteConfig): string {
     description: "Release history and notable changes for the Aegis Discord bot.",
     path: "/changelog",
     body,
+    headExtra: jsonLd({
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      name: "Aegis changelog",
+      url: `${process.env.SITE_URL || ""}/changelog`,
+      blogPost: RELEASES.map(r => ({
+        "@type": "BlogPosting",
+        headline: `Aegis ${r.version}`,
+        datePublished: r.date,
+        url: `${process.env.SITE_URL || ""}/changelog#${r.version}`,
+        description: r.highlights.join(" "),
+      })),
+    }),
   });
 }
 
@@ -871,26 +957,20 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
     </div>
     <div class="component-row">
       <span class="name">Slash commands</span>
-      <span class="desc">${stats.commands} commands registered</span>
-      <span class="bar"><i style="width:100%"></i></span>
-      <span class="pill ok">Operational</span>
+      <span class="desc">${stats.commands} commands loaded into the registry</span>
+      <span class="bar"><i style="width:${stats.commands > 0 ? 100 : 0}%"></i></span>
+      <span class="pill ${stats.commands > 0 ? "ok" : "danger"}">${stats.commands > 0 ? "Operational" : "Failed"}</span>
     </div>
     <div class="component-row">
-      <span class="name">Website</span>
-      <span class="desc">Express server on this domain</span>
-      <span class="bar"><i style="width:100%"></i></span>
-      <span class="pill ok">Operational</span>
-    </div>
-    <div class="component-row">
-      <span class="name">Scheduler</span>
-      <span class="desc">Persisted reminders and scheduled tasks</span>
+      <span class="name">This website</span>
+      <span class="desc">Express server rendering this page</span>
       <span class="bar"><i style="width:100%"></i></span>
       <span class="pill ok">Operational</span>
     </div>
 
     <div class="callout" style="margin-top:2rem">
       <span class="callout-icon" aria-hidden="true">i</span>
-      <div>Machine-readable status is available at <a href="/health">/health</a>, and metrics as JSON at <a href="/api/stats">/api/stats</a>. Hosting, uptime, and response-time history are not yet tracked.</div>
+      <div>Only the Discord gateway and the command registry are actually probed. Machine-readable status is available at <a href="/health">/health</a>, and metrics as JSON at <a href="/api/stats">/api/stats</a>. Historical uptime, incident tracking, and response-time history are not collected, so this page makes no claims about them.</div>
     </div>
 
     <p class="faint" style="margin-top:1.5rem">Process started ${new Date(startedAt).toISOString()}.</p>
@@ -908,11 +988,11 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
 /* ── Legal ─────────────────────────────────────────────────────────── */
 
 const EFFECTIVE_DATE = "September 29, 2026";
-const CONTACT_EMAIL = "support@aegisbot.dev";
+
 
 export function renderTerms(cfg: SiteConfig): string {
   const support = cfg.supportUrl
-    ? `<a href="${cfg.supportUrl}">support server</a>`
+    ? `<a href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">support server</a>`
     : "support server";
 
   const body = `
@@ -989,7 +1069,7 @@ export function renderTerms(cfg: SiteConfig): string {
       <p>If any provision of these Terms is found unenforceable, the remaining provisions remain in effect. These Terms are governed by the laws applicable in the maintainers' principal place of operation, without regard to conflict of law rules. Any dispute will be handled through good-faith negotiation, and where that fails, through the courts of that jurisdiction.</p>
 
       <h2 id="contact">15. Contact</h2>
-      <p>Questions about these Terms can be raised on our ${support} or by email at <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p>
+      <p>Questions about these Terms can be raised on our ${support} or by email at <a href="mailto:${escapeHtml(cfg.contactEmail)}">${escapeHtml(cfg.contactEmail)}</a>.</p>
     </div>
   </div>
 </section>`;
@@ -1004,7 +1084,7 @@ export function renderTerms(cfg: SiteConfig): string {
 
 export function renderPrivacy(cfg: SiteConfig): string {
   const support = cfg.supportUrl
-    ? `<a href="${cfg.supportUrl}">support server</a>`
+    ? `<a href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">support server</a>`
     : "support server";
 
   const body = `
@@ -1110,7 +1190,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
       <p>We may revise this policy as the service changes. The effective date at the top of this page indicates the current version, and material changes will be announced in the support server and on the <a href="/changelog">changelog</a>.</p>
 
       <h2 id="contact">15. Contact</h2>
-      <p>Privacy questions and data requests can go to our ${support} or to <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p>
+      <p>Privacy questions and data requests can go to our ${support} or to <a href="mailto:${escapeHtml(cfg.contactEmail)}">${escapeHtml(cfg.contactEmail)}</a>.</p>
     </div>
   </div>
 </section>`;

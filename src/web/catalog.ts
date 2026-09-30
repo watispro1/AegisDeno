@@ -1,5 +1,7 @@
 import { PermissionsBitField, PermissionFlagsBits } from "discord.js";
-import { commands, COMMAND_CATEGORIES, CommandCategory } from "../commands/loader";
+import type { APIApplicationCommandOption } from "discord.js";
+import { commands, COMMAND_CATEGORIES, type CommandCategory } from "../commands/loader";
+import type { PermissionResolvable } from "discord.js";
 
 export interface OptionInfo {
   name: string;
@@ -29,6 +31,8 @@ export interface CommandInfo {
   declaredPermissions: string[];
   /** Runtime permission checks declared on the command object */
   enforcedPermissions: string[];
+  /** Permissions the bot itself needs to run this command. */
+  botPermissions: string[];
   subcommands: SubcommandInfo[];
   options: OptionInfo[];
 }
@@ -62,23 +66,58 @@ const TYPE_HINT: Record<number, string> = {
   11: "attachment",
 };
 
-function readOptions(rawOptions: any[] | undefined): {
+const SUBCOMMAND = 1;
+const SUBCOMMAND_GROUP = 2;
+
+function isOption(value: APIApplicationCommandOption): boolean {
+  return typeof value === "object" && value !== null && "name" in value;
+}
+
+function nameOf(opt: APIApplicationCommandOption): string {
+  return isOption(opt) ? opt.name : "";
+}
+
+function optionsOf(opt: APIApplicationCommandOption): APIApplicationCommandOption[] {
+  return isOption(opt) && "options" in opt && Array.isArray(opt.options) ? opt.options : [];
+}
+
+function descriptionOf(opt: APIApplicationCommandOption): string {
+  return isOption(opt) && "description" in opt && typeof opt.description === "string"
+    ? opt.description
+    : "";
+}
+
+function requiredOf(opt: APIApplicationCommandOption): boolean {
+  return isOption(opt) && "required" in opt && opt.required === true;
+}
+
+function typeOf(opt: APIApplicationCommandOption): number {
+  return isOption(opt) && "type" in opt && typeof opt.type === "number" ? opt.type : 0;
+}
+
+interface ParsedOptions {
+  /** Options that sit directly on the command. */
   options: OptionInfo[];
-  groups: { name: string; description: string; subcommands: any[] }[];
-  subs: any[];
-} {
+  /** Subcommands declared at the top level of the command. */
+  subs: APIApplicationCommandOption[];
+  /** Subcommand groups, each with their own subcommands. */
+  groups: { name: string; description: string; subcommands: APIApplicationCommandOption[] }[];
+}
+
+function parseOptions(rawOptions: readonly APIApplicationCommandOption[] | undefined): ParsedOptions {
   const options: OptionInfo[] = [];
-  const groups: { name: string; description: string; subcommands: any[] }[] = [];
-  const subs: any[] = [];
+  const subs: APIApplicationCommandOption[] = [];
+  const groups: ParsedOptions["groups"] = [];
 
   for (const opt of rawOptions ?? []) {
-    if (opt.type === 2) {
+    const type = typeOf(opt);
+    if (type === SUBCOMMAND_GROUP) {
       groups.push({
-        name: opt.name,
-        description: opt.description ?? "",
-        subcommands: opt.options ?? [],
+        name: nameOf(opt),
+        description: descriptionOf(opt),
+        subcommands: optionsOf(opt),
       });
-    } else if (opt.type === 1) {
+    } else if (type === SUBCOMMAND) {
       subs.push(opt);
     } else {
       options.push(toOptionInfo(opt));
@@ -88,41 +127,47 @@ function readOptions(rawOptions: any[] | undefined): {
   return { options, groups, subs };
 }
 
-function toOptionInfo(opt: any): OptionInfo {
+function toOptionInfo(opt: APIApplicationCommandOption): OptionInfo {
+  const type = typeOf(opt);
+  const raw = (opt ?? {}) as Partial<Record<"min_value" | "max_value", unknown>>;
+
+  const choices =
+    "choices" in opt && Array.isArray(opt.choices)
+      ? opt.choices.map(c =>
+          typeof c === "object" && c !== null && "name" in c ? String(c.name) : String(c)
+        )
+      : [];
+
   const info: OptionInfo = {
-    name: opt.name,
-    description: opt.description ?? "",
-    required: Boolean(opt.required),
-    type: OPTION_TYPES[opt.type] ?? "Any",
-    choices: (opt.choices ?? []).map((c: any) => c.name),
+    name: nameOf(opt),
+    description: descriptionOf(opt),
+    required: requiredOf(opt),
+    type: TYPE_HINT[type] ?? OPTION_TYPES[type] ?? "Any",
+    choices,
   };
 
-  const hint = TYPE_HINT[opt.type];
-  if (hint) info.type = hint;
-
-  if (typeof opt.min_value === "number") info.min = opt.min_value;
-  if (typeof opt.max_value === "number") info.max = opt.max_value;
+  if (typeof raw.min_value === "number") info.min = raw.min_value;
+  if (typeof raw.max_value === "number") info.max = raw.max_value;
 
   return info;
 }
 
-function toSubcommandInfo(sub: any, group: string | null): SubcommandInfo {
-  const path = group ? `${group} ${sub.name}` : sub.name;
+function toSubcommandInfo(sub: APIApplicationCommandOption, group: string | null): SubcommandInfo {
   return {
-    path,
-    name: sub.name,
+    path: group ? `${group} ${nameOf(sub)}` : nameOf(sub),
+    name: nameOf(sub),
     group,
-    description: sub.description ?? "",
-    options: (sub.options ?? [])
-      .filter((o: any) => o.type !== 1 && o.type !== 2)
+    description: descriptionOf(sub),
+    options: optionsOf(sub)
+      .filter(o => typeOf(o) !== SUBCOMMAND && typeOf(o) !== SUBCOMMAND_GROUP)
       .map(toOptionInfo),
   };
 }
 
-function resolvePermissions(bitfield: unknown): string[] {
+function permissionLabels(bitfield: unknown): string[] {
   if (bitfield === null || bitfield === undefined || bitfield === "0") return [];
   try {
-    return [...new PermissionsBitField(bitfield as any)];
+    return [...new PermissionsBitField(bitfield as PermissionResolvable)];
   } catch {
     return [];
   }
@@ -131,11 +176,28 @@ function resolvePermissions(bitfield: unknown): string[] {
 function permissionLabel(flag: string): string {
   return flag
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/^./, (c) => c.toUpperCase());
+    .replace(/^./, c => c.toUpperCase());
 }
 
-function normalisePermission(flag: string): string {
-  return permissionLabel(flag);
+function normalise(flags: string[]): string[] {
+  return [...new Set(flags.map(permissionLabel))].sort();
+}
+
+function enforcedLabels(perms: readonly PermissionResolvable[] | undefined): string[] {
+  const out: string[] = [];
+  for (const p of perms ?? []) out.push(...permissionLabels(p));
+  return normalise(out);
+}
+
+/**
+ * Shape of a command's serialised builder payload. The builder union has no
+ * single shared JSON return type, so this is the one documented cast boundary.
+ */
+interface CommandJson {
+  name?: string;
+  description?: string;
+  default_member_permissions?: string | null;
+  options?: APIApplicationCommandOption[];
 }
 
 let cache: CommandInfo[] | null = null;
@@ -148,32 +210,30 @@ export function buildCatalog(): CommandInfo[] {
   const list: CommandInfo[] = [];
 
   for (const cmd of commands.values()) {
-    const json: any = typeof cmd.data?.toJSON === "function" ? cmd.data.toJSON() : cmd.data;
-    if (!json?.name) continue;
+    const builder = cmd.data as unknown as { toJSON?: () => unknown };
+    const json: CommandJson =
+      typeof builder?.toJSON === "function"
+        ? (builder.toJSON() as CommandJson)
+        : (cmd.data as unknown as CommandJson);
 
-    const { options, groups, subs } = readOptions(json.options);
+    const name = typeof json.name === "string" ? json.name : "";
+    if (!name) continue;
+
+    const { options, groups, subs } = parseOptions(json.options);
 
     const subcommands: SubcommandInfo[] = [
       ...subs.map(s => toSubcommandInfo(s, null)),
       ...groups.flatMap(g => g.subcommands.map(s => toSubcommandInfo(s, g.name))),
     ];
 
-    const declared = resolvePermissions(json.default_member_permissions);
-    const enforced = (cmd.userPermissions ?? []).flatMap(p => {
-      try {
-        return [...new PermissionsBitField(p as any)];
-      } catch {
-        return [];
-      }
-    });
-
     list.push({
-      name: json.name,
-      description: json.description ?? "",
+      name,
+      description: typeof json.description === "string" ? json.description : "",
       category: cmd.category ?? "general",
       guildOnly: Boolean(cmd.guildOnly),
-      declaredPermissions: [...new Set(declared.map(normalisePermission))].sort(),
-      enforcedPermissions: [...new Set(enforced.map(normalisePermission))].sort(),
+      declaredPermissions: normalise(permissionLabels(json.default_member_permissions)),
+      enforcedPermissions: enforcedLabels(cmd.userPermissions),
+      botPermissions: enforcedLabels(cmd.botPermissions),
       subcommands,
       options,
     });
@@ -200,35 +260,28 @@ export interface CategoryGroup {
 }
 
 const CATEGORY_META: Record<string, { label: string; icon: string; blurb: string }> = {
-  general:    { label: "General",    icon: "🌐", blurb: "Status, help, and bot information." },
-  moderation: { label: "Moderation", icon: "🔨", blurb: "Enforce rules and punish violations." },
+  general:    { label: "General",    icon: "\u{1F310}", blurb: "Status, help, and bot information." },
+  moderation: { label: "Moderation", icon: "\u{1F528}", blurb: "Enforce rules and punish violations." },
   config:     { label: "Config",     icon: "⚙️", blurb: "Review and change server settings." },
-  logging:    { label: "Logging",    icon: "📋", blurb: "Route events to an audit channel." },
-  automod:    { label: "Automod",    icon: "🛡️", blurb: "Filter content automatically." },
-  welcome:    { label: "Welcome",    icon: "👋", blurb: "Greet new members on arrival." },
-  community:  { label: "Community",  icon: "🗳️", blurb: "Polls, announcements, and suggestions." },
+  logging:    { label: "Logging",    icon: "\u{1F4CB}", blurb: "Route events to an audit channel." },
+  automod:    { label: "Automod",    icon: "\u{1F6E1}️", blurb: "Filter content automatically." },
+  welcome:    { label: "Welcome",    icon: "\u{1F44B}", blurb: "Greet new members on arrival." },
+  community:  { label: "Community",  icon: "\u{1F5F3}️", blurb: "Polls, announcements, and suggestions." },
   automation: { label: "Automation", icon: "⏰", blurb: "Scheduled messages and reminders." },
-  developer:  { label: "Developer",  icon: "🔧", blurb: "Diagnostics for bot operators." },
+  developer:  { label: "Developer",  icon: "\u{1F527}", blurb: "Diagnostics for bot operators." },
 };
 
 export function groupByCategory(list: CommandInfo[] = buildCatalog()): CategoryGroup[] {
-  const known = COMMAND_CATEGORIES as readonly string[];
-  const order = [...known].sort(
-    (a, b) => known.indexOf(a) - known.indexOf(b)
-  );
-
-  return order
-    .map(cat => {
-      const meta = CATEGORY_META[cat] ?? { label: cat, icon: "•", blurb: "" };
-      return {
-        category: cat,
-        label: meta.label,
-        icon: meta.icon,
-        blurb: meta.blurb,
-        commands: list.filter(c => c.category === cat),
-      };
-    })
-    .filter(g => g.commands.length > 0);
+  return COMMAND_CATEGORIES.map(cat => {
+    const meta = CATEGORY_META[cat] ?? { label: cat, icon: "•", blurb: "" };
+    return {
+      category: cat,
+      label: meta.label,
+      icon: meta.icon,
+      blurb: meta.blurb,
+      commands: list.filter(c => c.category === cat),
+    };
+  }).filter(g => g.commands.length > 0);
 }
 
 /** Every distinct permission Aegis needs, for the docs reference table. */
@@ -240,9 +293,9 @@ export function permissionMatrix(): {
   const used = new Map<string, { flag: bigint; commands: string[] }>();
 
   const add = (flag: string, command: string) => {
-    const bit = (PermissionFlagsBits as any)[flag] as bigint | undefined;
+    const bit = (PermissionFlagsBits as unknown as Record<string, bigint | undefined>)[flag];
     if (bit === undefined) return;
-    const key = normalisePermission(flag);
+    const key = permissionLabel(flag);
     const entry = used.get(key) ?? { flag: bit, commands: [] };
     entry.commands.push(command);
     used.set(key, entry);
@@ -250,11 +303,7 @@ export function permissionMatrix(): {
 
   for (const cmd of commands.values()) {
     for (const p of cmd.userPermissions ?? []) {
-      try {
-        for (const flag of new PermissionsBitField(p as any)) add(flag, `/${cmd.data.name}`);
-      } catch {
-        /* ignore unresolvable permissions */
-      }
+      for (const flag of permissionLabels(p)) add(flag, `/${cmd.data.name}`);
     }
   }
 
@@ -263,13 +312,53 @@ export function permissionMatrix(): {
     .sort((a, b) => a.permission.localeCompare(b.permission));
 }
 
-export function catalogStats() {
+/**
+ * Bitfield of every permission the bot needs at runtime, excluding
+ * Administrator. Used to build the OAuth2 invite URL so the invite screen
+ * asks for exactly what the command set requires.
+ */
+export function botPermissionBitfield(): bigint {
+  let bits = 0n;
+
+  for (const cmd of commands.values()) {
+    for (const p of cmd.botPermissions ?? []) {
+      try {
+        bits |= new PermissionsBitField(p as PermissionResolvable).bitfield;
+      } catch {
+        /* ignore unresolvable permissions */
+      }
+    }
+  }
+
+  // Implicitly required to read and post in the channels Aegis is pointed at.
+  bits |=
+    PermissionFlagsBits.ViewChannel |
+    PermissionFlagsBits.SendMessages |
+    PermissionFlagsBits.ReadMessageHistory |
+    PermissionFlagsBits.EmbedLinks;
+
+  // Administrator must never be requested on the invite screen.
+  bits &= ~PermissionFlagsBits.Administrator;
+
+  return bits;
+}
+
+export function catalogStats(): {
+  commands: number;
+  subcommands: number;
+  options: number;
+  categories: number;
+  permissions: number;
+} {
   const list = buildCatalog();
   return {
     commands: list.length,
     subcommands: list.reduce((acc, c) => acc + c.subcommands.length, 0),
     options: list.reduce(
-      (acc, c) => acc + c.options.length + c.subcommands.reduce((s, sc) => s + sc.options.length, 0),
+      (acc, c) =>
+        acc +
+        c.options.length +
+        c.subcommands.reduce((s, sc) => s + sc.options.length, 0),
       0
     ),
     categories: groupByCategory(list).length,

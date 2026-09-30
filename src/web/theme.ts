@@ -3,15 +3,6 @@
  * Served as a static stylesheet from /assets/site.css.
  */
 
-export const theme = {
-  accent: "#5865F2",
-  accentAlt: "#8b5cf6",
-  success: "#22c55e",
-  warning: "#f59e0b",
-  danger: "#ef4444",
-  radius: "16px",
-};
-
 /** Light theme tokens injected under [data-theme="light"]. */
 const lightTokens = `
   --bg: #fbfbfd;
@@ -23,11 +14,12 @@ const lightTokens = `
   --text: #0b0d14;
   --text-2: #333a4d;
   --muted: #5a627a;
-  --faint: #8a91a6;
+  --faint: #656d80;
   --primary: #4752c4;
   --primary-hover: #3d47ad;
   --primary-soft: rgba(88, 101, 242, 0.1);
   --primary-ring: rgba(88, 101, 242, 0.18);
+  --link: #4752c4;
   --accent: #16a34a;
   --accent-soft: rgba(34, 197, 94, 0.12);
   --warn: #b45309;
@@ -54,11 +46,12 @@ export const styles = `
   --text: #f6f7fb;
   --text-2: #cbd2e1;
   --muted: #98a1b8;
-  --faint: #6b7488;
+  --faint: #7d8598;
   --primary: #5865F2;
   --primary-hover: #4752c4;
   --primary-soft: rgba(88, 101, 242, 0.14);
   --primary-ring: rgba(88, 101, 242, 0.4);
+  --link: #929cfa;
   --accent: #4ade80;
   --accent-soft: rgba(74, 222, 128, 0.12);
   --warn: #fbbf24;
@@ -119,7 +112,7 @@ body {
 
 img, svg { display: block; max-width: 100%; }
 
-a { color: var(--primary); text-decoration: none; }
+a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
@@ -307,14 +300,6 @@ kbd {
 }
 .btn.ghost:hover { background: var(--surface-2); border-color: var(--primary); }
 
-.btn.subtle {
-  background: transparent;
-  border-color: transparent;
-  color: var(--text-2);
-  box-shadow: none;
-}
-.btn.subtle:hover { background: var(--surface-2); color: var(--text); transform: none; }
-
 .btn.lg { padding: 0.85rem 1.7rem; font-size: 1rem; border-radius: 12px; }
 .btn.sm { padding: 0.42rem 0.8rem; font-size: 0.84rem; border-radius: 8px; }
 .btn.block { width: 100%; }
@@ -446,7 +431,6 @@ kbd {
   .nav-links a.nav-link[aria-current='page']::after { display: none; }
   .nav-links a.nav-link[aria-current='page'] { background: var(--primary-soft); }
   .nav-actions .btn { display: none; }
-  .nav-actions .btn.mobile-only { display: inline-flex; width: 100%; margin-top: 0.6rem; }
 }
 
 /* ── Sections ──────────────────────────────────────────────────────── */
@@ -629,7 +613,6 @@ section.tight { padding: clamp(2.5rem, 5vw, 4rem) 0; }
 .grid { display: grid; gap: 1.1rem; }
 .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
-.grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
 
 .card {
   position: relative;
@@ -670,11 +653,6 @@ section.tight { padding: clamp(2.5rem, 5vw, 4rem) 0; }
 }
 .card-link::after { content: '→'; transition: transform 0.2s var(--ease); }
 .card:hover .card-link::after { transform: translateX(3px); }
-
-.card.featured {
-  background: linear-gradient(150deg, var(--primary-soft), transparent 65%), var(--surface);
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
-}
 
 /* Feature list rows */
 .feature-row {
@@ -728,6 +706,7 @@ section.tight { padding: clamp(2.5rem, 5vw, 4rem) 0; }
   transition: all 0.16s var(--ease);
 }
 .tab:hover { color: var(--text); border-color: var(--border-strong); }
+.tab[aria-pressed='true'],
 .tab[aria-selected='true'] {
   background: var(--primary);
   border-color: var(--primary);
@@ -822,7 +801,6 @@ td strong, th strong { color: var(--text); font-weight: 600; }
 .pill.ok { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); }
 .pill.warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 32%, transparent); color: var(--warn); }
 .pill.danger { background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 30%, transparent); color: var(--danger); }
-.pill.mono { font-family: var(--mono); font-weight: 500; }
 
 /* ── Command reference ─────────────────────────────────────────────── */
 .cmd-toolbar {
@@ -913,7 +891,55 @@ td strong, th strong { color: var(--text); font-weight: 600; }
   user-select: none;
 }
 .cmd-card > summary::-webkit-details-marker { display: none; }
-.cmd-card > summary:hover .cmd-name { color: var(--primary); }
+.cmd-card > summary:hover .cmd-slash { color: var(--primary); }
+
+.cmd-anchor {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.16s var(--ease), color 0.16s var(--ease);
+  flex-shrink: 0;
+}
+.cmd-card:hover .cmd-anchor,
+.cmd-anchor:focus-visible { opacity: 1; }
+.cmd-anchor:hover { color: var(--primary); text-decoration: none; }
+
+.cmd-card.flash { border-color: var(--primary); }
+
+.cmd-run {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+.cmd-run .inline { margin: 0; }
+
+.copy-btn {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  background: var(--bg-alt);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.16s var(--ease);
+}
+.copy-btn:hover { color: var(--text); border-color: var(--border-strong); text-decoration: none; }
+.copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+
+.feed-note {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--faint);
+}
 
 .cmd-slash {
   font-family: var(--mono);
@@ -1084,7 +1110,7 @@ mark { background: var(--warn-soft); color: var(--text); border-radius: 3px; pad
 }
 
 /* ── FAQ ───────────────────────────────────────────────────────────── */
-.faq { max-width: 760px; margin-inline: auto; }
+.accordion { max-width: 760px; margin-inline: auto; }
 
 /* ── CTA ───────────────────────────────────────────────────────────── */
 .cta-box {
@@ -1179,22 +1205,6 @@ mark { background: var(--warn-soft); color: var(--text); border-radius: 3px; pad
 .release time { font-size: 0.83rem; color: var(--faint); }
 .release ul { margin-top: 0.6rem; padding-left: 1.2rem; color: var(--muted); font-size: 0.92rem; }
 .release li { margin-bottom: 0.35rem; }
-.release .tag { font-family: var(--mono); font-size: 0.8rem; color: var(--faint); }
-
-/* ── CTA band ──────────────────────────────────────────────────────── */
-.link-band {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.25rem;
-  padding: 1.5rem 1.75rem;
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  flex-wrap: wrap;
-}
-.link-band h3 { margin: 0 0 0.2rem; }
-.link-band p { color: var(--muted); font-size: 0.9rem; margin: 0; }
 
 /* ── Footer ────────────────────────────────────────────────────────── */
 footer.site {
@@ -1237,16 +1247,22 @@ footer.site {
 .footer-bottom a { color: var(--faint); }
 .footer-bottom a:hover { color: var(--text); }
 
-/* ── Reveal on scroll ──────────────────────────────────────────────── */
-.reveal {
+/* ── Reveal on scroll ──────────────────────────────────────────────
+   Gated on the .js class set by theme-init.js so content stays visible
+   when JavaScript is unavailable or fails to load. */
+.js .reveal {
   opacity: 0;
   transform: translateY(14px);
   transition: opacity 0.55s var(--ease-out), transform 0.55s var(--ease-out);
 }
-.reveal.visible { opacity: 1; transform: none; }
+.js .reveal.visible { opacity: 1; transform: none; }
+
+/* Safety net: if scripting is on but the observer never runs, do not
+   leave the page blank. */
+html:not(.reveal-ready) .reveal { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal { opacity: 1; transform: none; }
+  .js .reveal { opacity: 1; transform: none; }
 }
 
 /* ── Responsive ────────────────────────────────────────────────────── */
