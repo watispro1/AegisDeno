@@ -46,7 +46,7 @@ export const command: Command = {
     if (sub === "toggle") {
       const enabled = interaction.options.getBoolean("enabled", true);
       config.loggingEnabled = enabled;
-      updateGuildConfig(guildId, config);
+      await updateGuildConfig(guildId, config);
       return interaction.reply(`✅ Server logging is now **${enabled ? "enabled" : "disabled"}**.`);
     }
 
@@ -55,7 +55,7 @@ export const command: Command = {
       config.loggingChannelId = channel.id;
       // Auto-enable if setting a channel
       config.loggingEnabled = true;
-      updateGuildConfig(guildId, config);
+      await updateGuildConfig(guildId, config);
       return interaction.reply(`✅ Logging channel set to <#${channel.id}>. Logging is now enabled.`);
     }
   },
