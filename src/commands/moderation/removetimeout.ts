@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, GuildMember } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
+import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -22,6 +23,16 @@ export const command: Command = {
     if (!target || typeof target === "string") {
       return interaction.reply({ content: "❌ Member not found.", ephemeral: true });
     }
+    const hierarchyOk = await isRoleHierarchyValid(
+      interaction.client, guildId, interaction.user.id, target.id
+    );
+    if (!hierarchyOk) {
+      return interaction.reply({
+        content: "❌ You cannot remove this member's timeout — they have a higher or equal role.",
+        ephemeral: true,
+      });
+    }
+
     if (!target.isCommunicationDisabled()) {
       return interaction.reply({ content: "❌ This member is not currently timed out.", ephemeral: true });
     }
