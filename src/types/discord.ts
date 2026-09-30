@@ -17,7 +17,7 @@ export type CommandData =
 export interface Command {
   data: CommandData;
   /** Command group used for organization and generated help output. */
-  category: string;
+  category?: string;
   /** Discord permissions required from the invoking member. */
   userPermissions?: PermissionResolvable[];
   /** Discord permissions required from the bot member. */
