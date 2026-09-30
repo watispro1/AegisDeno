@@ -29,7 +29,7 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
   } catch (err) {
     logger.warn(`Failed to deliver task ${task.id!}: ${err}`);
   } finally {
-    deleteTask(task.guildId, task.id!);
+    await deleteTask(task.guildId, task.id!);
     activeTimers.delete(task.id!);
     logger.debug(`Task ${task.id!} executed and removed.`);
   }

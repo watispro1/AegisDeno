@@ -17,10 +17,10 @@ export const command: Command = {
   botPermissions:  [PermissionFlagsBits.ModerateMembers],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
-    const target  = interaction.options.getMember("user") as GuildMember | null;
+    const target = interaction.options.getMember("user") as GuildMember | null;
     const guildId = interaction.guildId!;
 
-    if (!target || typeof target === "string") {
+    if (!target) {
       return interaction.reply({ content: "❌ Member not found.", ephemeral: true });
     }
     const hierarchyOk = await isRoleHierarchyValid(

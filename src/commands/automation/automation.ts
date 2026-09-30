@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
 import { Command } from "../../types/discord";
-import { createTask, getTasksForGuild, deleteTask, TaskType } from "../../services/scheduler";
+import { createTask, getTasksForGuild, deleteTask } from "../../services/scheduler";
+import { scheduleTask, cancelTask } from "../../services/schedulerRunner";
 
 const parseDuration = (input: string): number | null => {
   const match = input.match(/^(\d+)([smhd])$/);
@@ -61,10 +62,6 @@ export const command: Command = {
       const executeAt = new Date(Date.now() + ms);
       const task = await createTask(guildId, interaction.channelId, interaction.user.id, "reminder", message, executeAt);
 
-      // We need to re-init the scheduler locally if we want it to pick it up immediately, 
-      // but since we exported `scheduleTask`, we should call it. 
-      // However, it's easier to just let `createTask` export a way or we can call `scheduleTask` from here:
-      const { scheduleTask } = require("../../services/schedulerRunner");
       scheduleTask(interaction.client, task);
 
       return interaction.reply(`✅ Reminder set for <t:${Math.floor(executeAt.getTime() / 1000)}:R>.\n**ID:** \`${task.id}\``);
@@ -98,7 +95,6 @@ export const command: Command = {
         return interaction.reply({ content: "❌ You don't have permission to cancel someone else's task.", ephemeral: true });
       }
 
-      const { cancelTask } = require("../../services/schedulerRunner");
       cancelTask(id);
       await deleteTask(guildId, id);
 
