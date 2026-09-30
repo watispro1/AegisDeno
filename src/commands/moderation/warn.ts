@@ -38,7 +38,7 @@ export const command: Command = {
       });
     }
 
-    addWarning(guildId, target.id, interaction.user.id, reason);
+    await addWarning(guildId, target.id, interaction.user.id, reason);
     const totalWarnings = (await getWarningsForUser(guildId, target.id)).length;
 
     const embed = new EmbedBuilder()
