@@ -5,6 +5,7 @@ import { createClient, setupEvents } from "./bot/client";
 import { initScheduler, shutdownScheduler } from "./services/schedulerRunner";
 import { connectDatabase, closeDatabase } from "./database/mongo";
 import { logger } from "./utils/logger";
+import { startWebServer } from "./web/server";
 
 const TOKEN           = process.env.DISCORD_TOKEN!;
 const APPLICATION_ID  = process.env.DISCORD_APPLICATION_ID!;
@@ -45,6 +46,7 @@ async function main(): Promise<void> {
   await connectDatabase();
   const client = createClient();
   setupEvents(client);
+  startWebServer(client);
 
   // 4. Init scheduler after login
   client.once("ready", async (c) => {
