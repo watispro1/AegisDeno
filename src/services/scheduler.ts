@@ -3,8 +3,8 @@ import { TaskModel } from "../database/mongo";
 export type TaskType = "reminder" | "scheduled";
 
 export interface ScheduledTask {
-  _id: string; // Mongo ID mapping
-  id?: string; // Legacy mapping
+  _id: string;
+  id?: string;
   guildId: string;
   channelId: string;
   creatorId: string;
@@ -12,6 +12,22 @@ export interface ScheduledTask {
   payload: string;
   executeAt: Date;
   createdAt: Date;
+}
+
+function toTask(doc: unknown): ScheduledTask {
+  const obj = doc as Record<string, unknown>;
+  const id = String(obj._id);
+  return {
+    _id: id,
+    id,
+    guildId: String(obj.guildId),
+    channelId: String(obj.channelId),
+    creatorId: String(obj.creatorId),
+    type: obj.type as TaskType,
+    payload: String(obj.payload),
+    executeAt: new Date(obj.executeAt as string | number | Date),
+    createdAt: new Date(obj.createdAt as string | number | Date),
+  };
 }
 
 export async function createTask(
@@ -30,19 +46,17 @@ export async function createTask(
     payload,
     executeAt,
   });
-  
-  const obj = task.toObject() as Omit<ScheduledTask, "id"> & { _id: unknown };
-  return { ...obj, id: String(obj._id) } as ScheduledTask;
+
+  return toTask(task.toObject());
 }
 
 export async function getTask(guildId: string, id: string): Promise<ScheduledTask | null> {
   try {
     const doc = await TaskModel.findOne({ _id: id, guildId });
     if (!doc) return null;
-    const obj = doc.toObject() as Omit<ScheduledTask, "id"> & { _id: unknown };
-    return { ...obj, id: String(obj._id) } as ScheduledTask;
+    return toTask(doc.toObject());
   } catch {
-    return null; // For invalid ObjectIDs
+    return null;
   }
 }
 
@@ -51,10 +65,7 @@ export async function getTasksForGuild(guildId: string, creatorId?: string): Pro
   if (creatorId) filter.creatorId = creatorId;
 
   const docs = await TaskModel.find(filter).sort({ executeAt: 1 });
-  return docs.map(doc => {
-    const obj = doc.toObject() as Omit<ScheduledTask, "id"> & { _id: unknown };
-    return { ...obj, id: String(obj._id) } as ScheduledTask;
-  });
+  return docs.map(doc => toTask(doc.toObject()));
 }
 
 export async function deleteTask(guildId: string, id: string): Promise<boolean> {
@@ -68,9 +79,5 @@ export async function deleteTask(guildId: string, id: string): Promise<boolean> 
 
 export async function getAllPendingTasks(): Promise<ScheduledTask[]> {
   const docs = await TaskModel.find();
-  return docs.map(doc => {
-    const obj = doc.toObject() as any;
-    obj.id = obj._id.toString();
-    return obj as unknown as ScheduledTask;
-  }) as ScheduledTask[];
+  return docs.map(doc => toTask(doc.toObject()));
 }

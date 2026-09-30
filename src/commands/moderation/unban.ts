@@ -24,14 +24,16 @@ export const command: Command = {
     const guildId = interaction.guildId!;
 
     if (!/^\d{17,20}$/.test(userId)) {
-      return interaction.reply({ content: "❌ That doesn't look like a valid user ID.", ephemeral: true });
+      await interaction.reply({ content: "❌ That doesn't look like a valid user ID.", ephemeral: true });
+      return;
     }
 
     await interaction.deferReply();
     try {
       const ban = await interaction.guild!.bans.fetch(userId).catch(() => null);
       if (!ban) {
-        return interaction.editReply("❌ That user is not banned.");
+        await interaction.editReply("❌ That user is not banned.");
+        return;
       }
 
       await interaction.guild!.members.unban(userId, `${reason} | Unbanned by ${interaction.user.tag}`);
