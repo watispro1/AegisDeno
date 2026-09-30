@@ -4,16 +4,15 @@ import {
   Partials,
   Collection,
   Events,
-  ChatInputCommandInteraction,
   GuildMember,
   TextChannel,
-  EmbedBuilder,
   ActivityType,
   PresenceUpdateStatus,
 } from "discord.js";
 import "../types/augmentation"; // Ensure augmentation is loaded
 import { logger } from "../utils/logger";
 import { commands } from "../commands/loader";
+import { executeCommand } from "../commands/executor";
 import { sendGuildLog } from "../services/logging";
 import { processAutomod } from "../services/automodExecution";
 import { getGuildConfig } from "../services/configuration";
@@ -96,50 +95,7 @@ export function setupEvents(client: Client): void {
       return;
     }
 
-    // Guild-only guard
-    if (command.guildOnly && !interaction.guildId) {
-      await interaction.reply({ content: "❌ This command can only be used in a server.", ephemeral: true });
-      return;
-    }
-
-    // User permission guard
-    if (command.userPermissions && command.userPermissions.length > 0) {
-      const missing = command.userPermissions.filter(p => !interaction.memberPermissions?.has(p));
-      if (missing.length > 0) {
-        await interaction.reply({
-          content: `❌ You need the following permissions to use this command: ${missing.join(", ")}`,
-          ephemeral: true,
-        });
-        return;
-      }
-    }
-
-    // Bot permission guard
-    if (command.botPermissions && command.botPermissions.length > 0) {
-      const botMember = interaction.guild?.members.me;
-      const missing = command.botPermissions.filter(p => !botMember?.permissions.has(p));
-      if (missing.length > 0) {
-        await interaction.reply({
-          content: `❌ I need the following permissions to run this command: ${missing.join(", ")}`,
-          ephemeral: true,
-        });
-        return;
-      }
-    }
-
-    logger.debug(`Command: /${interaction.commandName} by ${interaction.user.tag}`);
-
-    try {
-      await command.execute(interaction);
-    } catch (error) {
-      logger.error(`Error in /${interaction.commandName}:`, error);
-      const errorMsg = { content: "❌ An error occurred while executing this command.", ephemeral: true };
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(errorMsg).catch(() => null);
-      } else {
-        await interaction.reply(errorMsg).catch(() => null);
-      }
-    }
+    await executeCommand(command, interaction);
   });
 
   // ─── Automod ───────────────────────────────────────────────────────────────
