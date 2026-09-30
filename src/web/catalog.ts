@@ -25,15 +25,12 @@ export interface CommandInfo {
   description: string;
   category: CommandCategory | string;
   guildOnly: boolean;
-  /** Discord client permission gate from setDefaultMemberPermissions */
   declaredPermissions: string[];
-  /** Runtime permission checks declared on the command object */
   enforcedPermissions: string[];
   subcommands: SubcommandInfo[];
   options: OptionInfo[];
 }
 
-/** Discord application command option type enum -> human label. */
 const OPTION_TYPES: Record<number, string> = {
   1: "Subcommand",
   2: "Subcommand group",
@@ -49,7 +46,6 @@ const OPTION_TYPES: Record<number, string> = {
   12: "Poll",
 };
 
-/** Short label for how a value is entered in the Discord client. */
 const TYPE_HINT: Record<number, string> = {
   3: "text",
   4: "number",
@@ -62,19 +58,41 @@ const TYPE_HINT: Record<number, string> = {
   11: "attachment",
 };
 
-function readOptions(rawOptions: any[] | undefined): {
+interface RawCommandOption {
+  type?: number;
+  name?: string;
+  description?: string;
+  required?: boolean;
+  choices?: Array<{ name?: string }>;
+  min_value?: number;
+  max_value?: number;
+  options?: RawCommandOption[];
+}
+
+interface RawCommandJson {
+  name?: string;
+  description?: string;
+  default_member_permissions?: string | null;
+  options?: RawCommandOption[];
+}
+
+function isRawCommandJson(value: unknown): value is RawCommandJson {
+  return typeof value === "object" && value !== null;
+}
+
+function readOptions(rawOptions: RawCommandOption[] | undefined): {
   options: OptionInfo[];
-  groups: { name: string; description: string; subcommands: any[] }[];
-  subs: any[];
+  groups: { name: string; description: string; subcommands: RawCommandOption[] }[];
+  subs: RawCommandOption[];
 } {
   const options: OptionInfo[] = [];
-  const groups: { name: string; description: string; subcommands: any[] }[] = [];
-  const subs: any[] = [];
+  const groups: { name: string; description: string; subcommands: RawCommandOption[] }[] = [];
+  const subs: RawCommandOption[] = [];
 
   for (const opt of rawOptions ?? []) {
     if (opt.type === 2) {
       groups.push({
-        name: opt.name,
+        name: opt.name ?? "",
         description: opt.description ?? "",
         subcommands: opt.options ?? [],
       });
@@ -88,16 +106,18 @@ function readOptions(rawOptions: any[] | undefined): {
   return { options, groups, subs };
 }
 
-function toOptionInfo(opt: any): OptionInfo {
+function toOptionInfo(opt: RawCommandOption): OptionInfo {
   const info: OptionInfo = {
-    name: opt.name,
+    name: opt.name ?? "",
     description: opt.description ?? "",
     required: Boolean(opt.required),
-    type: OPTION_TYPES[opt.type] ?? "Any",
-    choices: (opt.choices ?? []).map((c: any) => c.name),
+    type: OPTION_TYPES[opt.type ?? 0] ?? "Any",
+    choices: (opt.choices ?? [])
+      .map((choice) => choice.name)
+      .filter((name): name is string => typeof name === "string"),
   };
 
-  const hint = TYPE_HINT[opt.type];
+  const hint = TYPE_HINT[opt.type ?? 0];
   if (hint) info.type = hint;
 
   if (typeof opt.min_value === "number") info.min = opt.min_value;
@@ -106,23 +126,26 @@ function toOptionInfo(opt: any): OptionInfo {
   return info;
 }
 
-function toSubcommandInfo(sub: any, group: string | null): SubcommandInfo {
-  const path = group ? `${group} ${sub.name}` : sub.name;
+function toSubcommandInfo(sub: RawCommandOption, group: string | null): SubcommandInfo {
+  const name = sub.name ?? "";
+  const path = group ? `${group} ${name}` : name;
+
   return {
     path,
-    name: sub.name,
+    name,
     group,
     description: sub.description ?? "",
     options: (sub.options ?? [])
-      .filter((o: any) => o.type !== 1 && o.type !== 2)
+      .filter((option) => option.type !== 1 && option.type !== 2)
       .map(toOptionInfo),
   };
 }
 
 function resolvePermissions(bitfield: unknown): string[] {
   if (bitfield === null || bitfield === undefined || bitfield === "0") return [];
+
   try {
-    return [...new PermissionsBitField(bitfield as any)];
+    return [...new PermissionsBitField(bitfield as bigint | string)];
   } catch {
     return [];
   }
@@ -141,35 +164,38 @@ function normalisePermission(flag: string): string {
 let cache: CommandInfo[] | null = null;
 let index = new Map<string, CommandInfo>();
 
-/** Build the full command catalog from the live command registry. */
 export function buildCatalog(): CommandInfo[] {
   if (cache) return cache;
 
   const list: CommandInfo[] = [];
 
   for (const cmd of commands.values()) {
-    const json: any = typeof cmd.data?.toJSON === "function" ? cmd.data.toJSON() : cmd.data;
-    if (!json?.name) continue;
+    const jsonValue: unknown =
+      typeof cmd.data?.toJSON === "function" ? cmd.data.toJSON() : cmd.data;
 
-    const { options, groups, subs } = readOptions(json.options);
+    if (!isRawCommandJson(jsonValue) || !jsonValue.name) continue;
+
+    const { options, groups, subs } = readOptions(jsonValue.options);
 
     const subcommands: SubcommandInfo[] = [
-      ...subs.map(s => toSubcommandInfo(s, null)),
-      ...groups.flatMap(g => g.subcommands.map(s => toSubcommandInfo(s, g.name))),
+      ...subs.map((sub) => toSubcommandInfo(sub, null)),
+      ...groups.flatMap((group) =>
+        group.subcommands.map((sub) => toSubcommandInfo(sub, group.name)),
+      ),
     ];
 
-    const declared = resolvePermissions(json.default_member_permissions);
-    const enforced = (cmd.userPermissions ?? []).flatMap(p => {
+    const declared = resolvePermissions(jsonValue.default_member_permissions);
+    const enforced = (cmd.userPermissions ?? []).flatMap((permission) => {
       try {
-        return [...new PermissionsBitField(p as any)];
+        return [...new PermissionsBitField(permission)];
       } catch {
         return [];
       }
     });
 
     list.push({
-      name: json.name,
-      description: json.description ?? "",
+      name: jsonValue.name,
+      description: jsonValue.description ?? "",
       category: cmd.category ?? "general",
       guildOnly: Boolean(cmd.guildOnly),
       declaredPermissions: [...new Set(declared.map(normalisePermission))].sort(),
@@ -182,7 +208,7 @@ export function buildCatalog(): CommandInfo[] {
   list.sort((a, b) => a.name.localeCompare(b.name));
 
   cache = list;
-  index = new Map(list.map(c => [c.name, c]));
+  index = new Map(list.map((command) => [command.name, command]));
   return list;
 }
 
@@ -200,38 +226,35 @@ export interface CategoryGroup {
 }
 
 const CATEGORY_META: Record<string, { label: string; icon: string; blurb: string }> = {
-  general:    { label: "General",    icon: "🌐", blurb: "Status, help, and bot information." },
+  general: { label: "General", icon: "🌐", blurb: "Status, help, and bot information." },
   moderation: { label: "Moderation", icon: "🔨", blurb: "Enforce rules and punish violations." },
-  config:     { label: "Config",     icon: "⚙️", blurb: "Review and change server settings." },
-  logging:    { label: "Logging",    icon: "📋", blurb: "Route events to an audit channel." },
-  automod:    { label: "Automod",    icon: "🛡️", blurb: "Filter content automatically." },
-  welcome:    { label: "Welcome",    icon: "👋", blurb: "Greet new members on arrival." },
-  community:  { label: "Community",  icon: "🗳️", blurb: "Polls, announcements, and suggestions." },
+  config: { label: "Config", icon: "⚙️", blurb: "Review and change server settings." },
+  logging: { label: "Logging", icon: "📋", blurb: "Route events to an audit channel." },
+  automod: { label: "Automod", icon: "🛡️", blurb: "Filter content automatically." },
+  welcome: { label: "Welcome", icon: "👋", blurb: "Greet new members on arrival." },
+  community: { label: "Community", icon: "🗳️", blurb: "Polls, announcements, and suggestions." },
   automation: { label: "Automation", icon: "⏰", blurb: "Scheduled messages and reminders." },
-  developer:  { label: "Developer",  icon: "🔧", blurb: "Diagnostics for bot operators." },
+  developer: { label: "Developer", icon: "🔧", blurb: "Diagnostics for bot operators." },
 };
 
 export function groupByCategory(list: CommandInfo[] = buildCatalog()): CategoryGroup[] {
   const known = COMMAND_CATEGORIES as readonly string[];
-  const order = [...known].sort(
-    (a, b) => known.indexOf(a) - known.indexOf(b)
-  );
+  const order = [...known].sort((a, b) => known.indexOf(a) - known.indexOf(b));
 
   return order
-    .map(cat => {
-      const meta = CATEGORY_META[cat] ?? { label: cat, icon: "•", blurb: "" };
+    .map((category) => {
+      const meta = CATEGORY_META[category] ?? { label: category, icon: "•", blurb: "" };
       return {
-        category: cat,
+        category,
         label: meta.label,
         icon: meta.icon,
         blurb: meta.blurb,
-        commands: list.filter(c => c.category === cat),
+        commands: list.filter((command) => command.category === category),
       };
     })
-    .filter(g => g.commands.length > 0);
+    .filter((group) => group.commands.length > 0);
 }
 
-/** Every distinct permission Aegis needs, for the docs reference table. */
 export function permissionMatrix(): {
   permission: string;
   flag: bigint;
@@ -240,18 +263,21 @@ export function permissionMatrix(): {
   const used = new Map<string, { flag: bigint; commands: string[] }>();
 
   const add = (flag: string, command: string) => {
-    const bit = (PermissionFlagsBits as any)[flag] as bigint | undefined;
+    const bit = PermissionFlagsBits[flag as keyof typeof PermissionFlagsBits];
     if (bit === undefined) return;
+
     const key = normalisePermission(flag);
-    const entry = used.get(key) ?? { flag: bit, commands: [] };
+    const entry = used.get(key) ?? { flag, commands: [] };
     entry.commands.push(command);
     used.set(key, entry);
   };
 
   for (const cmd of commands.values()) {
-    for (const p of cmd.userPermissions ?? []) {
+    for (const permission of cmd.userPermissions ?? []) {
       try {
-        for (const flag of new PermissionsBitField(p as any)) add(flag, `/${cmd.data.name}`);
+        for (const flag of new PermissionsBitField(permission)) {
+          add(flag, `/${cmd.data.name}`);
+        }
       } catch {
         /* ignore unresolvable permissions */
       }
@@ -259,18 +285,26 @@ export function permissionMatrix(): {
   }
 
   return [...used.entries()]
-    .map(([permission, v]) => ({ permission, flag: v.flag, commands: v.commands }))
+    .map(([permission, value]) => ({
+      permission,
+      flag: value.flag,
+      commands: value.commands,
+    }))
     .sort((a, b) => a.permission.localeCompare(b.permission));
 }
 
 export function catalogStats() {
   const list = buildCatalog();
+
   return {
     commands: list.length,
-    subcommands: list.reduce((acc, c) => acc + c.subcommands.length, 0),
+    subcommands: list.reduce((total, command) => total + command.subcommands.length, 0),
     options: list.reduce(
-      (acc, c) => acc + c.options.length + c.subcommands.reduce((s, sc) => s + sc.options.length, 0),
-      0
+      (total, command) =>
+        total +
+        command.options.length +
+        command.subcommands.reduce((subTotal, subcommand) => subTotal + subcommand.options.length, 0),
+      0,
     ),
     categories: groupByCategory(list).length,
     permissions: permissionMatrix().length,
