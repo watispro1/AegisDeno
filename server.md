@@ -4,7 +4,7 @@ This document outlines the exact, detailed structure for the official AegisDeno 
 
 ## 🎭 Role Hierarchy & Permissions
 
-*Note: Emojis in role names are supported via Discord role icons (Server Boost Level 2 required).*
+*Note: Unicode emojis can be included directly in role names. Role icons are a separate Discord feature and may require a server boost level.*
 
 ### 👑 Administration
 **1. 🛡️ Aegis Founder**
@@ -48,7 +48,7 @@ This document outlines the exact, detailed structure for the official AegisDeno 
 **8. 🏆 Verified Developer**
 * **Color:** `#9B59B6` (Purple)
 * **Base Permissions:** `VIEW_CHANNEL` (Allows access to hidden developer categories).
-* **Description:** Users who build tools, write code, or contribute to the bot.
+* **Description:** Users who build tools, write code, or contribute to the bot. This role does not grant `/developer` command access; that command is restricted to the configured bot owner.
 
 **9. 👤 Member**
 * **Color:** `#FFFFFF` (White)
@@ -103,9 +103,9 @@ This document outlines the exact, detailed structure for the official AegisDeno 
 *Category Permissions Override:*
 * `@everyone`: `VIEW_CHANNEL` (FALSE)
 * `🏆 Verified Developer`: `VIEW_CHANNEL` (TRUE), `SEND_MESSAGES` (TRUE)
-* `🛡️ Founder` & `⚔️ Admin`: Inherits `ADMINISTRATOR`
+* `🛡️ Aegis Founder` & `⚔️ Administrator`: `ADMINISTRATOR` grants access automatically.
 ---
-* 👨‍💻・**dev-chat** — Discussions about the codebase, TypeScript, Deno, and Discordeno.
+* 👨‍💻・**dev-chat** — Discussions about the codebase, Node.js, TypeScript, and discord.js.
 * 🔄・**github-logs** — Webhooks pushing GitHub commits, PRs, and issues.
   * Override: `🏆 Verified Developer` -> `SEND_MESSAGES` (FALSE).
 * 🧪・**beta-testing** — Testing grounds for upcoming unreleased features.

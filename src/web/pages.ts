@@ -793,9 +793,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "1.0.1",
+    date: "2026-09-30",
+    tag: "current",
+    highlights: [
+      "Fixed developer command access for the bot owner, including deployments without a DISCORD_OWNER_ID setting.",
+      "Scheduled reminders and messages now retry after temporary Discord delivery failures instead of being discarded.",
+    ],
+  },
+  {
     version: "1.0.0",
     date: "2026-09-29",
-    tag: "current",
     highlights: [
       "Public launch with moderation, auto moderation, logging, welcome, community, and automation command groups.",
       "Slash commands are registered in a single scope to eliminate duplicate entries in the Discord client.",

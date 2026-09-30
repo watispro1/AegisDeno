@@ -3,8 +3,11 @@ import { getAllPendingTasks, deleteTask, ScheduledTask } from "./scheduler";
 import { logger } from "../utils/logger";
 
 const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const RETRY_DELAY_MS = 60_000;
 
 async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
+  let shouldRetry = false;
+
   try {
     const channel = await client.channels.fetch(task.channelId);
     if (!channel || !(channel instanceof TextChannel)) {
@@ -27,11 +30,19 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       embeds: [embed],
     });
   } catch (err) {
+    shouldRetry = true;
     logger.warn(`Failed to deliver task ${task.id!}: ${err}`);
   } finally {
-    await deleteTask(task.guildId, task.id!);
     activeTimers.delete(task.id!);
-    logger.debug(`Task ${task.id!} executed and removed.`);
+
+    if (shouldRetry) {
+      const handle = setTimeout(() => void executeTask(client, task), RETRY_DELAY_MS);
+      activeTimers.set(task.id!, handle);
+      logger.info(`Task ${task.id!} will retry in ${RETRY_DELAY_MS / 1000}s.`);
+    } else {
+      await deleteTask(task.guildId, task.id!);
+      logger.debug(`Task ${task.id!} executed and removed.`);
+    }
   }
 }
 

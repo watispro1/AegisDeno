@@ -2,6 +2,12 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
+export const BOT_OWNER_IDS = new Set(
+  ["1320058519642177668", process.env.DISCORD_OWNER_ID?.trim()].filter(
+    (id): id is string => Boolean(id),
+  ),
+);
+
 export const config = {
   DISCORD_TOKEN: process.env.DISCORD_TOKEN || "",
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID || "",

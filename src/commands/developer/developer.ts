@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
 import { Command } from "../../types/discord";
+import { BOT_OWNER_IDS } from "../../config/env";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -10,8 +11,7 @@ export const command: Command = {
     ),
 
   execute: async (interaction: ChatInputCommandInteraction) => {
-    const ownerId = process.env.DISCORD_OWNER_ID;
-    if (!ownerId || interaction.user.id !== ownerId) {
+    if (!BOT_OWNER_IDS.has(interaction.user.id)) {
       return interaction.reply({ content: "❌ You do not have permission to use developer commands.", ephemeral: true });
     }
 

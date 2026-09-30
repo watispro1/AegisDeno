@@ -23,7 +23,7 @@ import {
 } from "./pages";
 import { commands } from "../commands/loader";
 
-const SITE_VERSION = "1.0.0";
+const SITE_VERSION = "1.0.1";
 const STARTED_AT = Date.now();
 
 /** Cache-busting token derived from asset contents, so deploys invalidate caches. */
@@ -39,12 +39,24 @@ const COMPRESSIBLE = /^(text\/|application\/(json|xml|manifest\+json|atom\+xml|r
 function siteConfig(): SiteConfig {
   const appId = process.env.DISCORD_APPLICATION_ID;
   const permissions = botPermissionBitfield().toString();
+  const configuredInviteUrl = process.env.BOT_INVITE_URL;
+  let inviteUrl = configuredInviteUrl || "#";
+
+  if (appId) {
+    let invite: URL;
+    try {
+      invite = new URL(configuredInviteUrl || "https://discord.com/oauth2/authorize");
+    } catch {
+      invite = new URL("https://discord.com/oauth2/authorize");
+    }
+    invite.searchParams.set("client_id", appId);
+    invite.searchParams.set("permissions", permissions);
+    invite.searchParams.set("scope", "bot applications.commands");
+    inviteUrl = invite.toString();
+  }
+
   return {
-    inviteUrl:
-      process.env.BOT_INVITE_URL ||
-      (appId
-        ? `https://discord.com/oauth2/authorize?client_id=${appId}&permissions=${permissions}&scope=bot%20applications.commands`
-        : "#"),
+    inviteUrl,
     supportUrl: process.env.SUPPORT_SERVER_URL || "",
     version: SITE_VERSION,
     contactEmail: process.env.CONTACT_EMAIL || "support@aegisbot.dev",
