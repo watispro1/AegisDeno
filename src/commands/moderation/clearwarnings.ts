@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, 
 import { Command } from "../../types/discord";
 import { clearWarningsForUser, getWarningsForUser } from "../../services/warnings";
 import { sendGuildLog } from "../../services/logging";
+import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -19,12 +20,22 @@ export const command: Command = {
     const target  = interaction.options.getUser("user", true);
     const guildId = interaction.guildId!;
 
+    const hierarchyOk = await isRoleHierarchyValid(
+      interaction.client, guildId, interaction.user.id, target.id
+    );
+    if (!hierarchyOk) {
+      return interaction.reply({
+        content: "❌ You cannot clear warnings for this user — they have a higher or equal role.",
+        ephemeral: true,
+      });
+    }
+
     const currentWarnings = await getWarningsForUser(guildId, target.id);
     if (currentWarnings.length === 0) {
       return interaction.reply({ content: `✅ **${target.tag}** has no warnings to clear.`, ephemeral: true });
     }
 
-    clearWarningsForUser(guildId, target.id);
+    await clearWarningsForUser(guildId, target.id);
 
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
