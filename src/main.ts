@@ -16,17 +16,40 @@ if (!TOKEN || !APPLICATION_ID) {
   process.exit(1);
 }
 
+/**
+ * Register slash commands in exactly one scope.
+ *
+ * Discord merges global and guild-scoped commands in the client, so registering
+ * the same command in both scopes makes it appear twice in the slash menu. Only
+ * one scope may hold commands at a time, so we always wipe the other one.
+ */
 async function registerCommands(): Promise<void> {
   const rest = new REST({ version: "10" }).setToken(TOKEN);
   const commandData = Array.from(commands.values()).map(c => c.data.toJSON());
 
   if (TEST_GUILD_ID) {
-    logger.info(`Clearing global commands to prevent duplicates...`);
+    logger.info("Clearing global commands to prevent duplicates...");
     await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: [] });
     logger.info(`Registering ${commandData.length} commands to test guild ${TEST_GUILD_ID}...`);
     await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, TEST_GUILD_ID), { body: commandData });
     logger.info("Guild commands registered.");
   } else {
+    const clearGuildIds = (process.env.DISCORD_CLEAR_GUILD_IDS ?? "")
+      .split(",")
+      .map(id => id.trim())
+      .filter(Boolean);
+
+    for (const guildId of clearGuildIds) {
+      const existing = (await rest.get(
+        Routes.applicationGuildCommands(APPLICATION_ID, guildId)
+      )) as { body?: unknown[] };
+      const body = existing.body;
+      if (Array.isArray(body) && body.length > 0) {
+        logger.info(`Clearing ${body.length} stale guild command(s) in ${guildId}...`);
+        await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] });
+      }
+    }
+
     logger.info(`Registering ${commandData.length} commands globally...`);
     await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
     logger.info("Global commands registered (up to 1h propagation delay).");

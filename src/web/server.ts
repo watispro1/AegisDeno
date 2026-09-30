@@ -7,6 +7,8 @@ import {
   renderFeatures,
   renderCommands,
   renderDocs,
+  renderTerms,
+  renderPrivacy,
   renderNotFound,
   SiteConfig,
   Stats,
@@ -75,6 +77,10 @@ export function startWebServer(client: Client) {
   app.get("/commands", (_req, res) => send(res, renderCommands(cfg)));
 
   app.get("/docs", (_req, res) => send(res, renderDocs(cfg)));
+
+  app.get("/privacy", (_req, res) => send(res, renderPrivacy(cfg)));
+
+  app.get("/terms", (_req, res) => send(res, renderTerms(cfg)));
 
   app.use((_req, res) => {
     res.status(404).send(renderNotFound(cfg));

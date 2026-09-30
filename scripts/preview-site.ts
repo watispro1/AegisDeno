@@ -1,6 +1,14 @@
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import { renderHome, renderFeatures, renderCommands, renderDocs, renderNotFound } from "../src/web/pages";
+import {
+  renderHome,
+  renderFeatures,
+  renderCommands,
+  renderDocs,
+  renderTerms,
+  renderPrivacy,
+  renderNotFound,
+} from "../src/web/pages";
 import { loadCommands } from "../src/commands/loader";
 
 const cfg = {
@@ -20,6 +28,8 @@ async function main() {
     ["features.html", renderFeatures(cfg)],
     ["commands.html", renderCommands(cfg)],
     ["docs.html", renderDocs(cfg)],
+    ["privacy.html", renderPrivacy(cfg)],
+    ["terms.html", renderTerms(cfg)],
     ["404.html", renderNotFound(cfg)],
   ];
 

@@ -200,6 +200,19 @@ summary::after { content: '+'; color: var(--primary); font-size: 1.25rem; font-w
 details[open] summary::after { content: '\u2212'; }
 details p { color: var(--muted); font-size: 0.92rem; margin-top: 0.75rem; }
 
+/* Legal pages */
+.legal { max-width: 760px; margin: 0 auto; }
+.legal h2 { font-size: 1.32rem; font-weight: 700; margin: 2.5rem 0 0.85rem; }
+.legal h2:first-child { margin-top: 0; }
+.legal h3 { font-size: 1.02rem; font-weight: 600; margin: 1.5rem 0 0.6rem; color: var(--text); }
+.legal p { color: var(--muted); margin-bottom: 0.9rem; }
+.legal ul { color: var(--muted); padding-left: 1.25rem; margin: 0 0 1rem; }
+.legal li { margin-bottom: 0.45rem; }
+.legal strong { color: var(--text); font-weight: 600; }
+.legal a { color: #a5b4fc; }
+.legal a:hover { color: #c7d2fe; }
+.legal code.inline { color: #c7d2fe; }
+
 /* CTA */
 .cta-box {
   text-align: center;

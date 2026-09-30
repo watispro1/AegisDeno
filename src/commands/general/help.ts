@@ -7,19 +7,23 @@ import {
   ComponentType,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { commands } from "../loader";
+import { commands, COMMAND_CATEGORIES } from "../loader";
 
-const CATEGORIES: Record<string, string> = {
-  general:    "🌐 General",
-  moderation: "🔨 Moderation",
-  config:     "⚙️ Config",
-  logging:    "📋 Logging",
-  automod:    "🛡️ Automod",
-  welcome:    "👋 Welcome",
-  community:  "🗳️ Community",
-  automation: "⏰ Automation",
-  developer:  "🔧 Developer",
+const CATEGORY_ICONS: Record<string, string> = {
+  general:    "🌐",
+  moderation: "🔨",
+  config:     "⚙️",
+  logging:    "📋",
+  automod:    "🛡️",
+  welcome:    "👋",
+  community:  "🗳️",
+  automation: "⏰",
+  developer:  "🔧",
 };
+
+const CATEGORIES: Record<string, string> = Object.fromEntries(
+  COMMAND_CATEGORIES.map(cat => [cat, `${CATEGORY_ICONS[cat] ?? "•"} ${cat[0].toUpperCase()}${cat.slice(1)}`])
+);
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -42,10 +46,7 @@ export const command: Command = {
       }
 
       const label = CATEGORIES[category] ?? category;
-      const cmds  = allCmds.filter(c => {
-        const file = (c as any).__file ?? "";
-        return file.includes(`/${category}/`);
-      });
+      const cmds  = allCmds.filter(c => c.category === category);
 
       return new EmbedBuilder()
         .setColor(0x5865F2)
@@ -63,12 +64,12 @@ export const command: Command = {
       .setCustomId("help_category_select")
       .setPlaceholder("Select a command category...")
       .addOptions(
-        { label: "🏠 Home", description: "Return to the main help menu", value: "all", emoji: "🏠" },
-        ...Object.entries(CATEGORIES).map(([value, label]) => ({
-          label: label.substring(3), // strip emoji from label text
-          description: `View ${label.substring(3)} commands`,
-          value,
-          emoji: label.substring(0, 2).trim()
+        { label: "Home", description: "Return to the main help menu", value: "all", emoji: "🏠" },
+        ...COMMAND_CATEGORIES.map(cat => ({
+          label: CATEGORIES[cat].replace(/^\S+\s/, ""),
+          description: `View ${CATEGORIES[cat].replace(/^\S+\s/, "")} commands`,
+          value: cat,
+          emoji: CATEGORY_ICONS[cat] ?? "•",
         }))
       );
 

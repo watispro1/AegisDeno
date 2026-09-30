@@ -1,34 +1,49 @@
-import { validateEnv, config } from "../src/config/env.ts";
-import { loadCommands, commands } from "../src/commands/loader.ts";
-import { createBot } from "../src/bot/createBot.ts";
+import "dotenv/config";
+import { REST, Routes } from "discord.js";
+import { loadCommands, commands } from "../src/commands/loader";
+import { logger } from "../src/utils/logger";
 
-async function deploy() {
-  validateEnv();
-  await loadCommands();
-  
-  const bot = createBot();
+const TOKEN = process.env.DISCORD_TOKEN;
+const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID;
+const TEST_GUILD_ID = process.env.DISCORD_TEST_GUILD_ID;
+const CLEAR_GUILD_IDS = process.env.DISCORD_CLEAR_GUILD_IDS;
 
-  const commandData = Array.from(commands.values()).map(cmd => ({
-    name: cmd.name,
-    description: cmd.description,
-    options: cmd.options,
-  }));
-
-  console.log(`Deploying ${commandData.length} commands...`);
-  
-  if (config.DISCORD_TEST_GUILD_ID) {
-    await bot.helpers.upsertGuildApplicationCommands(
-      config.DISCORD_TEST_GUILD_ID,
-      commandData
-    );
-    console.log(`Successfully deployed commands to guild ${config.DISCORD_TEST_GUILD_ID}.`);
-  } else {
-    await bot.helpers.upsertGlobalApplicationCommands(commandData);
-    console.log("Successfully deployed global commands.");
-  }
+if (!TOKEN || !APPLICATION_ID) {
+  logger.error("Missing DISCORD_TOKEN or DISCORD_APPLICATION_ID in .env");
+  process.exit(1);
 }
 
-deploy().catch((err) => {
-  console.error("Failed to deploy commands:", err);
-  Deno.exit(1);
+async function main(): Promise<void> {
+  await loadCommands();
+
+  const rest = new REST({ version: "10" }).setToken(TOKEN);
+  const commandData = Array.from(commands.values()).map(c => c.data.toJSON());
+
+  if (TEST_GUILD_ID) {
+    logger.info("Clearing global commands to prevent duplicates...");
+    await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: [] });
+    logger.info(`Registering ${commandData.length} commands to guild ${TEST_GUILD_ID}...`);
+    await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, TEST_GUILD_ID), { body: commandData });
+    logger.info("Guild commands registered (instant).");
+    return;
+  }
+
+  for (const guildId of (CLEAR_GUILD_IDS ?? "").split(",").map(s => s.trim()).filter(Boolean)) {
+    const existing = (await rest.get(
+      Routes.applicationGuildCommands(APPLICATION_ID, guildId)
+    )) as { body?: unknown[] };
+    if (Array.isArray(existing.body) && existing.body.length > 0) {
+      logger.info(`Clearing ${existing.body.length} stale guild command(s) in ${guildId}...`);
+      await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] });
+    }
+  }
+
+  logger.info(`Registering ${commandData.length} commands globally...`);
+  await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
+  logger.info("Global commands registered (up to 1h propagation delay).");
+}
+
+main().catch(err => {
+  logger.error("Failed to deploy commands:", err);
+  process.exit(1);
 });

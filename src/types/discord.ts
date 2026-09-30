@@ -17,6 +17,8 @@ export type BotClient = Client;
 // Command structure
 export interface Command {
   data: any;
+  /** Command group directory this command was loaded from (general, moderation, ...) */
+  category?: string;
   /** Optional permission required for the user to run this command */
   userPermissions?: PermissionResolvable[];
   /** Optional permission required for the bot to run this command */

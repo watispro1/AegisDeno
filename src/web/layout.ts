@@ -62,6 +62,8 @@ ${o.body}
       <a href="/docs">Docs</a>
       ${o.supportUrl ? `<a href="${o.supportUrl}">Support</a>` : ""}
       <a href="/health">Status</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
     </div>
   </div>
 </footer>

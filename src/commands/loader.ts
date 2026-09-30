@@ -5,7 +5,7 @@ import fs from "fs";
 
 export const commands = new Map<string, Command>();
 
-const COMMAND_DIRS = [
+export const COMMAND_CATEGORIES = [
   "general",
   "moderation",
   "config",
@@ -15,11 +15,13 @@ const COMMAND_DIRS = [
   "community",
   "automation",
   "developer",
-];
+] as const;
+
+export type CommandCategory = (typeof COMMAND_CATEGORIES)[number];
+
+const COMMAND_DIRS: CommandCategory[] = [...COMMAND_CATEGORIES];
 
 export async function loadCommands(): Promise<void> {
-  const commandsDir = path.join(__dirname, "..");  // src/commands is one up from src/commands/loader
-
   for (const dir of COMMAND_DIRS) {
     const dirPath = path.join(__dirname, dir);
     if (!fs.existsSync(dirPath)) {
@@ -34,9 +36,10 @@ export async function loadCommands(): Promise<void> {
         // Use require for synchronous loading in CommonJS/tsx
         const mod = require(filePath);
         const command: Command = mod.command ?? mod.default;
-        if (command && command.data?.name) {
+        if (command?.data?.name) {
+          command.category = dir;
           commands.set(command.data.name, command);
-          logger.debug(`Loaded command: /${command.data.name}`);
+          logger.debug(`Loaded command: /${command.data.name} (${dir})`);
         }
       } catch (error) {
         logger.error(`Failed to load ${dir}/${file}:`, error);

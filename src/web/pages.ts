@@ -115,6 +115,9 @@ export function renderHome(cfg: SiteConfig, stats: Stats): string {
           <p>Move Aegis above the roles it needs to manage and grant <code class="inline">Ban Members</code> or <code class="inline">Moderate Members</code> as required.</p>
         </div>
       </div>
+      <p style="text-align:center;margin-top:2rem;color:var(--muted);font-size:0.88rem">
+        By adding Aegis to a server you accept the <a href="/terms" style="color:#a5b4fc">Terms of Service</a> and <a href="/privacy" style="color:#a5b4fc">Privacy Policy</a>.
+      </p>
     </div>
   </section>
 
@@ -364,6 +367,213 @@ export function renderCommands(cfg: SiteConfig): string {
     title: "Commands — Aegis",
     description: "Full list of Aegis slash commands for moderation, automod, logging, welcome, community, and automation.",
     path: "/commands",
+    body,
+    links: NAV,
+    inviteUrl: cfg.inviteUrl,
+    supportUrl: cfg.supportUrl,
+    version: cfg.version,
+  });
+}
+
+const EFFECTIVE_DATE = "September 29, 2026";
+const CONTACT_EMAIL = "support@aegisbot.dev";
+
+export function renderTerms(cfg: SiteConfig): string {
+  const body = `
+  <div class="wrap">
+    <div class="page-head">
+      <h1>Terms of Service</h1>
+      <p>These terms govern your use of the Aegis Discord bot and this website. By adding Aegis to a server or using this site, you agree to them.</p>
+      <p style="margin-top:0.75rem;font-size:0.85rem">Effective date: ${EFFECTIVE_DATE}</p>
+    </div>
+  </div>
+
+  <section class="block" style="padding-top:1rem">
+    <div class="wrap">
+      <div class="legal">
+        <h2>1. Acceptance of terms</h2>
+        <p>These Terms of Service ("Terms") form a binding agreement between you and the Aegis maintainers ("we", "us"). If you do not agree with these Terms, do not invite Aegis to your server or otherwise use the service.</p>
+
+        <h2>2. What Aegis is</h2>
+        <p>Aegis is a software service delivered as a Discord application. It provides moderation, auto moderation, audit logging, welcome messaging, community, and automation tooling. Aegis is not affiliated with, endorsed by, or sponsored by Discord Inc.</p>
+
+        <h2>3. Eligibility and account responsibility</h2>
+        <p>You must meet Discord's minimum age requirement to use Discord, and therefore to use Aegis. You are responsible for all activity that occurs under your Discord account, including any action taken by Aegis that you or your server's moderators trigger.</p>
+
+        <h2>4. Acceptable use</h2>
+        <p>You agree not to use Aegis to:</p>
+        <ul>
+          <li>Violate Discord's Terms of Service or Community Guidelines.</li>
+          <li>Abuse, harass, threaten, or target any person, group, or Discord platform.</li>
+          <li>Conduct automated spam, mass mentions, or unsolicited advertising through the bot.</li>
+          <li>Attempt to gain unauthorized access to the service, its host, or its data.</li>
+          <li>Interfere with, overload, or disrupt the service or its infrastructure.</li>
+          <li>Use the service to store or process content that is unlawful in your jurisdiction.</li>
+        </ul>
+
+        <h2>5. Server permissions and responsibility</h2>
+        <p>Aegis acts strictly under the permissions and authority granted to it by each server. You are solely responsible for:</p>
+        <ul>
+          <li>Reviewing the permission list on the OAuth2 authorization screen before inviting Aegis.</li>
+          <li>Placing Aegis' role at an appropriate height in your server's role hierarchy.</li>
+          <li>Configuring moderation rules, blocked word lists, and log channels.</li>
+          <li>Reviewing and appealing moderation actions taken by your moderators.</li>
+        </ul>
+        <p>Aegis is a tool. Decisions about who to punish, and how, remain with your server's moderation team.</p>
+
+        <h2>6. Availability</h2>
+        <p>The service is provided "as is" and "as available". We do not guarantee uninterrupted, timely, or error-free operation. Scheduled maintenance, upstream Discord API changes, network failures, and force majeure events may cause downtime. The <a href="/health">status endpoint</a> reflects current availability but is not a service level agreement.</p>
+
+        <h2>7. Intellectual property</h2>
+        <p>Aegis, including its source code, name, branding, and documentation, is owned by the maintainers and protected by applicable intellectual property law. These Terms grant you a limited, revocable, non-exclusive, non-transferable license to use the service as intended. Reverse engineering, reselling, or redistributing the service is not permitted.</p>
+
+        <h2>8. Third-party services</h2>
+        <p>Aegis depends on Discord, and may depend on infrastructure providers such as Fly.io. Your use of those services is governed by their own terms, over which we have no control. We are not responsible for the content, availability, or practices of any third party.</p>
+
+        <h2>9. Disclaimer of warranties</h2>
+        <p>To the maximum extent permitted by law, the service is provided without warranties of any kind, whether express or implied, including implied warranties of merchantability, fitness for a particular purpose, title, and non-infringement. We do not warrant that the service will be uninterrupted, secure, or error-free.</p>
+
+        <h2>10. Limitation of liability</h2>
+        <p>To the maximum extent permitted by law, the maintainers shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or for any loss of profits, data, goodwill, or server activity, arising out of or related to your use of the service. This includes losses resulting from misconfigured automod rules, unintended moderation actions, or reliance on the service as your sole moderation safeguard.</p>
+        <p>Where liability cannot be excluded by law, it is limited to the greater of the amount you paid for the service (which is zero) or USD 50.</p>
+
+        <h2>11. Indemnification</h2>
+        <p>You agree to indemnify and hold harmless the maintainers from any claim or demand, including reasonable legal fees, arising from your use of the service, your violation of these Terms, or your violation of Discord's policies.</p>
+
+        <h2>12. Modifications</h2>
+        <p>We may update these Terms to reflect changes in the service or applicable law. The effective date at the top of this page indicates the current version. Continuing to use Aegis after an update constitutes acceptance of the revised Terms.</p>
+
+        <h2>13. Termination</h2>
+        <p>You may stop using Aegis at any time by removing it from your server. We may suspend or terminate access, with or without notice, if you breach these Terms, if required by law, or if continued operation poses a security or abuse risk. Terminating access does not delete data already stored; see the <a href="/privacy">Privacy Policy</a> for retention.</p>
+
+        <h2>14. Severability and governing law</h2>
+        <p>If any provision of these Terms is found unenforceable, the remaining provisions remain in effect. These Terms are governed by the laws applicable in the maintainers' principal place of operation, without regard to conflict of law rules. Any dispute will be handled through good-faith negotiation, and where that fails, through the courts of that jurisdiction.</p>
+
+        <h2>15. Contact</h2>
+        <p>Questions about these Terms can be raised on our <a href="${cfg.supportUrl || "#"}">support server</a> or by email at <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p>
+      </div>
+    </div>
+  </section>`;
+
+  return layout({
+    title: "Terms of Service — Aegis",
+    description: "Terms governing use of the Aegis Discord bot and this website.",
+    path: "/terms",
+    body,
+    links: NAV,
+    inviteUrl: cfg.inviteUrl,
+    supportUrl: cfg.supportUrl,
+    version: cfg.version,
+  });
+}
+
+export function renderPrivacy(cfg: SiteConfig): string {
+  const body = `
+  <div class="wrap">
+    <div class="page-head">
+      <h1>Privacy Policy</h1>
+      <p>What Aegis collects, why it collects it, and what it never does with it.</p>
+      <p style="margin-top:0.75rem;font-size:0.85rem">Effective date: ${EFFECTIVE_DATE}</p>
+    </div>
+  </div>
+
+  <section class="block" style="padding-top:1rem">
+    <div class="wrap">
+      <div class="legal">
+        <h2>1. Summary</h2>
+        <p>Aegis stores the minimum needed to run moderation and logging in each server. It does not build advertising profiles, it does not sell data, and it does not share data between servers. This website sets no cookies and runs no trackers.</p>
+
+        <h2>2. Who is responsible</h2>
+        <p>The Aegis maintainers operate the service. Individual Discord servers that invite Aegis are separate controllers of the data they configure Aegis to process, and their own privacy policies apply to their members.</p>
+
+        <h2>3. Data we collect</h2>
+        <p>Data is collected only as a consequence of a server owner or moderator configuring or using Aegis.</p>
+
+        <h3>Server configuration</h3>
+        <ul>
+          <li>Guild ID, and the channel IDs selected for logging and welcome messages.</li>
+          <li>Settings toggles: logging enabled, welcome enabled, automod rule states, slowmode, and similar.</li>
+          <li>Blocked word and link filter lists, which you control.</li>
+          <li>Scheduled automation jobs, including the channel, content, and interval.</li>
+        </ul>
+
+        <h3>Moderation records</h3>
+        <ul>
+          <li>User IDs of warned members, the warning reason, the moderator who issued it, and the timestamp.</li>
+          <li>Details of moderation actions in audit log channels, including the moderator, target, and reason.</li>
+          <li>Message content, but only when a moderation action deletes that message or an automod rule matches it, and only as needed to enforce the rule.</li>
+        </ul>
+
+        <h3>Operational data</h3>
+        <ul>
+          <li>Process memory usage, uptime, and gateway latency, used for status reporting on this site.</li>
+          <li>Server logs containing error messages, used to diagnose faults.</li>
+        </ul>
+
+        <h2>4. What we do not collect</h2>
+        <ul>
+          <li>Direct messages. Aegis is not built to act in DMs and does not store their contents.</li>
+          <li>Passwords, payment details, or any Discord account credentials. Aegis only ever holds its own bot token.</li>
+          <li>Advertising identifiers, cross-site tracking data, or behavioural profiles.</li>
+          <li>Data harvested from servers where Aegis has not been invited.</li>
+        </ul>
+
+        <h2>5. How data is used</h2>
+        <ul>
+          <li>To execute the moderation, logging, and automation features a server has enabled.</li>
+          <li>To maintain guild, member, and channel caches required for role hierarchy checks and routing.</li>
+          <li>To detect and respond to abuse, including rate limit and permission errors.</li>
+          <li>To publish aggregate counts on the homepage, such as total servers and total members.</li>
+        </ul>
+        <p>Your data is never used for advertising, profiling, or model training.</p>
+
+        <h2>6. Website privacy</h2>
+        <p>The pages on this site are static and self-contained. They set no cookies, embed no analytics or advertising scripts, and transmit nothing about you to us. The only personal data this site processes is standard web server request logs, such as IP address and user agent, retained briefly for security and diagnostics. The <a href="/health">status endpoint</a> returns bot metrics only and holds no requester data.</p>
+
+        <h2>7. Data retention</h2>
+        <ul>
+          <li><strong>Configuration and automod rules:</strong> retained while Aegis is in the server, then deleted on removal or after a defined period.</li>
+          <li><strong>Warnings:</strong> retained until a moderator clears them with <code class="inline">/clearwarnings</code>, or until Aegis is removed.</li>
+          <li><strong>Audit log entries:</strong> written to your own Discord channel and governed by your message retention settings; we do not keep a separate copy.</li>
+          <li><strong>Operational logs:</strong> retained for a short period for debugging, then discarded.</li>
+        </ul>
+
+        <h2>8. Data isolation between servers</h2>
+        <p>All stored records are keyed by guild ID. Configuration, warnings, and rules in one server are never visible to, or mixed with, another server. This isolation is enforced in the application layer and is a design requirement, not a configuration option.</p>
+
+        <h2>9. Sharing and disclosure</h2>
+        <p>We do not sell, rent, or trade your data. We disclose data only in these cases:</p>
+        <ul>
+          <li>To Discord, as required to operate the service. Discord receives commands, messages, and member events under its own privacy policy.</li>
+          <li>To infrastructure providers, such as Fly.io, strictly to host and run the service under our instructions.</li>
+          <li>When required by law, or in good faith to protect the rights, safety, and integrity of the service, its users, or the public.</li>
+        </ul>
+
+        <h2>10. Security</h2>
+        <p>Secrets are held in environment variables and are never written to source control, logs, or this website. Access to production systems is limited to the maintainers. No system is perfectly secure, so we do not claim that data held in connection with the service can be guaranteed breach-free.</p>
+
+        <h2>11. Your rights</h2>
+        <p>Because the relevant data is largely held by Discord servers rather than by us, most requests are best directed at the server operator. A server moderator can remove data by clearing warnings, resetting configuration, or removing Aegis entirely. If you are a Discord user and want data removed concerning you, contact the operator of the relevant server, or reach us and we will assist where the data sits with us.</p>
+
+        <h2>12. Children</h2>
+        <p>The service is not directed at children under Discord's minimum age, and we do not knowingly collect personal information from them.</p>
+
+        <h2>13. International transfers</h2>
+        <p>The service is hosted on infrastructure that may be located outside your country. By using it you consent to the transfer and processing of data in those locations under the safeguards described here.</p>
+
+        <h2>14. Changes to this policy</h2>
+        <p>We may revise this policy as the service changes. The effective date at the top of this page indicates the current version, and material changes will be announced in the support server.</p>
+
+        <h2>15. Contact</h2>
+        <p>Privacy questions and data requests can go to our <a href="${cfg.supportUrl || "#"}">support server</a> or to <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.</p>
+      </div>
+    </div>
+  </section>`;
+
+  return layout({
+    title: "Privacy Policy — Aegis",
+    description: "What data the Aegis Discord bot collects, how it is used, and how it is retained.",
+    path: "/privacy",
     body,
     links: NAV,
     inviteUrl: cfg.inviteUrl,

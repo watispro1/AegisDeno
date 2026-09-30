@@ -9,6 +9,7 @@ import {
   TextChannel,
   EmbedBuilder,
   ActivityType,
+  PresenceUpdateStatus,
 } from "discord.js";
 import "../types/augmentation"; // Ensure augmentation is loaded
 import { logger } from "../utils/logger";
@@ -17,6 +18,9 @@ import { sendGuildLog } from "../services/logging";
 import { processAutomod } from "../services/automodExecution";
 import { getGuildConfig } from "../services/configuration";
 
+/** Discord expects a presence update at least this often. */
+const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
+
 export function createClient(): Client {
   const client = new Client({
     intents: [
@@ -24,6 +28,9 @@ export function createClient(): Client {
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.MessageContent,
+      // Required for user.setPresence() to have any effect. Discord silently
+      // drops presence updates from a connection missing this intent.
+      GatewayIntentBits.GuildPresences,
     ],
     partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
   });
@@ -42,13 +49,42 @@ export function setupEvents(client: Client): void {
   client.once(Events.ClientReady, (c) => {
     logger.info(`✅ Logged in as \x1b[1m${c.user.tag}\x1b[0m (${c.user.id})`);
     logger.info(`📡 Serving ${c.guilds.cache.size} guild(s).`);
-    
-    // Set dynamic rich presence status
-    c.user.setPresence({
-      activities: [{ name: "over your server", type: ActivityType.Watching }],
-      status: "online",
-    });
+
+    applyPresence(c);
   });
+
+  // Discord drops a presence that is not refreshed, so re-send it periodically.
+  // Without this the activity silently reverts to "Playing something" defaults.
+  const presenceInterval = setInterval(() => {
+    if (client.isReady()) applyPresence(client);
+  }, PRESENCE_REFRESH_MS);
+  presenceInterval.unref?.();
+
+  // ─── Presence ──────────────────────────────────────────────────────────────
+  function applyPresence(c: Client): void {
+    if (!c.user) return;
+
+    const guildCount = c.guilds.cache.size;
+    const userCount = c.guilds.cache.reduce((acc, g) => acc + (g.memberCount ?? 0), 0);
+
+    try {
+      c.user.setPresence({
+        activities: [
+          {
+            name: guildCount === 1 ? "1 server" : `${guildCount} servers`,
+            type: ActivityType.Watching,
+          },
+          {
+            name: userCount > 0 ? `${userCount.toLocaleString()} members` : "over your server",
+            type: ActivityType.Listening,
+          },
+        ],
+        status: PresenceUpdateStatus.Online,
+      });
+    } catch (err) {
+      logger.warn("Could not set presence:", err);
+    }
+  }
 
   // ─── Slash Commands ────────────────────────────────────────────────────────
   client.on(Events.InteractionCreate, async (interaction) => {
