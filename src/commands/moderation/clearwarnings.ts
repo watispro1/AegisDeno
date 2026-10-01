@@ -3,6 +3,7 @@ import { Command } from "../../types/discord";
 import { clearWarningsForUser, getWarningsForUser } from "../../services/warnings";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
+import { addModerationCase } from "../../services/moderationCases";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -36,6 +37,14 @@ export const command: Command = {
     }
 
     await clearWarningsForUser(guildId, target.id);
+    await addModerationCase({
+      guildId,
+      userId: target.id,
+      moderatorId: interaction.user.id,
+      action: "clearwarnings",
+      reason: "Warnings cleared by moderator.",
+      details: `Cleared ${currentWarnings.length} warning(s).`,
+    });
 
     const embed = new EmbedBuilder()
       .setColor(0x57F287)

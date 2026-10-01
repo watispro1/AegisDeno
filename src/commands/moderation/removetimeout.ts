@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, 
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
+import { addModerationCase } from "../../services/moderationCases";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -40,6 +41,13 @@ export const command: Command = {
     await interaction.deferReply();
     try {
       await target.timeout(null, `Timeout removed by ${interaction.user.tag}`);
+      await addModerationCase({
+        guildId,
+        userId: target.id,
+        moderatorId: interaction.user.id,
+        action: "untimeout",
+        reason: "Timeout removed by moderator.",
+      });
       await interaction.editReply(`✅ Removed timeout from **${target.user.tag}**.`);
       await sendGuildLog(interaction.client, guildId, {
         title: "✅ Timeout Removed",

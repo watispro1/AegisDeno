@@ -797,6 +797,7 @@ export const RELEASES: Release[] = [
     date: "2026-09-30",
     tag: "current",
     highlights: [
+      "Added private /modhistory lookups with recent warning, kick, ban, timeout, unban, and warning-clear cases.",
       "Fixed developer command access for the bot owner, including deployments without a DISCORD_OWNER_ID setting.",
       "Scheduled reminders and messages now retry after temporary Discord delivery failures instead of being discarded.",
     ],

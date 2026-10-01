@@ -48,6 +48,18 @@ const WarningSchema = new mongoose.Schema({
 });
 export const WarningModel = mongoose.model("Warning", WarningSchema);
 
+const ModerationCaseSchema = new mongoose.Schema({
+  guildId: { type: String, required: true },
+  userId: { type: String, required: true },
+  moderatorId: { type: String, required: true },
+  action: { type: String, required: true },
+  reason: { type: String, required: true },
+  details: { type: String, default: null },
+  createdAt: { type: Date, default: Date.now },
+});
+ModerationCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+export const ModerationCaseModel = mongoose.model("ModerationCase", ModerationCaseSchema);
+
 const TaskSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   channelId: { type: String, required: true },

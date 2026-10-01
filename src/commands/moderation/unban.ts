@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
+import { addModerationCase } from "../../services/moderationCases";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -37,6 +38,13 @@ export const command: Command = {
       }
 
       await interaction.guild!.members.unban(userId, `${reason} | Unbanned by ${interaction.user.tag}`);
+      await addModerationCase({
+        guildId,
+        userId,
+        moderatorId: interaction.user.id,
+        action: "unban",
+        reason,
+      });
 
       const embed = new EmbedBuilder()
         .setColor(0x57F287)

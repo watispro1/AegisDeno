@@ -7,6 +7,7 @@ import {
 import { Command } from "../../types/discord";
 import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
+import { addModerationCase } from "../../services/moderationCases";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -66,6 +67,14 @@ export const command: Command = {
       await guild.members.ban(target.id, {
         reason: `${reason} | Banned by ${interaction.user.tag}`,
         deleteMessageSeconds: deleteDays * 86400,
+      });
+      await addModerationCase({
+        guildId,
+        userId: target.id,
+        moderatorId: interaction.user.id,
+        action: "ban",
+        reason,
+        details: `Deleted messages: ${deleteDays} day(s)`,
       });
 
       const embed = new EmbedBuilder()

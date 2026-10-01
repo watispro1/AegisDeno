@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, 
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
+import { addModerationCase } from "../../services/moderationCases";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -41,6 +42,13 @@ export const command: Command = {
     await interaction.deferReply();
     try {
       await target.kick(`${reason} | Kicked by ${interaction.user.tag}`);
+      await addModerationCase({
+        guildId,
+        userId: target.id,
+        moderatorId: interaction.user.id,
+        action: "kick",
+        reason,
+      });
 
       const embed = new EmbedBuilder()
         .setColor(0xE67E22)

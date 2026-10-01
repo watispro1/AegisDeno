@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, 
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
+import { addModerationCase } from "../../services/moderationCases";
 
 const DURATION_CHOICES = [
   { name: "60 seconds",  value: 60 },
@@ -62,6 +63,14 @@ export const command: Command = {
     try {
       await target.timeout(durationMs, `${reason} | By ${interaction.user.tag}`);
       const until = new Date(Date.now() + durationMs);
+      await addModerationCase({
+        guildId,
+        userId: target.id,
+        moderatorId: interaction.user.id,
+        action: "timeout",
+        reason,
+        details: `Until ${until.toISOString()}`,
+      });
 
       const embed = new EmbedBuilder()
         .setColor(0xFEE75C)
