@@ -9,7 +9,7 @@ export const command: Command = {
       opt.setName("channel").setDescription("Channel to send the announcement to").setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName("message").setDescription("The announcement message (use \\n for newlines)").setRequired(true)
+      opt.setName("message").setDescription("The announcement message (use \\n for newlines)").setRequired(true).setMaxLength(2000)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
@@ -23,6 +23,11 @@ export const command: Command = {
 
     if (!(channel instanceof TextChannel)) {
       return interaction.reply({ content: "❌ You must select a text channel.", ephemeral: true });
+    }
+
+    const me = interaction.guild?.members.me;
+    if (!me || !channel.permissionsFor(me).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+      return interaction.reply({ content: "❌ I need View Channel and Send Messages in the selected channel.", ephemeral: true });
     }
 
     await interaction.deferReply({ ephemeral: true });

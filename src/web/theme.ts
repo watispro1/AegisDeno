@@ -347,7 +347,7 @@ kbd {
 .brand-mark {
   width: 30px; height: 30px;
   border-radius: 9px;
-  background: linear-gradient(140deg, var(--primary), var(--accentAlt));
+  background: linear-gradient(140deg, var(--primary), #8b5cf6);
   display: grid;
   place-items: center;
   font-size: 0.9rem;
@@ -431,7 +431,10 @@ kbd {
   .nav-links a.nav-link[aria-current='page']::after { display: none; }
   .nav-links a.nav-link[aria-current='page'] { background: var(--primary-soft); }
   .nav-actions .btn { display: none; }
+  .nav-mobile-cta { display: block; margin-top: 0.65rem; padding-top: 0.85rem; border-top: 1px solid var(--border); }
 }
+
+@media (min-width: 901px) { .nav-mobile-cta { display: none; } }
 
 /* ── Sections ──────────────────────────────────────────────────────── */
 section.block { padding: clamp(3.5rem, 7vw, 6rem) 0; }
@@ -468,6 +471,17 @@ section.tight { padding: clamp(2.5rem, 5vw, 4rem) 0; }
   font-size: 0.85rem;
   color: var(--faint);
 }
+.trust-strip {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin-top: 1rem;
+  color: var(--faint);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.trust-strip span { white-space: nowrap; }
 
 .badge {
   display: inline-flex;

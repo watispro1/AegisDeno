@@ -50,7 +50,7 @@ export async function processAutomod(client: Client, message: Message): Promise<
   }
 
   if (action === "warn") {
-    addWarning(
+    await addWarning(
       message.guildId,
       message.author.id,
       client.user!.id,

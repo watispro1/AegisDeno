@@ -11,7 +11,7 @@ export const command: Command = {
       opt.setName("user_id").setDescription("The user's ID to unban").setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the unban").setRequired(false)
+      opt.setName("reason").setDescription("Reason for the unban").setMaxLength(512).setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 

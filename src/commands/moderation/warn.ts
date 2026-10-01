@@ -12,7 +12,7 @@ export const command: Command = {
       opt.setName("user").setDescription("The member to warn").setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the warning").setRequired(true)
+      opt.setName("reason").setDescription("Reason for the warning").setRequired(true).setMaxLength(512)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 

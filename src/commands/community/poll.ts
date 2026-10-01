@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import { Command } from "../../types/discord";
 
 const NUMBER_EMOJIS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
@@ -8,13 +8,13 @@ export const command: Command = {
     .setName("poll")
     .setDescription("Create a simple poll.")
     .addStringOption(opt =>
-      opt.setName("question").setDescription("The poll question").setRequired(true)
+      opt.setName("question").setDescription("The poll question").setRequired(true).setMaxLength(256)
     )
-    .addStringOption(opt => opt.setName("option1").setDescription("Option 1").setRequired(true))
-    .addStringOption(opt => opt.setName("option2").setDescription("Option 2").setRequired(true))
-    .addStringOption(opt => opt.setName("option3").setDescription("Option 3").setRequired(false))
-    .addStringOption(opt => opt.setName("option4").setDescription("Option 4").setRequired(false))
-    .addStringOption(opt => opt.setName("option5").setDescription("Option 5").setRequired(false)),
+    .addStringOption(opt => opt.setName("option1").setDescription("Option 1").setRequired(true).setMaxLength(100))
+    .addStringOption(opt => opt.setName("option2").setDescription("Option 2").setRequired(true).setMaxLength(100))
+    .addStringOption(opt => opt.setName("option3").setDescription("Option 3").setRequired(false).setMaxLength(100))
+    .addStringOption(opt => opt.setName("option4").setDescription("Option 4").setRequired(false).setMaxLength(100))
+    .addStringOption(opt => opt.setName("option5").setDescription("Option 5").setRequired(false).setMaxLength(100)),
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const question = interaction.options.getString("question", true);
@@ -25,6 +25,11 @@ export const command: Command = {
       if (opt) options.push(opt);
     }
 
+    if (new Set(options.map((option) => option.trim().toLowerCase())).size !== options.length) {
+      await interaction.reply({ content: "❌ Poll options must be distinct.", ephemeral: true });
+      return;
+    }
+
     const embed = new EmbedBuilder()
       .setColor(0x3498DB)
       .setTitle(`📊 Poll: ${question}`)
@@ -33,13 +38,8 @@ export const command: Command = {
       .setTimestamp();
 
     const message = await interaction.reply({ embeds: [embed], fetchReply: true });
-
-    try {
-      for (let i = 0; i < options.length; i++) {
-        await message.react(NUMBER_EMOJIS[i]);
-      }
-    } catch {
-      // Ignored if reaction fails
-    }
+    for (let i = 0; i < options.length; i++) await message.react(NUMBER_EMOJIS[i]);
   },
+
+  botPermissions: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AddReactions],
 };

@@ -30,7 +30,7 @@ export const command: Command = {
     if (warnings.length > 0) {
       const fields = warnings.slice(-5).map((w, i) => ({
         name: `Warning ${warnings.length - 4 + i > 0 ? warnings.length - 4 + i : i + 1} • <t:${Math.floor(new Date(w.createdAt).getTime() / 1000)}:f>`,
-        value: `**Reason:** ${w.reason}\n**Moderator:** <@${w.moderatorId}>`,
+        value: `**Reason:** ${w.reason.slice(0, 900)}\n**Moderator:** <@${w.moderatorId}>`,
       }));
       embed.addFields(fields.reverse()); // Show newest first
     }

@@ -1,18 +1,18 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, TextChannel } from "discord.js";
 import { Command } from "../../types/discord";
 import { createTask, getTasksForGuild, deleteTask } from "../../services/scheduler";
 import { scheduleTask, cancelTask } from "../../services/schedulerRunner";
 
+const MAX_REMINDER_MS = 28 * 24 * 60 * 60 * 1000;
+
 const parseDuration = (input: string): number | null => {
-  const match = input.match(/^(\d+)([smhd])$/);
+  const match = input.trim().toLowerCase().match(/^(\d+)([smhd])$/);
   if (!match) return null;
   const val = parseInt(match[1]);
   const unit = match[2];
-  if (unit === "s") return val * 1000;
-  if (unit === "m") return val * 60 * 1000;
-  if (unit === "h") return val * 3600 * 1000;
-  if (unit === "d") return val * 86400 * 1000;
-  return null;
+  const multiplier = unit === "s" ? 1000 : unit === "m" ? 60 * 1000 : unit === "h" ? 3600 * 1000 : 86400 * 1000;
+  const duration = val * multiplier;
+  return Number.isSafeInteger(duration) && duration > 0 && duration <= MAX_REMINDER_MS ? duration : null;
 };
 
 export const command: Command = {
@@ -27,7 +27,21 @@ export const command: Command = {
           opt.setName("in").setDescription("Duration (e.g., 10m, 2h, 1d)").setRequired(true)
         )
         .addStringOption(opt =>
-          opt.setName("message").setDescription("What to remind you about").setRequired(true)
+          opt.setName("message").setDescription("What to remind you about").setRequired(true).setMaxLength(1000)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("message")
+        .setDescription("Schedule a message to a channel (Manage Server required).")
+        .addStringOption(opt =>
+          opt.setName("in").setDescription("Delay up to 28 days (e.g., 10m, 2h, 1d)").setRequired(true)
+        )
+        .addChannelOption(opt =>
+          opt.setName("channel").setDescription("Channel that will receive the message").setRequired(true)
+        )
+        .addStringOption(opt =>
+          opt.setName("message").setDescription("Message to schedule").setRequired(true).setMaxLength(1000)
         )
     )
     .addSubcommand(sub =>
@@ -45,6 +59,7 @@ export const command: Command = {
     ),
 
   guildOnly: true,
+  botPermissions: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();
@@ -56,7 +71,7 @@ export const command: Command = {
 
       const ms = parseDuration(durationStr);
       if (!ms) {
-        return interaction.reply({ content: "❌ Invalid duration format. Use 10m, 2h, 1d, etc.", ephemeral: true });
+        return interaction.reply({ content: "❌ Use a duration from 1 second to 28 days, such as `10m`, `2h`, or `1d`.", ephemeral: true });
       }
 
       const executeAt = new Date(Date.now() + ms);
@@ -65,6 +80,31 @@ export const command: Command = {
       scheduleTask(interaction.client, task);
 
       return interaction.reply(`✅ Reminder set for <t:${Math.floor(executeAt.getTime() / 1000)}:R>.\n**ID:** \`${task.id}\``);
+    }
+
+    if (sub === "message") {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+        return interaction.reply({ content: "❌ Scheduling a channel message requires Manage Server.", ephemeral: true });
+      }
+
+      const durationStr = interaction.options.getString("in", true);
+      const message = interaction.options.getString("message", true);
+      const selected = interaction.options.getChannel("channel", true);
+      const duration = parseDuration(durationStr);
+      if (!duration) {
+        return interaction.reply({ content: "❌ Use a duration from 1 second to 28 days, such as \`10m\`, \`2h\`, or \`1d\`.", ephemeral: true });
+      }
+
+      const channel = await interaction.guild!.channels.fetch(selected.id).catch(() => null);
+      const me = interaction.guild!.members.me;
+      if (!(channel instanceof TextChannel) || !me || !channel.permissionsFor(me).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+        return interaction.reply({ content: "❌ Choose a text channel where I can view, send messages, and embed links.", ephemeral: true });
+      }
+
+      const executeAt = new Date(Date.now() + duration);
+      const task = await createTask(guildId, channel.id, interaction.user.id, "scheduled", message, executeAt);
+      scheduleTask(interaction.client, task);
+      return interaction.reply(`✅ Message scheduled for <#${channel.id}> <t:${Math.floor(executeAt.getTime() / 1000)}:R>.\n**ID:** \`${task.id}\``);
     }
 
     if (sub === "list") {

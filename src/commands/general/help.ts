@@ -8,6 +8,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { commands, COMMAND_CATEGORIES } from "../loader";
+import { PermissionFlagsBits } from "discord.js";
 
 const CATEGORY_ICONS: Record<string, string> = {
   general: "🌐",
@@ -32,6 +33,8 @@ export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("help")
     .setDescription("Browse all available bot commands interactively."),
+
+  botPermissions: [PermissionFlagsBits.EmbedLinks],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const allCmds = Array.from(commands.values());

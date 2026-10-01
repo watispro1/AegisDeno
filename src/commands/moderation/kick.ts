@@ -12,7 +12,7 @@ export const command: Command = {
       opt.setName("user").setDescription("The member to kick").setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the kick").setRequired(false)
+      opt.setName("reason").setDescription("Reason for the kick").setMaxLength(512).setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
 

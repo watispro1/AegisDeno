@@ -31,7 +31,16 @@ export async function getAutomodConfig(guildId: string): Promise<AutomodConfig> 
   if (!doc) {
     return { ...DEFAULT_CONFIG, guildId };
   }
-  return doc.toObject() as AutomodConfig;
+  const config = doc.toObject() as AutomodConfig;
+  // Older records can predate newer nested defaults. Normalize them on read so
+  // every rule remains safe to execute after an upgrade.
+  return {
+    ...DEFAULT_CONFIG,
+    ...config,
+    words: { ...DEFAULT_CONFIG.words, ...config.words, list: config.words?.list ?? [] },
+    links: { ...DEFAULT_CONFIG.links, ...config.links },
+    mentions: { ...DEFAULT_CONFIG.mentions, ...config.mentions },
+  };
 }
 
 export async function updateAutomodConfig(

@@ -12,7 +12,7 @@ export const config = {
   DISCORD_TOKEN: process.env.DISCORD_TOKEN || "",
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID || "",
   DISCORD_TEST_GUILD_ID: process.env.DISCORD_TEST_GUILD_ID || "",
-  DATABASE_URL: process.env.DATABASE_URL || "./database.sqlite",
+  MONGO_URI: process.env.MONGO_URI || "",
   BOT_ENV: process.env.BOT_ENV || "development",
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
   SUPPORT_SERVER_URL: process.env.SUPPORT_SERVER_URL || "",

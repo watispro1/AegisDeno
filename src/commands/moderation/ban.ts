@@ -17,7 +17,7 @@ export const command: Command = {
       opt.setName("user").setDescription("The member to ban").setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the ban").setRequired(false)
+      opt.setName("reason").setDescription("Reason for the ban").setMaxLength(512).setRequired(false)
     )
     .addIntegerOption(opt =>
       opt
@@ -39,25 +39,20 @@ export const command: Command = {
     const deleteDays   = interaction.options.getInteger("delete_messages") ?? 0;
     const guildId      = interaction.guildId!;
 
-    // Hierarchy check
-    const hierarchyOk = await isRoleHierarchyValid(
-      interaction.client, guildId, interaction.user.id, target.id
-    );
-    if (!hierarchyOk) {
-      return interaction.reply({
-        content: "❌ You cannot ban this user — they have a higher or equal role.",
-        ephemeral: true,
-      });
-    }
-
-    const botHierarchyOk = await isBotHierarchyValid(
-      interaction.client, guildId, target.id
-    );
-    if (!botHierarchyOk) {
-      return interaction.reply({
-        content: "❌ I cannot ban this user because they are above my highest role.",
-        ephemeral: true,
-      });
+    // A user not currently in the server has no role hierarchy to bypass. For
+    // members, retain the full moderator and bot hierarchy protections.
+    const member = await interaction.guild!.members.fetch(target.id).catch(() => null);
+    if (member) {
+      const [hierarchyOk, botHierarchyOk] = await Promise.all([
+        isRoleHierarchyValid(interaction.client, guildId, interaction.user.id, target.id),
+        isBotHierarchyValid(interaction.client, guildId, target.id),
+      ]);
+      if (!hierarchyOk) {
+        return interaction.reply({ content: "❌ You cannot ban this user — they have a higher or equal role.", ephemeral: true });
+      }
+      if (!botHierarchyOk) {
+        return interaction.reply({ content: "❌ I cannot ban this user because they are above my highest role.", ephemeral: true });
+      }
     }
 
     await interaction.deferReply();

@@ -126,6 +126,7 @@ ${o.headExtra || ""}
     </a>
     <ul class="nav-links" id="nav-links">
         ${navItems}
+        <li class="nav-mobile-cta"><a class="btn block" href="${inviteUrl}">Add Aegis to Discord</a></li>
     </ul>
     <div class="nav-actions">
       <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme">

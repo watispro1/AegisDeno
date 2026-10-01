@@ -199,7 +199,7 @@ export const clientScript = String.raw`
       });
     }
 
-    function apply() {
+    function apply(syncUrl) {
       var query = search.value.trim().toLowerCase();
       var visible = 0;
       var visibleGroups = {};
@@ -230,6 +230,14 @@ export const clientScript = String.raw`
 
       var empty = document.getElementById('cmd-empty');
       if (empty) empty.hidden = visible !== 0;
+
+      if (syncUrl && window.history && window.history.replaceState) {
+        var params = new URLSearchParams();
+        if (query) params.set('q', query);
+        if (activeCat !== 'all') params.set('category', activeCat);
+        var nextUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState(null, '', nextUrl);
+      }
     }
 
     function debounce(fn, ms) {
@@ -240,11 +248,11 @@ export const clientScript = String.raw`
       };
     }
 
-    search.addEventListener('input', debounce(apply, 110));
+    search.addEventListener('input', debounce(function () { apply(true); }, 110));
     search.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
         search.value = '';
-        apply();
+        apply(true);
       }
     });
 
@@ -256,7 +264,7 @@ export const clientScript = String.raw`
         chips.forEach(function (c) {
           c.setAttribute('aria-pressed', String(c === chip));
         });
-        apply();
+        apply(true);
       }
 
       filterBar.addEventListener('click', function (e) {
@@ -318,7 +326,16 @@ export const clientScript = String.raw`
       search.select();
     });
 
-    apply();
+    /* Restore a shareable command search/filter URL before first render. */
+    var initial = new URLSearchParams(window.location.search);
+    var initialQuery = initial.get('q');
+    var initialCategory = initial.get('category');
+    if (initialQuery) search.value = initialQuery;
+    if (initialCategory && chips.some(function (chip) { return chip.getAttribute('data-cat') === initialCategory; })) {
+      activeCat = initialCategory;
+      chips.forEach(function (chip) { chip.setAttribute('aria-pressed', String(chip.getAttribute('data-cat') === activeCat)); });
+    }
+    apply(false);
   }
 
   /* ── FAQ: only one open at a time ─────────────────────────────── */
@@ -386,6 +403,24 @@ export const clientScript = String.raw`
             var suffix = el.getAttribute('data-suffix') || '';
             el.textContent = Number(d[key]).toLocaleString() + suffix;
           });
+          var banner = document.querySelector('[data-status-banner]');
+          if (banner) {
+            var online = Boolean(d.online);
+            var ping = Number(d.ping) || 0;
+            var state = !online ? 'Offline' : ping === 0 ? 'Connecting' : ping < 150 ? 'Operational' : ping < 350 ? 'Degraded' : 'Unstable';
+            var healthy = state === 'Operational';
+            banner.classList.toggle('bad', !healthy);
+            var title = document.querySelector('[data-status-title]');
+            var description = document.querySelector('[data-status-description]');
+            var label = document.querySelector('[data-status-label]');
+            var dot = document.querySelector('[data-status-dot]');
+            var refreshed = document.querySelector('[data-status-refreshed]');
+            if (title) title.textContent = healthy ? 'All systems operational' : state;
+            if (description) description.textContent = healthy ? 'Aegis is connected to Discord and responding normally.' : 'Aegis may be experiencing degraded performance. Check the metrics below.';
+            if (label) { label.textContent = state; label.className = 'pill ' + (healthy ? 'ok' : 'danger'); }
+            if (dot) dot.style.background = healthy ? 'var(--accent)' : 'var(--danger)';
+            if (refreshed) refreshed.textContent = 'Last refreshed just now.';
+          }
         })
         .catch(function () {});
     };

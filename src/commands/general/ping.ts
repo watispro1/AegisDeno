@@ -14,6 +14,8 @@ export const command: Command = {
     .setName("ping")
     .setDescription("Check the bot's latency and responsiveness."),
 
+  botPermissions: ["EmbedLinks"],
+
   execute: async (interaction: ChatInputCommandInteraction) => {
     const generateEmbed = (messageLatency: number, apiLatency: number) => {
       return new EmbedBuilder()

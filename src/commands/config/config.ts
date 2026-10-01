@@ -25,10 +25,10 @@ export const command: Command = {
         )
         .addStringOption(opt => opt.setName("value").setDescription("The new value").setRequired(true))
     )
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   guildOnly: true,
-  userPermissions: [PermissionFlagsBits.Administrator],
+  userPermissions: [PermissionFlagsBits.ManageGuild],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();

@@ -31,7 +31,7 @@ export const command: Command = {
         .addChoices(...DURATION_CHOICES)
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the timeout").setRequired(false)
+      opt.setName("reason").setDescription("Reason for the timeout").setMaxLength(512).setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 

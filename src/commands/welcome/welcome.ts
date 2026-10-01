@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, TextChannel } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 
@@ -20,6 +20,7 @@ export const command: Command = {
           opt.setName("text")
              .setDescription("Message text. Use {user}, {username}, {server}, {member_count}.")
              .setRequired(true)
+             .setMaxLength(2000)
         )
     )
     .addSubcommand(sub =>
@@ -47,6 +48,11 @@ export const command: Command = {
 
     if (sub === "channel") {
       const channel = interaction.options.getChannel("channel", true);
+      const me = interaction.guild?.members.me;
+      const targetChannel = await interaction.guild!.channels.fetch(channel.id).catch(() => null);
+      if (!(targetChannel instanceof TextChannel) || !me || !targetChannel.permissionsFor(me).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+        return interaction.reply({ content: "❌ Choose a text channel where I can view and send messages.", ephemeral: true });
+      }
       config.welcomeChannelId = channel.id;
       await updateGuildConfig(guildId, config);
       return interaction.reply(`✅ Welcome channel set to <#${channel.id}>.`);

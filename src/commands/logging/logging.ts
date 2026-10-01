@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, TextChannel } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 
@@ -52,6 +52,11 @@ export const command: Command = {
 
     if (sub === "channel") {
       const channel = interaction.options.getChannel("channel", true);
+      const me = interaction.guild?.members.me;
+      const targetChannel = await interaction.guild!.channels.fetch(channel.id).catch(() => null);
+      if (!(targetChannel instanceof TextChannel) || !me || !targetChannel.permissionsFor(me).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+        return interaction.reply({ content: "❌ Choose a text channel where I can view, send messages, and embed links.", ephemeral: true });
+      }
       config.loggingChannelId = channel.id;
       // Auto-enable if setting a channel
       config.loggingEnabled = true;

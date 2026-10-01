@@ -22,8 +22,9 @@ import {
   Stats,
 } from "./pages";
 import { commands } from "../commands/loader";
+import { VERSION } from "../version";
 
-const SITE_VERSION = "1.0.1";
+const SITE_VERSION = VERSION;
 const STARTED_AT = Date.now();
 
 /** Cache-busting token derived from asset contents, so deploys invalidate caches. */

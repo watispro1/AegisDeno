@@ -152,6 +152,12 @@ function homeHero(cfg: SiteConfig, stats: Stats, online: boolean): string {
       </div>
       <p class="hero-note">Free to use &middot; ${stats.commands} commands &middot; No dashboard, no database to babysit</p>
 
+      <div class="trust-strip" aria-label="Aegis principles">
+        <span>✓ Per-server isolation</span>
+        <span>✓ Explicit permissions</span>
+        <span>✓ No web account required</span>
+      </div>
+
       <div class="stats">
         ${statCard("Servers", stats.guilds.toLocaleString(), 'data-live="guilds" data-count="' + stats.guilds + '"')}
         ${statCard("Members", stats.users.toLocaleString(), 'data-live="users" data-count="' + stats.users + '"')}
@@ -229,7 +235,7 @@ ${homeHero(cfg, stats, online)}
     <div class="section-head center reveal">
       <span class="eyebrow">Getting started</span>
       <h2>Three steps to a moderated server</h2>
-      <p>Aegis declares permissions per command, so the invite screen only asks for what the bot actually needs to run. Only <code class="inline">/config</code> asks for Administrator.</p>
+      <p>Aegis declares permissions per command, so the invite screen only asks for what the bot actually needs to run. Server-wide settings use Manage Server rather than Administrator.</p>
     </div>
     <div class="steps">
       ${quickstart.map(s => `<div class="step reveal">
@@ -605,7 +611,6 @@ const PERMISSION_WHY: Record<string, string> = {
   "Manage Messages": "Bulk deleting messages.",
   "Manage Channels": "Setting per-channel slowmode durations.",
   "Manage Server": "Editing server-wide Aegis configuration.",
-  Administrator: "Only for /config, which writes server-wide settings.",
 };
 
 export function renderDocs(cfg: SiteConfig): string {
@@ -678,12 +683,17 @@ export function renderDocs(cfg: SiteConfig): string {
       <pre class="block">/automod status
 /automod words toggle enabled:true
 /automod words add word:free nitro
+/automod words action action:warn
 /automod words remove word:free nitro</pre>
       <h3>Link filtering</h3>
       <p>Catches any <code class="inline">http</code> or <code class="inline">https</code> URL. Useful for channels where links mean spam.</p>
-      <pre class="block">/automod links toggle enabled:true</pre>
+      <pre class="block">/automod links toggle enabled:true
+/automod links action action:delete</pre>
       <h3>Mention spam</h3>
       <p>Triggers when a single message mentions more users than the configured threshold. Defaults to a timeout action, which stops ping-spam escalation without needing a moderator online.</p>
+      <pre class="block">/automod mentions toggle enabled:true
+/automod mentions limit count:5
+/automod mentions action action:timeout</pre>
       <div class="callout warn">
         <span class="callout-icon" aria-hidden="true">!</span>
         <div>Automod is a safety net, not a replacement for moderators. Tune the word list carefully — short or ambiguous terms will catch legitimate conversation.</div>
@@ -714,19 +724,21 @@ export function renderDocs(cfg: SiteConfig): string {
       <h2 id="automation">Automation</h2>
       <p>Scheduled tasks are persisted, so they survive a restart. Durations use a compact format: <code class="inline">30s</code>, <code class="inline">10m</code>, <code class="inline">2h</code>, <code class="inline">1d</code>.</p>
       <pre class="block">/automation remind in:2h message:Stand-up in 5 minutes
+/automation message in:1d channel:#announcements message:Weekly update
 /automation list
 /automation cancel id:&lt;task-id&gt;</pre>
-      <p>You can only cancel your own tasks unless you hold <code class="inline">Manage Server</code>.</p>
+      <p>Reminders can be scheduled from one second up to 28 days ahead. You can only cancel your own tasks unless you hold <code class="inline">Manage Server</code>.</p>
 
       <h2 id="roles">Roles and hierarchy</h2>
       <p>Aegis refuses to act on anyone who sits at or above its own highest role, and it checks the same relationship between the moderator and the target. This is enforced in the permission layer, so it applies to every command, including automod actions.</p>
+      <p>For example, <code class="inline">/nickname</code> requires Manage Nicknames from both the moderator and Aegis, then checks both role positions before changing a member's nickname.</p>
 
       <h2 id="permissions">Permissions</h2>
       <p>Permissions are checked twice. Discord hides commands the invoking member cannot use via <code class="inline">setDefaultMemberPermissions</code>, and the bot re-verifies at execution time so a permission change mid-session cannot be used to bypass a check.</p>
       ${permissionTable()}
       <div class="callout">
         <span class="callout-icon" aria-hidden="true">i</span>
-        <div><code class="inline">/config</code> is the only command that asks for <code class="inline">Administrator</code>, because it writes server-wide settings. Every other command requests a specific permission, and the invite screen asks for the union of those.</div>
+        <div>Server-wide configuration commands require <code class="inline">Manage Server</code>, not Administrator. Every command is re-checked at execution time, and the invite screen asks for the union of the bot permissions actually required.</div>
       </div>
 
       <h2 id="troubleshooting">Troubleshooting</h2>
@@ -793,9 +805,29 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "1.2.0",
+    date: "2026-10-01",
+    tag: "current",
+    highlights: [
+      "Added /nickname and persisted /automation message scheduling for safer server operations.",
+      "Reworked command permission checks for selected welcome, logging, and announcement channels.",
+      "Hardened polls, moderation reasons, and external-user bans with validation that matches Discord behavior.",
+      "Reduced /config from Administrator to the least-privilege Manage Server permission.",
+    ],
+  },
+  {
+    version: "1.1.0",
+    date: "2026-10-01",
+    highlights: [
+      "Added /userinfo and /serverinfo for quick, self-service member and server diagnostics.",
+      "Expanded automod with mention-spam controls and per-rule delete, warn, or timeout actions.",
+      "Made automod warning writes reliable and normalized older automod records after upgrades.",
+      "Unified the public version number and corrected the MongoDB environment-variable template.",
+    ],
+  },
+  {
     version: "1.0.1",
     date: "2026-09-30",
-    tag: "current",
     highlights: [
       "Added private /modhistory lookups with recent warning, kick, ban, timeout, unban, and warning-clear cases.",
       "Fixed developer command access for the bot owner, including deployments without a DISCORD_OWNER_ID setting.",
@@ -912,15 +944,15 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
 
 <section class="block tight">
   <div class="wrap">
-    <div class="status-banner ${good ? "" : "bad"}">
-      <span class="dot" style="width:12px;height:12px;border-radius:50%;background:var(--${good ? "accent" : "danger"});flex-shrink:0" aria-hidden="true"></span>
+    <div class="status-banner ${good ? "" : "bad"}" data-status-banner>
+      <span class="dot" data-status-dot style="width:12px;height:12px;border-radius:50%;background:var(--${good ? "accent" : "danger"});flex-shrink:0" aria-hidden="true"></span>
       <div class="status-text">
-        <h2>${good ? "All systems operational" : st.label}</h2>
-        <p>${good
+        <h2 data-status-title>${good ? "All systems operational" : st.label}</h2>
+        <p data-status-description>${good
           ? "Aegis is connected to Discord and responding normally."
           : "Aegis may be experiencing degraded performance. Check the metrics below."}</p>
       </div>
-      <span class="pill ${good ? "ok" : "danger"}" style="margin-left:auto">${escapeHtml(st.label)}</span>
+      <span class="pill ${good ? "ok" : "danger"}" data-status-label style="margin-left:auto">${escapeHtml(st.label)}</span>
     </div>
 
     <h2 style="font-size:1.3rem;margin-bottom:1rem">Live metrics</h2>
@@ -982,7 +1014,7 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
       <div>Only the Discord gateway and the command registry are actually probed. Machine-readable status is available at <a href="/health">/health</a>, and metrics as JSON at <a href="/api/stats">/api/stats</a>. Historical uptime, incident tracking, and response-time history are not collected, so this page makes no claims about them.</div>
     </div>
 
-    <p class="faint" style="margin-top:1.5rem">Process started ${new Date(startedAt).toISOString()}.</p>
+    <p class="faint" style="margin-top:1.5rem">Process started ${new Date(startedAt).toISOString()}. <span data-status-refreshed>Live values refresh every 30 seconds.</span></p>
   </div>
 </section>`;
 
@@ -996,7 +1028,7 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
 
 /* ── Legal ─────────────────────────────────────────────────────────── */
 
-const EFFECTIVE_DATE = "September 29, 2026";
+const EFFECTIVE_DATE = "October 1, 2026";
 
 
 export function renderTerms(cfg: SiteConfig): string {
