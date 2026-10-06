@@ -36,6 +36,30 @@ export async function addModerationCase(input: {
   }
 }
 
+// Alias used by the escalation service
+export const createModerationCase = addModerationCase;
+
+export async function getRecentCasesForGuild(
+  guildId: string,
+  limit = 20,
+): Promise<ModerationCase[]> {
+  const cases = await ModerationCaseModel.find({ guildId }).sort({ createdAt: -1 }).limit(limit);
+  return cases.map(entry => ({ ...entry.toObject(), _id: String(entry._id) })) as ModerationCase[];
+}
+
+export async function getTopOffendersForGuild(
+  guildId: string,
+  limit = 10,
+): Promise<Array<{ userId: string; count: number }>> {
+  const results = await ModerationCaseModel.aggregate([
+    { $match: { guildId } },
+    { $group: { _id: "$userId", count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: limit },
+  ]);
+  return results.map(r => ({ userId: String(r._id), count: r.count as number }));
+}
+
 export async function getModerationCases(
   guildId: string,
   userId: string,

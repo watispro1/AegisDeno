@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -89,7 +90,8 @@ export const command: Command = {
         color: 0xED4245,
         description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
       });
-    } catch {
+    } catch (err) {
+      logger.error(`Failed to ban user ${target.id} in guild ${guildId}`, err);
       await interaction.editReply("❌ Failed to ban the user. Check my permissions and role hierarchy.");
     }
   },

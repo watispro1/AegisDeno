@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, GuildMember } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -67,7 +68,8 @@ export const command: Command = {
         color: 0xE67E22,
         description: `**User:** ${target.user.tag}\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
       });
-    } catch {
+    } catch (err) {
+      logger.error(`Failed to kick user ${target.user.id} in guild ${guildId}`, err);
       await interaction.editReply("❌ Failed to kick the member.");
     }
   },

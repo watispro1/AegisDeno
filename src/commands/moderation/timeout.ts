@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, GuildMember } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -90,7 +91,8 @@ export const command: Command = {
         color: 0xFEE75C,
         description: `**User:** ${target.user.tag}\n**Until:** <t:${Math.floor(until.getTime() / 1000)}:R>\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
       });
-    } catch {
+    } catch (err) {
+      logger.error(`Failed to timeout user ${target.user.id} in guild ${guildId}`, err);
       await interaction.editReply("❌ Failed to timeout the member.");
     }
   },

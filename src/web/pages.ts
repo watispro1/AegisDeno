@@ -805,9 +805,25 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "2.0.0",
+    date: "2026-10-06",
+    tag: "current",
+    highlights: [
+      "Repeated-offense escalation: automatically timeout, kick, or ban members when they hit configurable warning thresholds via /escalation.",
+      "Staff moderation dashboard via /modstats: guild-wide case count, recent actions, and top offenders in one embed.",
+      "Recurring announcements via /automation repeat — scheduled messages re-fire on an interval and survive restarts.",
+      "Suggestions fully rewritten: /suggest setup, submit, approve, reject with live 👍/👎 vote buttons that update in real time.",
+      "Polls upgraded to Discord's native poll API with configurable duration (1h–7d) and multi-select support.",
+      "Welcome auto-role: /welcome role assigns a role to every new member on join.",
+      "Server diagnostics via /diagnostics: checks bot permissions, channel accessibility, and automod config with actionable recommendations.",
+      "Spam rate-limiting added to automod, along with message-edit checking and role/channel exemption lists.",
+      "Scheduler hardened: retry cap, duplicate-schedule guard, malformed task validation, and overdue task recovery on boot.",
+      "Deployment documentation: DEPLOYMENT.md, TROUBLESHOOTING.md, and CHANGELOG.md added to the project.",
+    ],
+  },
+  {
     version: "1.2.0",
     date: "2026-10-01",
-    tag: "current",
     highlights: [
       "Added /nickname and persisted /automation message scheduling for safer server operations.",
       "Reworked command permission checks for selected welcome, logging, and announcement channels.",

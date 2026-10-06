@@ -1,8 +1,10 @@
+import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
 import { Command } from "../../types/discord";
 import { addWarning, getWarningsForUser } from "../../services/warnings";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
+import { checkEscalation } from "../../services/escalation";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -38,26 +40,41 @@ export const command: Command = {
       });
     }
 
-    await addWarning(guildId, target.id, interaction.user.id, reason);
-    const totalWarnings = (await getWarningsForUser(guildId, target.id)).length;
+    await interaction.deferReply();
+    try {
+      await addWarning(guildId, target.id, interaction.user.id, reason);
+      const totalWarnings = (await getWarningsForUser(guildId, target.id)).length;
 
-    const embed = new EmbedBuilder()
-      .setColor(0xFEE75C)
-      .setTitle("⚠️ Warning Issued")
-      .setThumbnail(target.displayAvatarURL())
-      .addFields(
-        { name: "User",     value: `${target.tag} (<@${target.id}>)`, inline: false },
-        { name: "Reason",   value: reason, inline: false },
-        { name: "Moderator",  value: interaction.user.tag, inline: true },
-        { name: "Total Warnings", value: `${totalWarnings}`, inline: true },
-      )
-      .setTimestamp();
+      const embed = new EmbedBuilder()
+        .setColor(0xFEE75C)
+        .setTitle("⚠️ Warning Issued")
+        .setThumbnail(target.displayAvatarURL())
+        .addFields(
+          { name: "User",           value: `${target.tag} (<@${target.id}>)`, inline: false },
+          { name: "Reason",         value: reason, inline: false },
+          { name: "Moderator",      value: interaction.user.tag, inline: true },
+          { name: "Total Warnings", value: `${totalWarnings}`, inline: true },
+        )
+        .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
-    await sendGuildLog(interaction.client, guildId, {
-      title: "⚠️ Warning Issued",
-      color: 0xFEE75C,
-      description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}\n**Total Warnings:** ${totalWarnings}`,
-    });
+      await interaction.editReply({ embeds: [embed] });
+      await sendGuildLog(interaction.client, guildId, {
+        title: "⚠️ Warning Issued",
+        color: 0xFEE75C,
+        description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}\n**Total Warnings:** ${totalWarnings}`,
+      });
+
+      // Check escalation thresholds
+      const esc = await checkEscalation(interaction.client, guildId, target.id, interaction.user.id);
+      if (esc.triggered) {
+        await interaction.followUp({
+          content: `⚡ **Auto-escalation triggered** — reached **${esc.atWarnings}** warnings → **${esc.action}** applied automatically.`,
+          ephemeral: false,
+        });
+      }
+    } catch (err) {
+      logger.error(`Failed to issue warning for user ${target.id} in guild ${guildId}`, err);
+      await interaction.editReply("❌ Failed to issue the warning. Please try again.");
+    }
   },
 };

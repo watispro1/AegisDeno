@@ -114,6 +114,18 @@ async function main() {
   const apiStats = await fetch(origin + "/api/stats");
   check("api stats no-store", apiStats.headers.get("cache-control") === "no-store");
 
+  console.log("\nAPI Endpoints");
+  const healthJson = await (await fetch(origin + "/health")).json();
+  check("health returns status: ok", healthJson.status === "ok", healthJson.status);
+  check("health returns valid guilds count", typeof healthJson.guilds === "number");
+
+  const statsJson = await apiStats.clone().json();
+  check("stats returns online: true", statsJson.online === true);
+  check("stats returns valid ping", typeof statsJson.ping === "number");
+
+  const commandsJson = await (await fetch(origin + "/api/commands")).json();
+  check("commands api returns array", Array.isArray(commandsJson.commands));
+
   console.log("\nInvite permissions");
   const { botPermissionBitfield } = await import("../src/web/catalog");
   const bits = botPermissionBitfield();

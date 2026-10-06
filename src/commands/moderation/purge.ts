@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, TextChannel } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -50,7 +51,8 @@ export const command: Command = {
         color: 0xED4245,
         description: `**Channel:** <#${channel.id}>\n**Count:** ${deleted.size}\n**Filter:** ${target ? `Messages from <@${target.id}>` : "All messages"}\n**Moderator:** ${interaction.user.tag}`,
       });
-    } catch {
+    } catch (err) {
+      logger.error(`Failed to purge messages in channel ${channel.id} guild ${guildId}`, err);
       await interaction.editReply("❌ Failed to delete messages. Messages older than 14 days cannot be bulk-deleted.");
     }
   },

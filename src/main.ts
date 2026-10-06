@@ -59,24 +59,34 @@ async function registerCommands(): Promise<void> {
 async function main(): Promise<void> {
   logger.info("\x1b[1m🛡️  Aegis Bot — Starting...\x1b[0m");
 
-  // 1. Load all command modules
+  // 1. Connect to Database first (essential for functionality)
+  await connectDatabase();
+
+  // 2. Load all command modules locally
   await loadCommands();
 
-  // 2. Register slash commands with Discord
-  await registerCommands();
-
-  // 3. Create and configure the client
-  await connectDatabase();
+  // 3. Create client and start web server ASAP for health checks
   const client = createClient();
   setupEvents(client);
   startWebServer(client);
 
-  // 4. Init scheduler after login
+  // 4. Register slash commands (Network bound)
+  // By doing this after startWebServer, we ensure the port is bound and healthy
+  // while we wait for Discord's API to register commands.
+  try {
+    await registerCommands();
+  } catch (err) {
+    logger.error("Failed to register slash commands:", err);
+    // Don't crash here; let the bot boot and just log the error. Commands might 
+    // already be registered or it's a transient Discord API issue.
+  }
+
+  // 5. Init scheduler after login
   client.once("ready", async (c) => {
     await initScheduler(c).catch(err => logger.error("Scheduler init error:", err));
   });
 
-  // 5. Graceful shutdown
+  // 6. Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Shutting down gracefully...`);
     shutdownScheduler();
@@ -90,7 +100,7 @@ async function main(): Promise<void> {
   process.on("uncaughtException",  err => logger.error("Uncaught Exception:", err));
   process.on("unhandledRejection", err => logger.error("Unhandled Rejection:", err));
 
-  // 6. Login
+  // 7. Login
   await client.login(TOKEN);
 }
 

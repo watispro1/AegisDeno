@@ -8,13 +8,16 @@ import {
   TextChannel,
   ActivityType,
   PresenceUpdateStatus,
+  ActionRowBuilder,
+  ButtonBuilder,
+  EmbedBuilder,
 } from "discord.js";
 import "../types/augmentation"; // Ensure augmentation is loaded
 import { logger } from "../utils/logger";
 import { commands } from "../commands/loader";
 import { executeCommand } from "../commands/executor";
 import { sendGuildLog } from "../services/logging";
-import { processAutomod } from "../services/automodExecution";
+import { processAutomod, processAutomodEdit } from "../services/automodExecution";
 import { getGuildConfig } from "../services/configuration";
 
 /** Discord expects a presence update at least this often. */
@@ -87,22 +90,69 @@ export function setupEvents(client: Client): void {
 
   // ─── Slash Commands ────────────────────────────────────────────────────────
   client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
+    if (interaction.isChatInputCommand()) {
+      const command = client.commands.get(interaction.commandName);
+      if (!command) {
+        logger.warn(`Unknown command: ${interaction.commandName}`);
+        return;
+      }
+      await executeCommand(command, interaction);
+    } else if (interaction.isButton()) {
+      if (interaction.customId.startsWith("suggest_")) {
+        const [, action, id] = interaction.customId.split("_");
+        if (!id || !interaction.guildId) return;
 
-    const command = client.commands.get(interaction.commandName);
-    if (!command) {
-      logger.warn(`Unknown command: ${interaction.commandName}`);
-      return;
+        await interaction.deferUpdate().catch(() => null);
+
+        // Dynamically import voteOnSuggestion to avoid circular dependencies in boot if any
+        const { voteOnSuggestion } = await import("../services/suggestions");
+        const suggestion = await voteOnSuggestion(interaction.guildId, id, interaction.user.id, action as "up" | "down");
+        
+        if (!suggestion) return;
+
+        // Update the message embed and buttons
+        const msg = interaction.message;
+        const oldEmbed = msg.embeds[0];
+        if (!oldEmbed) return;
+
+        const newEmbed = EmbedBuilder.from(oldEmbed)
+          .spliceFields(1, 1, { name: "Votes", value: `👍 ${suggestion.upvotes.length} | 👎 ${suggestion.downvotes.length}`, inline: true });
+
+        const row = new ActionRowBuilder<ButtonBuilder>()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId(`suggest_up_${suggestion.id}`)
+              .setLabel(`Upvote (${suggestion.upvotes.length})`)
+              .setStyle(interaction.customId === `suggest_up_${id}` ? 3 : 3) // style 3 is Success
+              .setEmoji("👍"),
+            new ButtonBuilder()
+              .setCustomId(`suggest_down_${suggestion.id}`)
+              .setLabel(`Downvote (${suggestion.downvotes.length})`)
+              .setStyle(interaction.customId === `suggest_down_${id}` ? 4 : 4) // style 4 is Danger
+              .setEmoji("👎")
+          );
+
+        await msg.edit({ embeds: [newEmbed], components: [row] }).catch(() => null);
+      }
     }
-
-    await executeCommand(command, interaction);
   });
 
-  // ─── Automod ───────────────────────────────────────────────────────────────
+  // ─── Automod (new messages) ───────────────────────────────────────────────
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.guildId) return;
     await processAutomod(client, message).catch(err =>
-      logger.error("Automod error:", err)
+      logger.error("Automod error (create):", err)
+    );
+  });
+
+  // ─── Automod (edited messages) ────────────────────────────────────────────
+  client.on(Events.MessageUpdate, async (_old, newMessage) => {
+    if (!newMessage.guildId) return;
+    // Fetch partial to get full content
+    const msg = newMessage.partial ? await newMessage.fetch().catch(() => null) : newMessage;
+    if (!msg || msg.author?.bot) return;
+    await processAutomodEdit(client, msg).catch(err =>
+      logger.error("Automod error (update):", err)
     );
   });
 
@@ -134,8 +184,15 @@ export function setupEvents(client: Client): void {
       ],
     });
 
-    // Welcome message
+    // Welcome message and Auto-role
     const config = await getGuildConfig(member.guild.id);
+    
+    if (config.welcomeRoleId) {
+      await member.roles.add(config.welcomeRoleId).catch(err => 
+        logger.warn(`Failed to assign auto-role ${config.welcomeRoleId} to ${member.user.tag} in ${member.guild.id}:`, err)
+      );
+    }
+
     if (config.welcomeEnabled && config.welcomeChannelId) {
       const channel = member.guild.channels.cache.get(config.welcomeChannelId) as TextChannel | undefined;
       if (channel) {

@@ -11,6 +11,7 @@ export interface ScheduledTask {
   type: TaskType;
   payload: string;
   executeAt: Date;
+  intervalMs?: number | null;
   createdAt: Date;
 }
 
@@ -26,6 +27,7 @@ function toTask(doc: unknown): ScheduledTask {
     type: obj.type as TaskType,
     payload: String(obj.payload),
     executeAt: new Date(obj.executeAt as string | number | Date),
+    intervalMs: typeof obj.intervalMs === "number" ? obj.intervalMs : null,
     createdAt: new Date(obj.createdAt as string | number | Date),
   };
 }
@@ -37,6 +39,7 @@ export async function createTask(
   type: TaskType,
   payload: string,
   executeAt: Date,
+  intervalMs?: number | null
 ): Promise<ScheduledTask> {
   const task = await TaskModel.create({
     guildId,
@@ -45,6 +48,7 @@ export async function createTask(
     type,
     payload,
     executeAt,
+    intervalMs,
   });
 
   return toTask(task.toObject());
@@ -53,6 +57,20 @@ export async function createTask(
 export async function getTask(guildId: string, id: string): Promise<ScheduledTask | null> {
   try {
     const doc = await TaskModel.findOne({ _id: id, guildId });
+    if (!doc) return null;
+    return toTask(doc.toObject());
+  } catch {
+    return null;
+  }
+}
+
+export async function updateTaskNextRun(guildId: string, id: string, nextExecuteAt: Date): Promise<ScheduledTask | null> {
+  try {
+    const doc = await TaskModel.findOneAndUpdate(
+      { _id: id, guildId },
+      { $set: { executeAt: nextExecuteAt } },
+      { new: true }
+    );
     if (!doc) return null;
     return toTask(doc.toObject());
   } catch {

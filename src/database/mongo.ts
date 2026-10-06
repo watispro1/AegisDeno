@@ -36,6 +36,14 @@ const GuildConfigSchema = new mongoose.Schema({
   welcomeEnabled: { type: Boolean, default: false },
   welcomeChannelId: { type: String, default: null },
   welcomeMessage: { type: String, default: "Welcome {user} to **{server}**! You are member #{member_count}." },
+  welcomeRoleId: { type: String, default: null },
+  suggestionsChannelId: { type: String, default: null },
+  // Escalation: auto-actions when a user hits X warnings
+  escalation: {
+    enabled: { type: Boolean, default: false },
+    // e.g. [{atWarnings: 3, action: "timeout", durationMinutes: 60}, {atWarnings: 5, action: "ban"}]
+    thresholds: { type: mongoose.Schema.Types.Mixed, default: [] },
+  },
 });
 export const GuildConfigModel = mongoose.model("GuildConfig", GuildConfigSchema);
 
@@ -67,6 +75,7 @@ const TaskSchema = new mongoose.Schema({
   type: { type: String, required: true },
   payload: { type: String, required: true },
   executeAt: { type: Date, required: true },
+  intervalMs: { type: Number, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 export const TaskModel = mongoose.model("ScheduledTask", TaskSchema);
@@ -87,6 +96,16 @@ const AutomodSchema = new mongoose.Schema({
     threshold: { type: Number, default: 5 },
     action: { type: String, default: "timeout" },
   },
+  spam: {
+    enabled: { type: Boolean, default: false },
+    // Max messages per windowSeconds before enforcement triggers
+    maxMessages: { type: Number, default: 5 },
+    windowSeconds: { type: Number, default: 5 },
+    action: { type: String, default: "timeout" },
+  },
+  // Role or channel IDs that are exempt from all automod rules
+  exemptRoleIds:    { type: [String], default: [] },
+  exemptChannelIds: { type: [String], default: [] },
 });
 export const AutomodModel = mongoose.model("AutomodConfig", AutomodSchema);
 

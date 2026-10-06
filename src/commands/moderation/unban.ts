@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -62,7 +63,8 @@ export const command: Command = {
         color: 0x57F287,
         description: `**User:** ${ban.user.tag} (<@${userId}>)\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
       });
-    } catch {
+    } catch (err) {
+      logger.error(`Failed to unban user ${userId} in guild ${guildId}`, err);
       await interaction.editReply("❌ Failed to unban the user.");
     }
   },
