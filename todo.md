@@ -18,7 +18,7 @@
 
 ### Automod
 - [x] Expand automod rule coverage beyond words/links/mentions to include spam pattern detection and message abuse checks
-- [ ] Add per-guild rule presets and a sane default configuration for new servers
+- [x] Add per-guild rule presets and a sane default configuration for new servers
 - [x] Add safe-list / exemption support for trusted roles or channels
 - [x] Review automod edge cases like repeated triggers, mention spam thresholds, and message edits
 - [x] Add an admin-facing summary of current automod settings and recent triggers
@@ -49,15 +49,14 @@
 - [x] Expand poll functionality with richer options, expiration handling, and moderation controls
 - [x] Add welcome configuration for roles, custom embeds, and onboarding steps
 - [x] Add recurring community announcements or event scheduling tied to the scheduler system
-- [ ] Add activity summaries or weekly reports for server admins and mods
+- [x] Add activity summaries or weekly reports for server admins and mods (`/activitysummary`)
 
 ### Product / feature roadmap
 - [x] Build a staff moderation dashboard with recent warnings, cases, and action summaries
 - [x] Add repeated-offense detection and escalation thresholds for abuse patterns
-- [ ] Add command presets or server templates for typical moderation setups
-- [ ] Add admin settings UI for guild configuration and automod controls in the web app
-- [ ] Add export/report tools for moderation logs and user action history
-- [ ] Add role-based automation for onboarding, verification, and help channels
+- [x] Add command presets or server templates for typical moderation setups (`/preset`)
+- [x] Add export/report tools for moderation logs and user action history (`/case export`)
+- [x] Add role-based automation for onboarding, verification, and help channels (`/ticket`, `/verify`, `/rolepanel`, `/autoresponder`)
 
 ### Documentation and maintenance
 - [x] Write a proper installation guide for local dev, production deployment, and env configuration

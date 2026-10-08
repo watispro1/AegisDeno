@@ -5,10 +5,10 @@ import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   ComponentType,
+  PermissionFlagsBits,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { commands, COMMAND_CATEGORIES } from "../loader";
-import { PermissionFlagsBits } from "discord.js";
 
 const CATEGORY_ICONS: Record<string, string> = {
   general: "🌐",
@@ -19,6 +19,10 @@ const CATEGORY_ICONS: Record<string, string> = {
   welcome: "👋",
   community: "🗳️",
   automation: "⏰",
+  tickets: "🎫",
+  verification: "🛡️",
+  autoresponder: "🤖",
+  roles: "🎭",
   developer: "🔧",
 };
 
@@ -79,8 +83,8 @@ export const command: Command = {
           emoji: "🏠",
         },
         ...COMMAND_CATEGORIES.map((cat) => ({
-          label: CATEGORIES[cat].replace(/^\S+\s/, ""),
-          description: `View ${CATEGORIES[cat].replace(/^\S+\s/, "")} commands`,
+          label: (CATEGORIES[cat] ?? cat).replace(/^\S+\s/, ""),
+          description: `View ${(CATEGORIES[cat] ?? cat).replace(/^\S+\s/, "")} commands`,
           value: cat,
           emoji: CATEGORY_ICONS[cat] ?? "•",
         })),
@@ -120,3 +124,5 @@ export const command: Command = {
     });
   },
 };
+
+export default command;

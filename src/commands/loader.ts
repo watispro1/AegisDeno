@@ -13,6 +13,10 @@ export const COMMAND_CATEGORIES = [
   "welcome",
   "community",
   "automation",
+  "tickets",
+  "verification",
+  "autoresponder",
+  "roles",
   "developer",
 ] as const;
 
@@ -37,6 +41,7 @@ function isCommand(value: unknown): value is Command {
 
 export async function loadCommands(): Promise<void> {
   commands.clear();
+  const seenCommandNames = new Set<string>();
 
   for (const category of COMMAND_CATEGORIES) {
     const directory = path.join(COMMAND_DIR, category);
@@ -66,14 +71,17 @@ export async function loadCommands(): Promise<void> {
           continue;
         }
 
-        if (commands.has(candidate.data.name)) {
-          throw new Error(`Duplicate command name "/${candidate.data.name}"`);
+        const commandName = candidate.data.name;
+        if (seenCommandNames.has(commandName)) {
+          logger.warn(`Skipping duplicate command name "/${commandName}" from ${category}/${file}. A previous definition already won.`);
+          continue;
         }
 
+        seenCommandNames.add(commandName);
         candidate.category = category;
-        commands.set(candidate.data.name, candidate);
+        commands.set(commandName, candidate);
 
-        logger.debug(`Loaded command: /${candidate.data.name} (${category})`);
+        logger.debug(`Loaded command: /${commandName} (${category})`);
       } catch (error) {
         logger.error(`Failed to load ${category}/${file}:`, error);
       }

@@ -40,8 +40,16 @@ export const command: Command = {
     const deleteDays   = interaction.options.getInteger("delete_messages") ?? 0;
     const guildId      = interaction.guildId!;
 
-    // A user not currently in the server has no role hierarchy to bypass. For
-    // members, retain the full moderator and bot hierarchy protections.
+    if (target.id === interaction.user.id) {
+      return interaction.reply({ content: "❌ You cannot ban yourself.", ephemeral: true });
+    }
+    if (target.id === interaction.client.user?.id) {
+      return interaction.reply({ content: "❌ You cannot ban me.", ephemeral: true });
+    }
+    if (target.id === interaction.guild?.ownerId) {
+      return interaction.reply({ content: "❌ You cannot ban the server owner.", ephemeral: true });
+    }
+
     const member = await interaction.guild!.members.fetch(target.id).catch(() => null);
     if (member) {
       const [hierarchyOk, botHierarchyOk] = await Promise.all([

@@ -1,17 +1,35 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, TextChannel } from "discord.js";
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  EmbedBuilder,
+} from "discord.js";
 import { Command } from "../../types/discord";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("announce")
-    .setDescription("Send an announcement to a channel.")
+    .setDescription("Send a formatted announcement to a channel.")
     .addChannelOption(opt =>
       opt.setName("channel").setDescription("Channel to send the announcement to").setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName("message").setDescription("The announcement message (use \\n for newlines)").setRequired(true).setMaxLength(2000)
+      opt.setName("message").setDescription("The announcement body text (use \\n for newlines)").setRequired(true).setMaxLength(2000)
     )
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+    .addStringOption(opt =>
+      opt.setName("title").setDescription("Optional announcement title for embed header").setRequired(false).setMaxLength(256)
+    )
+    .addStringOption(opt =>
+      opt
+        .setName("ping")
+        .setDescription("Optional notification ping")
+        .setRequired(false)
+        .addChoices(
+          { name: "None", value: "none" },
+          { name: "@everyone", value: "everyone" },
+          { name: "@here", value: "here" }
+        )
+    ),
 
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ManageMessages],
@@ -19,23 +37,43 @@ export const command: Command = {
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const channel = interaction.options.getChannel("channel", true);
-    const message = interaction.options.getString("message", true).replace(/\\n/g, "\n");
+    const messageText = interaction.options.getString("message", true).replace(/\\n/g, "\n");
+    const title = interaction.options.getString("title");
+    const pingChoice = interaction.options.getString("ping") ?? "none";
 
-    if (!(channel instanceof TextChannel)) {
-      return interaction.reply({ content: "❌ You must select a text channel.", ephemeral: true });
+    if (!("send" in channel) || typeof channel.send !== "function") {
+      return interaction.reply({ content: "❌ Please select a channel where messages can be sent.", ephemeral: true });
     }
 
     const me = interaction.guild?.members.me;
-    if (!me || !channel.permissionsFor(me).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
-      return interaction.reply({ content: "❌ I need View Channel and Send Messages in the selected channel.", ephemeral: true });
+    if (me && "permissionsFor" in channel && typeof channel.permissionsFor === "function") {
+      const perms = channel.permissionsFor(me);
+      if (perms && !perms.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+        return interaction.reply({ content: "❌ I need View Channel and Send Messages permissions in that channel.", ephemeral: true });
+      }
     }
 
     await interaction.deferReply({ ephemeral: true });
+
+    let pingContent = "";
+    if (pingChoice === "everyone") pingContent = "@everyone";
+    if (pingChoice === "here") pingContent = "@here";
+
+    const embed = new EmbedBuilder()
+      .setColor(0x3498DB)
+      .setTitle(title ?? "📢 Server Announcement")
+      .setDescription(messageText)
+      .setAuthor({ name: interaction.guild?.name ?? "Announcement", iconURL: interaction.guild?.iconURL() ?? undefined })
+      .setFooter({ text: `Announced by ${interaction.user.tag}` })
+      .setTimestamp();
+
     try {
-      await (channel as TextChannel).send({ content: message });
-      await interaction.editReply(`✅ Announcement sent to <#${channel.id}>.`);
+      await channel.send({ content: pingContent || undefined, embeds: [embed] });
+      await interaction.editReply(`✅ Announcement successfully sent to <#${channel.id}>.`);
     } catch {
-      await interaction.editReply("❌ Failed to send announcement. Check my permissions in that channel.");
+      await interaction.editReply("❌ Failed to send announcement. Please verify my permissions in that channel.");
     }
   },
 };
+
+export default command;

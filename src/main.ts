@@ -81,9 +81,11 @@ async function main(): Promise<void> {
     // already be registered or it's a transient Discord API issue.
   }
 
-  // 5. Init scheduler after login
+  // 5. Init scheduler and Top.gg stats after login
   client.once("ready", async (c) => {
     await initScheduler(c).catch(err => logger.error("Scheduler init error:", err));
+    const { initTopGG } = await import("./services/topgg");
+    initTopGG(c);
   });
 
   // 6. Graceful shutdown

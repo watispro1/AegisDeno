@@ -234,6 +234,18 @@ export function startWebServer(client: Client) {
     res.json({ commands: buildCatalog() });
   });
 
+  app.post("/api/topgg/webhook", express.json(), (req, res) => {
+    const auth = process.env.TOPGG_WEBHOOK_AUTH;
+    if (auth && req.headers.authorization !== auth) {
+      res.status(401).json({ error: "unauthorized" });
+      return;
+    }
+
+    const { user, type, isWeekend, guild } = req.body ?? {};
+    logger.info(`👍 Top.gg Vote Received: User ${user} (Type: ${type}, Weekend: ${isWeekend}, Guild: ${guild ?? "N/A"})`);
+    res.json({ status: "ok" });
+  });
+
   app.get("/api/commands/:name", (req, res) => {
     const name = String(req.params.name ?? "").replace(/^\//, "");
     const found = getCommand(name);

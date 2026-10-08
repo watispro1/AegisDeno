@@ -26,8 +26,14 @@ export const command: Command = {
     const reason  = interaction.options.getString("reason", true);
     const guildId = interaction.guildId!;
 
+    if (target.id === interaction.user.id) {
+      return interaction.reply({ content: "❌ You cannot warn yourself.", ephemeral: true });
+    }
     if (target.bot) {
       return interaction.reply({ content: "❌ You cannot warn a bot.", ephemeral: true });
+    }
+    if (target.id === interaction.guild?.ownerId) {
+      return interaction.reply({ content: "❌ You cannot warn the server owner.", ephemeral: true });
     }
 
     const hierarchyOk = await isRoleHierarchyValid(
@@ -78,3 +84,5 @@ export const command: Command = {
     }
   },
 };
+
+export default command;

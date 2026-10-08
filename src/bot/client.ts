@@ -97,49 +97,111 @@ export function setupEvents(client: Client): void {
         return;
       }
       await executeCommand(command, interaction);
-    } else if (interaction.isButton()) {
-      if (interaction.customId.startsWith("suggest_")) {
-        const [, action, id] = interaction.customId.split("_");
-        if (!id || !interaction.guildId) return;
+      } else if (interaction.isButton()) {
+        if (interaction.customId.startsWith("suggest_")) {
+          const [, action, id] = interaction.customId.split("_");
+          if (!id || !interaction.guildId) return;
 
-        await interaction.deferUpdate().catch(() => null);
+          await interaction.deferUpdate().catch(() => null);
 
-        // Dynamically import voteOnSuggestion to avoid circular dependencies in boot if any
-        const { voteOnSuggestion } = await import("../services/suggestions");
-        const suggestion = await voteOnSuggestion(interaction.guildId, id, interaction.user.id, action as "up" | "down");
-        
-        if (!suggestion) return;
+          const { voteOnSuggestion } = await import("../services/suggestions");
+          const suggestion = await voteOnSuggestion(interaction.guildId, id, interaction.user.id, action as "up" | "down");
+          
+          if (!suggestion) return;
 
-        // Update the message embed and buttons
-        const msg = interaction.message;
-        const oldEmbed = msg.embeds[0];
-        if (!oldEmbed) return;
+          const msg = interaction.message;
+          const oldEmbed = msg.embeds[0];
+          if (!oldEmbed) return;
 
-        const newEmbed = EmbedBuilder.from(oldEmbed)
-          .spliceFields(1, 1, { name: "Votes", value: `👍 ${suggestion.upvotes.length} | 👎 ${suggestion.downvotes.length}`, inline: true });
+          const newEmbed = EmbedBuilder.from(oldEmbed)
+            .spliceFields(1, 1, { name: "Votes", value: `👍 ${suggestion.upvotes.length} | 👎 ${suggestion.downvotes.length}`, inline: true });
 
-        const row = new ActionRowBuilder<ButtonBuilder>()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId(`suggest_up_${suggestion.id}`)
-              .setLabel(`Upvote (${suggestion.upvotes.length})`)
-              .setStyle(interaction.customId === `suggest_up_${id}` ? 3 : 3) // style 3 is Success
-              .setEmoji("👍"),
-            new ButtonBuilder()
-              .setCustomId(`suggest_down_${suggestion.id}`)
-              .setLabel(`Downvote (${suggestion.downvotes.length})`)
-              .setStyle(interaction.customId === `suggest_down_${id}` ? 4 : 4) // style 4 is Danger
-              .setEmoji("👎")
-          );
+          const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`suggest_up_${suggestion.id}`)
+                .setLabel(`Upvote (${suggestion.upvotes.length})`)
+                .setStyle(3)
+                .setEmoji("👍"),
+              new ButtonBuilder()
+                .setCustomId(`suggest_down_${suggestion.id}`)
+                .setLabel(`Downvote (${suggestion.downvotes.length})`)
+                .setStyle(4)
+                .setEmoji("👎")
+            );
 
-        await msg.edit({ embeds: [newEmbed], components: [row] }).catch(() => null);
+          await msg.edit({ embeds: [newEmbed], components: [row] }).catch(() => null);
+        } else if (interaction.customId.startsWith("ticket_create_")) {
+          if (!interaction.guild) return;
+          await interaction.deferReply({ ephemeral: true });
+
+          const staffRoleId = interaction.customId.replace("ticket_create_", "");
+          const cleanStaffRole = staffRoleId === "general" ? null : staffRoleId;
+
+          const { createTicketChannel } = await import("../services/ticketService");
+          const result = await createTicketChannel(interaction.guild, interaction.user.id, "General Support", cleanStaffRole);
+
+          if (result) {
+            await interaction.editReply({ content: `✅ Ticket created! Please head to ${result.channel}.` });
+          } else {
+            await interaction.editReply({ content: "❌ You already have an open ticket or an error occurred." });
+          }
+        } else if (interaction.customId.startsWith("ticket_close_")) {
+          if (!interaction.guild) return;
+          await interaction.deferReply({ ephemeral: true });
+
+          const { closeTicket } = await import("../services/ticketService");
+          const closed = await closeTicket(interaction.guild, interaction.channelId, interaction.user.id, "Closed via button");
+
+          if (closed) {
+            await interaction.editReply({ content: "🔒 Ticket closure initiated." });
+          } else {
+            await interaction.editReply({ content: "❌ Unable to close ticket." });
+          }
+        } else if (interaction.customId === "verify_start") {
+          if (!interaction.guild || !interaction.member) return;
+          await interaction.deferReply({ ephemeral: true });
+
+          const { processVerification } = await import("../services/verificationService");
+          const member = await interaction.guild.members.fetch(interaction.user.id);
+          const result = await processVerification(interaction.guild, member);
+
+          await interaction.editReply({ content: result.message });
+        } else if (interaction.customId.startsWith("rolepanel_")) {
+          if (!interaction.guild || !interaction.member) return;
+          await interaction.deferReply({ ephemeral: true });
+
+          const parts = interaction.customId.split("_");
+          const roleId = parts[2];
+          if (!roleId) return;
+
+          const { toggleRoleFromPanel } = await import("../services/rolePanelService");
+          const member = await interaction.guild.members.fetch(interaction.user.id);
+
+          try {
+            const res = await toggleRoleFromPanel(interaction.guild, member, roleId);
+            await interaction.editReply({
+              content: res.added
+                ? `✅ Granted role **${res.roleName}**.`
+                : `🗑️ Removed role **${res.roleName}**.`,
+            });
+          } catch (err: any) {
+            await interaction.editReply({ content: `❌ ${err.message || "Failed to update role."}` });
+          }
+        }
       }
-    }
-  });
+    });
 
-  // ─── Automod (new messages) ───────────────────────────────────────────────
+  // ─── Automod & Autoresponder (new messages) ───────────────────────────────────────────────
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.guildId) return;
+
+    // 1. Autoresponder check
+    const { processAutoResponders } = await import("../services/autoResponderService");
+    const responded = await processAutoResponders(message);
+    if (responded) return;
+
+    // 2. Automod check
     await processAutomod(client, message).catch(err =>
       logger.error("Automod error (create):", err)
     );

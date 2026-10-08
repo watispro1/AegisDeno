@@ -49,6 +49,15 @@ export const command: Command = {
     if (!target || typeof target === "string") {
       return interaction.reply({ content: "❌ Member not found.", ephemeral: true });
     }
+    if (target.id === interaction.user.id) {
+      return interaction.reply({ content: "❌ You cannot timeout yourself.", ephemeral: true });
+    }
+    if (target.id === interaction.client.user?.id) {
+      return interaction.reply({ content: "❌ You cannot timeout me.", ephemeral: true });
+    }
+    if (target.id === interaction.guild?.ownerId) {
+      return interaction.reply({ content: "❌ You cannot timeout the server owner.", ephemeral: true });
+    }
     if (!target.moderatable) {
       return interaction.reply({ content: "❌ I cannot timeout this member.", ephemeral: true });
     }
@@ -97,3 +106,5 @@ export const command: Command = {
     }
   },
 };
+
+export default command;

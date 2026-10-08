@@ -1,5 +1,5 @@
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, TextChannel } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 
@@ -30,14 +30,13 @@ export const command: Command = {
     const channel = interaction.channel;
     const guildId = interaction.guildId!;
 
-    if (!(channel instanceof TextChannel)) {
-      return interaction.reply({ content: "❌ This command can only be used in a text channel.", ephemeral: true });
+    if (!channel || !channel.isTextBased() || !("bulkDelete" in channel)) {
+      return interaction.reply({ content: "❌ This command can only be used in a text-based channel that supports bulk deleting.", ephemeral: true });
     }
 
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      // Fetch enough messages to filter by user if needed
       const fetched = await channel.messages.fetch({ limit: target ? 100 : amount });
       const toDelete = target
         ? fetched.filter(m => m.author.id === target.id).first(amount)
@@ -57,3 +56,5 @@ export const command: Command = {
     }
   },
 };
+
+export default command;

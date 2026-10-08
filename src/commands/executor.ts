@@ -35,8 +35,10 @@ async function replyError(
 ): Promise<void> {
   const payload = { content, ephemeral: true };
 
-  if (interaction.replied || interaction.deferred) {
+  if (interaction.replied) {
     await interaction.followUp(payload).catch(() => undefined);
+  } else if (interaction.deferred) {
+    await interaction.editReply(payload).catch(() => undefined);
   } else {
     await interaction.reply(payload).catch(() => undefined);
   }

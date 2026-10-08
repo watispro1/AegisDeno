@@ -29,6 +29,15 @@ export const command: Command = {
     if (!target || typeof target === "string") {
       return interaction.reply({ content: "❌ User not found in this server.", ephemeral: true });
     }
+    if (target.id === interaction.user.id) {
+      return interaction.reply({ content: "❌ You cannot kick yourself.", ephemeral: true });
+    }
+    if (target.id === interaction.client.user?.id) {
+      return interaction.reply({ content: "❌ You cannot kick me.", ephemeral: true });
+    }
+    if (target.id === interaction.guild?.ownerId) {
+      return interaction.reply({ content: "❌ You cannot kick the server owner.", ephemeral: true });
+    }
     if (!target.kickable) {
       return interaction.reply({ content: "❌ I cannot kick this member.", ephemeral: true });
     }
@@ -74,3 +83,5 @@ export const command: Command = {
     }
   },
 };
+
+export default command;

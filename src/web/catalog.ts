@@ -1,4 +1,4 @@
-﻿import { PermissionsBitField, PermissionFlagsBits } from "discord.js";
+import { PermissionsBitField, PermissionFlagsBits } from "discord.js";
 import type { APIApplicationCommandOption, PermissionResolvable } from "discord.js";
 import { commands, COMMAND_CATEGORIES, type CommandCategory } from "../commands/loader";
 
@@ -273,6 +273,10 @@ const CATEGORY_META: Record<string, { label: string; icon: string; blurb: string
   welcome: { label: "Welcome", icon: "👋", blurb: "Greet new members on arrival." },
   community: { label: "Community", icon: "🗳️", blurb: "Polls, announcements, and suggestions." },
   automation: { label: "Automation", icon: "⏰", blurb: "Scheduled messages and reminders." },
+  tickets: { label: "Tickets", icon: "🎫", blurb: "Private support ticket channel management." },
+  verification: { label: "Verification", icon: "🛡️", blurb: "Anti-raid member verification workflows." },
+  autoresponder: { label: "Auto-Responder", icon: "🤖", blurb: "Custom keyword triggers and automated replies." },
+  roles: { label: "Role Panels", icon: "🎭", blurb: "Self-assignable button role panels." },
   developer: { label: "Developer", icon: "🔧", blurb: "Diagnostics for bot operators." },
 };
 

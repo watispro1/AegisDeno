@@ -122,3 +122,62 @@ const SuggestionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 export const SuggestionModel = mongoose.model("Suggestion", SuggestionSchema);
+
+const TicketSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  guildId: { type: String, required: true },
+  channelId: { type: String, required: true },
+  userId: { type: String, required: true },
+  staffRoleId: { type: String, default: null },
+  category: { type: String, default: "general" },
+  status: { type: String, default: "open" },
+  closedBy: { type: String, default: null },
+  closedAt: { type: Date, default: null },
+  reason: { type: String, default: null },
+  createdAt: { type: Date, default: Date.now },
+});
+TicketSchema.index({ guildId: 1, userId: 1, status: 1 });
+export const TicketModel = mongoose.model("Ticket", TicketSchema);
+
+const VerificationSchema = new mongoose.Schema({
+  guildId: { type: String, required: true, unique: true },
+  enabled: { type: Boolean, default: false },
+  verifiedRoleId: { type: String, required: true },
+  type: { type: String, enum: ["button", "captcha"], default: "button" },
+  channelId: { type: String, default: null },
+  messageId: { type: String, default: null },
+});
+export const VerificationModel = mongoose.model("Verification", VerificationSchema);
+
+const AutoResponderSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  guildId: { type: String, required: true },
+  trigger: { type: String, required: true },
+  response: { type: String, required: true },
+  matchType: { type: String, enum: ["exact", "contains", "startsWith"], default: "contains" },
+  enabled: { type: Boolean, default: true },
+  createdBy: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+AutoResponderSchema.index({ guildId: 1, trigger: 1 });
+export const AutoResponderModel = mongoose.model("AutoResponder", AutoResponderSchema);
+
+const RolePanelSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  guildId: { type: String, required: true },
+  channelId: { type: String, required: true },
+  messageId: { type: String, required: true },
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  roles: [
+    {
+      roleId: { type: String, required: true },
+      label: { type: String, required: true },
+      emoji: { type: String, default: null },
+      style: { type: Number, default: 1 }, // 1 Primary, 2 Secondary, 3 Success, 4 Danger
+    },
+  ],
+  createdAt: { type: Date, default: Date.now },
+});
+export const RolePanelModel = mongoose.model("RolePanel", RolePanelSchema);
+
