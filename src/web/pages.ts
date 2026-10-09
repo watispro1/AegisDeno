@@ -612,15 +612,18 @@ export function renderCommands(cfg: SiteConfig): string {
 
 const DOC_SECTIONS = [
   { id: "quickstart", label: "Quickstart" },
+  { id: "tickets", label: "Support Tickets" },
+  { id: "verification", label: "Verification & Anti-Raid" },
+  { id: "roles", label: "Role Panels & Self-Roles" },
+  { id: "suggestions", label: "Suggestions & Voting" },
+  { id: "automod", label: "Auto Moderation" },
+  { id: "logging", label: "Audit Logging" },
+  { id: "welcome", label: "Welcome Messages" },
+  { id: "automation", label: "Automation & Schedules" },
   { id: "configuration", label: "Configuration" },
-  { id: "automod", label: "Auto moderation" },
-  { id: "logging", label: "Logging" },
-  { id: "welcome", label: "Welcome messages" },
-  { id: "automation", label: "Automation" },
-  { id: "roles", label: "Roles" },
-  { id: "permissions", label: "Permissions" },
+  { id: "permissions", label: "Permissions Matrix" },
   { id: "troubleshooting", label: "Troubleshooting" },
-  { id: "architecture", label: "How it works" },
+  { id: "architecture", label: "Architecture & Security" },
 ];
 
 function permissionTable(): string {
@@ -641,12 +644,13 @@ function permissionTable(): string {
 }
 
 const PERMISSION_WHY: Record<string, string> = {
-  "Ban Members": "Removing members from the server entirely.",
+  "Ban Members": "Removing members from the server entirely or lifting bans.",
   "Kick Members": "Removing a member without a permanent ban.",
   "Moderate Members": "Applying and lifting communication timeouts.",
-  "Manage Messages": "Bulk deleting messages.",
-  "Manage Channels": "Setting per-channel slowmode durations.",
-  "Manage Server": "Editing server-wide Aegis configuration.",
+  "Manage Messages": "Bulk deleting messages and managing panel messages.",
+  "Manage Channels": "Creating ticket channels, locking channels, and setting slowmodes.",
+  "Manage Roles": "Assigning roles via verification and interactive role panels.",
+  "Manage Server": "Editing server-wide Aegis configuration and AutoMod rules.",
 };
 
 export function renderDocs(cfg: SiteConfig): string {
@@ -663,8 +667,8 @@ export function renderDocs(cfg: SiteConfig): string {
     <a href="/">Home</a><span class="sep">/</span><span>Docs</span>
   </nav>
   <div class="page-head">
-    <h1>Documentation</h1>
-    <p class="lead">How to configure Aegis, what each permission unlocks, and how data is stored. Everything here works with the ${s.commands} commands listed in the reference.</p>
+    <h1>Documentation & User Manual</h1>
+    <p class="lead">Complete documentation for configuring Aegis, setting up ticket panels, anti-raid verification, interactive role panels, AutoMod filters, and audit streams across your server.</p>
   </div>
 </div>
 
@@ -680,132 +684,122 @@ export function renderDocs(cfg: SiteConfig): string {
       <ul>
         <li><a href="/commands">All commands</a></li>
         <li><a href="/features">All features</a></li>
+        <li><a href="/playground">Command Playground</a></li>
+        <li><a href="/dashboard">Live Dashboard</a></li>
         <li><a href="/changelog">Changelog</a></li>
         <li><a href="/status">Service status</a></li>
       </ul>
     </aside>
 
     <div class="prose">
-      <h2 id="quickstart">Quickstart</h2>
-      <p>Aegis is ready to use the moment it joins a server, but almost everything is off by default. This is the shortest path to a working setup.</p>
+      <h2 id="quickstart">Quickstart Guide</h2>
+      <p>Aegis is ready to protect and manage your server right out of the box. Follow these steps to set up core moderation, ticket systems, and security gates.</p>
       <ol>
-        <li><strong>Invite Aegis.</strong> Use the invite link in the header. Review the permission list on the authorization screen — you can start with no administrative access and add only what a feature asks for.</li>
-        <li><strong>Check the defaults.</strong> Run <code class="inline">/config view</code> to see what is currently set.</li>
-        <li><strong>Turn on logging.</strong> <code class="inline">/logging channel #mod-logs</code> sets the channel and enables logging in one step.</li>
-        <li><strong>Add auto moderation.</strong> <code class="inline">/automod words toggle enabled:true</code>, then <code class="inline">/automod words add word:&lt;term&gt;</code> for each term.</li>
-        <li><strong>Set up welcomes.</strong> <code class="inline">/welcome channel #general</code>, <code class="inline">/welcome message text:…</code>, then <code class="inline">/welcome toggle enabled:true</code>.</li>
-        <li><strong>Schedule anything recurring.</strong> <code class="inline">/automation remind in:2h message:…</code>, review with <code class="inline">/automation list</code>.</li>
+        <li><strong>Invite Aegis to your server.</strong> Click the invite link above and select your server. Aegis registers all slash commands instantly upon joining.</li>
+        <li><strong>Configure audit logging.</strong> Run <code class="inline">/logging channel #mod-logs</code> to record member joins, message deletions, and moderation actions.</li>
+        <li><strong>Set up support tickets.</strong> Run <code class="inline">/ticket setup channel:#support staff_role:@Staff</code> to post an interactive ticket panel.</li>
+        <li><strong>Enable anti-raid verification.</strong> Run <code class="inline">/verify setup channel:#verify verified_role:@Verified</code> to screen new members.</li>
+        <li><strong>Configure AutoMod.</strong> Enable keyword and link protection using <code class="inline">/automod words toggle enabled:true</code> and <code class="inline">/automod links toggle enabled:true</code>.</li>
       </ol>
       <div class="callout info">
         <span class="callout-icon" aria-hidden="true">i</span>
-        <div>Commands register automatically when the bot starts. Global commands can take up to an hour to appear; commands registered to a single test guild appear immediately.</div>
+        <div>Slash commands register automatically with Discord. If global commands do not appear immediately in your client, restart Discord or run <code class="inline">/help</code> to force client cache refresh.</div>
       </div>
 
-      <h2 id="configuration">Configuration</h2>
-      <p><code class="inline">/config</code> reads and writes the per-server settings that other features depend on. Settings are keyed by guild ID, so nothing is ever shared between servers.</p>
-      <h3>Available settings</h3>
-      <ul>
-        <li><strong>Prefix</strong> — legacy prefix, retained for compatibility. Aegis does not use prefix commands.</li>
-        <li><strong>Language</strong> — locale hint for message formatting.</li>
-      </ul>
-      <p>Feature-level state lives with its own command instead: <code class="inline">/logging</code>, <code class="inline">/automod</code>, and <code class="inline">/welcome</code> each manage their own settings, which keeps <code class="inline">/config</code> small and predictable.</p>
-      <pre class="block">/config view
-/config set key:language value:en</pre>
+      <h2 id="tickets">Support Ticket System</h2>
+      <p>Aegis features a private support ticket system powered by Discord buttons and permission overwrites. Moderators can manage tickets, claim responsibility, and export TXT chat transcripts.</p>
+      <h3>Ticket Commands</h3>
+      <pre class="block">/ticket setup channel:#support staff_role:@SupportTeam title:"🎫 Support Center"
+/ticket close reason:"Issue resolved"
+/ticket claim
+/ticket add user:@Member
+/ticket remove user:@Member
+/ticket transcript</pre>
+      <h3>Single Open Ticket Rule & Duplicate Safeguards</h3>
+      <p>Aegis limits members to one active open ticket at a time to prevent support queue spam. Rapid double-clicks on button panels are guarded by a concurrency mutex, and re-running <code class="inline">/ticket setup</code> automatically purges old panel embeds from the target channel.</p>
 
-      <h2 id="automod">Auto moderation</h2>
-      <p>Automod inspects every new message before anyone else reads it. Three independent rules ship enabled-by-default-off, each with its own action.</p>
-      <h3>Blocked words</h3>
-      <p>Matches case-insensitively anywhere in the message body. Lists are per server and per rule, so a filter tuned for one community never affects another.</p>
+      <h2 id="verification">Verification & Anti-Raid System</h2>
+      <p>Protect your server against self-bots, raid waves, and spam accounts by requiring new arrivals to pass a verification gate before seeing server channels.</p>
+      <pre class="block">/verify setup channel:#verify verified_role:@Member type:button
+/verify info
+/verify user target:@Member
+/verify disable</pre>
+      <p>Choose between <strong>1-Click Button</strong> mode for seamless onboarding or <strong>CAPTCHA Verification</strong> mode for enhanced security.</p>
+
+      <h2 id="roles">Role Panels & Self-Roles</h2>
+      <p>Deploy self-assignable role panels with interactive buttons. Members click a role button to toggle roles on or off instantly with zero reaction emoji lag.</p>
+      <pre class="block">/rolepanel create channel:#roles role1:@Announcements role2:@Events role3:@Updates
+/rolepanel list
+/rolepanel delete id:&lt;panel-id&gt;</pre>
+      <p>Deleting a role panel record with <code class="inline">/rolepanel delete</code> automatically removes the physical panel message from your Discord channel.</p>
+
+      <h2 id="suggestions">Suggestions & Community Feedback</h2>
+      <p>Collect community ideas with interactive upvote and downvote buttons. Staff members can approve, reject, or mark suggestions as under consideration.</p>
+      <pre class="block">/suggest suggestion:"Add a dedicated art channel"
+/suggest approve id:&lt;id&gt; reason:"Great idea!"
+/suggest reject id:&lt;id&gt; reason:"Not feasible"</pre>
+
+      <h2 id="automod">Auto Moderation</h2>
+      <p>AutoMod scans messages in real time to enforce community guidelines before moderators need to intervene.</p>
       <pre class="block">/automod status
 /automod words toggle enabled:true
-/automod words add word:free nitro
+/automod words add word:"free nitro"
 /automod words action action:warn
-/automod words remove word:free nitro</pre>
-      <h3>Link filtering</h3>
-      <p>Catches any <code class="inline">http</code> or <code class="inline">https</code> URL. Useful for channels where links mean spam.</p>
-      <pre class="block">/automod links toggle enabled:true
-/automod links action action:delete</pre>
-      <h3>Mention spam</h3>
-      <p>Triggers when a single message mentions more users than the configured threshold. Defaults to a timeout action, which stops ping-spam escalation without needing a moderator online.</p>
-      <pre class="block">/automod mentions toggle enabled:true
-/automod mentions limit count:5
-/automod mentions action action:timeout</pre>
-      <div class="callout warn">
-        <span class="callout-icon" aria-hidden="true">!</span>
-        <div>Automod is a safety net, not a replacement for moderators. Tune the word list carefully — short or ambiguous terms will catch legitimate conversation.</div>
-      </div>
+/automod links toggle enabled:true
+/automod mentions toggle enabled:true limit:5</pre>
 
-      <h2 id="logging">Logging</h2>
-      <p>Log entries are written into a channel you choose, so they follow the retention and access controls you already set for that channel. Aegis does not keep a second copy.</p>
-      <p>Setting a channel also enables logging, so the common case is a single command:</p>
+      <h2 id="logging">Audit Logging</h2>
+      <p>Stream member joins, message deletions, and moderation actions directly to a staff audit log channel in your server.</p>
       <pre class="block">/logging channel #mod-logs
 /logging status
 /logging toggle enabled:false</pre>
-      <p>Currently recorded events include member joins, member leaves, deleted messages, and every moderation action with the moderator, target, and reason attached.</p>
 
-      <h2 id="welcome">Welcome messages</h2>
-      <p>Welcome messages post when a member joins. The message template supports placeholders that are replaced at send time.</p>
+      <h2 id="welcome">Welcome Messages</h2>
+      <p>Greet new members with customized join messages and placeholders.</p>
       <pre class="block">/welcome channel #general
-/welcome message text:Welcome {user} to **{server}**! You are member #{member_count}.
+/welcome message text:"Welcome {user} to **{server}**! You are member #{member_count}."
 /welcome toggle enabled:true</pre>
-      <h3>Placeholders</h3>
       <ul>
-        <li><code class="inline">{user}</code> — a mention that pings the new member</li>
-        <li><code class="inline">{username}</code> — plain username, no ping</li>
+        <li><code class="inline">{user}</code> — pings the member</li>
+        <li><code class="inline">{username}</code> — plain username without ping</li>
         <li><code class="inline">{server}</code> — server name</li>
-        <li><code class="inline">{member_count}</code> — member count after joining</li>
+        <li><code class="inline">{member_count}</code> — total server member count</li>
       </ul>
-      <p><code class="inline">/welcome message</code> replies with a live preview using your own account, so you can check the formatting before enabling it.</p>
 
-      <h2 id="automation">Automation</h2>
-      <p>Scheduled tasks are persisted, so they survive a restart. Durations use a compact format: <code class="inline">30s</code>, <code class="inline">10m</code>, <code class="inline">2h</code>, <code class="inline">1d</code>.</p>
-      <pre class="block">/automation remind in:2h message:Stand-up in 5 minutes
-/automation message in:1d channel:#announcements message:Weekly update
+      <h2 id="automation">Automation & Scheduled Tasks</h2>
+      <p>Set reminders and recurring channel posts that survive bot restarts. Time durations use compact syntax: <code class="inline">30s</code>, <code class="inline">10m</code>, <code class="inline">2h</code>, or <code class="inline">1d</code>.</p>
+      <pre class="block">/automation remind in:2h message:"Staff sync meeting"
+/automation message in:1d channel:#announcements message:"Event starting soon!"
 /automation list
 /automation cancel id:&lt;task-id&gt;</pre>
-      <p>Reminders can be scheduled from one second up to 28 days ahead. You can only cancel your own tasks unless you hold <code class="inline">Manage Server</code>.</p>
 
-      <h2 id="roles">Roles and hierarchy</h2>
-      <p>Aegis refuses to act on anyone who sits at or above its own highest role, and it checks the same relationship between the moderator and the target. This is enforced in the permission layer, so it applies to every command, including automod actions.</p>
-      <p>For example, <code class="inline">/nickname</code> requires Manage Nicknames from both the moderator and Aegis, then checks both role positions before changing a member's nickname.</p>
+      <h2 id="configuration">Server Configuration</h2>
+      <p>View and manage server-wide configuration settings.</p>
+      <pre class="block">/config view
+/config set key:language value:en</pre>
 
-      <h2 id="permissions">Permissions</h2>
-      <p>Permissions are checked twice. Discord hides commands the invoking member cannot use via <code class="inline">setDefaultMemberPermissions</code>, and the bot re-verifies at execution time so a permission change mid-session cannot be used to bypass a check.</p>
+      <h2 id="permissions">Permissions Matrix</h2>
+      <p>Aegis enforces strict role hierarchy checks and re-verifies user and bot permissions at execution time.</p>
       ${permissionTable()}
-      <div class="callout">
-        <span class="callout-icon" aria-hidden="true">i</span>
-        <div>Server-wide configuration commands require <code class="inline">Manage Server</code>, not Administrator. Every command is re-checked at execution time, and the invite screen asks for the union of the bot permissions actually required.</div>
-      </div>
 
-      <h2 id="troubleshooting">Troubleshooting</h2>
-      <h3>Commands do not appear</h3>
-      <p>Global commands can take up to an hour to propagate. If they never appear, confirm the bot was invited with the <code class="inline">applications.commands</code> scope and that the application has finished registering.</p>
-      <h3>A command is greyed out</h3>
-      <p>Your account is missing the permission that command declares. Run <code class="inline">/help</code> to see the list, and check your role position.</p>
-      <h3>Aegis says it needs a permission</h3>
-      <p>That is the bot, not you. Move Aegis' role above the target role, and grant the specific permission in the server role settings.</p>
-      <h3>Timeouts fail silently</h3>
-      <p>Discord caps timeouts at 28 days, and timeouts cannot be applied to the server owner or anyone above Aegis. Check the member's highest role.</p>
-      <h3>Logs are missing</h3>
-      <p>Confirm <code class="inline">/logging status</code> shows the channel you expect, that the channel still exists, and that Aegis can view and send in it.</p>
+      <h2 id="troubleshooting">Troubleshooting & Gotchas</h2>
+      <h3>Commands missing from slash menu</h3>
+      <p>Verify that Aegis was invited with the <code class="inline">applications.commands</code> scope. Global commands propagate across Discord within a few minutes.</p>
+      <h3>Role hierarchy error when performing moderation</h3>
+      <p>Aegis cannot moderate members whose highest role sits above or equal to Aegis' highest role in Server Settings > Roles.</p>
+      <h3>Duplicate ticket panel issue</h3>
+      <p>Re-run <code class="inline">/ticket setup</code> in the support channel. Aegis automatically purges old bot ticket setup panels in that channel.</p>
 
-      <h2 id="architecture">How it works</h2>
-      <p>Each server's state is stored against its guild ID: configuration, automod rules, warnings, suggestions, and scheduled tasks. A command in one server can never read or write another server's data.</p>
-      <ul>
-        <li><strong>Commands</strong> load once at startup and register with Discord in a single scope, so no command is ever duplicated in the client.</li>
-        <li><strong>Permissions</strong> are declared per command and re-checked at execution time.</li>
-        <li><strong>Scheduler</strong> persists tasks and rehydrates them on boot, so a restart does not lose reminders.</li>
-        <li><strong>Logging</strong> writes to your channel directly rather than retaining a private copy.</li>
-      </ul>
-      <p>See the <a href="/changelog">changelog</a> for what changed recently, or <a href="/status">service status</a> for live uptime.</p>
+      <h2 id="architecture">Architecture & Data Security</h2>
+      <p>All configuration, ticket records, and AutoMod rules are isolated by guild ID. Aegis never shares data between servers and writes audit logs directly to your Discord channels.</p>
     </div>
   </div>
 </div>`;
 
   return page(cfg, {
-    title: "Documentation — Aegis",
+    title: "Documentation — Aegis Discord Bot",
     description:
-      "Setup guide, configuration reference, permission requirements, and troubleshooting for the Aegis Discord bot.",
+      "Comprehensive documentation for Aegis Discord Bot: tickets, verification, role panels, AutoMod, audit logging, and commands.",
     path: "/docs",
     body,
   });
@@ -1360,9 +1354,9 @@ export function renderDashboard(cfg: SiteConfig, stats: Stats, online: boolean):
   const body = `
 <section class="page-header" style="text-align:center; padding: 3rem 0 1.5rem;">
   <div class="wrap">
-    <span class="eyebrow">Real-Time Control Panel</span>
-    <h1 style="margin-top: 0.4rem;">Live Bot <span class="gradient-text">Dashboard</span></h1>
-    <p class="lead" style="max-width: 640px; margin: 0.5rem auto 0;">Monitor guild statistics, real-time gateway latency, memory utilization, and AutoMod activity in one clean control panel.</p>
+    <span class="eyebrow">Real-Time Operations Center</span>
+    <h1 style="margin-top: 0.4rem;">Live Server <span class="gradient-text">Dashboard</span></h1>
+    <p class="lead" style="max-width: 680px; margin: 0.5rem auto 0;">Monitor live gateway telemetry, AutoMod threat filters, active ticket systems, and staff audit streams in one real-time dashboard.</p>
   </div>
 </section>
 
@@ -1370,22 +1364,22 @@ export function renderDashboard(cfg: SiteConfig, stats: Stats, online: boolean):
   <div class="wrap">
     <div class="metric-grid" style="margin-bottom: 2rem;">
       <div class="metric">
-        <div class="label">Bot Status</div>
+        <div class="label">System Gateway</div>
         <div class="value ${st.cls === "ok" ? "good" : "warn"}">${st.label}</div>
-        <div class="sub">Gateway ping: ${stats.ping} ms</div>
+        <div class="sub">Latency: ${stats.ping} ms</div>
       </div>
       <div class="metric">
-        <div class="label">Connected Guilds</div>
+        <div class="label">Active Guilds</div>
         <div class="value" data-live="guilds">${stats.guilds.toLocaleString()}</div>
-        <div class="sub">Active discord servers</div>
+        <div class="sub">Connected Discord servers</div>
       </div>
       <div class="metric">
-        <div class="label">Total Members</div>
+        <div class="label">Protected Members</div>
         <div class="value" data-live="users">${stats.users.toLocaleString()}</div>
-        <div class="sub">Protected users</div>
+        <div class="sub">Active user coverage</div>
       </div>
       <div class="metric">
-        <div class="label">Active Commands</div>
+        <div class="label">Command Suite</div>
         <div class="value">${stats.commands}</div>
         <div class="sub">${cs.subcommands} subcommands &middot; ${cs.options} options</div>
       </div>
@@ -1395,49 +1389,49 @@ export function renderDashboard(cfg: SiteConfig, stats: Stats, online: boolean):
       <div class="dash-card">
         <div class="card-head" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
           <h3>🛡️ Live AutoMod Rule Toggles</h3>
-          <span class="faint">Simulated Controls</span>
+          <span class="pill ok">Interactive Engine</span>
         </div>
         <div style="display: grid; gap: 1.15rem;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <strong>Link Filter</strong>
-              <div class="faint">Block invite links and unauthorized domain URLs</div>
+              <strong>Link & Invite Shield</strong>
+              <div class="faint">Block discord invites & untrusted external URLs</div>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" checked data-rule-name="Link Filter">
+              <input type="checkbox" checked data-rule-name="Link Shield">
               <span class="toggle-slider"></span>
             </label>
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <strong>Mention Spam Protection</strong>
-              <div class="faint">Flag messages containing > 5 user mentions</div>
+              <strong>Mention Spam Guard</strong>
+              <div class="faint">Timeout users posting > 5 mentions per message</div>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" checked data-rule-name="Mention Spam">
+              <input type="checkbox" checked data-rule-name="Mention Guard">
               <span class="toggle-slider"></span>
             </label>
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <strong>Profanity & Slur Filter</strong>
-              <div class="faint">Automatically purge explicit content & warn member</div>
+              <strong>Profanity & Keyword Filter</strong>
+              <div class="faint">Purge blacklisted terms & issue warnings</div>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" checked data-rule-name="Profanity Filter">
+              <input type="checkbox" checked data-rule-name="Keyword Filter">
               <span class="toggle-slider"></span>
             </label>
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <strong>Caps Spam Limiter</strong>
-              <div class="faint">Purge messages containing > 70% uppercase letters</div>
+              <strong>Caps & Character Flooding</strong>
+              <div class="faint">Filter messages containing > 70% uppercase text</div>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" data-rule-name="Caps Spam Limiter">
+              <input type="checkbox" data-rule-name="Caps Filter">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -1447,36 +1441,36 @@ export function renderDashboard(cfg: SiteConfig, stats: Stats, online: boolean):
       <div class="dash-card">
         <div class="card-head" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
           <h3>📜 Live Staff Audit Stream</h3>
-          <span class="pill ok">Stream Online</span>
+          <span class="pill ok">Stream Active</span>
         </div>
         <div class="log-stream-box">
           <div class="log-item">
+            <span class="log-tag mod">TICKET</span>
+            <span><b>@User409</b> opened ticket <code>#ticket-user409</code> (General Support)</span>
+          </div>
+          <div class="log-item">
             <span class="log-tag mod">MOD</span>
-            <span><b>@Moderator</b> issued low warning to <b>@User102</b> (Reason: Reaction spam)</span>
+            <span><b>@Moderator</b> issued warning to <b>@User102</b> (Severity: MEDIUM)</span>
           </div>
           <div class="log-item">
             <span class="log-tag automod">AUTOMOD</span>
-            <span>Purged invite link from <b>spammer_bot#1290</b> in <code>#general</code></span>
+            <span>Shielded invite link from <b>spammer_bot</b> in <code>#general</code></span>
           </div>
           <div class="log-item">
             <span class="log-tag system">SYSTEM</span>
-            <span>Guild config synced with MongoDB database</span>
-          </div>
-          <div class="log-item">
-            <span class="log-tag mod">MOD</span>
-            <span><b>@Admin</b> locked channel <code>#announcements</code> (Reason: Maintenance)</span>
+            <span>Anti-raid verification panel synced in <code>#verify</code></span>
           </div>
         </div>
       </div>
     </div>
 
-    ${ctaBox(cfg, "Deploy Aegis to your server today", "Take total control of server moderation with zero hassle and instant slash commands.")}
+    ${ctaBox(cfg, "Deploy Aegis to your server today", "Take total control of server moderation, ticket systems, and verification with zero hassle.")}
   </div>
 </section>`;
 
   return page(cfg, {
     title: "Live Dashboard — Aegis Discord Bot",
-    description: "Real-time live telemetry, gateway stats, and AutoMod rule management dashboard for Aegis Discord Bot.",
+    description: "Real-time telemetry, AutoMod controls, and staff audit stream dashboard for Aegis Discord Bot.",
     path: "/dashboard",
     body,
   });
@@ -1489,8 +1483,8 @@ export function renderPlayground(cfg: SiteConfig): string {
 <section class="page-header" style="text-align:center; padding: 3rem 0 1.5rem;">
   <div class="wrap">
     <span class="eyebrow">Interactive Simulator</span>
-    <h1 style="margin-top:0.4rem;">Command <span class="gradient-text">Playground</span></h1>
-    <p class="lead" style="max-width: 640px; margin: 0.5rem auto 0;">Test Aegis slash commands live in your browser and preview exactly how Discord embeds and response buttons render before inviting the bot.</p>
+    <h1 style="margin-top:0.4rem;">Command & Embed <span class="gradient-text">Playground</span></h1>
+    <p class="lead" style="max-width: 680px; margin: 0.5rem auto 0;">Test Aegis slash commands live in your browser and preview Discord embeds, interactive action buttons, and modal workflows in real time.</p>
   </div>
 </section>
 
@@ -1498,25 +1492,27 @@ export function renderPlayground(cfg: SiteConfig): string {
   <div class="wrap">
     <div class="playground-grid">
       <div class="pg-card">
-        <h3 style="margin-bottom: 1.2rem;">⚡ Command Options</h3>
+        <h3 style="margin-bottom: 1.2rem;">⚡ Command Simulator Controls</h3>
 
         <div class="pg-form-group">
-          <label for="pg-command-select">Select Command</label>
+          <label for="pg-command-select">Select Command Suite</label>
           <select id="pg-command-select" class="pg-select">
-            <option value="warn">/warn (Issue Warning with Severity & Undo)</option>
-            <option value="lock">/lock (Channel & Server Lockdown)</option>
-            <option value="timeout">/timeout (Temporary Member Timeout)</option>
-            <option value="modstats">/modstats (Interactive Moderation Telemetry)</option>
+            <option value="ticket" selected>🎫 /ticket setup (Support Ticket Panel)</option>
+            <option value="verify">🛡️ /verify setup (Anti-Raid Member Verification)</option>
+            <option value="rolepanel">🎭 /rolepanel create (Button Reaction Roles)</option>
+            <option value="suggest">💡 /suggest (Community Feedback & Voting)</option>
+            <option value="warn">⚠️ /warn (Warning with Severity & Undo)</option>
+            <option value="purge">🗑️ /purge (Bulk Delete & Filter Preview)</option>
           </select>
         </div>
 
         <div class="pg-form-group">
-          <label for="pg-user-input">Target User</label>
-          <input type="text" id="pg-user-input" class="pg-input" value="@BadUser" placeholder="@Username">
+          <label for="pg-user-input">Target User / Channel</label>
+          <input type="text" id="pg-user-input" class="pg-input" value="@Member" placeholder="@Username or #channel">
         </div>
 
         <div class="pg-form-group">
-          <label for="pg-severity-select">Warning Severity</label>
+          <label for="pg-severity-select">Warning / Action Severity</label>
           <select id="pg-severity-select" class="pg-select">
             <option value="low">🟡 Low Severity</option>
             <option value="medium" selected>🟠 Medium Severity</option>
@@ -1525,46 +1521,45 @@ export function renderPlayground(cfg: SiteConfig): string {
         </div>
 
         <div class="pg-form-group">
-          <label for="pg-reason-input">Reason</label>
-          <input type="text" id="pg-reason-input" class="pg-input" value="Inappropriate channel behavior" placeholder="Specify reason...">
+          <label for="pg-reason-input">Title / Reason / Input</label>
+          <input type="text" id="pg-reason-input" class="pg-input" value="Need assistance with server permissions" placeholder="Specify reason or panel title...">
         </div>
 
         <div style="margin-top: 1.5rem; background: var(--bg-alt); padding: 0.85rem; border-radius: var(--r-sm); border: 1px solid var(--border);">
           <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--faint); font-weight: 700; margin-bottom: 0.25rem;">Slash Command String</div>
-          <code id="pg-cmd-string" style="color: var(--primary); font-family: var(--mono); font-size: 0.88rem;">/warn user:@BadUser reason:"Inappropriate channel behavior" severity:medium</code>
+          <code id="pg-cmd-string" style="color: var(--primary); font-family: var(--mono); font-size: 0.88rem;">/ticket setup channel:#support staff_role:@SupportTeam title:"Support Tickets"</code>
         </div>
       </div>
 
       <div class="pg-card" style="background: #1e1f22;">
-        <h3 style="margin-bottom: 1.2rem; color: #f2f3f5;">💬 Discord Embed Preview</h3>
+        <h3 style="margin-bottom: 1.2rem; color: #f2f3f5;">💬 Live Discord Embed Preview</h3>
 
         <div class="discord-box">
           <div class="discord-msg-head">
             <div class="discord-avatar">A</div>
             <div>
               <div class="discord-author">Aegis <span class="discord-bot-tag">BOT</span></div>
-              <div class="discord-time">Today at 11:55 AM</div>
+              <div class="discord-time">Today at 12:00 PM</div>
             </div>
           </div>
 
-          <div id="pg-embed-card" class="discord-embed-card">
-            <div id="pg-embed-title" class="discord-embed-title">⚠️ Member Warned</div>
-            <div id="pg-embed-desc" class="discord-embed-desc">@BadUser was issued a formal warning by @Moderator.</div>
+          <div id="pg-embed-card" class="discord-embed-card" style="border-left-color: #3498db;">
+            <div id="pg-embed-title" class="discord-embed-title">🎫 Support Tickets</div>
+            <div id="pg-embed-desc" class="discord-embed-desc">Need assistance? Click the button below to open a private support ticket with our team.</div>
             <div class="discord-embed-fields">
               <div>
-                <div class="discord-field-name">Reason</div>
-                <div id="pg-f1-val" class="discord-field-val">Inappropriate channel behavior</div>
+                <div class="discord-field-name">Category</div>
+                <div id="pg-f1-val" class="discord-field-val">General Support</div>
               </div>
               <div>
-                <div class="discord-field-name">Severity</div>
-                <div id="pg-f2-val" class="discord-field-val">MEDIUM</div>
+                <div class="discord-field-name">Staff Role</div>
+                <div id="pg-f2-val" class="discord-field-val">@SupportTeam</div>
               </div>
             </div>
           </div>
 
-          <div class="discord-buttons-row">
-            <button class="d-btn primary" type="button">📜 Warning History</button>
-            <button class="d-btn danger" type="button">❌ Undo Warn</button>
+          <div id="pg-buttons-row" class="discord-buttons-row" style="margin-top: 0.75rem;">
+            <button class="d-btn primary" type="button">🎫 Create Ticket</button>
           </div>
         </div>
       </div>

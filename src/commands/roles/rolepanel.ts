@@ -205,7 +205,7 @@ export const command: Command = {
 
       await interaction.deferReply({ ephemeral: true });
       const id = interaction.options.getString("id", true);
-      const ok = await deleteRolePanel(interaction.guild.id, id);
+      const ok = await deleteRolePanel(interaction.guild, id);
       
       if (ok) {
         await interaction.editReply({
@@ -213,7 +213,7 @@ export const command: Command = {
             new EmbedBuilder()
               .setColor(0x57F287)
               .setTitle("🗑️ Role Panel Deleted")
-              .setDescription(`Panel ID \`${id}\` has been removed from the database.\n\n*(Note: You may need to manually delete the Discord message if it still exists)*`)
+              .setDescription(`Panel ID \`${id}\` and its message in Discord have been deleted.`)
               .setTimestamp()
           ]
         });

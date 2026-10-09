@@ -42,6 +42,19 @@ export async function setupVerification(
   description = "Click the button below to verify your account and gain access to the rest of the server."
 ): Promise<VerificationConfig | null> {
   try {
+    // Purge previous verification panel messages in this channel to prevent duplicates
+    const fetchedMsgs = await channel.messages.fetch({ limit: 50 }).catch(() => null);
+    if (fetchedMsgs) {
+      const oldPanels = fetchedMsgs.filter(
+        (m) =>
+          m.author.id === guild.client.user?.id &&
+          m.components.some((row: any) => row.components?.some((c: any) => c.customId === "verify_start"))
+      );
+      for (const [, msg] of oldPanels) {
+        await msg.delete().catch(() => null);
+      }
+    }
+
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setColor(0x2ECC71)

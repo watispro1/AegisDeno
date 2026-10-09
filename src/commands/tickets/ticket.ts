@@ -72,6 +72,19 @@ export const command: Command = {
       const title = interaction.options.getString("title") || "🎫 Support Tickets";
       const description = interaction.options.getString("description") || "Need assistance? Click the button below to open a private support ticket with our team.";
 
+      // Purge previous Aegis ticket panel messages in the channel to prevent duplicates
+      const fetchedMsgs = await channel.messages.fetch({ limit: 50 }).catch(() => null);
+      if (fetchedMsgs) {
+        const oldPanels = fetchedMsgs.filter(
+          (m) =>
+            m.author.id === interaction.client.user?.id &&
+            m.components.some((row: any) => row.components?.some((c: any) => c.customId?.startsWith("ticket_create_")))
+        );
+        for (const [, msg] of oldPanels) {
+          await msg.delete().catch(() => null);
+        }
+      }
+
       const embed = new EmbedBuilder()
         .setTitle(title)
         .setColor(0x3498DB)
@@ -88,7 +101,7 @@ export const command: Command = {
       );
 
       await channel.send({ embeds: [embed], components: [row] });
-      await interaction.reply({ content: `✅ Support ticket panel successfully created in ${channel}!`, ephemeral: true });
+      await interaction.reply({ content: `✅ Support ticket panel successfully created in ${channel}! (Previous panels in channel purged)`, ephemeral: true });
       return;
     }
 

@@ -112,9 +112,20 @@ export async function getRolePanels(guildId: string): Promise<RolePanel[]> {
   }
 }
 
-export async function deleteRolePanel(guildId: string, id: string): Promise<boolean> {
+export async function deleteRolePanel(guild: Guild, id: string): Promise<boolean> {
   try {
-    const res = await RolePanelModel.deleteOne({ guildId, id });
+    const doc = await RolePanelModel.findOne({ guildId: guild.id, id });
+    if (!doc) return false;
+
+    if (doc.channelId && doc.messageId) {
+      const channel = (guild.channels.cache.get(doc.channelId) || (await guild.channels.fetch(doc.channelId).catch(() => null))) as TextChannel | null;
+      if (channel) {
+        const msg = await channel.messages.fetch(doc.messageId).catch(() => null);
+        if (msg) await msg.delete().catch(() => null);
+      }
+    }
+
+    const res = await RolePanelModel.deleteOne({ guildId: guild.id, id });
     return res.deletedCount > 0;
   } catch {
     return false;

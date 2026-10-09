@@ -20,18 +20,33 @@ export interface TicketConfig {
   categoryName: string;
 }
 
+const pendingTicketCreations = new Set<string>();
+
 export async function createTicketChannel(
   guild: Guild,
   userId: string,
   category = "General Support",
   staffRoleId?: string | null
 ): Promise<{ channel: TextChannel; ticketId: string } | null> {
+  const lockKey = `${guild.id}:${userId}`;
+  if (pendingTicketCreations.has(lockKey)) {
+    logger.warn(`Ticket creation already in progress for user ${userId} in guild ${guild.id}`);
+    return null;
+  }
+
+  pendingTicketCreations.add(lockKey);
+
   try {
     const existingOpen = await TicketModel.findOne({ guildId: guild.id, userId, status: "open" });
     if (existingOpen) {
-      const channel = guild.channels.cache.get(existingOpen.channelId) as TextChannel | undefined;
+      let channel = guild.channels.cache.get(existingOpen.channelId) as TextChannel | undefined;
+      if (!channel) {
+        channel = (await guild.channels.fetch(existingOpen.channelId).catch(() => null)) as TextChannel | null ?? undefined;
+      }
       if (channel) {
         return { channel, ticketId: existingOpen.id };
+      } else {
+        await TicketModel.updateOne({ _id: existingOpen._id }, { status: "closed", reason: "Channel deleted" });
       }
     }
 
@@ -125,6 +140,8 @@ export async function createTicketChannel(
   } catch (err) {
     logger.error("Failed to create ticket channel:", err);
     return null;
+  } finally {
+    pendingTicketCreations.delete(lockKey);
   }
 }
 
