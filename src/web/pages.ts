@@ -834,6 +834,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.1.0",
+    date: "2026-10-09",
+    tag: "Feature Drop",
+    summary: "Giveaway system, redesigned polls, /infractions dashboard, /remindme, upgraded /slowmode, and a richer /announce with live preview editing.",
+    highlights: [
+      "[NEW] /giveaway suite — start, end, reroll, and list giveaways with role requirements, multi-winner support, auto-end timer, and DM notifications to winners.",
+      "[NEW] /infractions — paginated staff dashboard showing per-user warnings and mod cases in one tabbed view with page navigation.",
+      "[NEW] /remindme — personal DM reminder with flexible duration strings (30m, 2h, 1d) and optional channel ping delivery.",
+      "[ENHANCED] /poll completely rewritten with interactive buttons, live vote progress bars, anonymous mode, multi-select toggle, image attachments, configurable duration, and an End Poll button for moderators.",
+      "[ENHANCED] /announce upgraded with a live embed preview before sending, in-place title/body edit modal, 8-color palette picker, image and thumbnail URL fields, crosspost support for Announcement channels, and author brand suppression.",
+      "[ENHANCED] /slowmode upgraded from a single integer input to a set/custom/check subcommand tree with friendly presets, quick-adjust action buttons, reason tracking, and current-rate checker.",
+      "[WEB] Website changelog updated to v3.1.0 with all new command entries.",
+    ],
+  },
+  {
     version: "3.0.0",
     date: "2026-10-09",
     tag: "Major Milestone",

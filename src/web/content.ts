@@ -56,6 +56,22 @@ export const features: Feature[] = [
     href: "/docs#roles",
   },
   {
+    id: "giveaway",
+    icon: "🎉",
+    title: "Giveaway System",
+    tagline: "Host fair, automated server giveaways",
+    text: "Run transparent giveaways with button entry, automatic winner selection, DM notifications, and host controls. Supports role requirements, multi-winner draws, early end, and rerolling.",
+    points: [
+      "Start: configure prize, duration (10m–30d), winner count, and optional role requirement in one command.",
+      "Live entries: members click a button to enter; duplicate entries are automatically prevented.",
+      "Auto-end: giveaway concludes after the set duration and announces winners publicly with DM delivery.",
+      "Early end: staff can end a giveaway immediately with /giveaway end.",
+      "Reroll: pick replacement winners at any time with /giveaway reroll.",
+      "List active giveaways: /giveaway list shows all running giveaways with countdown timestamps.",
+    ],
+    href: "/docs#giveaway",
+  },
+  {
     id: "moderation",
     icon: "🔨",
     title: "Moderation & Audit Control",
@@ -68,6 +84,8 @@ export const features: Feature[] = [
       "Warn system: issue formal warnings with low/medium/high severity levels, view history, or clear warnings.",
       "Purge filters: bulk delete messages with preview, progress tracking, and filters (bots, humans, links, images, keyword).",
       "Channel lockdown: instantly lock or unlock text channels to stop raid escalation.",
+      "Infractions dashboard: /infractions shows a paginated tabbed view of all warnings + mod cases per user.",
+      "Slowmode controls: /slowmode set/custom/check with presets, quick-adjust buttons, and reason logging.",
     ],
     href: "/docs#permissions",
   },
@@ -138,12 +156,20 @@ export const faqs: { q: string; a: string }[] = [
     a: `<p>Server admins use modal forms via <code class="inline">/verify setup</code> or <code class="inline">/rolepanel create</code> to customize embeds and action buttons. Members click buttons to verify or toggle roles instantly with zero emoji reaction clutter.</p>`,
   },
   {
+    q: "How does the Giveaway system pick winners?",
+    a: `<p>Aegis shuffles the full entrant list randomly and selects the top N entries for the configured winner count. All entries are recorded in MongoDB. Winners receive a private DM notification and are announced publicly in the giveaway channel. Use <code class="inline">/giveaway reroll</code> to draw replacement winners if a winner can't be reached.</p>`,
+  },
+  {
+    q: "How do interactive Polls work?",
+    a: `<p>Polls use Discord action buttons instead of native reactions. Members click option buttons to vote; votes are tracked in-memory and displayed as live progress bars. Votes can be toggled on or off. Anonymous mode hides individual voter identities, and multi-select mode lets users pick multiple options. Moderators can end a poll early with the End Poll button.</p>`,
+  },
+  {
     q: "What permissions does Aegis require?",
     a: `<p>Aegis only requires permissions for features you enable. Discord natively checks role hierarchy and hides unauthorized slash commands. Full mappings are documented on the <a href="/docs#permissions">permissions page</a>.</p>`,
   },
   {
     q: "Can Aegis be used across multiple servers?",
-    a: `<p>Yes. All settings, warnings, ticket records, verification states, and AutoMod rules are strictly isolated by guild ID.</p>`,
+    a: `<p>Yes. All settings, warnings, ticket records, giveaway entries, verification states, and AutoMod rules are strictly isolated by guild ID.</p>`,
   },
   {
     q: "Is Aegis free?",
@@ -167,5 +193,9 @@ export const quickstart: { title: string; body: string }[] = [
   {
     title: "4. Enable AutoMod Safeguards",
     body: `Run <code class="inline">/automod words toggle enabled:true</code> and <code class="inline">/automod links toggle enabled:true</code> to shield text channels.`,
+  },
+  {
+    title: "5. Run Your First Giveaway",
+    body: `Use <code class="inline">/giveaway start prize:\"Discord Nitro\" duration:24h winners:1</code> to host your first giveaway. Members click the entry button; Aegis handles winner selection and DM notifications automatically.`,
   },
 ];

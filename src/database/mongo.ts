@@ -191,3 +191,21 @@ const RolePanelSchema = new mongoose.Schema({
 });
 export const RolePanelModel = mongoose.model("RolePanel", RolePanelSchema);
 
+const GiveawaySchema = new mongoose.Schema({
+  guildId:       { type: String, required: true },
+  channelId:     { type: String, required: true },
+  messageId:     { type: String, required: true, unique: true },
+  prize:         { type: String, required: true },
+  description:   { type: String, default: null },
+  winnerCount:   { type: Number, default: 1 },
+  requiredRoleId:{ type: String, default: null },
+  hostId:        { type: String, required: true },
+  entrants:      { type: [String], default: [] },
+  winners:       { type: [String], default: [] },
+  endsAt:        { type: Date, required: true },
+  endedAt:       { type: Date, default: null },
+  ended:         { type: Boolean, default: false },
+  createdAt:     { type: Date, default: Date.now },
+});
+GiveawaySchema.index({ guildId: 1, ended: 1, endsAt: 1 });
+export const GiveawayModel = mongoose.model("Giveaway", GiveawaySchema);
