@@ -162,6 +162,16 @@ const AutoResponderSchema = new mongoose.Schema({
 AutoResponderSchema.index({ guildId: 1, trigger: 1 });
 export const AutoResponderModel = mongoose.model("AutoResponder", AutoResponderSchema);
 
+const StaffNoteSchema = new mongoose.Schema({
+  guildId: { type: String, required: true },
+  userId: { type: String, required: true },
+  moderatorId: { type: String, required: true },
+  note: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+StaffNoteSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+export const StaffNoteModel = mongoose.model("StaffNote", StaffNoteSchema);
+
 const RolePanelSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   guildId: { type: String, required: true },

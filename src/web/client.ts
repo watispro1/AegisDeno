@@ -427,5 +427,128 @@ export const clientScript = String.raw`
     refresh();
     setInterval(refresh, 30000);
   }
+
+  /* ── Toast notifications ─────────────────────────────────────── */
+  window.showToast = function (msg) {
+    var container = document.getElementById('toast-container');
+    if (!container) return;
+    var toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = '⚡ <span>' + msg + '</span>';
+    container.appendChild(toast);
+    setTimeout(function () {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(10px)';
+      toast.style.transition = 'all 0.3s ease';
+      setTimeout(function () { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+    }, 2800);
+  };
+
+  /* ── Theme picker dots ────────────────────────────────────────── */
+  document.addEventListener('click', function (e) {
+    var dot = e.target.closest && e.target.closest('[data-set-theme]');
+    if (!dot) return;
+    var theme = dot.getAttribute('data-set-theme');
+    root.setAttribute('data-theme', theme);
+    try { localStorage.setItem(STORAGE_KEY, theme); } catch (err) {}
+    document.querySelectorAll('.theme-dot').forEach(function (d) { d.classList.remove('active'); });
+    dot.classList.add('active');
+    window.showToast('Theme set to ' + theme.charAt(0).toUpperCase() + theme.slice(1));
+  });
+
+  /* ── Interactive Command Playground ──────────────────────────── */
+  var pgSelect = document.getElementById('pg-command-select');
+  var pgUser = document.getElementById('pg-user-input');
+  var pgReason = document.getElementById('pg-reason-input');
+  var pgSeverity = document.getElementById('pg-severity-select');
+  var pgEmbedTitle = document.getElementById('pg-embed-title');
+  var pgEmbedDesc = document.getElementById('pg-embed-desc');
+  var pgEmbedColor = document.getElementById('pg-embed-card');
+  var pgField1Val = document.getElementById('pg-f1-val');
+  var pgField2Val = document.getElementById('pg-f2-val');
+  var pgCmdString = document.getElementById('pg-cmd-string');
+
+  if (pgSelect) {
+    var updatePlayground = function () {
+      var cmd = pgSelect.value || 'warn';
+      var user = (pgUser && pgUser.value.trim()) || '@BadUser';
+      if (!user.startsWith('@')) user = '@' + user;
+      var reason = (pgReason && pgReason.value.trim()) || 'Inappropriate channel behavior';
+      var severity = (pgSeverity && pgSeverity.value) || 'medium';
+
+      if (cmd === 'warn') {
+        if (pgEmbedTitle) pgEmbedTitle.textContent = '⚠️ Member Warned';
+        if (pgEmbedDesc) pgEmbedDesc.textContent = user + ' was issued a formal warning by @Moderator.';
+        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = severity === 'high' ? '#ed4245' : severity === 'medium' ? '#ffa500' : '#fee75c';
+        if (pgField1Val) pgField1Val.textContent = reason;
+        if (pgField2Val) pgField2Val.textContent = severity.toUpperCase();
+        if (pgCmdString) pgCmdString.textContent = '/warn user:' + user + ' reason:"' + reason + '" severity:' + severity;
+      } else if (cmd === 'lock') {
+        if (pgEmbedTitle) pgEmbedTitle.textContent = '🔒 Channel Locked';
+        if (pgEmbedDesc) pgEmbedDesc.textContent = 'This channel permissions have been updated by @Staff.';
+        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = '#ed4245';
+        if (pgField1Val) pgField1Val.textContent = reason || 'Emergency raid prevention';
+        if (pgField2Val) pgField2Val.textContent = 'Send Messages: FALSE';
+        if (pgCmdString) pgCmdString.textContent = '/lock channel reason:"' + reason + '"';
+      } else if (cmd === 'timeout') {
+        if (pgEmbedTitle) pgEmbedTitle.textContent = '⏰ Member Timed Out';
+        if (pgEmbedDesc) pgEmbedDesc.textContent = user + ' has been placed in timeout for 1 hour.';
+        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = '#f59e0b';
+        if (pgField1Val) pgField1Val.textContent = reason;
+        if (pgField2Val) pgField2Val.textContent = '1 hour (expires soon)';
+        if (pgCmdString) pgCmdString.textContent = '/timeout user:' + user + ' duration:1h reason:"' + reason + '"';
+      } else if (cmd === 'modstats') {
+        if (pgEmbedTitle) pgEmbedTitle.textContent = '📊 Guild Moderation Analytics (Last 7 Days)';
+        if (pgEmbedDesc) pgEmbedDesc.textContent = 'Guild telemetry overview and active moderator case summary.';
+        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = '#5865f2';
+        if (pgField1Val) pgField1Val.textContent = '14 Warnings, 3 Timeouts, 1 Ban';
+        if (pgField2Val) pgField2Val.textContent = 'AutoMod Interventions: 42';
+        if (pgCmdString) pgCmdString.textContent = '/modstats period:7d';
+      }
+    };
+
+    pgSelect.addEventListener('change', updatePlayground);
+    if (pgUser) pgUser.addEventListener('input', updatePlayground);
+    if (pgReason) pgReason.addEventListener('input', updatePlayground);
+    if (pgSeverity) pgSeverity.addEventListener('change', updatePlayground);
+    updatePlayground();
+  }
+
+  /* ── Interactive Server Calculator ───────────────────────────── */
+  var calcSlider = document.getElementById('calc-members');
+  var calcVal = document.getElementById('calc-members-val');
+  var calcPing = document.getElementById('calc-ping');
+  var calcRam = document.getElementById('calc-ram');
+  var calcPreset = document.getElementById('calc-preset');
+
+  if (calcSlider) {
+    calcSlider.addEventListener('input', function () {
+      var members = parseInt(calcSlider.value, 10);
+      if (calcVal) calcVal.textContent = members.toLocaleString() + ' members';
+      var ram = Math.round(18 + (members / 5000) * 4);
+      var ping = Math.round(12 + (members / 10000) * 2);
+      var preset = members > 25000 ? 'Strict Enterprise' : members > 5000 ? 'Community Standard' : 'Casual Friendly';
+      if (calcRam) calcRam.textContent = ram + ' MB';
+      if (calcPing) calcPing.textContent = ping + ' ms';
+      if (calcPreset) calcPreset.textContent = preset;
+    });
+  }
+
+  /* ── AutoMod Toggle Simulation ───────────────────────────────── */
+  document.addEventListener('change', function (e) {
+    var toggle = e.target.closest && e.target.closest('.toggle-switch input');
+    if (!toggle) return;
+    var name = toggle.getAttribute('data-rule-name') || 'AutoMod Rule';
+    var active = toggle.checked;
+    window.showToast((active ? 'Enabled ' : 'Disabled ') + name);
+
+    var logBox = document.querySelector('.log-stream-box');
+    if (logBox) {
+      var item = document.createElement('div');
+      item.className = 'log-item';
+      item.innerHTML = '<span class="log-tag automod">AUTOMOD</span> <span>' + name + ' rule set to <b>' + (active ? 'ACTIVE' : 'INACTIVE') + '</b> by Admin</span>';
+      logBox.insertBefore(item, logBox.firstChild);
+    }
+  });
 })();
 `;

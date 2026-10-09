@@ -9,6 +9,8 @@ import { faviconSvg, ogImageSvg, manifest, themeInitScript } from "./assets";
 import { botPermissionBitfield, buildCatalog, catalogStats, getCommand } from "./catalog";
 import {
   renderHome,
+  renderDashboard,
+  renderPlayground,
   renderFeatures,
   renderCommands,
   renderDocs,
@@ -144,6 +146,8 @@ interface RenderContext {
 
 const ROUTES: RouteDef[] = [
   { path: "/", render: (c, x) => renderHome(c, x.stats, x.online), priority: "1.0", live: true },
+  { path: "/dashboard", render: (c, x) => renderDashboard(c, x.stats, x.online), priority: "0.9", live: true },
+  { path: "/playground", render: c => renderPlayground(c), priority: "0.9" },
   { path: "/features", render: c => renderFeatures(c), priority: "0.9" },
   { path: "/commands", render: c => renderCommands(c), priority: "0.9" },
   { path: "/docs", render: c => renderDocs(c), priority: "0.8" },

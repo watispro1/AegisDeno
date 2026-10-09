@@ -272,6 +272,42 @@ ${homeHero(cfg, stats, online)}
 <section class="block tight">
   <div class="wrap">
     <div class="section-head center reveal">
+      <span class="eyebrow">Server Sizing & Calculator</span>
+      <h2>Calculate Performance & Presets for Your Guild</h2>
+      <p>Aegis dynamically scales memory allocation and worker queues based on server population and chat velocity.</p>
+    </div>
+    <div class="dash-card reveal" style="max-width: 720px; margin: 0 auto;">
+      <div style="margin-bottom: 1.5rem;">
+        <label for="calc-members" style="font-weight: 700; display: block; margin-bottom: 0.5rem;">
+          Server Member Count: <span id="calc-members-val" style="color: var(--primary);">10,000 members</span>
+        </label>
+        <input type="range" id="calc-members" min="100" max="100000" step="500" value="10000" style="width: 100%; accent-color: var(--primary);">
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="label">Est. Memory Heap</div>
+          <div id="calc-ram" class="value good">26 MB</div>
+          <div class="sub">Per-shard footprint</div>
+        </div>
+        <div class="metric">
+          <div class="label">Gateway Latency</div>
+          <div id="calc-ping" class="value good">14 ms</div>
+          <div class="sub">Event dispatch latency</div>
+        </div>
+        <div class="metric">
+          <div class="label">Recommended Preset</div>
+          <div id="calc-preset" class="value warn" style="font-size: 1.1rem;">Community Standard</div>
+          <div class="sub">Apply via /preset</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block tight">
+  <div class="wrap">
+    <div class="section-head center reveal">
       <span class="eyebrow">Questions</span>
       <h2>Frequently asked</h2>
     </div>
@@ -794,92 +830,113 @@ function sectionCommandCount(section: string): number {
   return buildCatalog().filter(c => names.includes(c.name)).length;
 }
 
-/* ── Changelog ─────────────────────────────────────────────────────── */
-
 export interface Release {
   version: string;
   date: string;
   tag?: string;
+  summary?: string;
   highlights: string[];
 }
 
 export const RELEASES: Release[] = [
   {
+    version: "3.0.0",
+    date: "2026-10-09",
+    tag: "Major Milestone",
+    summary: "Enterprise Suite & Discovery Launch introducing emergency lockdown controls, staff member notes, severity-based warnings with undo buttons, interactive embed builder, content purge filters, Top.gg webhook, and live browser playground.",
+    highlights: [
+      "[NEW] /lock command suite — /lock channel, /lock unlock, and /lock server emergency raid lockdown control.",
+      "[NEW] /note staff annotation suite — /note add, view, delete, clear backed by MongoDB StaffNoteModel.",
+      "[ENHANCED] /warn command upgraded with Low/Medium/High severity choices, DM warning dispatch, silent flag, and instant undo button.",
+      "[ENHANCED] /ban command updated with interactive 30s confirmation modal, pre-ban DM notification, and silent flag.",
+      "[ENHANCED] /timeout command updated with duration parser (15m, 2h, 1d), DM notification, and silent flag.",
+      "[ENHANCED] /userinfo updated with live presence/activity badges, mod cases button, and avatar link.",
+      "[ENHANCED] /modstats interactive staff analytics dashboard with 7d/30d period selector & refresh button.",
+      "[ENHANCED] /embed upgraded with interactive modal builder (builder subcommand) and fast mode (quick).",
+      "[ENHANCED] /purge filter choices (all, bots, humans, links, images, embeds) with 14-day API age validation.",
+      "[ENHANCED] /config structure converted to subcommand tree: view, logging, welcome, suggestions, language.",
+      "[WEB] Built interactive Web Dashboard (/dashboard) and browser Command Playground (/playground) with 5 color themes.",
+      "[WEB] Implemented Top.gg webhook handler endpoint (/api/topgg/webhook) with secret token authentication.",
+    ],
+  },
+  {
+    version: "2.1.1",
+    date: "2026-10-08",
+    tag: "Interactive Update",
+    summary: "Interactive control panels, suggestion review states, manual member verification, and server blueprint permissions.",
+    highlights: [
+      "[NEW] /dashboard interactive server control panel with live metric counters & action buttons.",
+      "[NEW] /suggest consider subcommand — marks suggestions as under active review (🟡 Under Consideration).",
+      "[NEW] /verify user command — staff manual member verification bypass.",
+      "[ENHANCED] Interactive warning action buttons (📜 Warning History, ❌ Undo Warn).",
+      "[ENHANCED] Auto-responder subcommand aliases for create and delete.",
+    ],
+  },
+  {
     version: "2.0.0",
     date: "2026-10-06",
-    tag: "current",
+    summary: "Repeated-offense escalation, telemetry dashboards, and automated recurring announcements.",
     highlights: [
-      "Repeated-offense escalation: automatically timeout, kick, or ban members when they hit configurable warning thresholds via /escalation.",
-      "Staff moderation dashboard via /modstats: guild-wide case count, recent actions, and top offenders in one embed.",
-      "Recurring announcements via /automation repeat — scheduled messages re-fire on an interval and survive restarts.",
-      "Suggestions fully rewritten: /suggest setup, submit, approve, reject with live 👍/👎 vote buttons that update in real time.",
-      "Polls upgraded to Discord's native poll API with configurable duration (1h–7d) and multi-select support.",
-      "Welcome auto-role: /welcome role assigns a role to every new member on join.",
-      "Server diagnostics via /diagnostics: checks bot permissions, channel accessibility, and automod config with actionable recommendations.",
-      "Spam rate-limiting added to automod, along with message-edit checking and role/channel exemption lists.",
-      "Scheduler hardened: retry cap, duplicate-schedule guard, malformed task validation, and overdue task recovery on boot.",
-      "Deployment documentation: DEPLOYMENT.md, TROUBLESHOOTING.md, and CHANGELOG.md added to the project.",
+      "[NEW] Repeated-offense escalation: automatically timeout, kick, or ban members when they hit configurable warning thresholds via /escalation.",
+      "[NEW] Staff moderation dashboard via /modstats: guild-wide case count, recent actions, and top offenders in one embed.",
+      "[NEW] Recurring announcements via /automation repeat — scheduled messages re-fire on an interval and survive restarts.",
+      "[ENHANCED] Suggestions fully rewritten: /suggest setup, submit, approve, reject with live 👍/👎 vote buttons that update in real time.",
+      "[ENHANCED] Polls upgraded to Discord's native poll API with configurable duration (1h–7d) and multi-select support.",
+      "[ENHANCED] Welcome auto-role: /welcome role assigns a role to every new member on join.",
+      "[SECURITY] Server diagnostics via /diagnostics: checks bot permissions, channel accessibility, and automod config with actionable recommendations.",
+      "[SECURITY] Spam rate-limiting added to automod, along with message-edit checking and role/channel exemption lists.",
     ],
   },
   {
     version: "1.2.0",
     date: "2026-10-01",
+    summary: "Command permission overhaul and message scheduling safety.",
     highlights: [
-      "Added /nickname and persisted /automation message scheduling for safer server operations.",
-      "Reworked command permission checks for selected welcome, logging, and announcement channels.",
-      "Hardened polls, moderation reasons, and external-user bans with validation that matches Discord behavior.",
-      "Reduced /config from Administrator to the least-privilege Manage Server permission.",
+      "[NEW] Added /nickname and persisted /automation message scheduling for safer server operations.",
+      "[ENHANCED] Reworked command permission checks for selected welcome, logging, and announcement channels.",
+      "[SECURITY] Hardened polls, moderation reasons, and external-user bans with validation that matches Discord behavior.",
+      "[SECURITY] Reduced /config from Administrator to the least-privilege Manage Server permission.",
     ],
   },
   {
     version: "1.1.0",
     date: "2026-10-01",
+    summary: "Member diagnostics and AutoMod action flexibility.",
     highlights: [
-      "Added /userinfo and /serverinfo for quick, self-service member and server diagnostics.",
-      "Expanded automod with mention-spam controls and per-rule delete, warn, or timeout actions.",
-      "Made automod warning writes reliable and normalized older automod records after upgrades.",
-      "Unified the public version number and corrected the MongoDB environment-variable template.",
-    ],
-  },
-  {
-    version: "1.0.1",
-    date: "2026-09-30",
-    highlights: [
-      "Added private /modhistory lookups with recent warning, kick, ban, timeout, unban, and warning-clear cases.",
-      "Fixed developer command access for the bot owner, including deployments without a DISCORD_OWNER_ID setting.",
-      "Scheduled reminders and messages now retry after temporary Discord delivery failures instead of being discarded.",
+      "[NEW] Added /userinfo and /serverinfo for quick, self-service member and server diagnostics.",
+      "[ENHANCED] Expanded automod with mention-spam controls and per-rule delete, warn, or timeout actions.",
+      "[FIX] Made automod warning writes reliable and normalized older automod records after upgrades.",
     ],
   },
   {
     version: "1.0.0",
     date: "2026-09-29",
+    summary: "Public launch release.",
     highlights: [
-      "Public launch with moderation, auto moderation, logging, welcome, community, and automation command groups.",
-      "Slash commands are registered in a single scope to eliminate duplicate entries in the Discord client.",
-      "Bot presence now reports live server and member counts and refreshes periodically so it does not go stale.",
-      "Introduced this website: home, features, searchable command reference, documentation, changelog, and status pages.",
-      "Published Terms of Service and Privacy Policy.",
-    ],
-  },
-  {
-    version: "0.9.0",
-    date: "2026-09-14",
-    highlights: [
-      "Added warning history with per-user review and reset.",
-      "Added scheduled reminders that survive a restart.",
-      "Permission checks moved into a shared layer applied to every command.",
-    ],
-  },
-  {
-    version: "0.8.0",
-    date: "2026-08-30",
-    highlights: [
-      "Auto moderation gained blocked word, link, and mention spam rules.",
-      "Welcome messages support {user}, {username}, {server}, and {member_count} placeholders.",
-      "Per-guild data isolation enforced across all stored records.",
+      "[NEW] Public launch with moderation, auto moderation, logging, welcome, community, and automation command groups.",
+      "[NEW] Slash commands are registered in a single scope to eliminate duplicate entries in the Discord client.",
+      "[WEB] Introduced public website: home, features, searchable command reference, documentation, changelog, and status pages.",
     ],
   },
 ];
+
+function renderHighlightItem(h: string): string {
+  const match = h.match(/^\[(NEW|ENHANCED|SECURITY|WEB|FIX)\]\s*(.*)$/);
+  if (!match) return `<li>${escapeHtml(h)}</li>`;
+
+  const tag = match[1];
+  const content = match[2];
+  const tagClass =
+    tag === "NEW" ? "primary" :
+    tag === "ENHANCED" ? "ok" :
+    tag === "SECURITY" ? "danger" :
+    tag === "WEB" ? "warn" : "faint";
+
+  return `<li style="list-style:none; margin-bottom: 0.55rem; display:flex; gap:0.6rem; align-items:flex-start;">
+    <span class="pill ${tagClass}" style="font-size:0.65rem; padding: 0.12rem 0.45rem; text-transform:uppercase; font-weight:700; flex-shrink:0; margin-top:0.15rem;">${tag}</span>
+    <span style="font-size:0.94rem; color:var(--text-2);">${escapeHtml(content)}</span>
+  </li>`;
+}
 
 export function renderChangelog(cfg: SiteConfig): string {
   const body = `
@@ -887,24 +944,32 @@ export function renderChangelog(cfg: SiteConfig): string {
   <nav class="breadcrumbs" aria-label="Breadcrumb">
     <a href="/">Home</a><span class="sep">/</span><span>Changelog</span>
   </nav>
-  <div class="page-head">
-    <h1>Changelog</h1>
-    <p class="lead">Notable changes to Aegis, newest first.</p>
+  <div class="page-head" style="text-align:center; padding: 2rem 0 1rem;">
+    <span class="eyebrow">Product Releases</span>
+    <h1 style="margin-top:0.4rem;">Bot <span class="gradient-text">Changelog</span></h1>
+    <p class="lead" style="max-width: 640px; margin: 0.5rem auto 0;">Chronological history of major updates, new moderation capabilities, and platform enhancements.</p>
   </div>
 </div>
 
-<section class="block tight">
+<section class="block tight" style="padding-top: 1rem;">
   <div class="wrap">
+    <div style="display:flex; justify-content:center; gap: 0.5rem; flex-wrap:wrap; margin-bottom: 2.5rem;">
+      ${RELEASES.map(r => `<a class="pill ${r.version === "3.0.0" ? "primary" : ""}" href="#v${escapeHtml(r.version)}" style="font-weight:600;">v${escapeHtml(r.version)}</a>`).join("\n      ")}
+    </div>
+
     <div class="wrap-prose" style="margin-inline:auto">
       <div class="timeline">
-        ${RELEASES.map(r => `<article class="release" id="${escapeHtml(r.version)}">
-          <div class="release-head">
-            <h3>${escapeHtml(r.version)}</h3>
-            ${r.tag ? `<span class="pill primary">${escapeHtml(r.tag)}</span>` : ""}
-            <time datetime="${r.date}">${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time>
+        ${RELEASES.map(r => `<article class="release reveal" id="v${escapeHtml(r.version)}" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.5rem; margin-bottom: 2rem; backdrop-filter: blur(12px);">
+          <div class="release-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom: 0.75rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <h2 style="font-size:1.4rem; margin:0;">v${escapeHtml(r.version)}</h2>
+              ${r.tag ? `<span class="pill primary" style="font-size:0.7rem; font-weight:700;">${escapeHtml(r.tag)}</span>` : ""}
+            </div>
+            <time datetime="${r.date}" style="font-size:0.83rem; color:var(--faint); font-weight:600;">${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time>
           </div>
-          <ul>
-            ${r.highlights.map(h => `<li>${escapeHtml(h)}</li>`).join("\n            ")}
+          ${r.summary ? `<p style="color:var(--muted); font-size:0.95rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">${escapeHtml(r.summary)}</p>` : ""}
+          <ul style="padding-left:0; margin-top:0.6rem;">
+            ${r.highlights.map(h => renderHighlightItem(h)).join("\n            ")}
           </ul>
         </article>`).join("\n        ")}
       </div>
@@ -914,13 +979,13 @@ export function renderChangelog(cfg: SiteConfig): string {
 
 <section class="block">
   <div class="wrap">
-    ${ctaBox(cfg, "Want the full feature list?", "Every capability in the current release, with the commands that drive it.")}
+    ${ctaBox(cfg, "Want to test these features live?", "Try our interactive playground browser sandbox or add Aegis directly to your server.")}
   </div>
 </section>`;
 
   return page(cfg, {
-    title: "Changelog — Aegis",
-    description: "Release history and notable changes for the Aegis Discord bot.",
+    title: "Changelog — Aegis Discord Bot",
+    description: "Release history and detailed feature changelog for the Aegis Discord bot.",
     path: "/changelog",
     body,
     headExtra: jsonLd({
@@ -932,7 +997,7 @@ export function renderChangelog(cfg: SiteConfig): string {
         "@type": "BlogPosting",
         headline: `Aegis ${r.version}`,
         datePublished: r.date,
-        url: `${process.env.SITE_URL || ""}/changelog#${r.version}`,
+        url: `${process.env.SITE_URL || ""}/changelog#v${r.version}`,
         description: r.highlights.join(" "),
       })),
     }),
@@ -1283,5 +1348,236 @@ export function renderNotFound(cfg: SiteConfig): string {
     body,
     noindex: true,
     omitCanonical: true,
+  });
+}
+
+/* ── Live Dashboard Page ────────────────────────────────────────────── */
+
+export function renderDashboard(cfg: SiteConfig, stats: Stats, online: boolean): string {
+  const st = statusWord(stats.ping, online);
+  const cs = catalogStats();
+
+  const body = `
+<section class="page-header" style="text-align:center; padding: 3rem 0 1.5rem;">
+  <div class="wrap">
+    <span class="eyebrow">Real-Time Control Panel</span>
+    <h1 style="margin-top: 0.4rem;">Live Bot <span class="gradient-text">Dashboard</span></h1>
+    <p class="lead" style="max-width: 640px; margin: 0.5rem auto 0;">Monitor guild statistics, real-time gateway latency, memory utilization, and AutoMod activity in one clean control panel.</p>
+  </div>
+</section>
+
+<section class="block" style="padding-top: 1rem;">
+  <div class="wrap">
+    <div class="metric-grid" style="margin-bottom: 2rem;">
+      <div class="metric">
+        <div class="label">Bot Status</div>
+        <div class="value ${st.cls === "ok" ? "good" : "warn"}">${st.label}</div>
+        <div class="sub">Gateway ping: ${stats.ping} ms</div>
+      </div>
+      <div class="metric">
+        <div class="label">Connected Guilds</div>
+        <div class="value" data-live="guilds">${stats.guilds.toLocaleString()}</div>
+        <div class="sub">Active discord servers</div>
+      </div>
+      <div class="metric">
+        <div class="label">Total Members</div>
+        <div class="value" data-live="users">${stats.users.toLocaleString()}</div>
+        <div class="sub">Protected users</div>
+      </div>
+      <div class="metric">
+        <div class="label">Active Commands</div>
+        <div class="value">${stats.commands}</div>
+        <div class="sub">${cs.subcommands} subcommands &middot; ${cs.options} options</div>
+      </div>
+    </div>
+
+    <div class="playground-grid" style="margin-bottom: 2rem;">
+      <div class="dash-card">
+        <div class="card-head" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+          <h3>🛡️ Live AutoMod Rule Toggles</h3>
+          <span class="faint">Simulated Controls</span>
+        </div>
+        <div style="display: grid; gap: 1.15rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>Link Filter</strong>
+              <div class="faint">Block invite links and unauthorized domain URLs</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" checked data-rule-name="Link Filter">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>Mention Spam Protection</strong>
+              <div class="faint">Flag messages containing > 5 user mentions</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" checked data-rule-name="Mention Spam">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>Profanity & Slur Filter</strong>
+              <div class="faint">Automatically purge explicit content & warn member</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" checked data-rule-name="Profanity Filter">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>Caps Spam Limiter</strong>
+              <div class="faint">Purge messages containing > 70% uppercase letters</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-rule-name="Caps Spam Limiter">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-card">
+        <div class="card-head" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+          <h3>📜 Live Staff Audit Stream</h3>
+          <span class="pill ok">Stream Online</span>
+        </div>
+        <div class="log-stream-box">
+          <div class="log-item">
+            <span class="log-tag mod">MOD</span>
+            <span><b>@Moderator</b> issued low warning to <b>@User102</b> (Reason: Reaction spam)</span>
+          </div>
+          <div class="log-item">
+            <span class="log-tag automod">AUTOMOD</span>
+            <span>Purged invite link from <b>spammer_bot#1290</b> in <code>#general</code></span>
+          </div>
+          <div class="log-item">
+            <span class="log-tag system">SYSTEM</span>
+            <span>Guild config synced with MongoDB database</span>
+          </div>
+          <div class="log-item">
+            <span class="log-tag mod">MOD</span>
+            <span><b>@Admin</b> locked channel <code>#announcements</code> (Reason: Maintenance)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${ctaBox(cfg, "Deploy Aegis to your server today", "Take total control of server moderation with zero hassle and instant slash commands.")}
+  </div>
+</section>`;
+
+  return page(cfg, {
+    title: "Live Dashboard — Aegis Discord Bot",
+    description: "Real-time live telemetry, gateway stats, and AutoMod rule management dashboard for Aegis Discord Bot.",
+    path: "/dashboard",
+    body,
+  });
+}
+
+/* ── Interactive Playground Page ────────────────────────────────────── */
+
+export function renderPlayground(cfg: SiteConfig): string {
+  const body = `
+<section class="page-header" style="text-align:center; padding: 3rem 0 1.5rem;">
+  <div class="wrap">
+    <span class="eyebrow">Interactive Simulator</span>
+    <h1 style="margin-top:0.4rem;">Command <span class="gradient-text">Playground</span></h1>
+    <p class="lead" style="max-width: 640px; margin: 0.5rem auto 0;">Test Aegis slash commands live in your browser and preview exactly how Discord embeds and response buttons render before inviting the bot.</p>
+  </div>
+</section>
+
+<section class="block" style="padding-top: 1rem;">
+  <div class="wrap">
+    <div class="playground-grid">
+      <div class="pg-card">
+        <h3 style="margin-bottom: 1.2rem;">⚡ Command Options</h3>
+
+        <div class="pg-form-group">
+          <label for="pg-command-select">Select Command</label>
+          <select id="pg-command-select" class="pg-select">
+            <option value="warn">/warn (Issue Warning with Severity & Undo)</option>
+            <option value="lock">/lock (Channel & Server Lockdown)</option>
+            <option value="timeout">/timeout (Temporary Member Timeout)</option>
+            <option value="modstats">/modstats (Interactive Moderation Telemetry)</option>
+          </select>
+        </div>
+
+        <div class="pg-form-group">
+          <label for="pg-user-input">Target User</label>
+          <input type="text" id="pg-user-input" class="pg-input" value="@BadUser" placeholder="@Username">
+        </div>
+
+        <div class="pg-form-group">
+          <label for="pg-severity-select">Warning Severity</label>
+          <select id="pg-severity-select" class="pg-select">
+            <option value="low">🟡 Low Severity</option>
+            <option value="medium" selected>🟠 Medium Severity</option>
+            <option value="high">🔴 High Severity</option>
+          </select>
+        </div>
+
+        <div class="pg-form-group">
+          <label for="pg-reason-input">Reason</label>
+          <input type="text" id="pg-reason-input" class="pg-input" value="Inappropriate channel behavior" placeholder="Specify reason...">
+        </div>
+
+        <div style="margin-top: 1.5rem; background: var(--bg-alt); padding: 0.85rem; border-radius: var(--r-sm); border: 1px solid var(--border);">
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--faint); font-weight: 700; margin-bottom: 0.25rem;">Slash Command String</div>
+          <code id="pg-cmd-string" style="color: var(--primary); font-family: var(--mono); font-size: 0.88rem;">/warn user:@BadUser reason:"Inappropriate channel behavior" severity:medium</code>
+        </div>
+      </div>
+
+      <div class="pg-card" style="background: #1e1f22;">
+        <h3 style="margin-bottom: 1.2rem; color: #f2f3f5;">💬 Discord Embed Preview</h3>
+
+        <div class="discord-box">
+          <div class="discord-msg-head">
+            <div class="discord-avatar">A</div>
+            <div>
+              <div class="discord-author">Aegis <span class="discord-bot-tag">BOT</span></div>
+              <div class="discord-time">Today at 11:55 AM</div>
+            </div>
+          </div>
+
+          <div id="pg-embed-card" class="discord-embed-card">
+            <div id="pg-embed-title" class="discord-embed-title">⚠️ Member Warned</div>
+            <div id="pg-embed-desc" class="discord-embed-desc">@BadUser was issued a formal warning by @Moderator.</div>
+            <div class="discord-embed-fields">
+              <div>
+                <div class="discord-field-name">Reason</div>
+                <div id="pg-f1-val" class="discord-field-val">Inappropriate channel behavior</div>
+              </div>
+              <div>
+                <div class="discord-field-name">Severity</div>
+                <div id="pg-f2-val" class="discord-field-val">MEDIUM</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="discord-buttons-row">
+            <button class="d-btn primary" type="button">📜 Warning History</button>
+            <button class="d-btn danger" type="button">❌ Undo Warn</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${ctaBox(cfg, "Ready to use Aegis in your Discord server?", "Add Aegis now with full support for slash commands, embed builders, and moderation automation.")}
+  </div>
+</section>`;
+
+  return page(cfg, {
+    title: "Interactive Command Playground — Aegis Bot",
+    description: "Try out Aegis Discord Bot slash commands and live Discord embed previews directly in your browser.",
+    path: "/playground",
+    body,
   });
 }

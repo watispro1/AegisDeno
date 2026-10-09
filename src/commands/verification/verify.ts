@@ -35,6 +35,12 @@ export const command: Command = {
     )
     .addSubcommand(sub =>
       sub
+        .setName("user")
+        .setDescription("Manually verify a server member.")
+        .addUserOption(opt => opt.setName("target").setDescription("Member to verify").setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub
         .setName("info")
         .setDescription("Display current verification settings.")
     )
@@ -71,6 +77,29 @@ export const command: Command = {
       } else {
         await interaction.editReply({ content: "❌ Failed to set up verification panel." });
       }
+      return;
+    }
+
+    if (subcommand === "user") {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
+        await interaction.reply({ content: "❌ You need `Manage Roles` permission to manually verify members.", ephemeral: true });
+        return;
+      }
+
+      const config = await getVerificationConfig(interaction.guild.id);
+      if (!config || !config.verifiedRoleId) {
+        await interaction.reply({ content: "❌ Verification is not set up on this server. Run `/verify setup` first.", ephemeral: true });
+        return;
+      }
+
+      const targetMember = await interaction.guild.members.fetch(interaction.options.getUser("target", true).id).catch(() => null);
+      if (!targetMember) {
+        await interaction.reply({ content: "❌ Target member not found.", ephemeral: true });
+        return;
+      }
+
+      await targetMember.roles.add(config.verifiedRoleId).catch(() => null);
+      await interaction.reply({ content: `✅ Manually verified <@${targetMember.id}> and assigned <@&${config.verifiedRoleId}>.`, ephemeral: true });
       return;
     }
 

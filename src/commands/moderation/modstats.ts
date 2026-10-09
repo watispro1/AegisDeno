@@ -1,18 +1,44 @@
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+} from "discord.js";
 import { Command } from "../../types/discord";
 import { getRecentCasesForGuild, getTopOffendersForGuild } from "../../services/moderationCases";
-import { WarningModel } from "../../database/mongo";
+import { WarningModel, ModerationCaseModel } from "../../database/mongo";
 
 const ACTION_EMOJI: Record<string, string> = {
   warn: "⚠️", kick: "👢", ban: "🔨", timeout: "⏱️",
   untimeout: "✅", unban: "✅", clearwarnings: "🗑️",
 };
 
+const ACTION_COLOR = {
+  "7d": 0x5865F2,
+  "30d": 0x9B59B6,
+} as const;
+
+type Period = "7d" | "30d";
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("modstats")
-    .setDescription("View a moderation activity dashboard for this server.")
+    .setDescription("View an interactive moderation activity dashboard for this server.")
+    .addStringOption(opt =>
+      opt
+        .setName("period")
+        .setDescription("Time period for stats (default: 7 days)")
+        .setRequired(false)
+        .addChoices(
+          { name: "Last 7 days", value: "7d" },
+          { name: "Last 30 days", value: "30d" },
+        )
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
   guildOnly: true,
@@ -20,20 +46,24 @@ export const command: Command = {
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const guildId = interaction.guildId!;
+    const initialPeriod = (interaction.options.getString("period") ?? "7d") as Period;
     await interaction.deferReply({ ephemeral: true });
 
-    try {
-      const [recentCases, topOffenders, totalWarnings] = await Promise.all([
+    const buildEmbed = async (period: Period) => {
+      const days = period === "7d" ? 7 : 30;
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const [recentCases, topOffenders, totalWarnings, totalCases, periodCases, banCount, kickCount, timeoutCount] = await Promise.all([
         getRecentCasesForGuild(guildId, 5),
         getTopOffendersForGuild(guildId, 5),
         WarningModel.countDocuments({ guildId }),
+        ModerationCaseModel.countDocuments({ guildId }),
+        ModerationCaseModel.countDocuments({ guildId, createdAt: { $gte: since } }),
+        ModerationCaseModel.countDocuments({ guildId, action: "ban" }),
+        ModerationCaseModel.countDocuments({ guildId, action: "kick" }),
+        ModerationCaseModel.countDocuments({ guildId, action: "timeout" }),
       ]);
 
-      const totalCases = await import("../../database/mongo").then(m =>
-        m.ModerationCaseModel.countDocuments({ guildId })
-      );
-
-      // ── Recent Cases ──────────────────────────────────────────────────────
       const recentLines = recentCases.length === 0
         ? ["*No moderation cases yet.*"]
         : recentCases.map(c => {
@@ -41,21 +71,27 @@ export const command: Command = {
             return `${ACTION_EMOJI[c.action] ?? "📋"} <@${c.userId}> · **${c.action}** · <t:${ts}:R>`;
           });
 
-      // ── Top Offenders ─────────────────────────────────────────────────────
       const offenderLines = topOffenders.length === 0
         ? ["*No cases recorded.*"]
         : topOffenders.map((o, i) => `${i + 1}. <@${o.userId}> — **${o.count}** case${o.count !== 1 ? "s" : ""}`);
 
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
+      return new EmbedBuilder()
+        .setColor(ACTION_COLOR[period])
         .setTitle(`🛡️ Moderation Dashboard — ${interaction.guild!.name}`)
+        .setDescription(`Showing stats for the **last ${days} days**`)
         .addFields(
           {
-            name: "📊 Overview",
+            name: "📊 All-Time Overview",
             value: [
               `Total Cases: **${totalCases}**`,
               `Total Warnings: **${totalWarnings}**`,
+              `Bans: **${banCount}** | Kicks: **${kickCount}** | Timeouts: **${timeoutCount}**`,
             ].join("\n"),
+            inline: false,
+          },
+          {
+            name: `📆 Activity (Last ${days} Days)`,
+            value: `Cases in period: **${periodCases}**`,
             inline: false,
           },
           {
@@ -69,13 +105,51 @@ export const command: Command = {
             inline: false,
           },
         )
-        .setFooter({ text: "Use /modhistory <user> to see a member's full history." })
+        .setFooter({ text: `Use /modhistory <user> for member history • Period: ${period}` })
         .setTimestamp();
+    };
 
-      await interaction.editReply({ embeds: [embed] });
-    } catch (err) {
-      logger.error(`Failed /modstats for guild ${guildId}:`, err);
-      await interaction.editReply("❌ Failed to load moderation stats. Please try again.");
-    }
+    const buildButtons = (period: Period) => new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("modstats_7d")
+        .setLabel("Last 7 Days")
+        .setStyle(period === "7d" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setEmoji("📅"),
+      new ButtonBuilder()
+        .setCustomId("modstats_30d")
+        .setLabel("Last 30 Days")
+        .setStyle(period === "30d" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setEmoji("📆"),
+      new ButtonBuilder()
+        .setCustomId("modstats_refresh")
+        .setLabel("Refresh")
+        .setStyle(ButtonStyle.Success)
+        .setEmoji("🔄"),
+    );
+
+    let currentPeriod = initialPeriod;
+    const embed = await buildEmbed(currentPeriod);
+    const sent = await interaction.editReply({ embeds: [embed], components: [buildButtons(currentPeriod)] });
+
+    const collector = sent.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 120_000,
+      filter: (i) => i.user.id === interaction.user.id,
+    });
+
+    collector.on("collect", async (i) => {
+      await i.deferUpdate();
+      if (i.customId === "modstats_7d") currentPeriod = "7d";
+      else if (i.customId === "modstats_30d") currentPeriod = "30d";
+      // modstats_refresh keeps the same period
+      const updated = await buildEmbed(currentPeriod);
+      await i.editReply({ embeds: [updated], components: [buildButtons(currentPeriod)] });
+    });
+
+    collector.on("end", async () => {
+      await interaction.editReply({ components: [] }).catch(() => null);
+    });
   },
 };
+
+export default command;

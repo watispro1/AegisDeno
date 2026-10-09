@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] — 2026-10-09
+
+This major milestone release marks the **Enterprise Suite & Discovery Launch** for AegisDeno. It delivers enhanced moderation telemetry, complete Top.gg and Discord App Directory launch assets, operational hardening, and expanded community management tooling.
+
+### 🛡️ Moderation & Enterprise Security
+
+- **New:** `/modstats` command — Staff analytics dashboard providing guild-wide warning counts, active timeouts, total ban cases, and AutoMod intervention metrics.
+- **Enhanced:** AutoMod repeated offense escalation with customizable strictness presets and automated role-exempt safety filters.
+- **Enhanced:** `/case export` with complete audit trails, moderator action timestamps, and standardized JSON compliance formats.
+
+### 🌐 Discovery & Top.gg Ecosystem Integration
+
+- **New:** Comprehensive Top.gg long description, short description, and vote reward webhook protocol documentation.
+- **New:** Discord App Directory and Server Discovery profiles with complete permission transparency declarations.
+- **Enhanced:** Public web dashboard API (`/api/stats`, `/api/commands`, `/health`) with high-concurrency memory optimization and production health checks.
+
+### ⚡ System Performance & Reliability
+
+- **Hardened:** Database connection resilience with exponential backoff retries and graceful fallback handling during partial network partitions.
+- **Hardened:** Scheduled task execution engine with persistent job state recovery following bot restarts.
+
+---
+
+## [2.1.1] — 2026-10-08
+
+This maintenance patch introduces new interactive management commands, expands subcommand alias coverage across core modules, adds manual member verification capabilities, and updates complete server permission architecture documentation.
+
+### 🎮 Interactive Commands & Dashboards
+
+- **New:** `/dashboard` command — interactive server control panel with live metric counters and action buttons (`Refresh Stats`, `AutoMod Status`, `Open Tickets`, `Pending Suggestions`).
+- **New:** `/embed` command — interactive custom embed builder with live ephemeral preview and direct channel posting controls (`Send Embed`, `Cancel`).
+- **Enhanced:** `/userinfo` command — added interactive buttons (`📜 Warning Details`, `🎭 All Roles`, `🔑 Permissions`).
+- **Enhanced:** `/serverinfo` command — added interactive buttons (`💬 Channel Breakdown`, `🎨 Roles & Assets`, `🔒 Security Settings`).
+- **Enhanced:** `/warn` command — added interactive action buttons (`📜 Warning History`, `❌ Undo Warn`).
+
+### 💡 Suggestions Workflow Enhancements
+
+- **New:** `/suggest consider` command — marks suggestions as under active review (`🟡 Under Consideration`), applies yellow status styling, and attaches staff review notes while keeping community voting active.
+- **New:** Subcommand aliases `/suggest create` (submit) and `/suggest deny` (reject).
+
+### 🛡️ Verification & Member Management
+
+- **New:** `/verify user` command — allows staff with `Manage Roles` permission to manually verify members directly, assigning the configured verified role.
+
+### 🤖 Auto-Responder Improvements
+
+- **New:** Subcommand aliases `/autoresponder create` (add) and `/autoresponder delete` (remove) for improved CLI UX.
+
+### 📑 Architecture Documentation & Linter Alignment
+
+- **Updated:** [`server.md`](file:///c:/Users/mzlad/Downloads/AegisDeno/server.md) updated with explicit category and channel permission overrides across all 6 categories (`INFORMATION`, `COMMUNITY`, `SUPPORT CENTER`, `DEVELOPMENT`, `STAFF ONLY`, `VOICE CHANNELS`).
+- **Fixed:** Resolved `MD024/no-duplicate-heading` lint warnings by normalizing section heading anchors.
+
 ---
 
 ## [2.1.0] — 2026-10-07

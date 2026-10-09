@@ -27,11 +27,13 @@ export interface LayoutOptions {
 }
 
 export const NAV: NavLink[] = [
-  { label: "Features", href: "/features" },
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "Playground", href: "/playground" },
   { label: "Commands", href: "/commands" },
+  { label: "Features", href: "/features" },
   { label: "Docs", href: "/docs" },
-  { label: "Changelog", href: "/changelog" },
   { label: "Status", href: "/status" },
+  { label: "Changelog", href: "/changelog" },
 ];
 
 function esc(s: string): string {
@@ -129,6 +131,13 @@ ${o.headExtra || ""}
         <li class="nav-mobile-cta"><a class="btn block" href="${inviteUrl}">Add Aegis to Discord</a></li>
     </ul>
     <div class="nav-actions">
+      <div class="theme-picker-bar" title="Customize theme accent">
+        <button class="theme-dot t-midnight active" data-set-theme="dark" title="Midnight Dark"></button>
+        <button class="theme-dot t-cyberpunk" data-set-theme="cyberpunk" title="Cyberpunk Neon"></button>
+        <button class="theme-dot t-emerald" data-set-theme="emerald" title="Emerald Mint"></button>
+        <button class="theme-dot t-gold" data-set-theme="gold" title="Sunset Gold"></button>
+        <button class="theme-dot t-light" data-set-theme="light" title="Clean Light"></button>
+      </div>
       <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme">
         ${sunIcon}${moonIcon}
       </button>
@@ -139,6 +148,8 @@ ${o.headExtra || ""}
     </div>
   </div>
 </nav>
+
+<div id="toast-container"></div>
 
 <main id="main">
 ${o.body}

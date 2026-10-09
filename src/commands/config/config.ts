@@ -1,30 +1,76 @@
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  EmbedBuilder,
+} from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("config")
-    .setDescription("View or change server configuration.")
+    .setDescription("View or update server configuration settings.")
     .addSubcommand(sub =>
-      sub.setName("view").setDescription("View current configuration")
+      sub.setName("view").setDescription("View all current server configuration values.")
     )
     .addSubcommand(sub =>
       sub
-        .setName("set")
-        .setDescription("Set a configuration option")
+        .setName("logging")
+        .setDescription("Configure the mod-log channel.")
+        .addChannelOption(opt =>
+          opt.setName("channel").setDescription("Channel to send mod logs to").setRequired(false)
+        )
+        .addBooleanOption(opt =>
+          opt.setName("enabled").setDescription("Enable or disable mod logging").setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("welcome")
+        .setDescription("Configure the welcome message system.")
+        .addChannelOption(opt =>
+          opt.setName("channel").setDescription("Channel to send welcome messages").setRequired(false)
+        )
+        .addBooleanOption(opt =>
+          opt.setName("enabled").setDescription("Enable or disable welcome messages").setRequired(false)
+        )
         .addStringOption(opt =>
           opt
-            .setName("key")
-            .setDescription("The setting to change")
+            .setName("message")
+            .setDescription("Custom welcome message (use {user}, {server}, {member_count})")
+            .setRequired(false)
+            .setMaxLength(500)
+        )
+        .addRoleOption(opt =>
+          opt.setName("role").setDescription("Role to auto-assign to new members").setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("suggestions")
+        .setDescription("Configure where suggestions are posted.")
+        .addChannelOption(opt =>
+          opt.setName("channel").setDescription("Suggestions channel").setRequired(true)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("language")
+        .setDescription("Set the bot language for this server.")
+        .addStringOption(opt =>
+          opt
+            .setName("language")
+            .setDescription("Language code")
             .setRequired(true)
             .addChoices(
-              { name: "Prefix (Legacy)", value: "prefix" },
-              { name: "Language", value: "language" }
+              { name: "English (en)", value: "en" },
+              { name: "Spanish (es)", value: "es" },
+              { name: "French (fr)", value: "fr" },
+              { name: "German (de)", value: "de" },
             )
         )
-        .addStringOption(opt => opt.setName("value").setDescription("The new value").setRequired(true))
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
@@ -35,40 +81,106 @@ export const command: Command = {
     const sub = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
 
-    await interaction.deferReply();
+    await interaction.deferReply({ ephemeral: true });
     try {
       const config = await getGuildConfig(guildId);
 
       if (sub === "view") {
         const embed = new EmbedBuilder()
           .setColor(0x5865F2)
-          .setTitle("⚙️ Server Configuration")
+          .setTitle(`⚙️ Server Configuration — ${interaction.guild!.name}`)
           .addFields(
-            { name: "Prefix",   value: `\`${config.prefix}\``, inline: true },
-            { name: "Language", value: `\`${config.language}\``, inline: true },
-            { name: "Logging",  value: config.loggingEnabled ? `✅ <#${config.loggingChannelId}>` : "❌ Disabled", inline: true },
-            { name: "Welcome",  value: config.welcomeEnabled ? `✅ <#${config.welcomeChannelId}>` : "❌ Disabled", inline: true },
+            {
+              name: "📋 Mod Logging",
+              value: config.loggingEnabled
+                ? `✅ Enabled → <#${config.loggingChannelId}>`
+                : "❌ Disabled",
+              inline: true,
+            },
+            {
+              name: "👋 Welcome Messages",
+              value: config.welcomeEnabled
+                ? `✅ Enabled → <#${config.welcomeChannelId}>`
+                : "❌ Disabled",
+              inline: true,
+            },
+            {
+              name: "💬 Welcome Message",
+              value: `\`${config.welcomeMessage || "Not set"}\``,
+              inline: false,
+            },
+            {
+              name: "🎭 Auto-Role on Join",
+              value: config.welcomeRoleId ? `<@&${config.welcomeRoleId}>` : "None",
+              inline: true,
+            },
+            {
+              name: "💡 Suggestions Channel",
+              value: config.suggestionsChannelId ? `<#${config.suggestionsChannelId}>` : "Not set",
+              inline: true,
+            },
+            {
+              name: "🌐 Language",
+              value: `\`${config.language || "en"}\``,
+              inline: true,
+            },
           )
+          .setFooter({ text: "Use /config <subcommand> to update individual settings." })
           .setTimestamp();
+
         await interaction.editReply({ embeds: [embed] });
         return;
       }
 
-      if (sub === "set") {
-        const key   = interaction.options.getString("key", true);
-        const value = interaction.options.getString("value", true).trim();
-
-        if (!value) {
-          await interaction.editReply("❌ Value cannot be empty.");
+      if (sub === "logging") {
+        const channel = interaction.options.getChannel("channel");
+        const enabled = interaction.options.getBoolean("enabled");
+        const updates: Record<string, unknown> = {};
+        if (channel !== null) updates.loggingChannelId = channel.id;
+        if (enabled !== null) updates.loggingEnabled = enabled;
+        if (Object.keys(updates).length === 0) {
+          await interaction.editReply("❌ Please provide at least one option to update.");
           return;
         }
-
-        const updates: Record<string, string> = {};
-        if (key === "prefix")   updates.prefix   = value.substring(0, 5);
-        else if (key === "language") updates.language = value.substring(0, 10).toLowerCase();
-
         await updateGuildConfig(guildId, updates);
-        await interaction.editReply(`✅ Configuration updated. **${key}** is now \`${updates[key]}\`.`);
+        const lines = [];
+        if (channel !== null) lines.push(`Channel → <#${channel.id}>`);
+        if (enabled !== null) lines.push(`Enabled → \`${enabled}\``);
+        await interaction.editReply(`✅ **Mod Logging** updated:\n${lines.join("\n")}`);
+        return;
+      }
+
+      if (sub === "welcome") {
+        const channel = interaction.options.getChannel("channel");
+        const enabled = interaction.options.getBoolean("enabled");
+        const message = interaction.options.getString("message");
+        const role = interaction.options.getRole("role");
+        const updates: Record<string, unknown> = {};
+        if (channel !== null) updates.welcomeChannelId = channel.id;
+        if (enabled !== null) updates.welcomeEnabled = enabled;
+        if (message !== null) updates.welcomeMessage = message;
+        if (role !== null) updates.welcomeRoleId = role.id;
+        if (Object.keys(updates).length === 0) {
+          await interaction.editReply("❌ Please provide at least one option to update.");
+          return;
+        }
+        await updateGuildConfig(guildId, updates);
+        await interaction.editReply("✅ **Welcome** configuration updated.");
+        return;
+      }
+
+      if (sub === "suggestions") {
+        const channel = interaction.options.getChannel("channel", true);
+        await updateGuildConfig(guildId, { suggestionsChannelId: channel.id });
+        await interaction.editReply(`✅ **Suggestions** will now be posted to <#${channel.id}>.`);
+        return;
+      }
+
+      if (sub === "language") {
+        const lang = interaction.options.getString("language", true);
+        await updateGuildConfig(guildId, { language: lang });
+        await interaction.editReply(`✅ **Language** set to \`${lang}\`.`);
+        return;
       }
     } catch (err) {
       logger.error(`Failed to handle /config ${sub} for guild ${guildId}`, err);
@@ -76,3 +188,5 @@ export const command: Command = {
     }
   },
 };
+
+export default command;

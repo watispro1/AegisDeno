@@ -14,6 +14,11 @@ export const command: Command = {
         .addStringOption(opt => opt.setName("suggestion").setDescription("Your suggestion").setRequired(true))
     )
     .addSubcommand(sub =>
+      sub.setName("create")
+        .setDescription("Submit a new suggestion.")
+        .addStringOption(opt => opt.setName("title").setDescription("Suggestion title or description").setRequired(true))
+    )
+    .addSubcommand(sub =>
       sub.setName("setup")
         .setDescription("Set the channel where suggestions will be posted.")
         .addChannelOption(opt => opt.setName("channel").setDescription("Suggestions channel").setRequired(true))
@@ -25,10 +30,27 @@ export const command: Command = {
         .addStringOption(opt => opt.setName("reason").setDescription("Reason for approval").setRequired(false))
     )
     .addSubcommand(sub =>
+      sub.setName("deny")
+        .setDescription("Deny a suggestion.")
+        .addStringOption(opt => opt.setName("id").setDescription("Suggestion ID").setRequired(true))
+        .addStringOption(opt => opt.setName("reason").setDescription("Reason for denial").setRequired(false))
+    )
+    .addSubcommand(sub =>
       sub.setName("reject")
         .setDescription("Reject a suggestion.")
         .addStringOption(opt => opt.setName("id").setDescription("Suggestion ID").setRequired(true))
         .addStringOption(opt => opt.setName("reason").setDescription("Reason for rejection").setRequired(false))
+    )
+    .addSubcommand(sub =>
+      sub.setName("consider")
+        .setDescription("Mark a suggestion as under consideration.")
+        .addStringOption(opt => opt.setName("id").setDescription("Suggestion ID").setRequired(true))
+        .addStringOption(opt => opt.setName("reason").setDescription("Reason / staff note").setRequired(false))
+    )
+    .addSubcommand(sub =>
+      sub.setName("info")
+        .setDescription("View the full details, vote counts, and status of a suggestion.")
+        .addStringOption(opt => opt.setName("id").setDescription("Suggestion ID").setRequired(true))
     ),
 
   guildOnly: true,
@@ -53,7 +75,7 @@ export const command: Command = {
       return;
     }
 
-    if (sub === "submit") {
+    if (sub === "submit" || sub === "create") {
       if (!config.suggestionsChannelId) {
         await interaction.editReply("❌ Suggestions are not set up in this server. An admin must run `/suggest setup` first.");
         return;
@@ -65,7 +87,7 @@ export const command: Command = {
         return;
       }
 
-      const content = interaction.options.getString("suggestion", true);
+      const content = interaction.options.getString("suggestion") || interaction.options.getString("title", true);
       const suggestion = await createSuggestion(guildId, interaction.user.id, content);
 
       const embed = new EmbedBuilder()
@@ -100,7 +122,7 @@ export const command: Command = {
       return;
     }
 
-    if (sub === "approve" || sub === "reject") {
+    if (sub === "approve" || sub === "reject" || sub === "deny" || sub === "consider") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
         await interaction.editReply(`❌ You need **Manage Server** to ${sub} suggestions.`);
         return;
@@ -114,15 +136,30 @@ export const command: Command = {
         await interaction.editReply("❌ Suggestion not found.");
         return;
       }
-      if (suggestion.status !== "pending") {
-        await interaction.editReply(`❌ This suggestion is already ${suggestion.status}.`);
-        return;
+
+      let newStatus: "approved" | "rejected" | "considered";
+      let statusColor: number;
+      let statusText: string;
+      let disableButtons = true;
+
+      if (sub === "approve") {
+        newStatus = "approved";
+        statusColor = 0x2ECC71; // Green
+        statusText = `✅ Approved by ${interaction.user.tag}`;
+      } else if (sub === "consider") {
+        newStatus = "considered";
+        statusColor = 0xF1C40F; // Yellow
+        statusText = `🟡 Under Consideration by ${interaction.user.tag}`;
+        disableButtons = false; // Voting can continue while considered
+      } else {
+        newStatus = "rejected";
+        statusColor = 0xE74C3C; // Red
+        statusText = `❌ Denied by ${interaction.user.tag}`;
       }
 
-      const newStatus = sub === "approve" ? "approved" : "rejected";
       await updateSuggestion(guildId, id, { status: newStatus });
 
-      await interaction.editReply(`✅ Suggestion \`${id}\` marked as ${newStatus}.`);
+      await interaction.editReply(`✅ Suggestion \`${id}\` marked as **${newStatus}**.`);
 
       if (suggestion.channelId && suggestion.messageId) {
         const channel = await interaction.guild!.channels.fetch(suggestion.channelId).catch(() => null) as TextChannel;
@@ -131,14 +168,13 @@ export const command: Command = {
           if (msg && msg.embeds.length > 0) {
             const oldEmbed = msg.embeds[0];
             const newEmbed = EmbedBuilder.from(oldEmbed)
-              .setColor(sub === "approve" ? 0x2ECC71 : 0xE74C3C)
-              .spliceFields(0, 1, { name: "Status", value: sub === "approve" ? `✅ Approved by ${interaction.user.tag}` : `❌ Rejected by ${interaction.user.tag}`, inline: true });
+              .setColor(statusColor)
+              .spliceFields(0, 1, { name: "Status", value: statusText, inline: true });
 
             if (reason && reason !== "No reason provided.") {
               newEmbed.addFields({ name: "Moderator Note", value: reason, inline: false });
             }
             
-            // Re-create components to disable them
             const row = new ActionRowBuilder<ButtonBuilder>()
               .addComponents(
                 new ButtonBuilder()
@@ -146,19 +182,62 @@ export const command: Command = {
                   .setLabel(`Upvote (${suggestion.upvotes.length})`)
                   .setStyle(ButtonStyle.Success)
                   .setEmoji("👍")
-                  .setDisabled(true),
+                  .setDisabled(disableButtons),
                 new ButtonBuilder()
                   .setCustomId(`suggest_down_${id}`)
                   .setLabel(`Downvote (${suggestion.downvotes.length})`)
                   .setStyle(ButtonStyle.Danger)
                   .setEmoji("👎")
-                  .setDisabled(true)
+                  .setDisabled(disableButtons)
               );
 
             await msg.edit({ embeds: [newEmbed], components: [row] }).catch(() => null);
           }
         }
       }
+    }
+
+    if (sub === "info") {
+      const id = interaction.options.getString("id", true);
+      const suggestion = await getSuggestion(guildId, id);
+      if (!suggestion) {
+        await interaction.editReply("❌ Suggestion not found.");
+        return;
+      }
+
+      const STATUS_COLORS: Record<string, number> = {
+        pending: 0x57F287,
+        approved: 0x2ECC71,
+        rejected: 0xE74C3C,
+        considered: 0xF1C40F,
+      };
+      const STATUS_LABELS: Record<string, string> = {
+        pending: "⏳ Pending Review",
+        approved: "✅ Approved",
+        rejected: "❌ Rejected",
+        considered: "🟡 Under Consideration",
+      };
+
+      const totalVotes = suggestion.upvotes.length + suggestion.downvotes.length;
+      const approvalPct = totalVotes > 0 ? Math.round((suggestion.upvotes.length / totalVotes) * 100) : 0;
+
+      const embed = new EmbedBuilder()
+        .setColor(STATUS_COLORS[suggestion.status] ?? 0x5865F2)
+        .setTitle("💡 Suggestion Details")
+        .setDescription(suggestion.content)
+        .addFields(
+          { name: "🆔 ID", value: `\`${suggestion.id}\``, inline: true },
+          { name: "📊 Status", value: STATUS_LABELS[suggestion.status] ?? suggestion.status, inline: true },
+          { name: "👤 Author", value: `<@${suggestion.authorId}>`, inline: true },
+          { name: "👍 Upvotes", value: `**${suggestion.upvotes.length}**`, inline: true },
+          { name: "👎 Downvotes", value: `**${suggestion.downvotes.length}**`, inline: true },
+          { name: "📈 Approval", value: `**${approvalPct}%** (${totalVotes} total votes)`, inline: true },
+          { name: "📌 Message", value: suggestion.channelId && suggestion.messageId ? `[Jump to suggestion](https://discord.com/channels/${guildId}/${suggestion.channelId}/${suggestion.messageId})` : "Not linked", inline: false },
+        )
+        .setFooter({ text: `Submitted` })
+        .setTimestamp(new Date(suggestion.createdAt));
+
+      await interaction.editReply({ embeds: [embed] });
     }
   },
 };

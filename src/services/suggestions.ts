@@ -7,7 +7,7 @@ export interface Suggestion {
   content: string;
   messageId: string | null;
   channelId: string | null;
-  status: "pending" | "approved" | "rejected" | "archived";
+  status: "pending" | "approved" | "rejected" | "considered" | "archived";
   upvotes: string[];
   downvotes: string[];
   createdAt: Date;

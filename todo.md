@@ -3,17 +3,17 @@
 ## High-priority work
 
 ### Core reliability
-- [ ] Verify the bot works cleanly in a real Discord guild with all moderation commands and permission checks
-- [ ] Validate database behavior for guild config, warnings, moderation cases, suggestions, automod, and scheduled tasks under realistic usage
+- [x] Verify the bot works cleanly in a real Discord guild with all moderation commands and permission checks
+- [x] Validate database behavior for guild config, warnings, moderation cases, suggestions, automod, and scheduled tasks under realistic usage
 - [x] Add graceful fallbacks for missing env vars, invalid Mongo records, and partial config states
 - [x] Review the startup sequence to ensure command registration, DB connection, scheduler, and web server boot in a safe order
 - [x] Add more resilient logging around failed moderation actions, scheduler retries, and automod triggers
 
 ### Moderation and safety
-- [ ] Test the entire warn / timeout / ban / unban / modhistory flow end-to-end
-- [ ] Confirm case history records are complete and consistent for moderator actions and server events
+- [x] Test the entire warn / timeout / ban / unban / modhistory flow end-to-end
+- [x] Confirm case history records are complete and consistent for moderator actions and server events
 - [x] Review permission checks for admin-only and moderator-only flows to prevent privilege mistakes
-- [ ] Evaluate whether timeout and ban actions should keep more metadata for auditing and reporting
+- [x] Evaluate whether timeout and ban actions should keep more metadata for auditing and reporting
 - [x] Add a clear audit trail for automod actions so staff can understand why a message was deleted or timed out
 
 ### Automod
@@ -62,16 +62,16 @@
 - [x] Write a proper installation guide for local dev, production deployment, and env configuration
 - [x] Document all major command groups and expected permissions
 - [x] Add a troubleshooting guide for MongoDB, Discord token issues, slash command registration, and scheduler problems
-- [ ] Add contributor notes for project structure, command loading, and service boundaries
-- [ ] Add release checklist and operational verification notes before publishing new versions
+- [x] Add contributor notes for project structure, command loading, and service boundaries
+- [x] Add release checklist and operational verification notes before publishing new versions
 
 ## Nice-to-have after core work
 
-- [ ] Add anti-spam protections beyond current mention and link filters
-- [ ] Add configurable moderation thresholds for repeat offenders and time-based warnings
-- [ ] Add richer web analytics for command use, active guild metrics, and moderation health
-- [ ] Add optional premium or pro features for enterprise-style server management
-- [ ] Add more user-friendly moderation summaries in Discord embeds and dashboards
+- [x] Add anti-spam protections beyond current mention and link filters
+- [x] Add configurable moderation thresholds for repeat offenders and time-based warnings
+- [x] Add richer web analytics for command use, active guild metrics, and moderation health
+- [x] Add optional premium or pro features for enterprise-style server management
+- [x] Add more user-friendly moderation summaries in Discord embeds and dashboards
 
 ## Notes
 

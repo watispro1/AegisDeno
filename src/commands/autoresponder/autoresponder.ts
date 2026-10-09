@@ -31,8 +31,32 @@ export const command: Command = {
     )
     .addSubcommand(sub =>
       sub
+        .setName("create")
+        .setDescription("Create a new auto-reply trigger.")
+        .addStringOption(opt => opt.setName("trigger").setDescription("Text or keyword to trigger on").setRequired(true))
+        .addStringOption(opt => opt.setName("response").setDescription("Bot response message").setRequired(true))
+        .addStringOption(opt =>
+          opt
+            .setName("match_type")
+            .setDescription("Matching strategy")
+            .setRequired(false)
+            .addChoices(
+              { name: "Contains Keyword", value: "contains" },
+              { name: "Exact Match", value: "exact" },
+              { name: "Starts With", value: "startsWith" }
+            )
+        )
+    )
+    .addSubcommand(sub =>
+      sub
         .setName("remove")
         .setDescription("Remove an auto-reply trigger.")
+        .addStringOption(opt => opt.setName("id").setDescription("Autoresponder ID (from /autoresponder list)").setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("delete")
+        .setDescription("Delete an auto-reply trigger.")
         .addStringOption(opt => opt.setName("id").setDescription("Autoresponder ID (from /autoresponder list)").setRequired(true))
     )
     .addSubcommand(sub =>
@@ -48,7 +72,7 @@ export const command: Command = {
     if (!interaction.guild) return;
     const subcommand = interaction.options.getSubcommand();
 
-    if (subcommand === "add") {
+    if (subcommand === "add" || subcommand === "create") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
         await interaction.reply({ content: "❌ You need `Manage Server` permission to add autoresponders.", ephemeral: true });
         return;
@@ -77,7 +101,7 @@ export const command: Command = {
       return;
     }
 
-    if (subcommand === "remove") {
+    if (subcommand === "remove" || subcommand === "delete") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
         await interaction.reply({ content: "❌ You need `Manage Server` permission to remove autoresponders.", ephemeral: true });
         return;

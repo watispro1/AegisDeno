@@ -1,6 +1,6 @@
 # 🛡️ AegisDeno — Enterprise Discord Moderation & Community Bot
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/watipro/AegisDeno)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/watipro/AegisDeno)
 [![Discord.js](https://img.shields.io/badge/discord.js-v14.27-5865F2.svg)](https://discord.js.org/)
 [![Node.js](https://img.shields.io/badge/node.js-%3E%3D20.0.0-339933.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-v5.0-3178C6.svg)](https://www.typescriptlang.org/)
@@ -15,7 +15,8 @@
 
 ### 🔨 Moderation & Security
 
-- **Core Commands**: `/warn`, `/timeout`, `/removetimeout`, `/kick`, `/ban`, `/unban`, `/purge`, `/slowmode`, `/nickname`.
+- **Core Commands**: `/warn` (low/medium/high severity, DM notification, undo button), `/timeout`, `/removetimeout`, `/kick`, `/ban` (confirmation embed), `/unban`, `/purge` (content filters & 14-day safety check), `/lock` (channel & server lockdown), `/note` (staff notes on members), `/slowmode`, `/nickname`.
+- **Staff Intelligence**: `/modstats` interactive staff analytics dashboard (7d/30d period switcher) and `/dashboard` server control panel.
 - **Warning Escalation**: Auto-punish users when reaching warning thresholds (`/escalation`).
 - **Case Management**: View (`/case view`), edit reasons (`/case edit`), delete (`/case delete`), or export all guild moderation history as JSON (`/case export`).
 - **1-Click Moderation Presets**: Instantly apply curated profiles (`casual`, `community`, `gaming`, `strict`) via `/preset apply`.
@@ -122,6 +123,7 @@ Detailed deployment instructions and health check validation steps are available
 
 ## 📖 Documentation
 
+- [`DISCOVERY.md`](./DISCOVERY.md) — Top.gg, Discord App Directory & Server Discovery launch guide & listings.
 - [`server.md`](./server.md) — AegisDeno Support Server Blueprint & Top.gg Verification Checklist.
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Step-by-step production deployment & environment validation guide.
 - [`OPERATIONAL.md`](./OPERATIONAL.md) — Operational maintenance & verification procedures.

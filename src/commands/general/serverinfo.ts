@@ -3,6 +3,10 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
   ChannelType,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
 } from "discord.js";
 import { Command } from "../../types/discord";
 
@@ -56,7 +60,59 @@ export const command: Command = {
       embed.setImage(guild.bannerURL({ size: 1024 })!);
     }
 
-    await interaction.reply({ embeds: [embed] });
+    const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("serverinfo_channels")
+        .setLabel("Channel Breakdown")
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji("💬"),
+      new ButtonBuilder()
+        .setCustomId("serverinfo_roles")
+        .setLabel("Roles & Assets")
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji("🎨"),
+      new ButtonBuilder()
+        .setCustomId("serverinfo_security")
+        .setLabel("Security Settings")
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji("🔒")
+    );
+
+    const sent = await interaction.reply({ embeds: [embed], components: [buttons], fetchReply: true });
+
+    const collector = sent.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 90_000,
+    });
+
+    collector.on("collect", async (i) => {
+      if (i.customId === "serverinfo_channels") {
+        await i.reply({
+          content: `💬 **Channel Breakdown for ${guild.name}:**\n- Text Channels: **${textChannels}**\n- Voice Rooms: **${voiceChannels}**\n- Forum Forums: **${forumChannels}**\n- Categories: **${categories}**\n- Total Channels: **${channels.size}**`,
+          ephemeral: true,
+        });
+      } else if (i.customId === "serverinfo_roles") {
+        const topRoles = guild.roles.cache
+          .filter(r => r.id !== guild.id)
+          .sort((a, b) => b.position - a.position)
+          .map(r => r.name)
+          .slice(0, 15)
+          .join(", ");
+        await i.reply({
+          content: `🎨 **Server Customization Assets:**\n- Total Roles: **${Math.max(0, guild.roles.cache.size - 1)}**\n- Top Roles: ${topRoles}\n- Custom Emojis: **${emojis?.size ?? 0}**\n- Stickers: **${stickers?.size ?? 0}**`,
+          ephemeral: true,
+        });
+      } else if (i.customId === "serverinfo_security") {
+        await i.reply({
+          content: `🔒 **Security & Safety Overview:**\n- Verification Level: \`${guild.verificationLevel}\`\n- Explicit Content Filter: \`${guild.explicitContentFilter}\`\n- Default Notifications: \`${guild.defaultMessageNotifications}\`\n- MFA Level: \`${guild.mfaLevel}\``,
+          ephemeral: true,
+        });
+      }
+    });
+
+    collector.on("end", async () => {
+      await interaction.editReply({ components: [] }).catch(() => null);
+    });
   },
 };
 
