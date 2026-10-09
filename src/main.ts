@@ -26,13 +26,17 @@ if (!TOKEN || !APPLICATION_ID) {
 async function registerCommands(): Promise<void> {
   const rest = new REST({ version: "10" }).setToken(TOKEN);
   const commandData = Array.from(commands.values()).map(c => c.data.toJSON());
+  const commandNames = commandData.map(c => `/${c.name}`).join(", ");
+
+  logger.info(`📝 Commands to register (${commandData.length}): ${commandNames}`);
 
   if (TEST_GUILD_ID) {
+    logger.info("⚡ Guild-scoped registration — commands appear instantly!");
     logger.info("Clearing global commands to prevent duplicates...");
     await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: [] });
     logger.info(`Registering ${commandData.length} commands to test guild ${TEST_GUILD_ID}...`);
     await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, TEST_GUILD_ID), { body: commandData });
-    logger.info("Guild commands registered.");
+    logger.info(`✅ Guild commands registered instantly in guild ${TEST_GUILD_ID}.`);
   } else {
     const clearGuildIds = (process.env.DISCORD_CLEAR_GUILD_IDS ?? "")
       .split(",")
@@ -50,9 +54,11 @@ async function registerCommands(): Promise<void> {
       }
     }
 
+    logger.warn("🌐 Global registration mode — new commands may take UP TO 1 HOUR to appear in Discord.");
+    logger.warn("   TIP: Set DISCORD_TEST_GUILD_ID in .env to your server ID for instant command registration.");
     logger.info(`Registering ${commandData.length} commands globally...`);
     await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
-    logger.info("Global commands registered (up to 1h propagation delay).");
+    logger.info(`✅ Global commands registered (${commandData.length} total). Propagation delay: up to 60 minutes.`);
   }
 }
 

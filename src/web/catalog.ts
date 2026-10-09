@@ -208,8 +208,13 @@ interface CommandJson {
 let cache: CommandInfo[] | null = null;
 let index = new Map<string, CommandInfo>();
 
+export function clearCatalogCache(): void {
+  cache = null;
+  index.clear();
+}
+
 export function buildCatalog(): CommandInfo[] {
-  if (cache) return cache;
+  if (cache && cache.length === commands.size) return cache;
 
   const list: CommandInfo[] = [];
 
