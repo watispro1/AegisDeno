@@ -30,7 +30,13 @@ export const command: Command = {
           opt.setName("title").setDescription("Embed title").setRequired(true).setMaxLength(256)
         )
         .addStringOption(opt =>
+          opt.setName("description").setDescription("Embed body text (supports \\n for newlines)").setRequired(false).setMaxLength(4000)
+        )
+        .addStringOption(opt =>
           opt.setName("color").setDescription("Hex color (e.g. #5865F2)").setRequired(false)
+        )
+        .addStringOption(opt =>
+          opt.setName("url").setDescription("Clickable title URL link").setRequired(false)
         )
         .addStringOption(opt =>
           opt.setName("footer").setDescription("Footer text").setRequired(false).setMaxLength(2048)
@@ -103,18 +109,22 @@ export const command: Command = {
 
     // ─── BUILDER MODE ─────────────────────────────────────────────────────────
     const channel = interaction.options.getChannel("channel", true);
-    const title = interaction.options.getString("title", true);
-    const color = parseColor(interaction.options.getString("color"));
-    const footer = interaction.options.getString("footer");
-    const image = interaction.options.getString("image");
-    const thumbnail = interaction.options.getString("thumbnail");
-    const author = interaction.options.getString("author");
+    let title = interaction.options.getString("title", true);
+    let color = parseColor(interaction.options.getString("color"));
+    let footer = interaction.options.getString("footer");
+    let image = interaction.options.getString("image");
+    let thumbnail = interaction.options.getString("thumbnail");
+    let author = interaction.options.getString("author");
+    let url = interaction.options.getString("url");
+    
+    const initialDesc = interaction.options.getString("description");
+    let description = initialDesc
+      ? initialDesc.replace(/\\n/g, "\n")
+      : "*Click **Edit Description** to write or edit the embed body...*";
 
     if (!("send" in channel) || typeof (channel as any).send !== "function") {
       return interaction.reply({ content: "❌ Please select a valid text channel.", ephemeral: true });
     }
-
-    let description = "*Click **Edit Description** to write the embed body...*";
 
     const buildEmbed = () => {
       const e = new EmbedBuilder()
@@ -122,6 +132,7 @@ export const command: Command = {
         .setDescription(description)
         .setColor(color)
         .setTimestamp();
+      if (url) e.setURL(url);
       if (footer) e.setFooter({ text: footer });
       if (image) e.setImage(image);
       if (thumbnail) e.setThumbnail(thumbnail);
@@ -129,36 +140,50 @@ export const command: Command = {
       return e;
     };
 
-    const buildButtons = (sent: boolean) => new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId("embed_edit_desc")
-        .setLabel("Edit Description")
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji("✏️"),
-      new ButtonBuilder()
-        .setCustomId("embed_send")
-        .setLabel("Post Embed")
-        .setStyle(ButtonStyle.Success)
-        .setEmoji("🚀")
-        .setDisabled(sent),
-      new ButtonBuilder()
-        .setCustomId("embed_cancel")
-        .setLabel("Cancel")
-        .setStyle(ButtonStyle.Danger)
-        .setEmoji("✖️"),
-    );
+    const buildButtons = (sent: boolean) => [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId("embed_edit_desc")
+          .setLabel("Edit Description")
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji("✏️"),
+        new ButtonBuilder()
+          .setCustomId("embed_edit_meta")
+          .setLabel("Title & URL")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("🏷️"),
+        new ButtonBuilder()
+          .setCustomId("embed_edit_media")
+          .setLabel("Images & Author")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("🖼️"),
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId("embed_send")
+          .setLabel("Post Embed")
+          .setStyle(ButtonStyle.Success)
+          .setEmoji("🚀")
+          .setDisabled(sent),
+        new ButtonBuilder()
+          .setCustomId("embed_cancel")
+          .setLabel("Cancel")
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji("✖️"),
+      ),
+    ];
 
     const sent = await interaction.reply({
       content: `👇 **Embed Preview** — Posting to <#${channel.id}>`,
       embeds: [buildEmbed()],
-      components: [buildButtons(false)],
+      components: buildButtons(false),
       ephemeral: true,
       fetchReply: true,
     });
 
     const collector = sent.createMessageComponentCollector({
       componentType: ComponentType.Button,
-      time: 300_000,
+      time: 600_000,
       filter: (i) => i.user.id === interaction.user.id,
     });
 
@@ -180,19 +205,116 @@ export const command: Command = {
           .setCustomId("embed_desc_input")
           .setLabel("Description (supports \\n for newlines)")
           .setStyle(TextInputStyle.Paragraph)
-          .setValue(description === "*Click **Edit Description** to write the embed body...*" ? "" : description)
+          .setValue(description === "*Click **Edit Description** to write or edit the embed body...*" ? "" : description)
           .setMaxLength(4000)
           .setRequired(true);
 
         modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
         await i.showModal(modal);
 
-        const modalSubmit = await i.awaitModalSubmit({ time: 180_000 }).catch(() => null) as ModalSubmitInteraction | null;
+        const modalSubmit = await i.awaitModalSubmit({ time: 300_000 }).catch(() => null) as ModalSubmitInteraction | null;
         if (!modalSubmit) return;
 
         description = modalSubmit.fields.getTextInputValue("embed_desc_input").replace(/\\n/g, "\n");
         await modalSubmit.deferUpdate();
-        await interaction.editReply({ embeds: [buildEmbed()], components: [buildButtons(posted)] });
+        await interaction.editReply({ embeds: [buildEmbed()], components: buildButtons(posted) });
+        return;
+      }
+
+      if (i.customId === "embed_edit_meta") {
+        const modal = new ModalBuilder()
+          .setCustomId("embed_meta_modal")
+          .setTitle("Edit Title & URL Link");
+
+        const titleInput = new TextInputBuilder()
+          .setCustomId("embed_title_input")
+          .setLabel("Embed Title")
+          .setStyle(TextInputStyle.Short)
+          .setValue(title)
+          .setMaxLength(256)
+          .setRequired(true);
+
+        const urlInput = new TextInputBuilder()
+          .setCustomId("embed_url_input")
+          .setLabel("Title Clickable Link URL (optional)")
+          .setStyle(TextInputStyle.Short)
+          .setValue(url ?? "")
+          .setRequired(false);
+
+        modal.addComponents(
+          new ActionRowBuilder<TextInputBuilder>().addComponents(titleInput),
+          new ActionRowBuilder<TextInputBuilder>().addComponents(urlInput)
+        );
+        await i.showModal(modal);
+
+        const modalSubmit = await i.awaitModalSubmit({ time: 300_000 }).catch(() => null) as ModalSubmitInteraction | null;
+        if (!modalSubmit) return;
+
+        title = modalSubmit.fields.getTextInputValue("embed_title_input");
+        const newUrl = modalSubmit.fields.getTextInputValue("embed_url_input").trim();
+        url = newUrl || null;
+
+        await modalSubmit.deferUpdate();
+        await interaction.editReply({ embeds: [buildEmbed()], components: buildButtons(posted) });
+        return;
+      }
+
+      if (i.customId === "embed_edit_media") {
+        const modal = new ModalBuilder()
+          .setCustomId("embed_media_modal")
+          .setTitle("Edit Images & Author");
+
+        const authorInput = new TextInputBuilder()
+          .setCustomId("embed_author_input")
+          .setLabel("Author Name (above title)")
+          .setStyle(TextInputStyle.Short)
+          .setValue(author ?? "")
+          .setRequired(false);
+
+        const imageInput = new TextInputBuilder()
+          .setCustomId("embed_image_input")
+          .setLabel("Large Image URL (bottom)")
+          .setStyle(TextInputStyle.Short)
+          .setValue(image ?? "")
+          .setRequired(false);
+
+        const thumbInput = new TextInputBuilder()
+          .setCustomId("embed_thumb_input")
+          .setLabel("Small Thumbnail URL (top right)")
+          .setStyle(TextInputStyle.Short)
+          .setValue(thumbnail ?? "")
+          .setRequired(false);
+
+        const footerInput = new TextInputBuilder()
+          .setCustomId("embed_footer_input")
+          .setLabel("Footer Text")
+          .setStyle(TextInputStyle.Short)
+          .setValue(footer ?? "")
+          .setRequired(false);
+
+        modal.addComponents(
+          new ActionRowBuilder<TextInputBuilder>().addComponents(authorInput),
+          new ActionRowBuilder<TextInputBuilder>().addComponents(imageInput),
+          new ActionRowBuilder<TextInputBuilder>().addComponents(thumbInput),
+          new ActionRowBuilder<TextInputBuilder>().addComponents(footerInput)
+        );
+        await i.showModal(modal);
+
+        const modalSubmit = await i.awaitModalSubmit({ time: 300_000 }).catch(() => null) as ModalSubmitInteraction | null;
+        if (!modalSubmit) return;
+
+        const a = modalSubmit.fields.getTextInputValue("embed_author_input").trim();
+        const img = modalSubmit.fields.getTextInputValue("embed_image_input").trim();
+        const th = modalSubmit.fields.getTextInputValue("embed_thumb_input").trim();
+        const ft = modalSubmit.fields.getTextInputValue("embed_footer_input").trim();
+
+        author = a || null;
+        image = img || null;
+        thumbnail = th || null;
+        footer = ft || null;
+
+        await modalSubmit.deferUpdate();
+        await interaction.editReply({ embeds: [buildEmbed()], components: buildButtons(posted) });
         return;
       }
 

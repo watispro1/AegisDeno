@@ -66,3 +66,10 @@ typings/
 
 # Dist
 dist/
+
+# Sensitive & Internal Documents
+server.md
+CHANNEL_CONTENT.md
+.agents/
+.gemini/
+

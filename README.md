@@ -1,136 +1,99 @@
-# 🛡️ AegisDeno — Enterprise Discord Moderation & Community Bot
+# AegisDeno
 
 [![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/watipro/AegisDeno)
 [![Discord.js](https://img.shields.io/badge/discord.js-v14.27-5865F2.svg)](https://discord.js.org/)
-[![Node.js](https://img.shields.io/badge/node.js-%3E%3D20.0.0-339933.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-v5.0-3178C6.svg)](https://www.typescriptlang.org/)
 [![MongoDB](https://img.shields.io/badge/mongodb-v9.0-47A248.svg)](https://www.mongodb.com/)
 [![License](https://img.shields.io/badge/license-ISC-green.svg)](./LICENSE)
 
-**AegisDeno** is a state-of-the-art, modular Discord utility, moderation, anti-raid, and community management bot built with TypeScript, **discord.js v14**, and MongoDB. Designed for speed, safety, and reliability, AegisDeno includes a built-in public Express web dashboard, Top.gg voting API support, and a complete suite of administration tools.
+AegisDeno is a modular Discord moderation, anti-raid, and community management bot built with TypeScript, **discord.js v14**, and MongoDB. Built for speed, security, and reliability, it includes a web control panel, Top.gg voting API support, and a complete suite of administration tools.
 
 ---
 
-## ✨ Features Overview
+## Features
 
-### 🔨 Moderation & Security
+### Moderation & Security
+- **Core Commands**: `/warn`, `/timeout`, `/removetimeout`, `/kick`, `/ban`, `/unban`, `/purge`, `/lock`, `/note`, `/slowmode`, `/nickname`.
+- **Staff Analytics**: `/modstats` interactive staff activity metrics and `/dashboard` server management view.
+- **Warning Escalation**: Automated punishments when warning thresholds are reached (`/escalation`).
+- **Case Tracking**: View (`/case view`), edit reasons (`/case edit`), delete (`/case delete`), or export moderation logs as JSON (`/case export`).
+- **Moderation Presets**: Apply security presets (`casual`, `community`, `gaming`, `strict`) via `/preset apply`.
 
-- **Core Commands**: `/warn` (low/medium/high severity, DM notification, undo button), `/timeout`, `/removetimeout`, `/kick`, `/ban` (confirmation embed), `/unban`, `/purge` (content filters & 14-day safety check), `/lock` (channel & server lockdown), `/note` (staff notes on members), `/slowmode`, `/nickname`.
-- **Staff Intelligence**: `/modstats` interactive staff analytics dashboard (7d/30d period switcher) and `/dashboard` server control panel.
-- **Warning Escalation**: Auto-punish users when reaching warning thresholds (`/escalation`).
-- **Case Management**: View (`/case view`), edit reasons (`/case edit`), delete (`/case delete`), or export all guild moderation history as JSON (`/case export`).
-- **1-Click Moderation Presets**: Instantly apply curated profiles (`casual`, `community`, `gaming`, `strict`) via `/preset apply`.
-
-### 🛡️ Automod & Anti-Raid
-
-- **Content Filtering**: Banned words filter, link filter, mass-mention spam protection, and chat rate-limiting (`/automod`).
+### Automod & Anti-Raid
+- **Content Filtering**: Banned words filter, link filter, mass-mention protection, and chat rate-limiting (`/automod`).
 - **Exemptions**: Safe-list trusted roles and channels (`/automod exempt`).
-- **Member Verification**: Deploy interactive 1-click button or CAPTCHA verification panels to stop raids (`/verify setup`).
+- **Verification**: Interactive 1-click button or CAPTCHA verification panels (`/verify setup`).
 
-### 🎫 Interactive Support Tickets & Role Panels
+### Support Tickets & Roles
+- **Support Tickets**: Interactive ticket panels with private channel creation and staff permissions (`/ticket setup`, `/ticket close`).
+- **Role Panels**: Self-assignable button role panels (`/rolepanel create`).
+- **Auto-Responders**: Automated bot replies with variables (`{user}`, `{server}`, `{channel}`, `{member_count}`) via `/autoresponder`.
 
-- **Support Tickets**: Interactive ticket panels with private channel generation and staff role permissions (`/ticket setup`, `/ticket close`).
-- **Button Role Panels**: Self-assignable multi-button role assignment panels (`/rolepanel create`).
-- **Custom Auto-Responders**: Trigger automated bot replies with placeholder variables (`{user}`, `{server}`, `{channel}`, `{member_count}`) via `/autoresponder`.
-
-### 🗳️ Community & Automation
-
-- **Suggestions System**: Interactive suggestion submission with live 👍/👎 vote buttons and staff approval/rejection workflows (`/suggest`).
+### Community Tools
+- **Suggestions System**: Interactive suggestion boards with live voting and staff approval workflows (`/suggest`).
 - **Native Polls**: Discord native poll integration with multi-select and duration timers (`/poll`).
-- **Scheduled Tasks**: One-off reminders and recurring interval announcements (`/automation`).
-- **Activity Summaries**: 24-hour, 7-day, and 30-day server activity digests (`/activitysummary`).
-
-### 🌐 Dashboard & Top.gg Verification Preparedness
-
-- **Web Dashboard**: Public command catalog, API endpoints (`/api/stats`, `/api/commands`), `/health` uptime monitoring, `/privacy`, and `/terms`.
-- **Top.gg Webhook Integration**: Dedicated `/api/topgg/webhook` endpoint with authentication headers for live vote rewards.
-- **Top.gg Stats Service**: Automated background server count posting (`src/services/topgg.ts`).
+- **Scheduled Tasks**: One-off reminders and recurring announcements (`/automation`).
+- **Activity Summaries**: Community growth and message digests (`/activitysummary`).
 
 ---
 
-## 🚀 Quick Start & Installation
+## Setup & Running Locally
 
 ### 1. Prerequisites
-
 - **Node.js** v20.0.0 or higher
-- **npm** package manager
-- **MongoDB** cluster connection string (e.g. MongoDB Atlas)
+- **MongoDB** connection URI (MongoDB Atlas or local instance)
 
-### 2. Setup & Installation
-
+### 2. Installation
 ```bash
-# Clone the repository
 git clone https://github.com/watipro/AegisDeno.git
 cd AegisDeno
-
-# Install dependencies
 npm install
-
-# Copy configuration template
 cp .env.example .env
 ```
 
-### 3. Environment Configuration
-
-Edit `.env` and supply your credentials:
-
+### 3. Configuration
+Fill out `.env` with your bot credentials:
 ```env
 DISCORD_TOKEN="your_bot_token"
 DISCORD_APPLICATION_ID="your_discord_app_id"
 MONGO_URI="mongodb+srv://user:password@cluster.mongodb.net/aegis"
 SITE_URL="http://localhost:3000"
 PORT=3000
-
-# Top.gg Integration (Optional for local testing)
-TOPGG_TOKEN="your_topgg_api_token"
-TOPGG_WEBHOOK_AUTH="your_topgg_webhook_secret"
 ```
 
-### 4. Running locally
-
+### 4. Running
 ```bash
-# Typecheck TypeScript codebase
+# Typecheck
 npm run typecheck
 
-# Start in development mode with live reload
+# Start in development mode
 npm run dev
 
-# Compile and start production bundle
+# Production build and run
 npm run build
 npm start
 ```
 
 ---
 
-## 🚀 Deployment (Fly.io)
-
-AegisDeno is pre-configured for seamless production hosting on **Fly.io**:
+## Deployment (Fly.io)
 
 ```bash
-# Set secrets on Fly.io
-fly secrets set DISCORD_TOKEN="..." DISCORD_APPLICATION_ID="..." MONGO_URI="..." SITE_URL="https://aegisbot.dev"
-
-# Top.gg secrets
-fly secrets set TOPGG_TOKEN="..." TOPGG_WEBHOOK_AUTH="..."
-
-# Deploy
+fly secrets set DISCORD_TOKEN="..." DISCORD_APPLICATION_ID="..." MONGO_URI="..." SITE_URL="https://your-app.fly.dev"
 fly deploy
 ```
 
-Detailed deployment instructions and health check validation steps are available in [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+---
+
+## Documentation
+
+- [`DISCOVERY.md`](./DISCOVERY.md) — Top.gg & App Directory submission details.
+- [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Production deployment guide.
+- [`OPERATIONAL.md`](./OPERATIONAL.md) — Maintenance and server administration guide.
+- [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) — Troubleshooting guide for database, Discord tokens, and slash commands.
 
 ---
 
-## 📖 Documentation
+## License
 
-- [`DISCOVERY.md`](./DISCOVERY.md) — Top.gg, Discord App Directory & Server Discovery launch guide & listings.
-- [`server.md`](./server.md) — AegisDeno Support Server Blueprint & Top.gg Verification Checklist.
-- [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Step-by-step production deployment & environment validation guide.
-- [`OPERATIONAL.md`](./OPERATIONAL.md) — Operational maintenance & verification procedures.
-- [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) — Diagnostic guide for MongoDB, Discord tokens, slash command registration, and Fly.io.
-
----
-
-## 📜 License
-
-This project is licensed under the **ISC License**.
+ISC License.

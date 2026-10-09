@@ -42,6 +42,16 @@ export const command: Command = {
         .setName("remove")
         .setDescription("Remove a member from this ticket.")
         .addUserOption(opt => opt.setName("user").setDescription("User to remove").setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("claim")
+        .setDescription("Claim responsibility for managing this ticket.")
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("transcript")
+        .setDescription("Generate and fetch a chat transcript of this ticket.")
     ),
 
   category: "tickets",
@@ -121,6 +131,50 @@ export const command: Command = {
       await interaction.reply({
         content: ok ? `✅ Removed <@${targetUser.id}> from the ticket.` : "❌ Failed to remove user.",
         ephemeral: true,
+      });
+      return;
+    }
+
+    if (subcommand === "claim") {
+      const channel = interaction.channel as TextChannel;
+      if (!channel.name.startsWith("ticket-")) {
+        await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
+        return;
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(0xF1C40F)
+        .setTitle("👤 Ticket Claimed")
+        .setDescription(`This ticket is now being handled by <@${interaction.user.id}>.`)
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [embed] });
+      return;
+    }
+
+    if (subcommand === "transcript") {
+      const channel = interaction.channel as TextChannel;
+      if (!channel.name.startsWith("ticket-")) {
+        await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
+        return;
+      }
+
+      await interaction.deferReply({ ephemeral: true });
+
+      const fetchedMessages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+      if (!fetchedMessages || fetchedMessages.size === 0) {
+        await interaction.editReply("❌ No messages found in this ticket to export.");
+        return;
+      }
+
+      const sortedMsgs = Array.from(fetchedMessages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+      const lines = sortedMsgs.map(m => `[${new Date(m.createdTimestamp).toISOString()}] ${m.author.tag} (${m.author.id}): ${m.content || "[Embed/Attachment]"}`);
+      const transcriptText = `--- Aegis Support Ticket Transcript ---\nChannel: ${channel.name}\nExported At: ${new Date().toISOString()}\nTotal Messages: ${sortedMsgs.length}\n---------------------------------------\n\n` + lines.join("\n");
+
+      const buffer = Buffer.from(transcriptText, "utf-8");
+      await interaction.editReply({
+        content: `📄 **Ticket Transcript Generated** (${sortedMsgs.length} messages)`,
+        files: [{ attachment: buffer, name: `transcript-${channel.name}.txt` }],
       });
       return;
     }

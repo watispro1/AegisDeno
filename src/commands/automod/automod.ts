@@ -1,5 +1,5 @@
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { Command } from "../../types/discord";
 import { getAutomodConfig, updateAutomodConfig } from "../../services/automod";
 
@@ -121,22 +121,73 @@ export const command: Command = {
 
       // ── status ──────────────────────────────────────────────────────────────
       if (sub === "status") {
-        const exemptRoles    = config.exemptRoleIds.map(id => `<@&${id}>`).join(", ") || "None";
-        const exemptChannels = config.exemptChannelIds.map(id => `<#${id}>`).join(", ") || "None";
+        const buildStatusPayload = (cfg: typeof config) => {
+          const exemptRoles    = cfg.exemptRoleIds.map(id => `<@&${id}>`).join(", ") || "None";
+          const exemptChannels = cfg.exemptChannelIds.map(id => `<#${id}>`).join(", ") || "None";
 
-        const embed = new EmbedBuilder()
-          .setColor(0x5865F2)
-          .setTitle("🛡️ Automod Configuration")
-          .addFields(
-            { name: "Blocked Words",   value: `${config.words.enabled ? "✅" : "❌"} ${config.words.list.length} word(s) · Action: \`${config.words.action}\``, inline: false },
-            { name: "Link Filtering",  value: `${config.links.enabled ? "✅" : "❌"} Action: \`${config.links.action}\``, inline: true },
-            { name: "Mention Spam",    value: `${config.mentions.enabled ? "✅" : "❌"} Limit: ${config.mentions.threshold} · Action: \`${config.mentions.action}\``, inline: true },
-            { name: "Spam Detection",  value: `${config.spam.enabled ? "✅" : "❌"} Max ${config.spam.maxMessages} msg / ${config.spam.windowSeconds}s · Action: \`${config.spam.action}\``, inline: false },
-            { name: "Exempt Roles",    value: exemptRoles, inline: false },
-            { name: "Exempt Channels", value: exemptChannels, inline: false },
-          )
-          .setTimestamp();
-        await interaction.editReply({ embeds: [embed] });
+          const embed = new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle("🛡️ Automod Configuration Hub")
+            .setDescription("Use the interactive buttons below to quick-toggle core protection filters.")
+            .addFields(
+              { name: "🔤 Blocked Words",   value: `${cfg.words.enabled ? "✅ Enabled" : "❌ Disabled"} (${cfg.words.list.length} words) · Action: \`${cfg.words.action}\``, inline: false },
+              { name: "🔗 Link Filtering",  value: `${cfg.links.enabled ? "✅ Enabled" : "❌ Disabled"} · Action: \`${cfg.links.action}\``, inline: true },
+              { name: "📢 Mention Spam",    value: `${cfg.mentions.enabled ? "✅ Enabled" : "❌ Disabled"} (Limit: ${cfg.mentions.threshold}) · Action: \`${cfg.mentions.action}\``, inline: true },
+              { name: "⚡ Spam Detection",  value: `${cfg.spam.enabled ? "✅ Enabled" : "❌ Disabled"} (${cfg.spam.maxMessages} msg / ${cfg.spam.windowSeconds}s) · Action: \`${cfg.spam.action}\``, inline: false },
+              { name: "🛡️ Exempt Roles",    value: exemptRoles, inline: false },
+              { name: "📌 Exempt Channels", value: exemptChannels, inline: false },
+            )
+            .setTimestamp();
+
+          const buttons = new ActionRowBuilder<any>().addComponents(
+            new ButtonBuilder()
+              .setCustomId("am_toggle_words")
+              .setLabel(`Words (${cfg.words.enabled ? "ON" : "OFF"})`)
+              .setStyle(cfg.words.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
+              .setEmoji("🔤"),
+            new ButtonBuilder()
+              .setCustomId("am_toggle_links")
+              .setLabel(`Links (${cfg.links.enabled ? "ON" : "OFF"})`)
+              .setStyle(cfg.links.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
+              .setEmoji("🔗"),
+            new ButtonBuilder()
+              .setCustomId("am_toggle_mentions")
+              .setLabel(`Mentions (${cfg.mentions.enabled ? "ON" : "OFF"})`)
+              .setStyle(cfg.mentions.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
+              .setEmoji("📢"),
+            new ButtonBuilder()
+              .setCustomId("am_toggle_spam")
+              .setLabel(`Spam (${cfg.spam.enabled ? "ON" : "OFF"})`)
+              .setStyle(cfg.spam.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
+              .setEmoji("⚡"),
+          );
+
+          return { embed, buttons };
+        };
+
+        const initial = buildStatusPayload(config);
+        const sent = await interaction.editReply({ embeds: [initial.embed], components: [initial.buttons] });
+
+        const collector = sent.createMessageComponentCollector({
+          time: 180_000,
+          filter: (i) => i.user.id === interaction.user.id,
+        });
+
+        collector.on("collect", async (i) => {
+          if (i.customId === "am_toggle_words") config.words.enabled = !config.words.enabled;
+          if (i.customId === "am_toggle_links") config.links.enabled = !config.links.enabled;
+          if (i.customId === "am_toggle_mentions") config.mentions.enabled = !config.mentions.enabled;
+          if (i.customId === "am_toggle_spam") config.spam.enabled = !config.spam.enabled;
+
+          await updateAutomodConfig(guildId, config);
+          await i.deferUpdate();
+          const updated = buildStatusPayload(config);
+          await interaction.editReply({ embeds: [updated.embed], components: [updated.buttons] });
+        });
+
+        collector.on("end", async () => {
+          await interaction.editReply({ components: [] }).catch(() => null);
+        });
         return;
       }
 

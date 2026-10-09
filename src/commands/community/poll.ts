@@ -8,6 +8,8 @@ export const command: Command = {
     .addStringOption(opt =>
       opt.setName("question").setDescription("The poll question").setRequired(true).setMaxLength(300)
     )
+    .addStringOption(opt => opt.setName("option1").setDescription("Option 1").setRequired(true).setMaxLength(55))
+    .addStringOption(opt => opt.setName("option2").setDescription("Option 2").setRequired(true).setMaxLength(55))
     .addIntegerOption(opt =>
       opt.setName("duration")
         .setDescription("How long the poll should run for")
@@ -26,8 +28,6 @@ export const command: Command = {
         .setDescription("Allow users to vote for multiple options (default: false)")
         .setRequired(false)
     )
-    .addStringOption(opt => opt.setName("option1").setDescription("Option 1").setRequired(true).setMaxLength(55))
-    .addStringOption(opt => opt.setName("option2").setDescription("Option 2").setRequired(true).setMaxLength(55))
     .addStringOption(opt => opt.setName("option3").setDescription("Option 3").setRequired(false).setMaxLength(55))
     .addStringOption(opt => opt.setName("option4").setDescription("Option 4").setRequired(false).setMaxLength(55))
     .addStringOption(opt => opt.setName("option5").setDescription("Option 5").setRequired(false).setMaxLength(55))
