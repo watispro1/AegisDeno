@@ -1,482 +1,629 @@
-# 📬 AegisDeno Support Server — Channel Content Guide
+# AegisDeno Support Server — Channel Content Guide
 
-> Copy and paste each section below directly into its respective Discord channel.
-> Channels marked with **[EMBED]** should be sent as bot embeds using `/embed`. Channels marked with **[MESSAGE]** are plain text pastes.
-
----
-
-## 📌 INFORMATION Category
+Copy and paste the text or run the slash command for each channel when setting up your Discord support server.
 
 ---
 
-### 📜 `#rules` — [MESSAGE]
+## 📌 INFORMATION
 
-> Set the channel topic to: `Read before participating. Violations result in automated moderation.`
+---
 
-```
-╔══════════════════════════════════════════╗
-║      📜  Server Rules & Guidelines       ║
-╚══════════════════════════════════════════╝
+### #rules
 
-Welcome to the official **AegisDeno** support server!
-To maintain a safe, productive, and welcoming environment, all members must adhere to the following rules.
+**Channel Topic:**
+`Read before chatting. Follow Discord ToS and treat everyone with respect.`
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-§1 — Follow Discord's Terms of Service
-All activity must comply with Discord's ToS and Community Guidelines.
-🔗 https://dis.gd/tos | https://dis.gd/guidelines
+**Message to post:**
 
-§2 — Be Respectful
-Harassment, slurs, hate speech, personal attacks, or toxic behavior toward any member will result in an immediate timeout or ban.
+```markdown
+# Server Rules
 
-§3 — No Unsolicited Advertising
-Do not post invite links, promotions, or DM solicitations without explicit staff permission.
+Welcome to the AegisDeno server! Please follow these basic guidelines so everyone has a good time.
 
-§4 — Keep Content Appropriate
-NSFW content, gore, or malicious/phishing links are strictly prohibited across all channels and DMs.
+1. **Follow Discord ToS & Guidelines**
+   Keep everything within Discord's Terms of Service and Community Guidelines.
+   https://dis.gd/tos | https://dis.gd/guidelines
 
-§5 — No Spam or Mass Mentions
-Message flooding, excessive emoji, or abusing @everyone / @here / role pings is not allowed.
+2. **Be Respectful**
+   No harassment, hate speech, slurs, or toxic behavior. Disagreements happen, but keep them civil.
 
-§6 — Use Channels Correctly
-Post in the channel relevant to your question. Off-topic conversations slow support for everyone.
+3. **No Unsolicited Advertising or DMs**
+   Don't post invite links, spam promotions, or slide into member DMs to advertise without staff permission.
 
-§7 — Respect Staff Decisions
-Moderators enforce rules at their discretion. If you disagree with an action, open a ticket — do not argue publicly.
+4. **Keep Content SFW**
+   No NSFW, gore, or sketchy/phishing links anywhere on the server.
 
-§8 — Voice Etiquette
-No soundboard abuse, ear-rape audio, or excessive noise in voice channels.
+5. **No Spam or Mass Mentions**
+   Don't flood messages, spam emotes, or unnecessarily ping `@everyone`, `@here`, or staff roles.
 
-§9 — No Impersonation
-Impersonating staff, the developer team, or other members is prohibited. Suspicious accounts will be quarantined.
+6. **Use the Right Channels**
+   Keep bot commands in `#bot-commands`, support questions in `#setup-help` or `#open-a-ticket`, and feature ideas in `#suggestions`.
 
-§10 — Automated Enforcement
-AegisDeno tracks all infractions automatically. Warning accumulation triggers escalating actions (timeout → kick → ban).
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-By joining this server, you agree to these guidelines.
+7. **Follow Staff Instructions**
+   Moderators are here to keep things safe. If you disagree with a moderation action, open a ticket instead of arguing in public chat.
+
+8. **Voice Etiquette**
+   No soundboard spam, screamers, or loud background noise in voice channels.
+
+*Note: Infractions are logged automatically by AegisDeno. Repeated warnings will escalate to timeouts, kicks, or bans.*
 ```
 
 ---
 
-### 📢 `#announcements` — [EMBED via `/embed`]
+### #announcements
 
-> **Channel Topic:** `Bot updates, changelogs, and service notices. Enable notifications to stay up to date.`
+**Channel Topic:**
+`Official bot updates, changelogs, and downtime notices.`
 
-**Send this as the pinned channel introduction:**
-
-```
-/embed channel:#announcements title:"📢 Welcome to Announcements" color:#5865F2 description:"This channel receives all official AegisDeno announcements including:\n\n🆕 **Version releases** and changelogs\n🛠️ **Hotfixes** and critical patches\n⚠️ **Downtime notices** and maintenance windows\n🎉 **New feature previews** and roadmap updates\n\nEnable notifications 🔔 to stay informed the moment updates drop." footer:"AegisDeno • Official Announcements"
-```
-
-**First announcement to post:**
+**First embed to post:**
 
 ```
-🛡️ AegisDeno v3.0 is Live!
+/embed quick channel:#announcements title:"AegisDeno Announcements" description:"This channel is for official bot releases, changelogs, maintenance notices, and major project news.\n\nTurn on channel notifications to stay updated on new releases." color:"#5865F2" footer:"AegisDeno Updates"
+```
 
-After months of development, AegisDeno v3 is officially released.
+**First announcement message:**
 
-What's new:
-• Full slash command rework across all modules
-• Dual-layer AutoMod engine (Discord Native + Bot-level)
-• Advanced ticket system with transcripts
-• Suggestion voting with live counters
-• Interactive /dashboard with real-time stats
-• Brand new documentation website at https://aegisbot.dev
-• Automation scheduler for timed actions
-• Self-assignable role panels
+```markdown
+🛡️ **AegisDeno v3.0 is live!**
 
-Add AegisDeno: https://discord.com/oauth2/authorize?client_id=1554631691421876254
-Vote on Top.gg: https://top.gg/bot/aegisdeno/vote
-Full changelog: https://aegisbot.dev/changelog
+What's new in this release:
+• Rebuilt slash commands across all modules
+• Dual-layer AutoMod (Discord Native + bot filters)
+• Support ticket system with transcript exports
+• Interactive suggestion voting with live counters
+• Self-serve role panels via `/rolepanel`
+• Live web dashboard and documentation at https://aegisdeno.fly.dev
+
+🔗 **Add AegisDeno:** https://discord.com/oauth2/authorize?client_id=1554631691421876254
+🗳️ **Vote on Top.gg:** https://top.gg/bot/aegisdeno/vote
+📖 **Changelog:** https://aegisdeno.fly.dev/changelog
 ```
 
 ---
 
-### 🚀 `#getting-started` — [EMBED + MESSAGE]
+### #getting-started
 
-> **Channel Topic:** `New to AegisDeno? Start here. Step-by-step setup guide.`
+**Channel Topic:**
+`New to AegisDeno? Follow this quick setup guide.`
 
-**Embed header:**
-
-```
-/embed channel:#getting-started title:"🚀 Getting Started with AegisDeno" color:#57F287 description:"Welcome! Follow these steps to get AegisDeno fully set up in under 5 minutes." footer:"AegisDeno • Setup Guide"
-```
-
-**Follow-up plain message:**
+**Embed to post:**
 
 ```
-Step 1 — Invite AegisDeno
+/embed quick channel:#getting-started title:"Getting Started with AegisDeno" description:"Follow these simple steps to set up AegisDeno in your server in under 5 minutes." color:"#57F287" footer:"AegisDeno Setup"
+```
+
+**Message to post below the embed:**
+
+```markdown
+### 1. Invite the Bot
+Add AegisDeno with the required permissions:
 https://discord.com/oauth2/authorize?client_id=1554631691421876254
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Step 2 — Apply a 1-Click Preset (fastest setup)
-/preset apply preset:community
+*Make sure the AegisDeno role is placed above member roles in Server Settings → Roles so moderation commands work properly.*
 
-Available presets:
-• community — Balanced AutoMod, welcome messages, suggestion channel
-• gaming — Relaxed rules, voice-focused, gaming-optimized AutoMod
-• minimal — Bare-bones setup for small servers
+---
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Step 3 — Manual Configuration (optional)
+### 2. Quick Setup (1-Click Preset)
+Run this command in any admin channel to apply a pre-configured template:
+`/preset apply preset:community`
 
-AutoMod:
-/automod words enable action:warn log_channel:#mod-logs
-/automod spam enable action:timeout max_messages:5 time_window:5
+Presets available:
+• `community` — Balanced AutoMod, welcome channel, suggestions, logging
+• `gaming` — Light chat filters, voice-friendly rules
+• `minimal` — Basic logging and warning limits
 
-Ticket System:
-/ticket setup channel:#open-a-ticket category:Support
+---
 
-Verification Gate:
-/verify setup channel:#verification role:@Member type:button
+### 3. Key Feature Setup (Manual)
+If you want to configure modules individually:
 
-Welcome Messages:
-/welcome setup channel:#welcome message:Welcome {user} to {server}! You are member #{member_count}.
+• **Set up Mod Logs:**
+  `/logging channel channel:#mod-logs`
+  `/logging toggle enabled:true`
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Step 4 — Set Up Logging
-/logging channel:#mod-logs
+• **Set up Ticket Panel:**
+  `/ticket setup channel:#open-a-ticket staff_role:@Support title:"Support Tickets" description:"Click below to open a ticket."`
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Step 5 — Verify Everything Works
-/diagnostics
-/dashboard
-/automod status
+• **Set up Member Verification:**
+  `/verify setup channel:#verification verified_role:@Member type:button`
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📚 Full Documentation: https://aegisbot.dev
-❓ Need help? Open a ticket in #open-a-ticket or ask in #setup-help
+• **Set up Welcome Messages:**
+  `/welcome channel channel:#welcome`
+  `/welcome toggle enabled:true`
+
+• **Set up AutoMod:**
+  `/automod words toggle enabled:true`
+  `/automod words action action:warn`
+  `/automod links toggle enabled:true`
+  `/automod mentions toggle enabled:true`
+  `/automod mentions limit count:5`
+
+---
+
+### 4. Check Everything
+Run `/diagnostics` or `/config view` to verify your configuration.
+
+📖 Full Docs: https://aegisdeno.fly.dev
+❓ Need help? Ask in `#setup-help` or open a ticket in `#open-a-ticket`.
 ```
 
 ---
 
-### 🔗 `#links` — [EMBED + MESSAGE]
+### #links
 
-> **Channel Topic:** `All official AegisDeno resources in one place.`
+**Channel Topic:**
+`Official AegisDeno website, documentation, GitHub, and invite links.`
 
-**Embed:**
-
-```
-/embed channel:#links title:"🔗 Official AegisDeno Links" color:#5865F2 description:"Everything you need to know about AegisDeno, in one place." footer:"AegisDeno • Resources Hub"
-```
-
-**Plain message content:**
+**Embed to post:**
 
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🤖 Add AegisDeno to your server
-https://discord.com/oauth2/authorize?client_id=1554631691421876254
+/embed quick channel:#links title:"Official AegisDeno Links" description:"Bookmark these resources for bot setup, documentation, and source code." color:"#5865F2" footer:"AegisDeno Resources"
+```
 
-🌐 Documentation & Website
-https://aegisbot.dev
+**Message to post below the embed:**
 
-📋 Changelog & Release Notes
-https://aegisbot.dev/changelog
+```markdown
+• 🤖 **Bot Invite:** https://discord.com/oauth2/authorize?client_id=1554631691421876254
+• 🌐 **Website & Dashboard:** https://aegisdeno.fly.dev
+• 📖 **Documentation:** https://aegisdeno.fly.dev/docs
+• 📋 **Full Command Catalog:** https://aegisdeno.fly.dev/commands
+• 🐙 **GitHub Repository:** https://github.com/your-org/aegisdeno
+• 🗳️ **Top.gg Page:** https://top.gg/bot/aegisdeno/vote
+• 💬 **Support Server:** https://discord.gg/DkZUgm3q4F
 
-⬆️ Vote on Top.gg (boosts our visibility!)
-https://top.gg/bot/aegisdeno/vote
-
-🐙 GitHub Repository (open source!)
-https://github.com/your-org/aegisdeno
-
-💬 Support Server Invite
-https://discord.gg/DkZUgm3q4F
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💡 Voting on Top.gg is free and takes 5 seconds.
-Every vote helps more servers discover AegisDeno. Thank you! 🙏
+*Voting on Top.gg is free and takes just a few seconds — it helps more servers discover AegisDeno!*
 ```
 
 ---
 
-### 🗳️ `#topgg-votes` — [EMBED via `/embed`]
+### #topgg-votes
 
-> **Channel Topic:** `Live feed of Top.gg votes. Thank you to everyone who supports us! 🙏`
+**Channel Topic:**
+`Live feed of Top.gg upvotes. Thanks for supporting the bot!`
 
-```
-/embed channel:#topgg-votes title:"🗳️ Top.gg Vote Tracker" color:#FF3366 description:"This channel receives live notifications every time someone votes for AegisDeno on Top.gg!\n\n⬆️ Vote now (free, takes 5 seconds):\nhttps://top.gg/bot/aegisdeno/vote\n\n🎉 Every vote helps AegisDeno rank higher and get discovered by more servers.\nThank you to everyone who has voted — you're keeping this project alive!" footer:"Powered by Top.gg Webhooks"
-```
-
----
-
-## 💬 COMMUNITY Category
-
----
-
-### 💬 `#general` — [MESSAGE]
-
-> **Channel Topic:** `Main community chat. Talk about anything! Keep it friendly.`
+**Message / Embed to post:**
 
 ```
-👋 Welcome to #general!
-
-This is the main community hub for the AegisDeno server. Feel free to:
-• Chat about your server setups and how you're using AegisDeno
-• Share cool moderation strategies or AutoMod configurations
-• Discuss Discord bot development in general
-• Ask quick questions before opening a formal support ticket
-
-A few quick reminders:
-🤐 Keep it friendly and on-topic
-🎫 For bot issues, use #open-a-ticket
-🤖 For bot commands, use #bot-commands
-💡 Have a feature idea? Drop it in #suggestions!
+/embed quick channel:#topgg-votes title:"Top.gg Vote Feed" description:"This channel automatically receives live notifications whenever someone votes for AegisDeno on Top.gg!\n\n🗳️ Vote here: https://top.gg/bot/aegisdeno/vote\n\nEvery vote helps boost the bot's rank so more communities find it. Thank you for your support!" color:"#FF3366" footer:"Powered by Top.gg"
 ```
 
 ---
 
-### 🤖 `#bot-commands` — [EMBED via `/embed`]
+## 💬 COMMUNITY
 
-> **Channel Topic:** `Test AegisDeno commands here. All slash commands work in this channel.`
+---
 
-```
-/embed channel:#bot-commands title:"🤖 Bot Command Testing Ground" color:#FEE75C description:"Use this channel to test and explore AegisDeno's slash commands without cluttering other channels.\n\n**Try these to get started:**\n• `/ping` — Check bot latency\n• `/help` — Browse all commands interactively\n• `/about` — Bot info and runtime stats\n• `/serverinfo` — Your server's overview\n• `/userinfo` — Your profile and permission info\n• `/dashboard` — Server management panel" footer:"AegisDeno • Command Testing"
+### #general
+
+**Channel Topic:**
+`General discussion. Chat about Discord bots, server setups, and tech.`
+
+**Message to pin:**
+
+```markdown
+👋 Welcome to **#general**!
+
+This is our main community chat. Feel free to talk about:
+• Server setup ideas and moderation tips
+• Discord bot development and TypeScript / discord.js
+• Tech, gaming, and general chat
+
+Quick reminders:
+• For bot help, use `#setup-help` or `#open-a-ticket`
+• Test slash commands in `#bot-commands`
+• Submit feature requests in `#suggestions`
 ```
 
 ---
 
-### 💡 `#suggestions` — [EMBED via `/embed`]
+### #bot-commands
 
-> **Channel Topic:** `Submit feature requests and vote on ideas! Use /suggest create`
+**Channel Topic:**
+`Public playground for testing AegisDeno slash commands.`
 
-```
-/embed channel:#suggestions title:"💡 Feature Suggestions" color:#F47FFF description:"Have an idea for a new AegisDeno feature? We want to hear it!\n\n**How to submit a suggestion:**\nRun `/suggest create` and fill out the title and description.\nYour suggestion will appear here with 👍 Upvote and 👎 Downvote buttons.\n\n**Suggestion lifecycle:**\n🟡 **Under Review** — Being evaluated by the team\n🟢 **Approved** — Planned for an upcoming release\n🔴 **Denied** — Not feasible or out of scope (reason provided)\n\n**Tips for good suggestions:**\n• Be specific — explain the problem your idea solves\n• Include examples of how it would work\n• Check if it's already been suggested!" footer:"AegisDeno • Community Driven Development"
-```
-
----
-
-### 📊 `#polls` — [EMBED via `/embed`]
-
-> **Channel Topic:** `Community polls. Vote to make your voice heard!`
+**Message / Embed to pin:**
 
 ```
-/embed channel:#polls title:"📊 Community Polls" color:#3498DB description:"Staff will post polls here for important community decisions, feature prioritization, and general fun!\n\nVoting is open to all members. Simply click your preferred option on each poll card.\n\n**Upcoming topics may include:**\n• Which features to prioritize in the next release\n• New preset template ideas\n• Server event planning\n\nStay tuned and make your voice count! 🗳️" footer:"AegisDeno • Community Voice"
+/embed quick channel:#bot-commands title:"Bot Commands Sandbox" description:"Test out AegisDeno commands here so general chat stays clean.\n\nTry running:\n• `/ping` — View bot latency and gateway ping\n• `/help` — Browse available commands\n• `/about` — Check bot stats and versions\n• `/userinfo` — Check your server profile and roles\n• `/serverinfo` — View current server statistics\n• `/remindme reminder:\"Take a break\" duration:30m` — Set a timer" color:"#FEE75C" footer:"AegisDeno Commands"
 ```
 
 ---
 
-## 🛠️ SUPPORT CENTER Category
+### #suggestions
 
----
+**Channel Topic:**
+`Share feature requests and vote on ideas with buttons.`
 
-### 🎟️ `#open-a-ticket` — [Run Command + EMBED]
-
-> **Channel Topic:** `Need help? Click the button below to open a private support ticket.`
-
-**Step 1 — Send an intro embed:**
+**Setup command to run:**
 
 ```
-/embed channel:#open-a-ticket title:"🎟️ Support Center" color:#E74C3C description:"Need help with AegisDeno? Our support team is here for you!\n\nClick the button below to open a private ticket.\nA dedicated channel will be created just for you and our support team.\n\n**Before opening a ticket, please check:**\n📚 Documentation: https://aegisbot.dev\n❓ FAQ: #faq\n🔍 Existing answers in #setup-help" footer:"Response times: typically under 24 hours"
+/suggest setup channel:#suggestions
 ```
 
-**Step 2 — Deploy the ticket panel:**
+**Embed to pin:**
 
 ```
-/ticket setup channel:#open-a-ticket category:Support
+/embed quick channel:#suggestions title:"Feature Suggestions" description:"Have an idea for AegisDeno? Share it with the community!\n\n**How to suggest:**\nRun `/suggest submit` to open the suggestion form.\n\nYour suggestion will post here with voting buttons so other members can vote on it.\n\n**Status Labels:**\n⏳ Pending Review • 🟡 Under Consideration • ✅ Approved • ❌ Rejected" color:"#F47FFF" footer:"AegisDeno Suggestions"
 ```
 
 ---
 
-### 🛡️ `#verification` — [Run Command + EMBED]
+### #polls
 
-> **Channel Topic:** `Complete verification to access the server. One click is all it takes!`
+**Channel Topic:**
+`Community polls and feedback voting.`
 
-**Step 1 — Send an intro embed:**
-
-```
-/embed channel:#verification title:"🛡️ Server Verification" color:#57F287 description:"Welcome to AegisDeno's official support server!\n\nTo access all channels and the community, please verify yourself by clicking the button below.\n\nThis is a quick anti-bot measure to keep our community safe and spam-free.\n\n**Why do we verify?**\n✅ Protects the community from bot raids\n✅ Ensures all members are real people\n✅ Keeps the server safe and high-quality" footer:"Verification is instant and free"
-```
-
-**Step 2 — Deploy the verification panel:**
+**Embed to pin:**
 
 ```
-/verify setup channel:#verification role:@Member type:button
+/embed quick channel:#polls title:"Community Polls" description:"Staff will post polls here for community feedback, feature priorities, and server decisions.\n\nVote directly on the poll cards to share your opinion!" color:"#3498DB" footer:"AegisDeno Polls"
 ```
 
 ---
 
-### ❓ `#setup-help` — [EMBED + PINNED MESSAGE]
+### #roles
 
-> **Channel Topic:** `Troubleshooting forum. Create a thread for your specific issue.`
+**Channel Topic:**
+`Click buttons below to toggle self-assignable roles.`
 
-**Intro embed:**
-
-```
-/embed channel:#setup-help title:"❓ Setup Help & Troubleshooting" color:#FEE75C description:"Having trouble setting up AegisDeno? You're in the right place!\n\n**How this channel works:**\nCreate a new thread with your specific issue.\nOur support team will respond as soon as possible.\n\n**Please include in your thread:**\n• What you were trying to do\n• The exact command you ran\n• Any error messages you received\n• Your server ID (run `/serverinfo`)" footer:"AegisDeno Support • Create a thread for faster help"
-```
-
-**Pinned message in this channel:**
+**Setup commands to run:**
 
 ```
-📌 Common Setup Issues & Quick Fixes
+/rolepanel create channel:#roles role1:@Announcements role2:@Events role3:@Updates
+```
+*(Enter "Notification Roles" for Title and "Click to toggle your notification pings:" for Description in the modal)*
 
-❌ "Missing Permissions" error on moderation commands
-→ Make sure AegisDeno's role is ABOVE the target member's highest role in Server Settings → Roles.
+```
+/rolepanel create channel:#roles role1:@Developer role2:@Beta Tester role3:@Gamer
+```
+*(Enter "Community Roles" for Title and "Pick your interest roles:" for Description in the modal)*
 
-❌ Commands not showing up in Discord
-→ Global commands can take up to 1 hour to propagate after the bot restarts.
-→ Make sure "Use Application Commands" is enabled for @everyone in your server.
+---
 
-❌ AutoMod not triggering
-→ Run /automod status to check if filters are enabled.
-→ Make sure the log channel is set and AegisDeno has Send Messages + Embed Links permissions there.
+### #welcome
 
-❌ Ticket panel not working
-→ AegisDeno needs Manage Channels and Manage Roles permissions.
-→ Ensure the target category exists and the bot can create channels there.
+**Channel Topic:**
+`New member join feed.`
 
-❌ Welcome messages not sending
-→ Run /config view to verify your welcome channel is set correctly.
-→ Check that AegisDeno has Send Messages permission in the welcome channel.
+**Setup command to run:**
 
-📚 Full troubleshooting guide: https://aegisbot.dev/troubleshooting
+```
+/welcome channel channel:#welcome
+/welcome toggle enabled:true
+```
+
+**Intro embed to pin:**
+
+```
+/embed quick channel:#welcome title:"Welcome to AegisDeno!" description:"Glad to have you here! Here are a few quick links to help you find your way around:\n\n1. Complete verification in <#verification>\n2. Check the server rules in <#rules>\n3. Pick your roles in <#roles>\n4. Need bot setup help? Head to <#getting-started> or <#setup-help>" color:"#5865F2" footer:"Welcome to our community"
 ```
 
 ---
 
-### 📚 `#faq` — [MESSAGE]
+### #giveaways
 
-> **Channel Topic:** `Frequently asked questions. Read before opening a ticket!`
+**Channel Topic:**
+`Community giveaways and prize events.`
+
+**Embed to pin:**
 
 ```
-📚 Frequently Asked Questions — AegisDeno
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Q: Is AegisDeno free to use?
-A: Yes! AegisDeno is completely free and open-source. No paywalls, no premium tiers.
-
-Q: What database does AegisDeno use?
-A: AegisDeno uses MongoDB Atlas for server configuration and moderation history, plus SQLite for local caching and scheduling.
-
-Q: How do I set up AegisDeno from scratch?
-A: Check out #getting-started for a complete step-by-step guide. For one-click setup, run /preset apply preset:community.
-
-Q: Why aren't my slash commands showing up after the bot restarts?
-A: Global command registration can take up to 1 hour to propagate across Discord. Set DISCORD_TEST_GUILD_ID in your .env for instant guild-scoped registration during development.
-
-Q: Can AegisDeno moderate users with higher roles?
-A: No — Discord enforces strict role hierarchy. AegisDeno's bot role must be above the target member's highest role.
-
-Q: How does the escalation system work?
-A: Configure automatic escalation thresholds with /escalation set. Example: 3 warnings = 1h timeout, 5 warnings = ban. The bot tracks all infractions automatically.
-
-Q: Does AegisDeno log everything?
-A: Yes, with /logging channel:#mod-logs enabled, all moderation actions are logged (warns, timeouts, kicks, bans, AutoMod triggers).
-
-Q: Can I self-host AegisDeno?
-A: Absolutely! AegisDeno is open-source. Check the GitHub repository and DEPLOYMENT.md for Docker and Fly.io deployment guides.
-
-Q: How do I report a bug or request a feature?
-A: Open a ticket in #open-a-ticket for bugs, or submit a feature request in #suggestions with /suggest create.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📚 Full documentation: https://aegisbot.dev
-❓ Still stuck? Open a ticket in #open-a-ticket
+/embed quick channel:#giveaways title:"AegisDeno Giveaways" description:"We host occasional giveaways here for Discord Nitro, roles, and community perks!\n\n**Rules:**\n• Click the Enter button on active giveaway messages to join.\n• One entry per member. Alt accounts will be disqualified.\n• Winners have 48 hours to claim by opening a ticket in <#open-a-ticket>." color:"#F47FFF" footer:"AegisDeno Giveaways"
 ```
 
 ---
 
-## 💻 DEVELOPMENT Category
+## 🛠️ SUPPORT CENTER
 
 ---
 
-### 💻 `#dev-chat` — [EMBED via `/embed`]
+### #open-a-ticket
 
-> **Channel Topic:** `Developer discussion — TypeScript, Discord.js, bot architecture, API questions.`
+**Channel Topic:**
+`Need private assistance? Click below to open a ticket.`
 
-```
-/embed channel:#dev-chat title:"💻 Developer Chat" color:#9B59B6 description:"Welcome to the developer hub! This channel is for technical discussions around AegisDeno and Discord bot development.\n\n**Topics welcome here:**\n• TypeScript and Discord.js questions\n• AegisDeno architecture and contribution questions\n• API integrations and webhook setups\n• Performance optimization and deployment strategies\n• Open-source collaboration\n\n**Contributing to AegisDeno:**\nRead CONTRIBUTING.md in the GitHub repository before submitting PRs.\nAll contributions must pass TypeScript checks and follow the existing code style." footer:"AegisDeno • Developer Community"
-```
-
----
-
-### 🐙 `#github-logs` — [MESSAGE + WEBHOOK SETUP]
-
-> **Channel Topic:** `Automated GitHub feed — commits, PRs, releases, and issues.`
-
-**Setup webhook instructions:**
-1. Go to: GitHub Repository → Settings → Webhooks → Add webhook
-2. Payload URL: `https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN/github`
-3. Content-Type: `application/json`
-4. Select events: Push, Pull requests, Releases, Issues
-
-**Intro message to send manually:**
+**Setup command to run:**
 
 ```
-🐙 GitHub Activity Feed
-
-This channel receives automated notifications for all AegisDeno repository activity:
-
-📝 Commits — Code pushes to main and development branches
-🔀 Pull Requests — New PRs, reviews, merges, and closes
-🐛 Issues — New issues, assignments, and closures
-🚀 Releases — New version tags and published releases
-
-Repository: https://github.com/your-org/aegisdeno
+/ticket setup channel:#open-a-ticket staff_role:@Support title:"AegisDeno Support" description:"Click the button below to open a private ticket with our team. Please check #faq first for quick answers to common issues."
 ```
 
 ---
 
-### 🧪 `#beta-testing` — [EMBED via `/embed`]
+### #verification
 
-> **Channel Topic:** `Staging bot testing ground. Expect bugs and breaking changes here.`
+**Channel Topic:**
+`Click the verify button to gain access to the server.`
+
+**Setup command to run:**
 
 ```
-/embed channel:#beta-testing title:"🧪 Beta Testing Lab" color:#E67E22 description:"Welcome to the beta testing channel! This is where unreleased AegisDeno features are tested before going live.\n\n⚠️ **Important:** Expect bugs, breaking changes, and experimental behavior here. Do NOT rely on staging bot commands for production use.\n\n**How to participate:**\n• Test commands and report issues in this channel\n• Include the exact command, expected behavior, and what actually happened\n• Share error messages or screenshots where possible\n\nYour testing helps make AegisDeno better for everyone. Thank you! 🙏" footer:"AegisDeno • Staging Environment"
+/verify setup channel:#verification verified_role:@Member type:button
 ```
 
 ---
 
-## ⚙️ Post-Setup Verification Checklist
+### #setup-help
 
-After setting up all channels, run these commands in `#bot-config` (Staff Only):
+**Channel Topic:**
+`Troubleshooting forum. Ask questions or create a thread for bot help.`
+
+**Pinned message:**
+
+```markdown
+### Getting Help with AegisDeno
+
+Need help troubleshooting an issue? Follow these steps for quick support:
+
+1. **Check common fixes:**
+   • **Permission errors:** Make sure the AegisDeno bot role is ABOVE member roles in Server Settings → Roles.
+   • **AutoMod not logging:** Run `/logging status` to confirm your log channel is set and enabled.
+   • **Slash commands missing:** Run `/sync guild_only:true` or wait a short while for global command sync.
+
+2. **When asking a question, please include:**
+   • What you were trying to do
+   • The command you ran
+   • The exact error message or a screenshot
+
+For private inquiries or server-specific matters, open a ticket in `#open-a-ticket`.
+```
+
+---
+
+### #faq
+
+**Channel Topic:**
+`Frequently asked questions about AegisDeno.`
+
+**Message to post:**
+
+```markdown
+# Frequently Asked Questions
+
+**Q: Is AegisDeno free?**
+A: Yes, AegisDeno is 100% free and open-source. There are no paywalls or locked features.
+
+**Q: Why do moderation commands say "Missing Permissions"?**
+A: Discord checks role hierarchy. Go to Server Settings → Roles and drag AegisDeno above regular members and moderators.
+
+**Q: How does warning escalation work?**
+A: Use `/escalation add warnings:3 action:timeout duration:30` so members automatically receive timeouts after reaching warning limits.
+
+**Q: How do I turn on AutoMod?**
+A: Run `/automod words toggle enabled:true` and `/automod links toggle enabled:true`. Run `/automod status` to review your active filters.
+
+**Q: Can I self-host the bot?**
+A: Yes! AegisDeno runs on Node.js/TypeScript and can be deployed on Docker, Fly.io, or VPS. Check DEPLOYMENT.md in our GitHub repository.
+
+**Q: How do I report a bug or suggest a feature?**
+A: Report bugs by opening a ticket in `#open-a-ticket`. Post feature ideas in `#suggestions` using `/suggest submit`.
+```
+
+---
+
+## 💻 DEVELOPMENT
+
+---
+
+### #dev-chat
+
+**Channel Topic:**
+`Technical discussions: TypeScript, discord.js, architecture, and PRs.`
+
+**Message / Embed to pin:**
 
 ```
-# 1. Verify bot config
-/config view
+/embed quick channel:#dev-chat title:"Developer Chat" description:"Discussion channel for developers contributing to AegisDeno or building Discord bots.\n\n**Topics:**\n• TypeScript and discord.js best practices\n• AegisDeno codebase, services, and schemas\n• Webhooks, API routes, and deployment\n\n*Review CONTRIBUTING.md before opening pull requests on GitHub.*" color:"#9B59B6" footer:"AegisDeno Developers"
+```
 
-# 2. Check AutoMod status
-/automod status
+---
 
-# 3. Run full diagnostics
-/diagnostics
+### #github-logs
 
-# 4. View bot dashboard
-/dashboard
+**Channel Topic:**
+`Automated feed of GitHub commits, pull requests, and releases.`
 
-# 5. Test logging is configured
-/logging channel:#mod-logs
+**Message to post:**
 
-# 6. Verify commands loaded (developer only)
-/developer commands
+```markdown
+**GitHub Repository Activity Feed**
 
-# 7. Force re-sync commands if any are missing (developer only)
-/sync guild_only:true
+This channel receives automated notifications for:
+• Code commits pushed to `main`
+• Pull requests and code reviews
+• Issue reports and labels
+• New version tags and releases
+
+🔗 **Repository:** https://github.com/your-org/aegisdeno
+```
+
+---
+
+### #beta-testing
+
+**Channel Topic:**
+`Testing channel for staging bot builds and upcoming features.`
+
+**Message / Embed to pin:**
+
+```
+/embed quick channel:#beta-testing title:"Beta Testing Lab" description:"This channel is used to test staging builds and unreleased features before they ship to production.\n\n⚠️ **Expect bugs and experimental behavior here.** Do not rely on beta bot commands for daily moderation.\n\nPlease report any issues or unexpected output directly in this channel!" color:"#E67E22" footer:"AegisDeno Beta"
+```
+
+---
+
+## 🔒 STAFF ONLY
+
+---
+
+### #staff-chat
+
+**Channel Topic:**
+`Private coordination for moderators and admins.`
+
+**Message to pin:**
+
+```markdown
+### Staff Guidelines & Protocols
+
+Welcome to the staff channel. Keep discussions constructive and professional.
+
+**General Guidelines:**
+• **Stay Objective:** Apply rules fairly. Don't let personal arguments influence moderation actions.
+• **Always Add Reasons:** Every `/warn`, `/timeout`, `/kick`, and `/ban` should have a clear, factual reason.
+• **Escalate Cleanly:** Start with verbal warnings or `/warn`, then `/timeout`, and only use kicks/bans for repeat or severe offenses.
+• **Tickets:** Greet members politely, answer clearly, and run `/ticket close` once resolved.
+
+**Quick Command Reference:**
+• `/warn user:@User reason:"..." severity:medium`
+• `/timeout user:@User duration:3600 reason:"..."`
+• `/kick user:@User reason:"..."`
+• `/ban user:@User delete_messages:1 reason:"..."`
+• `/infractions user:@User`
+• `/case view case_id:"<id>"`
+• `/slowmode set channel:<#channel> seconds:10 reason:"..."`
+• `/lock channel:<#channel> reason:"..."`
+```
+
+---
+
+### #mod-logs
+
+**Channel Topic:**
+`Automated audit log feed from AegisDeno.`
+
+**Embed to pin:**
+
+```
+/embed quick channel:#mod-logs title:"Moderation Audit Log" description:"AegisDeno posts automatic log entries here whenever a warning, timeout, kick, ban, or AutoMod action occurs.\n\nEach action receives an incremental Case ID stored in the database for tracking." color:"#3498DB" footer:"AegisDeno Logging"
+```
+
+---
+
+### #bot-config
+
+**Channel Topic:**
+`Admin terminal for configuring bot settings and running maintenance.`
+
+**Message to pin:**
+
+```markdown
+### Admin Setup & Maintenance Commands
+
+Run administrative commands here so public channels stay clutter-free:
+
+**1. Apply Server Preset:**
+`/preset apply preset:community`
+
+**2. Audit Logging:**
+`/logging channel channel:#mod-logs`
+`/logging toggle enabled:true`
+
+**3. AutoMod Baseline:**
+`/automod words toggle enabled:true`
+`/automod words add word:discord.gg/`
+`/automod words action action:warn`
+`/automod links toggle enabled:true`
+`/automod links action action:delete`
+`/automod mentions toggle enabled:true`
+`/automod mentions limit count:5`
+`/automod spam toggle enabled:true`
+`/automod spam limit max_messages:5 time_window:5`
+`/automod exempt add_role role:@Moderator`
+
+**4. Infraction Escalation:**
+`/escalation toggle enabled:true`
+`/escalation add warnings:3 action:timeout duration:30`
+`/escalation add warnings:5 action:kick`
+`/escalation add warnings:7 action:ban`
+
+**5. System Health Check:**
+`/config view`
+`/automod status`
+`/escalation status`
+`/diagnostics`
+`/dashboard`
+```
+
+---
+
+## 🔊 VOICE CHANNELS
+
+---
+
+### Lounge (Voice)
+
+**Channel Status / Topic:**
+`Casual voice chat and screen sharing.`
+
+**Voice text chat message to send:**
+
+```markdown
+**Lounge Voice Guidelines**
+• Keep background noise to a minimum and use push-to-talk if your mic is sensitive.
+• No soundboard spam or screamers.
+• Screen shares must remain strictly SFW and follow Discord ToS.
+```
+
+---
+
+### Support Waiting Room (Voice)
+
+**Channel Status / Topic:**
+`Voice support queue. Stay muted; staff will move you into a room.`
+
+**Voice text chat message to send:**
+
+```markdown
+**Voice Support Queue**
+• You are automatically muted while waiting here.
+• Have your server ID and issue details ready.
+• A staff member will move you to a private support voice room as soon as someone is available.
+• If wait times are long, opening a text ticket in `#open-a-ticket` is recommended!
+```
+
+---
+
+### Staff VC (Voice)
+
+**Channel Status / Topic:**
+`Private voice channel for staff meetings and coordination.`
+
+**Voice text chat message to send:**
+
+```markdown
+**Staff Voice Room**
+Private voice room for moderators and admins. Please keep discussion confidential and mute your mic when not speaking.
 ```
 
 ---
 
 ## 🎨 Recommended Channel Emoji Icons
 
-| Channel | Emoji |
-|---|---|
-| `#rules` | 📜 |
-| `#announcements` | 📢 |
-| `#getting-started` | 🚀 |
-| `#links` | 🔗 |
-| `#topgg-votes` | 🗳️ |
-| `#general` | 💬 |
-| `#bot-commands` | 🤖 |
-| `#suggestions` | 💡 |
-| `#polls` | 📊 |
-| `#open-a-ticket` | 🎟️ |
-| `#verification` | 🛡️ |
-| `#setup-help` | ❓ |
-| `#faq` | 📚 |
-| `#dev-chat` | 💻 |
-| `#github-logs` | 🐙 |
-| `#beta-testing` | 🧪 |
-| `#mod-logs` | 📋 |
-| `#bot-config` | ⚙️ |
-| `#staff-chat` | 🔒 |
+| Channel | Emoji | Purpose |
+|---|---|---|
+| `#rules` | 📜 | Rules and guidelines |
+| `#announcements` | 📢 | Bot news and updates |
+| `#getting-started` | 🚀 | First-time setup guide |
+| `#links` | 🔗 | Official links and invite |
+| `#topgg-votes` | 🗳️ | Top.gg upvote feed |
+| `#general` | 💬 | Main chat |
+| `#bot-commands` | 🤖 | Command testing |
+| `#suggestions` | 💡 | Feature suggestions |
+| `#polls` | 📊 | Server polls |
+| `#roles` | 🎭 | Self-assignable roles |
+| `#welcome` | 👋 | Welcome messages |
+| `#giveaways` | 🎉 | Giveaways and events |
+| `#open-a-ticket` | 🎟️ | Support ticket panel |
+| `#verification` | 🛡️ | Verification button panel |
+| `#setup-help` | ❓ | Troubleshooting forum |
+| `#faq` | 📚 | Frequently asked questions |
+| `#dev-chat` | 💻 | Developer discussion |
+| `#github-logs` | 🐙 | GitHub commits and PRs |
+| `#beta-testing` | 🧪 | Staging bot testing |
+| `#staff-chat` | 🔒 | Staff discussion |
+| `#mod-logs` | 📋 | Moderation audit log |
+| `#bot-config` | ⚙️ | Admin bot configuration |
+| `Lounge` | 🔊 | Public voice chat |
+| `Support Waiting Room` | 🎧 | Voice support queue |
+| `Staff VC` | 🔒 | Staff voice meetings |

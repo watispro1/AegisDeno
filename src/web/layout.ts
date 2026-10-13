@@ -32,6 +32,7 @@ export const NAV: NavLink[] = [
   { label: "Commands", href: "/commands" },
   { label: "Features", href: "/features" },
   { label: "Docs", href: "/docs" },
+  { label: "Help", href: "/troubleshooting" },
   { label: "Status", href: "/status" },
   { label: "Changelog", href: "/changelog" },
 ];
@@ -131,15 +132,11 @@ ${o.headExtra || ""}
         <li class="nav-mobile-cta"><a class="btn block" href="${inviteUrl}">Add Aegis to Discord</a></li>
     </ul>
     <div class="nav-actions">
-      <div class="theme-picker-bar" title="Customize theme accent">
-        <button class="theme-dot t-midnight active" data-set-theme="dark" title="Midnight Dark"></button>
-        <button class="theme-dot t-cyberpunk" data-set-theme="cyberpunk" title="Cyberpunk Neon"></button>
-        <button class="theme-dot t-emerald" data-set-theme="emerald" title="Emerald Mint"></button>
-        <button class="theme-dot t-gold" data-set-theme="gold" title="Sunset Gold"></button>
-        <button class="theme-dot t-light" data-set-theme="light" title="Clean Light"></button>
-      </div>
       <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme">
         ${sunIcon}${moonIcon}
+      </button>
+      <button class="icon-btn site-search-trigger" type="button" aria-label="Search the Aegis website and commands" aria-haspopup="dialog" aria-controls="site-search-dialog" title="Search (Ctrl K)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
       </button>
       <a class="btn sm" href="${inviteUrl}">Add to Discord</a>
       <button class="icon-btn nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
@@ -148,6 +145,23 @@ ${o.headExtra || ""}
     </div>
   </div>
 </nav>
+
+<div class="site-search" id="site-search-dialog" role="dialog" aria-modal="true" aria-labelledby="site-search-title" hidden>
+  <div class="site-search-backdrop" data-site-search-close></div>
+  <section class="site-search-panel" role="document">
+    <div class="site-search-head">
+      <label id="site-search-title" for="site-search-input">Search Aegis</label>
+      <button class="icon-btn" type="button" data-site-search-close aria-label="Close search">×</button>
+    </div>
+    <div class="site-search-input-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input id="site-search-input" type="search" autocomplete="off" placeholder="Search pages and slash commands…" aria-describedby="site-search-help">
+      <kbd>Esc</kbd>
+    </div>
+    <p class="site-search-help" id="site-search-help">Type at least two characters. Press Enter to open the first result.</p>
+    <div class="site-search-results" id="site-search-results" role="listbox" aria-live="polite"></div>
+  </section>
+</div>
 
 <div id="toast-container"></div>
 
@@ -184,6 +198,7 @@ ${o.body}
           <li><a href="/docs#automod">Auto moderation</a></li>
           <li><a href="/docs#logging">Logging</a></li>
           <li><a href="/docs#permissions">Permissions</a></li>
+          <li><a href="/troubleshooting">Troubleshooting</a></li>
         </ul>
       </div>
       <div class="footer-col">

@@ -8,8 +8,10 @@ export const clientScript = String.raw`
   var STORAGE_KEY = 'aegis-theme';
   try {
     var saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+    if (saved === 'dark' || saved === 'light') {
       root.setAttribute('data-theme', saved);
+    } else if (saved) {
+      localStorage.removeItem(STORAGE_KEY);
     }
   } catch (e) {}
 
@@ -39,30 +41,97 @@ export const clientScript = String.raw`
     syncThemeDots(next);
   });
 
-  /* ── Theme picker dots ────────────────────────────────────────── */
-  function syncThemeDots(theme) {
-    var dots = document.querySelectorAll('.theme-dot');
-    dots.forEach(function (d) {
-      var t = d.getAttribute('data-set-theme');
-      d.classList.toggle('active', t === theme || (t === 'dark' && theme === 'midnight'));
-    });
+  syncToggle();
+
+  /* ── Global page and command search ───────────────────────────── */
+  var searchDialog = document.getElementById('site-search-dialog');
+  var searchInput = document.getElementById('site-search-input');
+  var searchResults = document.getElementById('site-search-results');
+  var searchTrigger = document.querySelector('.site-search-trigger');
+  var lastSearchFocus = null;
+  var commandIndex = null;
+  var pagesIndex = [
+    { name: 'Dashboard', detail: 'Live bot metrics and service overview', href: '/dashboard', icon: '◈' },
+    { name: 'Command reference', detail: 'Browse every Aegis slash command', href: '/commands', icon: '/' },
+    { name: 'Features', detail: 'Tickets, moderation, automation, and more', href: '/features', icon: '✦' },
+    { name: 'Documentation', detail: 'Setup guides and permission reference', href: '/docs', icon: '▤' },
+    { name: 'Status', detail: 'Current bot health and gateway metrics', href: '/status', icon: '●' },
+    { name: 'Changelog', detail: 'Product updates and release history', href: '/changelog', icon: '↗' },
+    { name: 'Playground', detail: 'Explore interactive Aegis examples', href: '/playground', icon: '⌘' }
+  ];
+
+  function closeSiteSearch() {
+    if (!searchDialog || searchDialog.hidden) return;
+    searchDialog.hidden = true;
+    document.body.style.overflow = '';
+    if (lastSearchFocus && lastSearchFocus.focus) lastSearchFocus.focus();
   }
 
-  document.addEventListener('click', function (e) {
-    var dot = e.target.closest && e.target.closest('[data-set-theme]');
-    if (!dot) return;
-    var theme = dot.getAttribute('data-set-theme') || 'dark';
-    root.setAttribute('data-theme', theme);
-    try { localStorage.setItem(STORAGE_KEY, theme); } catch (err) {}
-    syncToggle();
-    syncThemeDots(theme);
-    if (window.showToast) {
-      window.showToast('Theme set to ' + theme.charAt(0).toUpperCase() + theme.slice(1));
-    }
-  });
+  function addSearchResult(item) {
+    if (!searchResults) return;
+    var link = document.createElement('a');
+    link.className = 'site-search-result';
+    link.href = item.href;
+    link.setAttribute('role', 'option');
+    var icon = document.createElement('span');
+    icon.className = 'site-search-result-icon';
+    icon.textContent = item.icon;
+    var copy = document.createElement('span');
+    copy.className = 'site-search-result-copy';
+    var name = document.createElement('strong');
+    name.textContent = item.name;
+    var detail = document.createElement('small');
+    detail.textContent = item.detail;
+    copy.appendChild(name); copy.appendChild(detail); link.appendChild(icon); link.appendChild(copy);
+    searchResults.appendChild(link);
+  }
 
-  syncToggle();
-  syncThemeDots(currentTheme());
+  function renderSiteSearch() {
+    if (!searchInput || !searchResults) return;
+    var query = searchInput.value.trim().toLowerCase();
+    searchResults.textContent = '';
+    if (query.length < 2) return;
+    var matches = pagesIndex.filter(function (item) { return (item.name + ' ' + item.detail).toLowerCase().indexOf(query) !== -1; });
+    if (commandIndex) {
+      commandIndex.forEach(function (command) {
+        var haystack = [command.name, command.description, command.category].join(' ').toLowerCase();
+        if (haystack.indexOf(query) !== -1) matches.push({ name: '/' + command.name, detail: command.description, href: '/commands#cmd-' + command.name, icon: '/' });
+      });
+    }
+    matches.slice(0, 8).forEach(addSearchResult);
+    if (matches.length === 0) {
+      var empty = document.createElement('p'); empty.className = 'site-search-empty'; empty.textContent = 'No pages or commands match that search.'; searchResults.appendChild(empty);
+    }
+  }
+
+  function openSiteSearch() {
+    if (!searchDialog || !searchInput) return;
+    lastSearchFocus = document.activeElement;
+    searchDialog.hidden = false;
+    document.body.style.overflow = 'hidden';
+    searchInput.value = '';
+    renderSiteSearch();
+    setTimeout(function () { searchInput.focus(); }, 0);
+    if (!commandIndex) {
+      fetch('/api/commands', { headers: { Accept: 'application/json' } })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) { commandIndex = data && Array.isArray(data.commands) ? data.commands : []; renderSiteSearch(); })
+        .catch(function () { commandIndex = []; });
+    }
+  }
+
+  if (searchTrigger) searchTrigger.addEventListener('click', openSiteSearch);
+  if (searchInput) {
+    searchInput.addEventListener('input', renderSiteSearch);
+    searchInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { var first = searchResults && searchResults.querySelector('a'); if (first) first.click(); }
+    });
+  }
+  document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-site-search-close]')) closeSiteSearch(); });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSiteSearch(); }
+    else if (e.key === 'Escape') closeSiteSearch();
+  });
 
   /* ── Sticky nav shadow ────────────────────────────────────────── */
   var nav = document.querySelector('.nav');

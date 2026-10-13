@@ -6,6 +6,7 @@ import {
   StringSelectMenuBuilder,
   ComponentType,
   PermissionFlagsBits,
+  type PermissionResolvable,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { commands, COMMAND_CATEGORIES } from "../loader";
@@ -33,12 +34,34 @@ const CATEGORIES: Record<string, string> = Object.fromEntries(
   ]),
 );
 
+const PERMISSION_LABELS: Partial<Record<string, string>> = {
+  [String(PermissionFlagsBits.Administrator)]: "Administrator",
+  [String(PermissionFlagsBits.BanMembers)]: "Ban Members",
+  [String(PermissionFlagsBits.KickMembers)]: "Kick Members",
+  [String(PermissionFlagsBits.ManageChannels)]: "Manage Channels",
+  [String(PermissionFlagsBits.ManageGuild)]: "Manage Server",
+  [String(PermissionFlagsBits.ManageMessages)]: "Manage Messages",
+  [String(PermissionFlagsBits.ManageRoles)]: "Manage Roles",
+  [String(PermissionFlagsBits.ModerateMembers)]: "Moderate Members",
+  [String(PermissionFlagsBits.SendMessages)]: "Send Messages",
+  [String(PermissionFlagsBits.EmbedLinks)]: "Embed Links",
+};
+
+function formatPermissions(permissions?: PermissionResolvable[]): string {
+  if (!permissions?.length) return "Everyone";
+  return permissions.map(permission => PERMISSION_LABELS[String(permission)] ?? "Required permission").join(", ");
+}
+
+function truncate(value: string, limit = 1_000): string {
+  return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
+}
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("help")
     .setDescription("Browse all available bot commands interactively or inspect a specific command.")
     .addStringOption(opt =>
-      opt.setName("command").setDescription("Specific command to inspect (e.g. warn, ticket, embed)").setRequired(false)
+      opt.setName("command").setDescription("Specific command to inspect (e.g. warn, ticket, embed)").setAutocomplete(true).setRequired(false)
     ),
 
   botPermissions: [PermissionFlagsBits.EmbedLinks],
@@ -61,26 +84,18 @@ export const command: Command = {
       }
 
       const json = foundCmd.data.toJSON();
-      const formatPerms = (perms: any) => {
-        if (!perms) return null;
-        if (Array.isArray(perms)) {
-          return perms.map(p => typeof p === "string" ? p : String(p)).join(", ");
-        }
-        return String(perms);
-      };
-
-      const userPerms = formatPerms(foundCmd.userPermissions) || "Everyone";
-      const botPerms = formatPerms(foundCmd.botPermissions) || "Send Messages";
+      const userPerms = formatPermissions(foundCmd.userPermissions);
+      const botPerms = foundCmd.botPermissions?.length ? formatPermissions(foundCmd.botPermissions) : "Send Messages";
 
       const subcommands = json.options?.filter((o: any) => o.type === 1 || o.type === 2) ?? [];
       const normalOptions = json.options?.filter((o: any) => o.type !== 1 && o.type !== 2) ?? [];
 
       const optionsList = normalOptions.length > 0
-        ? normalOptions.map((o: any) => `• \`${o.name}\`${o.required ? " *(required)*" : ""}: ${o.description}`).join("\n")
+        ? truncate(normalOptions.map((o: any) => `• \`${o.name}\`${o.required ? " *(required)*" : ""}: ${o.description}`).join("\n"))
         : (subcommands.length > 0 ? "*See subcommands below*" : "None");
 
       const subcommandsList = subcommands.length > 0
-        ? subcommands.map((s: any) => `• \`/${cleanName} ${s.name}\`: ${s.description}`).join("\n")
+        ? truncate(subcommands.map((s: any) => `• \`/${cleanName} ${s.name}\`: ${s.description}`).join("\n"))
         : "None";
 
       const categoryIcon = CATEGORY_ICONS[foundCmd.category ?? "general"] ?? "🌐";
@@ -186,6 +201,28 @@ export const command: Command = {
         .editReply({ components: [] })
         .catch(() => undefined);
     });
+  },
+
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused().toLowerCase().replace(/^\//, "");
+    const ranked = Array.from(commands.values())
+      .map(command => ({
+        name: command.data.name,
+        description: command.data.description,
+        category: command.category ?? "general",
+      }))
+      .filter(command => !focused || `${command.name} ${command.description} ${command.category}`.toLowerCase().includes(focused))
+      .sort((a, b) => {
+        const aStarts = a.name.startsWith(focused) ? 0 : 1;
+        const bStarts = b.name.startsWith(focused) ? 0 : 1;
+        return aStarts - bStarts || a.name.localeCompare(b.name);
+      })
+      .slice(0, 25);
+
+    await interaction.respond(ranked.map(command => ({
+      name: `/${command.name} — ${command.description}`.slice(0, 100),
+      value: command.name,
+    })));
   },
 };
 

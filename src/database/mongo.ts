@@ -103,6 +103,11 @@ const AutomodSchema = new mongoose.Schema({
     windowSeconds: { type: Number, default: 5 },
     action: { type: String, default: "timeout" },
   },
+  caps: {
+    enabled: { type: Boolean, default: false },
+    threshold: { type: Number, default: 80 },
+    action: { type: String, default: "delete" },
+  },
   // Role or channel IDs that are exempt from all automod rules
   exemptRoleIds:    { type: [String], default: [] },
   exemptChannelIds: { type: [String], default: [] },
@@ -215,3 +220,23 @@ const GiveawaySchema = new mongoose.Schema({
 });
 GiveawaySchema.index({ guildId: 1, ended: 1, endsAt: 1 });
 export const GiveawayModel = mongoose.model("Giveaway", GiveawaySchema);
+
+const BetaProgramSchema = new mongoose.Schema({
+  guildId: { type: String, required: true, unique: true },
+  testerIds: { type: [String], default: [] },
+  enabledFeatures: { type: [String], default: ["beta-feedback"] },
+  updatedBy: { type: String, default: null },
+  updatedAt: { type: Date, default: Date.now },
+});
+export const BetaProgramModel = mongoose.model("BetaProgram", BetaProgramSchema);
+
+const BetaFeedbackSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  guildId: { type: String, required: true },
+  authorId: { type: String, required: true },
+  feature: { type: String, required: true },
+  content: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+BetaFeedbackSchema.index({ guildId: 1, createdAt: -1 });
+export const BetaFeedbackModel = mongoose.model("BetaFeedback", BetaFeedbackSchema);

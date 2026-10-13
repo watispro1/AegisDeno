@@ -29,6 +29,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Fixed:** The public changelog and Atom feed now include this release's bot and website reliability work.
 - **Hardened:** The Top.gg webhook is unavailable until `TOPGG_WEBHOOK_AUTH` is configured; unauthenticated requests can no longer reach the endpoint.
 - **Hardened:** Website toasts and interactive AutoMod log entries use DOM text nodes instead of dynamic HTML insertion.
+- **New:** Site-wide command palette searches pages and the live slash-command catalog, with Ctrl/Cmd+K, Escape, keyboard-first navigation, focus restoration, and mobile-safe responsive results.
+- **Refined:** Simplified the visual system to a single light/dark choice, flatter card and button interactions, and a quieter background.
+
+### ⚙️ Command Experience & Moderation Safety
+
+- **Enhanced:** `/help command:` now supports autocomplete across every command, readable permission labels, and safely truncated long option/subcommand documentation.
+- **Hardened:** Timeout quick actions now re-check the clicking moderator's role hierarchy before they can remove or extend a member's timeout.
+- **Enhanced:** `/diagnostics` now audits ticket, role-panel, and transcript permissions plus welcome-role validity and role hierarchy.
+- **New:** `/beta` establishes a managed beta program in the Aegis home server (`1554633956966539385`), with persistent tester enrollment, controlled feature rollout, tester-only feedback, staff review, and audit-log events.
+- **New (Beta):** Experimental AutoMod caps detection is available to enrolled testers in the beta server, with configurable threshold/action controls and a safe `/beta lab` message preview that never enforces moderation.
+- **Fixed:** Interactive polls now retain their original end time while votes update instead of moving the deadline forward on every refresh.
+
+### 🌐 Website Support
+
+- **New:** `/troubleshooting` provides a dedicated, navigable support guide for command registration, permissions, AutoMod, tickets, automation, status, and Fly.io deployment issues.
 
 ## [3.0.0] — 2026-10-09
 

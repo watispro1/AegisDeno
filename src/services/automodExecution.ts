@@ -3,6 +3,8 @@ import { getAutomodConfig } from "./automod";
 import { addWarning } from "./warnings";
 import { sendGuildLog } from "./logging";
 import { logger } from "../utils/logger";
+import { BETA_GUILD_ID } from "../config/env";
+import { isBetaFeatureEnabled } from "./beta";
 
 const LINK_REGEX = /https?:\/\/[^\s]+/gi;
 
@@ -98,6 +100,19 @@ async function handleAutomod(client: Client, message: Message): Promise<void> {
     if (LINK_REGEX.test(message.content)) {
       triggeredRule = config.links;
       ruleName = "Link Filtering";
+    }
+  }
+
+  // 5. Experimental caps filter. It is deliberately available only through
+  // the managed beta program and ignores short/emoji-only messages.
+  if (!triggeredRule && config.caps.enabled && message.guildId === BETA_GUILD_ID) {
+    const enabled = await isBetaFeatureEnabled(message.guildId, "experimental-automod");
+    const letters = message.content.match(/[a-z]/gi) ?? [];
+    const uppercase = letters.filter(letter => letter === letter.toUpperCase()).length;
+    const percentage = letters.length ? (uppercase / letters.length) * 100 : 0;
+    if (enabled && letters.length >= 8 && percentage >= config.caps.threshold) {
+      triggeredRule = config.caps;
+      ruleName = "Excessive Caps (Beta)";
     }
   }
 

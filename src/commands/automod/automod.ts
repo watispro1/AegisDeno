@@ -2,6 +2,8 @@ import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { Command } from "../../types/discord";
 import { getAutomodConfig, updateAutomodConfig } from "../../services/automod";
+import { BETA_GUILD_ID } from "../../config/env";
+import { canUseBetaFeature, isBetaFeatureEnabled } from "../../services/beta";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -82,6 +84,24 @@ export const command: Command = {
     )
     .addSubcommandGroup(group =>
       group
+        .setName("caps")
+        .setDescription("[Beta] Excessive-capitalization filter")
+        .addSubcommand(sub =>
+          sub.setName("toggle").setDescription("Enable or disable the caps filter")
+            .addBooleanOption(opt => opt.setName("enabled").setDescription("Enabled status").setRequired(true))
+        )
+        .addSubcommand(sub =>
+          sub.setName("limit").setDescription("Set uppercase percentage that triggers the filter")
+            .addIntegerOption(opt => opt.setName("percent").setDescription("Uppercase percentage (50–100)").setMinValue(50).setMaxValue(100).setRequired(true))
+        )
+        .addSubcommand(sub =>
+          sub.setName("action").setDescription("Choose what happens when excessive caps are detected")
+            .addStringOption(opt => opt.setName("action").setDescription("Enforcement action").setRequired(true)
+              .addChoices({ name: "Delete message", value: "delete" }, { name: "Delete and warn", value: "warn" }, { name: "Delete and timeout", value: "timeout" }))
+        )
+    )
+    .addSubcommandGroup(group =>
+      group
         .setName("exempt")
         .setDescription("Safe-list roles or channels from automod")
         .addSubcommand(sub =>
@@ -119,6 +139,16 @@ export const command: Command = {
     try {
       const config = await getAutomodConfig(guildId);
 
+      if (group === "caps") {
+        const allowed = guildId === BETA_GUILD_ID
+          && await canUseBetaFeature(guildId, interaction.user.id, "experimental-automod")
+          && await isBetaFeatureEnabled(guildId, "experimental-automod");
+        if (!allowed) {
+          await interaction.editReply("❌ The experimental caps filter is currently available only to enrolled beta testers while **Experimental AutoMod** is enabled.");
+          return;
+        }
+      }
+
       // ── status ──────────────────────────────────────────────────────────────
       if (sub === "status") {
         const buildStatusPayload = (cfg: typeof config) => {
@@ -134,6 +164,7 @@ export const command: Command = {
               { name: "🔗 Link Filtering",  value: `${cfg.links.enabled ? "✅ Enabled" : "❌ Disabled"} · Action: \`${cfg.links.action}\``, inline: true },
               { name: "📢 Mention Spam",    value: `${cfg.mentions.enabled ? "✅ Enabled" : "❌ Disabled"} (Limit: ${cfg.mentions.threshold}) · Action: \`${cfg.mentions.action}\``, inline: true },
               { name: "⚡ Spam Detection",  value: `${cfg.spam.enabled ? "✅ Enabled" : "❌ Disabled"} (${cfg.spam.maxMessages} msg / ${cfg.spam.windowSeconds}s) · Action: \`${cfg.spam.action}\``, inline: false },
+              ...(guildId === BETA_GUILD_ID ? [{ name: "🧪 Caps Filter (Beta)", value: `${cfg.caps.enabled ? "✅ Enabled" : "❌ Disabled"} (${cfg.caps.threshold}% uppercase) · Action: \`${cfg.caps.action}\``, inline: false }] : []),
               { name: "🛡️ Exempt Roles",    value: exemptRoles, inline: false },
               { name: "📌 Exempt Channels", value: exemptChannels, inline: false },
             )
@@ -291,6 +322,28 @@ export const command: Command = {
           config.spam.action = interaction.options.getString("action", true) as typeof config.spam.action;
           await updateAutomodConfig(guildId, config);
           await interaction.editReply(`✅ Spam action set to **${config.spam.action}**.`);
+          return;
+        }
+      }
+
+      // ── caps (beta) ──────────────────────────────────────────────────────────
+      if (group === "caps") {
+        if (sub === "toggle") {
+          config.caps.enabled = interaction.options.getBoolean("enabled", true);
+          await updateAutomodConfig(guildId, config);
+          await interaction.editReply(`✅ Experimental caps filtering is now **${config.caps.enabled ? "enabled" : "disabled"}**. It ignores messages with fewer than 8 letters.`);
+          return;
+        }
+        if (sub === "limit") {
+          config.caps.threshold = interaction.options.getInteger("percent", true);
+          await updateAutomodConfig(guildId, config);
+          await interaction.editReply(`✅ Experimental caps filtering now triggers at **${config.caps.threshold}%** uppercase letters.`);
+          return;
+        }
+        if (sub === "action") {
+          config.caps.action = interaction.options.getString("action", true) as typeof config.caps.action;
+          await updateAutomodConfig(guildId, config);
+          await interaction.editReply(`✅ Experimental caps action set to **${config.caps.action}**.`);
           return;
         }
       }

@@ -90,7 +90,15 @@ export function setupEvents(client: Client): void {
 
   // ─── Slash Commands ────────────────────────────────────────────────────────
   client.on(Events.InteractionCreate, async (interaction) => {
-    if (interaction.isChatInputCommand()) {
+    if (interaction.isAutocomplete()) {
+      const command = client.commands.get(interaction.commandName);
+      if (!command?.autocomplete) return;
+      try {
+        await command.autocomplete(interaction);
+      } catch (error) {
+        logger.warn(`Autocomplete failed for /${interaction.commandName}:`, error);
+      }
+    } else if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) {
         logger.warn(`Unknown command: ${interaction.commandName}`);

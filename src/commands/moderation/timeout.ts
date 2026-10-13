@@ -219,6 +219,20 @@ export const command: Command = {
         });
 
         actionCollector.on("collect", async (bi) => {
+          const hierarchyOk = await isRoleHierarchyValid(
+            interaction.client,
+            guildId,
+            bi.user.id,
+            target.id,
+          );
+          if (!hierarchyOk) {
+            await bi.reply({
+              content: "❌ You cannot change this timeout because the member has an equal or higher role.",
+              ephemeral: true,
+            });
+            return;
+          }
+
           if (bi.customId === `timeout_remove_${target.id}`) {
             await bi.deferUpdate();
             const refreshedMember = await interaction.guild!.members.fetch(target.id).catch(() => null);

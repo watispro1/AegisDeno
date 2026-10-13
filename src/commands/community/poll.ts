@@ -88,6 +88,10 @@ export const command: Command = {
       return interaction.reply({ content: "❌ Poll options must be distinct.", ephemeral: true });
     }
 
+    // Keep the published deadline stable. Computing it while re-rendering made
+    // the displayed end time move forward after every vote.
+    const endsAt = durationSec > 0 ? new Date(Date.now() + durationSec * 1000) : null;
+
     // vote state: optionIndex → Set of userIds
     const votes: Map<number, Set<string>> = new Map(
       options.map((_, i) => [i, new Set<string>()]),
@@ -101,7 +105,7 @@ export const command: Command = {
 
     function buildPollEmbed(ended = false): EmbedBuilder {
       const total = totalVotes();
-      const endsTs = durationSec > 0 ? Math.floor((Date.now() + durationSec * 1000) / 1000) : null;
+      const endsTs = endsAt ? Math.floor(endsAt.getTime() / 1000) : null;
 
       const fields = options.map((opt, i) => {
         const count = votes.get(i)?.size ?? 0;

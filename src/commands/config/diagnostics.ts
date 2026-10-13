@@ -34,6 +34,9 @@ export const command: Command = {
     const hasBanMembers = p.has(PermissionFlagsBits.BanMembers);
     const hasKickMembers = p.has(PermissionFlagsBits.KickMembers);
     const hasViewAuditLog = p.has(PermissionFlagsBits.ViewAuditLog);
+    const hasManageChannels = p.has(PermissionFlagsBits.ManageChannels);
+    const hasManageRoles = p.has(PermissionFlagsBits.ManageRoles);
+    const hasReadHistory = p.has(PermissionFlagsBits.ReadMessageHistory);
 
     const permissionsCheck = [
       `${hasManageMessages ? "✅" : "❌"} Manage Messages`,
@@ -41,9 +44,12 @@ export const command: Command = {
       `${hasBanMembers ? "✅" : "❌"} Ban Members`,
       `${hasKickMembers ? "✅" : "❌"} Kick Members`,
       `${hasViewAuditLog ? "✅" : "❌"} View Audit Log`,
+      `${hasManageChannels ? "✅" : "❌"} Manage Channels (Tickets)`,
+      `${hasManageRoles ? "✅" : "❌"} Manage Roles (Role Panels)`,
+      `${hasReadHistory ? "✅" : "❌"} Read Message History (Transcripts)`,
     ].join("\n");
 
-    const missingPermissions = !(hasManageMessages && hasModerateMembers && hasBanMembers && hasKickMembers && hasViewAuditLog);
+    const missingPermissions = !(hasManageMessages && hasModerateMembers && hasBanMembers && hasKickMembers && hasViewAuditLog && hasManageChannels && hasManageRoles && hasReadHistory);
 
     // 3. Check Channels
     let loggingStatus = "❌ Not configured";
@@ -68,6 +74,16 @@ export const command: Command = {
       }
     }
 
+    let welcomeRoleStatus = "ℹ️ Not configured";
+    if (guildConfig.welcomeRoleId) {
+      const role = guild.roles.cache.get(guildConfig.welcomeRoleId);
+      welcomeRoleStatus = !role
+        ? "⚠️ Configured role was deleted"
+        : !role.editable
+          ? `⚠️ <@&${role.id}> is above my role`
+          : `✅ Configured (<@&${role.id}>)`;
+    }
+
     // 4. Check Automod
     const hasAnyAutomod = automodConfig.words.enabled || automodConfig.links.enabled || automodConfig.mentions.enabled || automodConfig.spam.enabled;
     const automodStatus = hasAnyAutomod
@@ -88,6 +104,7 @@ export const command: Command = {
         { name: "Bot Permissions", value: permissionsCheck, inline: false },
         { name: "Logging Channel", value: loggingStatus, inline: true },
         { name: "Welcome Channel", value: welcomeStatus, inline: true },
+        { name: "Welcome Role", value: welcomeRoleStatus, inline: true },
         { name: "Automod", value: automodStatus, inline: false },
       );
 

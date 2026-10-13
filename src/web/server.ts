@@ -14,6 +14,7 @@ import {
   renderFeatures,
   renderCommands,
   renderDocs,
+  renderTroubleshooting,
   renderChangelog,
   renderStatus,
   renderTerms,
@@ -62,7 +63,7 @@ function siteConfig(): SiteConfig {
     inviteUrl,
     supportUrl: process.env.SUPPORT_SERVER_URL || "",
     version: SITE_VERSION,
-    contactEmail: process.env.CONTACT_EMAIL || "support@aegisbot.dev",
+    contactEmail: process.env.CONTACT_EMAIL || "support@aegisdeno.fly.dev",
     assetVersion: ASSET_VERSION,
   };
 }
@@ -151,6 +152,7 @@ const ROUTES: RouteDef[] = [
   { path: "/features", render: c => renderFeatures(c), priority: "0.9" },
   { path: "/commands", render: c => renderCommands(c), priority: "0.9" },
   { path: "/docs", render: c => renderDocs(c), priority: "0.8" },
+  { path: "/troubleshooting", render: c => renderTroubleshooting(c), priority: "0.7" },
   { path: "/changelog", render: c => renderChangelog(c), priority: "0.6" },
   { path: "/status", render: (c, x) => renderStatus(c, x.stats, x.online, x.startedAt), priority: "0.6", live: true },
   { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },

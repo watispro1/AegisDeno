@@ -633,7 +633,7 @@ Run these commands in a private staff channel to configure AegisDeno's internal 
 
 ```bash
 /automod links enable action:delete log_channel:#mod-logs
-/automod links whitelist domains: github.com, top.gg, discord.com, aegisbot.dev
+/automod links whitelist domains: github.com, top.gg, discord.com, aegisdeno.fly.dev
 ```
 
 #### 3. Enable Mention Spam Enforcement
@@ -673,7 +673,7 @@ Set up automated instant answers for common community questions using AegisDeno'
 /autoresponder create trigger:!rules response:Please read our full server guidelines in <#rules>! match_type:exact
 
 # 2. Website & Documentation
-/autoresponder create trigger:!website response:Explore official docs and features at https://aegisbot.dev! match_type:exact
+/autoresponder create trigger:!website response:Explore official docs and features at https://aegisdeno.fly.dev! match_type:exact
 
 # 3. Support & Ticket Opening
 /autoresponder create trigger:!support response:Need private staff assistance? Open a ticket in <#open-a-ticket>! match_type:exact

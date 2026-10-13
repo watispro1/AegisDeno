@@ -31,6 +31,8 @@ export interface Command {
   guildOnly?: boolean;
   /** Execute the command interaction. */
   execute(interaction: ChatInputCommandInteraction): Promise<void | InteractionResponse<boolean>>;
+  /** Optional slash-command autocomplete handler. */
+  autocomplete?(interaction: import("discord.js").AutocompleteInteraction): Promise<void>;
 }
 
 // Compatibility aliases retained for existing modules.

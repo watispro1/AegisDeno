@@ -616,6 +616,7 @@ const DOC_SECTIONS = [
   { id: "verification", label: "Verification & Anti-Raid" },
   { id: "roles", label: "Role Panels & Self-Roles" },
   { id: "suggestions", label: "Suggestions & Voting" },
+  { id: "beta", label: "Beta Program" },
   { id: "automod", label: "Auto Moderation" },
   { id: "logging", label: "Audit Logging" },
   { id: "welcome", label: "Welcome Messages" },
@@ -688,6 +689,7 @@ export function renderDocs(cfg: SiteConfig): string {
         <li><a href="/dashboard">Live Dashboard</a></li>
         <li><a href="/changelog">Changelog</a></li>
         <li><a href="/status">Service status</a></li>
+        <li><a href="/troubleshooting">Troubleshooting</a></li>
       </ul>
     </aside>
 
@@ -704,6 +706,10 @@ export function renderDocs(cfg: SiteConfig): string {
       <div class="callout info">
         <span class="callout-icon" aria-hidden="true">i</span>
         <div>Slash commands register automatically with Discord. If global commands do not appear immediately in your client, restart Discord or run <code class="inline">/help</code> to force client cache refresh.</div>
+      </div>
+      <div class="callout info">
+        <span class="callout-icon" aria-hidden="true">✓</span>
+        <div><strong>Recommended first step:</strong> run <code class="inline">/diagnostics</code> after setup. It checks Aegis permissions, configured channels, welcome-role hierarchy, and AutoMod readiness in one report.</div>
       </div>
 
       <h2 id="tickets">Support Ticket System</h2>
@@ -735,9 +741,24 @@ export function renderDocs(cfg: SiteConfig): string {
 
       <h2 id="suggestions">Suggestions & Community Feedback</h2>
       <p>Collect community ideas with interactive upvote and downvote buttons. Staff members can approve, reject, or mark suggestions as under consideration.</p>
-      <pre class="block">/suggest suggestion:"Add a dedicated art channel"
+      <pre class="block">/suggest setup channel:#suggestions
+/suggest submit
 /suggest approve id:&lt;id&gt; reason:"Great idea!"
-/suggest reject id:&lt;id&gt; reason:"Not feasible"</pre>
+/suggest deny id:&lt;id&gt; reason:"Not feasible"
+/suggest consider id:&lt;id&gt; reason:"Under review"</pre>
+      <p><code class="inline">/suggest submit</code> opens a guided form. Voting remains available while a suggestion is pending or under consideration, then locks when staff approves or denies it.</p>
+
+      <h2 id="beta">Beta Program</h2>
+      <p>Aegis runs managed experiments in its designated beta server. Access has two layers: a member must be enrolled as a tester and the requested feature must be enabled by beta staff.</p>
+      <h3>Beta staff workflow</h3>
+      <pre class="block">/beta status
+/beta tester-add user:@Tester
+/beta feature-enable feature:"Experimental AutoMod"
+/beta feedback-list</pre>
+      <h3>Tester workflow</h3>
+      <pre class="block">/beta lab message:"THIS IS A CAPS FILTER PREVIEW"
+/beta feedback message:"Expected behavior, actual behavior, and reproduction steps"</pre>
+      <p>The current experimental feature is caps filtering. Enrolled testers can configure it with <code class="inline">/automod caps toggle</code>, <code class="inline">/automod caps limit</code>, and <code class="inline">/automod caps action</code>. The rule ignores short messages and only enforces while its beta flag remains enabled.</p>
 
       <h2 id="automod">Auto Moderation</h2>
       <p>AutoMod scans messages in real time to enforce community guidelines before moderators need to intervene.</p>
@@ -774,21 +795,19 @@ export function renderDocs(cfg: SiteConfig): string {
 /automation cancel id:&lt;task-id&gt;</pre>
 
       <h2 id="configuration">Server Configuration</h2>
-      <p>View and manage server-wide configuration settings.</p>
+      <p>View and manage server-wide settings from dedicated configuration sections.</p>
       <pre class="block">/config view
-/config set key:language value:en</pre>
+/config logging channel:#mod-logs
+/config welcome channel:#welcome
+/config suggestions channel:#suggestions
+/config language code:en</pre>
 
       <h2 id="permissions">Permissions Matrix</h2>
       <p>Aegis enforces strict role hierarchy checks and re-verifies user and bot permissions at execution time.</p>
       ${permissionTable()}
 
       <h2 id="troubleshooting">Troubleshooting & Gotchas</h2>
-      <h3>Commands missing from slash menu</h3>
-      <p>Verify that Aegis was invited with the <code class="inline">applications.commands</code> scope. Global commands propagate across Discord within a few minutes.</p>
-      <h3>Role hierarchy error when performing moderation</h3>
-      <p>Aegis cannot moderate members whose highest role sits above or equal to Aegis' highest role in Server Settings > Roles.</p>
-      <h3>Duplicate ticket panel issue</h3>
-      <p>Re-run <code class="inline">/ticket setup</code> in the support channel. Aegis automatically purges old bot ticket setup panels in that channel.</p>
+      <p>Use the dedicated <a href="/troubleshooting">Troubleshooting Guide</a> for symptom-based fixes covering command registration, role hierarchy, AutoMod, tickets, reminders, website status, and deployment. Start with <code class="inline">/diagnostics</code> whenever possible.</p>
 
       <h2 id="architecture">Architecture & Data Security</h2>
       <p>All configuration, ticket records, and AutoMod rules are isolated by guild ID. Aegis never shares data between servers and writes audit logs directly to your Discord channels.</p>
@@ -805,6 +824,98 @@ export function renderDocs(cfg: SiteConfig): string {
   });
 }
 
+export function renderTroubleshooting(cfg: SiteConfig): string {
+  const body = `
+<div class="wrap">
+  <nav class="breadcrumbs" aria-label="Breadcrumb">
+    <a href="/">Home</a><span class="sep">/</span><span>Troubleshooting</span>
+  </nav>
+  <div class="page-head">
+    <span class="eyebrow">Support guide</span>
+    <h1>Fix common Aegis issues</h1>
+    <p class="lead">Start with <code class="inline">/diagnostics</code> for a server health report, then use the matching guide below. Most problems come down to permissions, role hierarchy, or a missing channel configuration.</p>
+  </div>
+</div>
+
+<section class="block tight">
+  <div class="wrap grid cols-3">
+    <a class="card" href="#commands"><span class="card-icon">/</span><h3>Commands & setup</h3><p>Slash commands, permissions, and configuration checks.</p></a>
+    <a class="card" href="#moderation"><span class="card-icon">⚖</span><h3>Moderation & AutoMod</h3><p>Role hierarchy, timeouts, bans, and filters.</p></a>
+    <a class="card" href="#automation"><span class="card-icon">⏰</span><h3>Automation & delivery</h3><p>Tickets, reminders, welcome flows, and website status.</p></a>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="docs-layout">
+    <aside class="docs-side" aria-label="Troubleshooting sections">
+      <div class="side-title">Jump to</div>
+      <ul>
+        <li><a href="#commands">Commands & connection</a></li>
+        <li><a href="#moderation">Moderation & AutoMod</a></li>
+        <li><a href="#automation">Tickets & automation</a></li>
+        <li><a href="#website">Website & deployment</a></li>
+        <li><a href="#escalate">Still stuck?</a></li>
+      </ul>
+      <div class="side-divider"></div>
+      <div class="side-title">Useful tools</div>
+      <ul>
+        <li><a href="/status">Live service status</a></li>
+        <li><a href="/commands">Command reference</a></li>
+        <li><a href="/docs#permissions">Permissions matrix</a></li>
+      </ul>
+    </aside>
+
+    <div class="prose">
+      <h2 id="commands">Commands & connection</h2>
+      <h3>Commands are missing or appear twice</h3>
+      <p>Confirm the bot was invited with the <code class="inline">applications.commands</code> scope. Global commands can take up to an hour to propagate. For instant development updates, set <code class="inline">DISCORD_TEST_GUILD_ID</code>; clear former test guild registrations with <code class="inline">DISCORD_CLEAR_GUILD_IDS</code>.</p>
+      <h3>The bot will not start</h3>
+      <p>Verify <code class="inline">DISCORD_TOKEN</code>, <code class="inline">DISCORD_APPLICATION_ID</code>, and <code class="inline">MONGO_URI</code> are present and valid. A MongoDB connection failure is commonly caused by an Atlas IP allow-list, paused cluster, or unescaped password characters.</p>
+      <div class="callout info"><span class="callout-icon" aria-hidden="true">i</span><div>Use <code class="inline">/diagnostics</code> inside your server for a live check of Aegis permissions, logging, welcome settings, role setup, and AutoMod.</div></div>
+
+      <h2 id="moderation">Moderation & AutoMod</h2>
+      <h3>Ban, timeout, role panel, or auto-role says “Missing Permissions”</h3>
+      <p>Move the Aegis role above the target member or role in <strong>Server Settings → Roles</strong>. The bot cannot act on equal or higher roles, even when it has the correct Discord permission. The moderator running a moderation command must also be above the target.</p>
+      <h3>AutoMod does not catch messages</h3>
+      <p>Run <code class="inline">/automod status</code> to confirm the rule is enabled. Then check the blocked-word list and exemptions with <code class="inline">/automod exempt list</code>. Aegis also needs <strong>View Channel</strong> and <strong>Manage Messages</strong> in the affected channel for deletion actions.</p>
+      <h3>Suggestion votes or panels are not updating</h3>
+      <p>Confirm the bot has <strong>View Channel</strong>, <strong>Read Message History</strong>, and <strong>Send Messages</strong> in that channel. Recreate a deleted or stale panel with its setup command; Aegis intentionally refuses controls that are no longer backed by a stored configuration.</p>
+
+      <h2 id="automation">Tickets, reminders & welcome flows</h2>
+      <h3>A ticket cannot be created or managed</h3>
+      <p>Check that Aegis has <strong>Manage Channels</strong> and its role is high enough to apply channel overwrites. Only ticket owners can close their own ticket; access changes, claims, and transcripts are reserved for configured support staff or channel managers.</p>
+      <h3>A reminder, scheduled message, or giveaway did not fire</h3>
+      <p>Confirm the target channel still exists and Aegis can send messages there. Pending tasks and active giveaways restore after restarts; overdue tasks run on the next successful startup. If delivery fails repeatedly, recreate the task in a valid channel.</p>
+      <h3>Welcome messages or auto-roles do not work</h3>
+      <p>Enable <strong>Server Members Intent</strong> in the Discord Developer Portal. Then confirm the welcome channel grants View Channel and Send Messages, and place Aegis above the configured welcome role with Manage Roles enabled.</p>
+
+      <h2 id="website">Website & deployment</h2>
+      <h3>Status is degraded or metrics are zero</h3>
+      <p>During startup, the bot may still be connecting to MongoDB or Discord. Wait briefly and refresh <a href="/status">Service Status</a>. A zero guild count can also mean the bot has not joined a server yet.</p>
+      <h3>The website looks stale after deployment</h3>
+      <p>HTML routes are served with revalidation-friendly headers while versioned assets are cached for performance. If a reverse proxy sits in front of Aegis, ensure it does not cache HTML pages indefinitely.</p>
+      <h3>Fly.io repeatedly restarts the service</h3>
+      <p>Inspect deployment logs for missing secrets, MongoDB connection errors, or memory pressure. Verify the Discord token and Mongo URI secrets, Atlas network access, and that the VM has sufficient memory for the bot workload.</p>
+
+      <h2 id="escalate">Still stuck?</h2>
+      <ol>
+        <li>Run <code class="inline">/diagnostics</code> and save the relevant warning text.</li>
+        <li>Check the console or deployment logs with <code class="inline">LOG_LEVEL=debug</code> temporarily enabled.</li>
+        <li>Record the command used, exact error, server channel, and reproducible steps before contacting support.</li>
+      </ol>
+      ${ctaBox(cfg, "Need the command syntax?", "Browse the complete slash-command reference or check live service health before escalating.")}
+    </div>
+  </div>
+</div>`;
+
+  return page(cfg, {
+    title: "Troubleshooting — Aegis Discord Bot",
+    description: "Fix common Aegis Discord bot issues with commands, moderation, AutoMod, tickets, automation, and deployment.",
+    path: "/troubleshooting",
+    body,
+  });
+}
+
 /** Map a docs section to the commands that cover it, for the sidebar. */
 function sectionCommandCount(section: string): number {
   const mapping: Record<string, string[]> = {
@@ -813,6 +924,7 @@ function sectionCommandCount(section: string): number {
     logging: ["logging"],
     welcome: ["welcome"],
     automation: ["automation"],
+    beta: ["beta"],
     roles: [],
     permissions: [],
     troubleshooting: [],
@@ -845,6 +957,14 @@ export const RELEASES: Release[] = [
       "[HARDENED] Role panel interactions are verified against their stored panel and configured roles before a role can be changed.",
       "[FIXED] Suggestion Details controls display information instead of accidentally recording a downvote; concurrent votes no longer overwrite each other.",
       "[WEB] Top.gg webhook traffic is rejected until its authentication secret is configured, and dynamic website notices avoid unsafe HTML insertion.",
+      "[WEB] Added global command and site search with keyboard shortcut support (Ctrl/Cmd + K), live command data, accessible dialog behavior, and mobile-ready results.",
+      "[WEB] Simplified the interface with a focused light/dark theme switch, softer motion, flatter cards, and reduced background decoration.",
+      "[ENHANCED] /help now provides command autocomplete, readable permission requirements, and safe long-form command details; /diagnostics now checks tickets, role panels, transcripts, and welcome-role readiness.",
+      "[HARDENED] Timeout quick actions re-check the acting moderator's role hierarchy before changing another member's timeout.",
+      "[WEB] Added a dedicated /troubleshooting support guide with structured fixes for commands, moderation, AutoMod, tickets, automation, website status, and deployment.",
+      "[NEW] /beta program management: persistent tester roster, controlled feature flags, tester-only feedback, staff review, and home-server protections.",
+      "[BETA] Experimental AutoMod caps detection adds a configurable uppercase threshold/action and a safe Command Lab preview for enrolled testers.",
+      "[FIXED] Interactive polls retain their original deadline while live results update.",
     ],
   },
   {

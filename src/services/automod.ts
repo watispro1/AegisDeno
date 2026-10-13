@@ -19,12 +19,18 @@ export interface SpamRule extends AutomodRule {
   windowSeconds: number;
 }
 
+export interface CapsRule extends AutomodRule {
+  /** Percentage of letters that must be uppercase before enforcement. */
+  threshold: number;
+}
+
 export interface AutomodConfig {
   guildId: string;
   words: WordsRule;
   links: AutomodRule;
   mentions: MentionsRule;
   spam: SpamRule;
+  caps: CapsRule;
   /** Role IDs that bypass all automod checks. */
   exemptRoleIds: string[];
   /** Channel IDs where automod is fully disabled. */
@@ -36,6 +42,7 @@ const DEFAULT_CONFIG: Omit<AutomodConfig, "guildId"> = {
   links:    { enabled: false, action: "delete" },
   mentions: { enabled: false, action: "timeout", threshold: 5 },
   spam:     { enabled: false, action: "timeout", maxMessages: 5, windowSeconds: 5 },
+  caps:     { enabled: false, action: "delete", threshold: 80 },
   exemptRoleIds:    [],
   exemptChannelIds: [],
 };
@@ -81,6 +88,14 @@ function normalizeSpamRule(rule: Partial<SpamRule> | undefined): SpamRule {
   return { ...normalized, maxMessages, windowSeconds };
 }
 
+function normalizeCapsRule(rule: Partial<CapsRule> | undefined): CapsRule {
+  const normalized = normalizeRule(rule, DEFAULT_CONFIG.caps);
+  const threshold = typeof rule?.threshold === "number" && Number.isFinite(rule.threshold)
+    ? Math.max(50, Math.min(100, Math.round(rule.threshold)))
+    : DEFAULT_CONFIG.caps.threshold;
+  return { ...normalized, threshold };
+}
+
 function normalizeAutomodConfig(guildId: string, source?: Partial<AutomodConfig>): AutomodConfig {
   const config = source ?? {};
   return {
@@ -89,6 +104,7 @@ function normalizeAutomodConfig(guildId: string, source?: Partial<AutomodConfig>
     links:    normalizeRule(config.links, DEFAULT_CONFIG.links),
     mentions: normalizeMentionsRule(config.mentions),
     spam:     normalizeSpamRule(config.spam),
+    caps:     normalizeCapsRule(config.caps),
     exemptRoleIds:    Array.isArray(config.exemptRoleIds)    ? config.exemptRoleIds.filter(Boolean)    : [],
     exemptChannelIds: Array.isArray(config.exemptChannelIds) ? config.exemptChannelIds.filter(Boolean) : [],
   };

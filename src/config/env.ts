@@ -8,6 +8,9 @@ export const BOT_OWNER_IDS = new Set(
   ),
 );
 
+/** The single guild that runs Aegis' managed beta program. */
+export const BETA_GUILD_ID = process.env.BETA_GUILD_ID?.trim() || "1554633956966539385";
+
 export const config = {
   DISCORD_TOKEN: process.env.DISCORD_TOKEN || "",
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID || "",
@@ -17,6 +20,7 @@ export const config = {
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
   SUPPORT_SERVER_URL: process.env.SUPPORT_SERVER_URL || "",
   BOT_INVITE_URL: process.env.BOT_INVITE_URL || "",
+  BETA_GUILD_ID,
 };
 
 export function validateEnv() {

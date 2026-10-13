@@ -6,7 +6,7 @@
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 import { loadCommands } from "../src/commands/loader";
-import { renderHome, renderDashboard, renderPlayground, renderFeatures, renderCommands, renderDocs, renderChangelog, renderStatus, renderTerms, renderPrivacy, renderNotFound, type SiteConfig } from "../src/web/pages";
+import { renderHome, renderDashboard, renderPlayground, renderFeatures, renderCommands, renderDocs, renderTroubleshooting, renderChangelog, renderStatus, renderTerms, renderPrivacy, renderNotFound, type SiteConfig } from "../src/web/pages";
 import { styles } from "../src/web/theme";
 import { clientScript } from "../src/web/client";
 import { themeInitScript } from "../src/web/assets";
@@ -35,6 +35,7 @@ async function main() {
     ["/features", renderFeatures(cfg)],
     ["/commands", renderCommands(cfg)],
     ["/docs", renderDocs(cfg)],
+    ["/troubleshooting", renderTroubleshooting(cfg)],
     ["/changelog", renderChangelog(cfg)],
     ["/status", renderStatus(cfg, stats, true, Date.now())],
     ["/privacy", renderPrivacy(cfg)],
@@ -164,6 +165,7 @@ async function main() {
   /* Report CSS classes that no page and no script ever reference. */
   const scriptClasses = new Set([
     ...[...clientScript.matchAll(/classList\.(?:add|toggle|remove)\('([\w-]+)'/g)].map(m => m[1]),
+    ...[...clientScript.matchAll(/className\s*=\s*['"]([^'"]+)['"]/g)].flatMap(m => m[1].split(/\s+/)),
     ...[...themeInitScript.matchAll(/classList\.add\("([\w-]+)"\)/g)].map(m => m[1]),
   ]);
   const deadCss = [...cssClasses]

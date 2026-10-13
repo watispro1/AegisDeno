@@ -65,15 +65,15 @@ export const command: Command = {
       new ButtonBuilder()
         .setLabel("Documentation")
         .setStyle(ButtonStyle.Link)
-        .setURL("https://aegisbot.dev/docs"),
+        .setURL("https://aegisdeno.fly.dev/docs"),
       new ButtonBuilder()
         .setLabel("Dashboard")
         .setStyle(ButtonStyle.Link)
-        .setURL("https://aegisbot.dev/dashboard"),
+        .setURL("https://aegisdeno.fly.dev/dashboard"),
       new ButtonBuilder()
         .setLabel("Playground")
         .setStyle(ButtonStyle.Link)
-        .setURL("https://aegisbot.dev/playground")
+        .setURL("https://aegisdeno.fly.dev/playground")
     );
 
     const sent = await interaction.reply({ embeds: [buildEmbed()], components: [row], fetchReply: true });
