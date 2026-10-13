@@ -98,9 +98,26 @@ export function setupEvents(client: Client): void {
       }
       await executeCommand(command, interaction);
       } else if (interaction.isButton()) {
-        if (interaction.customId.startsWith("suggest_")) {
+        if (interaction.customId === "giveaway_enter" || interaction.customId === "giveaway_entrants") {
+          const { handleGiveawayButton } = await import("../commands/community/giveaway");
+          await handleGiveawayButton(interaction);
+        } else if (interaction.customId.startsWith("suggest_")) {
           const [, action, id] = interaction.customId.split("_");
-          if (!id || !interaction.guildId) return;
+          if (!id || !interaction.guildId || !["up", "down", "info"].includes(action)) return;
+
+          if (action === "info") {
+            const { getSuggestion } = await import("../services/suggestions");
+            const suggestion = await getSuggestion(interaction.guildId, id);
+            if (!suggestion) {
+              await interaction.reply({ content: "❌ This suggestion no longer exists.", ephemeral: true }).catch(() => null);
+              return;
+            }
+            await interaction.reply({
+              content: `**Suggestion details**\nStatus: **${suggestion.status}**\n👍 ${suggestion.upvotes.length} · 👎 ${suggestion.downvotes.length}\n\n${suggestion.content}`,
+              ephemeral: true,
+            }).catch(() => null);
+            return;
+          }
 
           await interaction.deferUpdate().catch(() => null);
 
@@ -150,7 +167,11 @@ export function setupEvents(client: Client): void {
           if (!interaction.guild) return;
           await interaction.deferReply({ ephemeral: true });
 
-          const { closeTicket } = await import("../services/ticketService");
+          const { canCloseTicket, closeTicket } = await import("../services/ticketService");
+          if (!await canCloseTicket(interaction.guild, interaction.channelId, interaction.user.id)) {
+            await interaction.editReply({ content: "❌ Only the ticket opener or support staff can close this ticket." });
+            return;
+          }
           const closed = await closeTicket(interaction.guild, interaction.channelId, interaction.user.id, "Closed via button");
 
           if (closed) {
@@ -172,14 +193,15 @@ export function setupEvents(client: Client): void {
           await interaction.deferReply({ ephemeral: true });
 
           const parts = interaction.customId.split("_");
+          const panelId = parts[1];
           const roleId = parts[2];
-          if (!roleId) return;
+          if (!panelId || !roleId) return;
 
           const { toggleRoleFromPanel } = await import("../services/rolePanelService");
           const member = await interaction.guild.members.fetch(interaction.user.id);
 
           try {
-            const res = await toggleRoleFromPanel(interaction.guild, member, roleId);
+            const res = await toggleRoleFromPanel(interaction.guild, member, roleId, panelId, interaction.message.id);
             await interaction.editReply({
               content: res.added
                 ? `✅ Granted role **${res.roleName}**.`

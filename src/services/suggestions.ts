@@ -44,20 +44,13 @@ export async function voteOnSuggestion(
   userId: string,
   vote: "up" | "down"
 ): Promise<Suggestion | null> {
-  const suggestion = await getSuggestion(guildId, id);
-  if (!suggestion) return null;
-
-  // Remove from both to prevent duplicate / switched votes
-  const upvotes   = suggestion.upvotes.filter(u => u !== userId);
-  const downvotes = suggestion.downvotes.filter(d => d !== userId);
-
-  if (vote === "up") upvotes.push(userId);
-  else downvotes.push(userId);
-
+  // Keep a voter in exactly one collection without a read/modify/write race.
+  const addField = vote === "up" ? "upvotes" : "downvotes";
+  const removeField = vote === "up" ? "downvotes" : "upvotes";
   const updated = await SuggestionModel.findOneAndUpdate(
-    { guildId, id },
-    { $set: { upvotes, downvotes } },
-    { new: true }
+    { guildId, id, status: { $in: ["pending", "considered"] } },
+    { $pull: { [removeField]: userId }, $addToSet: { [addField]: userId } },
+    { new: true },
   );
   return updated ? updated.toObject() as Suggestion : null;
 }

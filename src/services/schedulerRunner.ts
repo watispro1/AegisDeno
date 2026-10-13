@@ -7,6 +7,7 @@ const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 /** After this many failed attempts, give up and delete the task from the DB. */
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 60_000;
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 /** Track how many times each task has failed so we can cap retries. */
 const retryCount = new Map<string, number>();
@@ -110,7 +111,19 @@ export function scheduleTask(client: Client, task: ScheduledTask): void {
     return;
   }
 
-  const handle = setTimeout(() => void executeTask(client, task), delay);
+  // Node clamps timers beyond ~24.8 days to 1 ms. Re-check long-lived tasks
+  // in chunks so monthly reminders and recurring jobs cannot fire immediately.
+  const handle = setTimeout(
+    () => {
+      if (delay > MAX_TIMEOUT_MS) {
+        activeTimers.delete(taskId);
+        scheduleTask(client, task);
+      } else {
+        void executeTask(client, task);
+      }
+    },
+    Math.min(delay, MAX_TIMEOUT_MS),
+  );
   activeTimers.set(taskId, handle);
   logger.debug(`Task ${taskId} (${task.type}) scheduled in ${Math.round(delay / 1000)}s.`);
 }

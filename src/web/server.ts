@@ -240,7 +240,12 @@ export function startWebServer(client: Client) {
 
   app.post("/api/topgg/webhook", express.json(), (req, res) => {
     const auth = process.env.TOPGG_WEBHOOK_AUTH;
-    if (auth && req.headers.authorization !== auth) {
+    if (!auth) {
+      logger.warn("Rejected Top.gg webhook because TOPGG_WEBHOOK_AUTH is not configured.");
+      res.status(503).json({ error: "webhook_not_configured" });
+      return;
+    }
+    if (req.headers.authorization !== auth) {
       res.status(401).json({ error: "unauthorized" });
       return;
     }

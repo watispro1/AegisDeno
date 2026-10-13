@@ -7,12 +7,16 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ComponentType,
+  ButtonInteraction,
   TextChannel,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { GiveawayModel } from "../../database/mongo";
+import { randomInt } from "node:crypto";
+
+const giveawayTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -33,8 +37,102 @@ function fmtDuration(seconds: number): string {
 }
 
 async function pickWinners(entrants: string[], count: number): Promise<string[]> {
-  const shuffled = [...entrants].sort(() => Math.random() - 0.5);
+  const shuffled = [...new Set(entrants)];
+  // Fisher-Yates avoids the biased `sort(() => Math.random() - .5)` pattern.
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
   return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
+function scheduleGiveawayEnd(client: any, guildId: string, messageId: string, endsAt: Date): void {
+  if (giveawayTimers.has(messageId)) return;
+  const delay = Math.max(0, endsAt.getTime() - Date.now());
+  const handle = setTimeout(async () => {
+    giveawayTimers.delete(messageId);
+    if (delay > MAX_TIMEOUT_MS) {
+      scheduleGiveawayEnd(client, guildId, messageId, endsAt);
+      return;
+    }
+    try {
+      await endGiveaway(client, guildId, messageId);
+    } catch (error) {
+      logger.error(`Auto-end giveaway ${messageId} failed`, error);
+    }
+  }, Math.min(delay, MAX_TIMEOUT_MS));
+  giveawayTimers.set(messageId, handle);
+}
+
+/** Restore active giveaway timers after a bot restart. */
+export async function initGiveawayScheduler(client: any): Promise<void> {
+  const active = await GiveawayModel.find({ ended: false }).lean() as any[];
+  for (const giveaway of active) {
+    scheduleGiveawayEnd(client, giveaway.guildId, giveaway.messageId, new Date(giveaway.endsAt));
+  }
+  logger.info(`Giveaway scheduler initialised: ${active.length} active giveaway(s).`);
+}
+
+/** Process persistent giveaway controls after the originating command has finished. */
+export async function handleGiveawayButton(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.guildId || !interaction.guild) return;
+
+  const giveaway = await GiveawayModel.findOne({
+    guildId: interaction.guildId,
+    messageId: interaction.message.id,
+    ended: false,
+  }).lean() as any;
+
+  if (!giveaway) {
+    await interaction.reply({ content: "❌ This giveaway has ended or is no longer available.", ephemeral: true });
+    return;
+  }
+
+  if (interaction.customId === "giveaway_entrants") {
+    await interaction.reply({
+      content: `👥 **${giveaway.entrants?.length ?? 0}** member(s) have entered this giveaway.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.customId !== "giveaway_enter") return;
+
+  if (giveaway.requiredRoleId) {
+    const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+    if (!member?.roles.cache.has(giveaway.requiredRoleId)) {
+      await interaction.reply({ content: "❌ You do not have the required role for this giveaway.", ephemeral: true });
+      return;
+    }
+  }
+
+  const updated = await GiveawayModel.findOneAndUpdate(
+    { guildId: interaction.guildId, messageId: interaction.message.id, ended: false },
+    { $addToSet: { entrants: interaction.user.id } },
+    { new: true },
+  ).lean() as any;
+  if (!updated) {
+    await interaction.reply({ content: "❌ This giveaway just ended. Better luck next time!", ephemeral: true });
+    return;
+  }
+
+  const alreadyEntered = (giveaway.entrants ?? []).includes(interaction.user.id);
+  await interaction.reply({
+    content: alreadyEntered
+      ? "ℹ️ You are already entered in this giveaway."
+      : "✅ You are entered! Good luck!",
+    ephemeral: true,
+  });
+
+  const embed = interaction.message.embeds[0];
+  if (embed) {
+    const refreshed = EmbedBuilder.from(embed).spliceFields(3, 1, {
+      name: "📊 Entries",
+      value: `**${updated.entrants.length}** entered`,
+      inline: true,
+    });
+    await interaction.message.edit({ embeds: [refreshed] }).catch(() => null);
+  }
 }
 
 // ─── Command ─────────────────────────────────────────────────────────────────
@@ -183,13 +281,7 @@ export const command: Command = {
       });
 
       // Auto-end after duration
-      setTimeout(async () => {
-        try {
-          await endGiveaway(interaction.client, guildId, gMsg.id);
-        } catch (e) {
-          logger.error(`Auto-end giveaway ${gMsg.id} failed`, e);
-        }
-      }, durationSec * 1000);
+      scheduleGiveawayEnd(interaction.client, guildId, gMsg.id, endsAt);
 
       return;
     }
@@ -281,16 +373,19 @@ async function endGiveaway(
   guildId: string,
   messageId: string,
 ): Promise<{ ok: boolean; winners?: string[]; error?: string }> {
-  const giveaway = await GiveawayModel.findOne({ guildId, messageId }).lean() as any;
-  if (!giveaway) return { ok: false, error: "No giveaway found with that message ID." };
-  if (giveaway.ended) return { ok: false, error: "That giveaway has already ended." };
+  const timer = giveawayTimers.get(messageId);
+  if (timer) clearTimeout(timer);
+  giveawayTimers.delete(messageId);
+  const giveaway = await GiveawayModel.findOneAndUpdate(
+    { guildId, messageId, ended: false },
+    { $set: { ended: true, endedAt: new Date() } },
+    { new: false },
+  ).lean() as any;
+  if (!giveaway) return { ok: false, error: "No active giveaway found with that message ID." };
 
   const winners = await pickWinners(giveaway.entrants ?? [], giveaway.winnerCount ?? 1);
 
-  await GiveawayModel.updateOne(
-    { guildId, messageId },
-    { $set: { ended: true, winners, endedAt: new Date() } },
-  );
+  await GiveawayModel.updateOne({ guildId, messageId }, { $set: { winners } });
 
   const channel = client.channels.cache.get(giveaway.channelId) as TextChannel | null;
   if (channel) {

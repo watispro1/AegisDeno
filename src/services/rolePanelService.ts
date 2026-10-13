@@ -37,7 +37,7 @@ export async function createRolePanel(
   roles: RolePanelOption[]
 ): Promise<RolePanel | null> {
   try {
-    const panelId = `panel-${Math.random().toString(36).substring(2, 8)}`;
+    const panelId = `panel-${crypto.randomUUID()}`;
 
     const embed = new EmbedBuilder()
       .setTitle(title)
@@ -87,11 +87,24 @@ export async function createRolePanel(
 export async function toggleRoleFromPanel(
   guild: Guild,
   member: GuildMember,
-  roleId: string
+  roleId: string,
+  panelId: string,
+  messageId: string,
 ): Promise<{ added: boolean; roleName: string }> {
+  const panel = await RolePanelModel.findOne({
+    id: panelId,
+    guildId: guild.id,
+    messageId,
+    "roles.roleId": roleId,
+  }).lean();
+  if (!panel) throw new Error("This role panel is no longer active.");
+
   const role = guild.roles.cache.get(roleId);
   if (!role) {
     throw new Error("Role no longer exists.");
+  }
+  if (role.managed || !role.editable) {
+    throw new Error("I cannot manage that role. Check my role position and permissions.");
   }
 
   if (member.roles.cache.has(roleId)) {

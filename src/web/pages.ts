@@ -834,6 +834,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.1.1",
+    date: "2026-10-13",
+    tag: "Reliability & Safety Patch",
+    summary: "A stability-focused release that secures interactive workflows, restores persistent giveaway controls after restarts, and strengthens the public website.",
+    highlights: [
+      "[FIXED] Giveaway Enter and View Entries controls now work persistently after the originating command completes, including after a bot restart.",
+      "[HARDENED] Giveaway entry is atomic, honors required roles, prevents duplicate entrants, and keeps the visible entry total current.",
+      "[HARDENED] Ticket controls now distinguish ticket owners from support staff; participant management, claims, and transcripts are staff-only.",
+      "[HARDENED] Role panel interactions are verified against their stored panel and configured roles before a role can be changed.",
+      "[FIXED] Suggestion Details controls display information instead of accidentally recording a downvote; concurrent votes no longer overwrite each other.",
+      "[WEB] Top.gg webhook traffic is rejected until its authentication secret is configured, and dynamic website notices avoid unsafe HTML insertion.",
+    ],
+  },
+  {
     version: "3.1.0",
     date: "2026-10-09",
     tag: "Feature Drop",

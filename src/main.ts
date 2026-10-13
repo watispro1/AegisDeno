@@ -90,6 +90,8 @@ async function main(): Promise<void> {
   // 5. Init scheduler and Top.gg stats after login
   client.once("ready", async (c) => {
     await initScheduler(c).catch(err => logger.error("Scheduler init error:", err));
+    const { initGiveawayScheduler } = await import("./commands/community/giveaway");
+    await initGiveawayScheduler(c).catch(err => logger.error("Giveaway scheduler init error:", err));
     const { initTopGG } = await import("./services/topgg");
     initTopGG(c);
   });
@@ -98,7 +100,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Shutting down gracefully...`);
     shutdownScheduler();
-    closeDatabase();
+    await closeDatabase().catch(err => logger.error("Database shutdown error:", err));
     client.destroy();
     process.exit(0);
   };

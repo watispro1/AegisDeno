@@ -9,7 +9,7 @@ import {
   ButtonStyle,
 } from "discord.js";
 import type { Command } from "../../types/discord";
-import { createTicketChannel, closeTicket, addUserToTicket, removeUserFromTicket } from "../../services/ticketService";
+import { createTicketChannel, closeTicket, addUserToTicket, removeUserFromTicket, canCloseTicket, canManageTicket } from "../../services/ticketService";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -109,6 +109,11 @@ export const command: Command = {
       const reason = interaction.options.getString("reason") || "Resolved";
       await interaction.deferReply({ ephemeral: true });
 
+      if (!await canCloseTicket(interaction.guild, interaction.channelId, interaction.user.id)) {
+        await interaction.editReply("❌ Only the ticket opener or support staff can close this ticket.");
+        return;
+      }
+
       const closed = await closeTicket(interaction.guild, interaction.channelId, interaction.user.id, reason);
       if (closed) {
         await interaction.editReply({ content: "🔒 Ticket closure initiated." });
@@ -121,7 +126,7 @@ export const command: Command = {
     if (subcommand === "add") {
       const targetUser = interaction.options.getUser("user", true);
       const channel = interaction.channel as TextChannel;
-      if (!channel.name.startsWith("ticket-")) {
+      if (!channel.name.startsWith("ticket-") || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
         await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
         return;
       }
@@ -136,7 +141,7 @@ export const command: Command = {
     if (subcommand === "remove") {
       const targetUser = interaction.options.getUser("user", true);
       const channel = interaction.channel as TextChannel;
-      if (!channel.name.startsWith("ticket-")) {
+      if (!channel.name.startsWith("ticket-") || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
         await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
         return;
       }
@@ -150,7 +155,7 @@ export const command: Command = {
 
     if (subcommand === "claim") {
       const channel = interaction.channel as TextChannel;
-      if (!channel.name.startsWith("ticket-")) {
+      if (!channel.name.startsWith("ticket-") || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
         await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
         return;
       }
@@ -167,7 +172,7 @@ export const command: Command = {
 
     if (subcommand === "transcript") {
       const channel = interaction.channel as TextChannel;
-      if (!channel.name.startsWith("ticket-")) {
+      if (!channel.name.startsWith("ticket-") || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
         await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
         return;
       }

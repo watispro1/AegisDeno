@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🛡️ Interactive Security & Data Integrity
+
+- **Hardened:** Role-panel clicks are verified against the stored panel, guild, message, and configured role before any role is changed. Deleted or forged controls cannot grant arbitrary roles.
+- **Hardened:** Role panels reject managed roles and roles the bot cannot safely manage, with an actionable hierarchy/permission message.
+- **Hardened:** Ticket closure is restricted to the opener, configured support staff, or channel managers. Participant access, claiming, and transcripts are staff-only.
+- **Fixed:** Suggestion **Details** buttons now show details instead of being interpreted as a downvote.
+- **Hardened:** Suggestion votes are atomic, preserve one vote per member, and reject votes after a suggestion is finalized.
+- **Hardened:** Ticket, role-panel, and auto-responder IDs now use UUIDs; the database enforces one open ticket per member across restarts and instances.
+
+### ⏱️ Reliability & Lifecycle Management
+
+- **New:** Active giveaways are restored and rescheduled during startup, so restarts no longer strand them.
+- **Hardened:** Giveaway completion is claimed atomically; manual, automatic, and multi-instance endings cannot announce different winners.
+- **Improved:** Winner selection uses an unbiased cryptographic Fisher-Yates shuffle and deduplicates entrants.
+- **Hardened:** Long-running scheduled tasks and giveaways are chunked around Node's timer limit, preventing jobs more than ~24.8 days away from firing immediately.
+- **Improved:** Graceful shutdown waits for MongoDB to disconnect before the process exits.
+
+### 🌐 Website
+
+- **Fixed:** The public changelog and Atom feed now include this release's bot and website reliability work.
+- **Hardened:** The Top.gg webhook is unavailable until `TOPGG_WEBHOOK_AUTH` is configured; unauthenticated requests can no longer reach the endpoint.
+- **Hardened:** Website toasts and interactive AutoMod log entries use DOM text nodes instead of dynamic HTML insertion.
+
 ## [3.0.0] — 2026-10-09
 
 This major milestone release marks the **Enterprise Suite & Discovery Launch** for AegisDeno. It delivers enhanced moderation telemetry, complete Top.gg and Discord App Directory launch assets, operational hardening, and expanded community management tooling.

@@ -21,7 +21,7 @@ export async function addAutoResponder(input: {
   createdBy: string;
 }): Promise<AutoResponder | null> {
   try {
-    const id = `ar-${Math.random().toString(36).substring(2, 8)}`;
+    const id = `ar-${crypto.randomUUID()}`;
     const doc = await AutoResponderModel.create({
       id,
       guildId: input.guildId,

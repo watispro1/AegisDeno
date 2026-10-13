@@ -168,6 +168,8 @@ ${o.body}
       <div class="footer-col">
         <h4>Product</h4>
         <ul>
+          <li><a href="/dashboard">Dashboard</a></li>
+          <li><a href="/playground">Playground</a></li>
           <li><a href="/features">Features</a></li>
           <li><a href="/commands">Commands</a></li>
           <li><a href="/changelog">Changelog</a></li>

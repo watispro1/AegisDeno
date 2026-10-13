@@ -22,6 +22,24 @@ export interface TicketConfig {
 
 const pendingTicketCreations = new Set<string>();
 
+/** Returns whether a member is ticket staff or a server channel manager. */
+export async function canManageTicket(guild: Guild, channelId: string, userId: string): Promise<boolean> {
+  const ticket = await TicketModel.findOne({ guildId: guild.id, channelId, status: "open" }).lean();
+  if (!ticket) return false;
+
+  const member = await guild.members.fetch(userId).catch(() => null);
+  return Boolean(
+    member?.permissions.has(PermissionFlagsBits.ManageChannels) ||
+    (ticket.staffRoleId && member?.roles.cache.has(ticket.staffRoleId)),
+  );
+}
+
+/** The ticket opener may close their own ticket; changing access remains staff-only. */
+export async function canCloseTicket(guild: Guild, channelId: string, userId: string): Promise<boolean> {
+  const ticket = await TicketModel.findOne({ guildId: guild.id, channelId, status: "open" }).lean();
+  return Boolean(ticket?.userId === userId) || canManageTicket(guild, channelId, userId);
+}
+
 export async function createTicketChannel(
   guild: Guild,
   userId: string,
@@ -50,7 +68,7 @@ export async function createTicketChannel(
       }
     }
 
-    const ticketId = `ticket-${Math.random().toString(36).substring(2, 8)}`;
+    const ticketId = `ticket-${crypto.randomUUID()}`;
     const member = await guild.members.fetch(userId).catch(() => null);
     const username = member?.user.username.toLowerCase().replace(/[^a-z0-9]/g, "") || "user";
 
@@ -97,15 +115,30 @@ export async function createTicketChannel(
       permissionOverwrites,
     });
 
-    await TicketModel.create({
-      id: ticketId,
-      guildId: guild.id,
-      channelId: channel.id,
-      userId,
-      staffRoleId: staffRoleId ?? null,
-      category,
-      status: "open",
-    });
+    try {
+      await TicketModel.create({
+        id: ticketId,
+        guildId: guild.id,
+        channelId: channel.id,
+        userId,
+        staffRoleId: staffRoleId ?? null,
+        category,
+        status: "open",
+      });
+    } catch (error: any) {
+      // A second instance can win the unique-index race after this process has
+      // already created a channel. Remove the orphan and direct the user to
+      // the winning ticket rather than leaving duplicate private channels.
+      if (error?.code === 11000) {
+        await channel.delete("Duplicate ticket creation prevented").catch(() => null);
+        const existing = await TicketModel.findOne({ guildId: guild.id, userId, status: "open" });
+        const existingChannel = existing
+          ? await guild.channels.fetch(existing.channelId).catch(() => null) as TextChannel | null
+          : null;
+        return existing && existingChannel ? { channel: existingChannel, ticketId: existing.id } : null;
+      }
+      throw error;
+    }
 
     const embed = new EmbedBuilder()
       .setTitle(`🎫 Support Ticket — ${category}`)

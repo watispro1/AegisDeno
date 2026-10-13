@@ -137,6 +137,12 @@ const TicketSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 TicketSchema.index({ guildId: 1, userId: 1, status: 1 });
+// Enforce the one-open-ticket-per-member policy even across restarts or
+// multiple bot instances. Closed tickets remain fully queryable as history.
+TicketSchema.index(
+  { guildId: 1, userId: 1 },
+  { unique: true, partialFilterExpression: { status: "open" } },
+);
 export const TicketModel = mongoose.model("Ticket", TicketSchema);
 
 const VerificationSchema = new mongoose.Schema({

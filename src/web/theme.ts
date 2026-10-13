@@ -1621,6 +1621,18 @@ input:checked + .toggle-slider:before { transform: translateX(20px); background-
 .log-tag.automod { background: var(--warn-soft); color: var(--warn); }
 .log-tag.system { background: var(--accent-soft); color: var(--accent); }
 
+.page-header {
+  text-align: center;
+  padding: 3.5rem 0 1.5rem;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
 /* ── Toast Notifications ───────────────────────────────────────────────── */
 #toast-container {
   position: fixed;
