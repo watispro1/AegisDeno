@@ -26,6 +26,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - **On-Demand Refresh:** Immediate metric recalculation button with 360° spin animation and toast notification.
 - **Improved:** Web changelog and releases catalog in `pages.ts` expanded to include v3.2.0 highlights and tag badges.
 
+### 🧩 Knub TypeScript Modular Architecture
+
+- **Integrated:** Knub-inspired modular plugin framework for the Discord bot:
+  - **Modular Plugins:** Created plugin system (`KnubPlugin`, `definePlugin`) organizing bot features into distinct domains (`Moderation`, `Community`, `Tickets`, `Roles`, `Verification`, `Automod`, `General`, `Config`, `Autoresponder`).
+  - **Pre-Filter Pipeline:** Replaced standalone checks with Knub pre-filters (`guildOnlyFilter`, `userPermissionsFilter`, `botPermissionsFilter`, `cooldownFilter`, and guild-level plugin enablement checks).
+  - **Post-Execution Hooks:** Telemetry logging (`telemetryHook`) for tracking command execution latency and automated rate-limiting updates (`cooldownUpdateHook`).
+  - **Component Dispatcher:** Centralized interactive button, modal, and select menu routing via plugin `customIdHandlers` with seamless fallback to legacy handlers.
+  - **Per-Guild Configuration:** Added `PluginConfigModel` in MongoDB for persistent per-server plugin enablement and custom plugin options.
+  - **Lifecycle Management:** Added `onLoad`, `onUnload`, and graceful shutdown lifecycle hooks in `knubManager`.
+  - **New Command `/plugins`:** Interactive server plugin manager supporting `/plugins list` with a real-time select menu to toggle plugins on/off, `/plugins toggle` for direct toggles, and `/plugins info` to inspect plugin architecture, event hooks, and component handlers.
+  - **Diagnostic Telemetry:** Enhanced `/diagnostics` to report active Knub plugins and added fallback fetching for channels and roles to eliminate false-positive "channel deleted" cache warnings.
+  - **Plugins API Endpoint (`/api/plugins`):** Added public API returning active plugins, version metadata, and handler counts, integrated with `/health` and `/api/stats`.
+
 ### 🐛 Bug Fixes
 
 - **Fixed:** `/embed quick` was posting two embeds instead of one. Added immediate `deferReply` so Discord acknowledges within 3 seconds (preventing client retries), plus an in-memory concurrency lock keyed on `userId:channelId` with a 3-second cooldown window.

@@ -1088,17 +1088,36 @@ export const RELEASES: Release[] = [
   },
 ];
 
+export const KNUB_RELEASES: Release[] = [
+  {
+    version: "1.0.0",
+    date: "2026-10-15",
+    tag: "Framework Milestone",
+    summary: "Production launch of the Knub TypeScript modular plugin architecture for the Aegis Discord bot.",
+    highlights: [
+      "[NEW] KnubPlugin & definePlugin modular framework organizing bot domains with typed configs, lifecycle hooks (onLoad, onUnload, onGuildLoaded), and event listeners.",
+      "[NEW] Pre-Filter Command Pipeline: guildOnlyFilter, userPermissionsFilter, botPermissionsFilter, cooldownFilter, and per-guild plugin enablement guards.",
+      "[NEW] Post-Execution Telemetry Hooks: execution latency tracking (telemetryHook) and automated cooldown timestamp recording (cooldownUpdateHook).",
+      "[NEW] Interactive Component Dispatcher: routes button clicks, modals, and select menus matching plugin regex patterns with seamless fallback.",
+      "[NEW] 9 Core Domain Plugins: Moderation, Community, Tickets, Roles, Verification, Automod, General, Config, and Autoresponder.",
+      "[NEW] Server admin command /plugins: /plugins list with interactive StringSelectMenu toggle, /plugins toggle, and /plugins info.",
+      "[ENHANCED] Server diagnostics via /diagnostics: added Knub Plugins health overview and asynchronous channel/role fetch fallbacks.",
+      "[WEB] Public /api/plugins endpoint exposing plugin metadata, handler tallies, and live plugin counts on /health and /api/stats.",
+    ],
+  },
+];
+
 function renderHighlightItem(h: string): string {
-  const match = h.match(/^\[(NEW|ENHANCED|SECURITY|WEB|FIX)\]\s*(.*)$/);
+  const match = h.match(/^\[(NEW|ENHANCED|SECURITY|WEB|FIX|FIXED|HARDENED|QOL|BETA)\]\s*(.*)$/);
   if (!match) return `<li>${escapeHtml(h)}</li>`;
 
   const tag = match[1];
   const content = match[2];
   const tagClass =
     tag === "NEW" ? "primary" :
-    tag === "ENHANCED" ? "ok" :
-    tag === "SECURITY" ? "danger" :
-    tag === "WEB" ? "warn" : "faint";
+    tag === "ENHANCED" || tag === "QOL" ? "ok" :
+    tag === "SECURITY" || tag === "HARDENED" ? "danger" :
+    tag === "WEB" || tag === "BETA" ? "warn" : "faint";
 
   return `<li style="list-style:none; margin-bottom: 0.55rem; display:flex; gap:0.6rem; align-items:flex-start;">
     <span class="pill ${tagClass}" style="font-size:0.65rem; padding: 0.12rem 0.45rem; text-transform:uppercase; font-weight:700; flex-shrink:0; margin-top:0.15rem;">${tag}</span>
@@ -1113,16 +1132,24 @@ export function renderChangelog(cfg: SiteConfig): string {
     <a href="/">Home</a><span class="sep">/</span><span>Changelog</span>
   </nav>
   <div class="page-head" style="text-align:center; padding: 2rem 0 1rem;">
-    <span class="eyebrow">Product Releases</span>
-    <h1 style="margin-top:0.4rem;">Bot <span class="gradient-text">Changelog</span></h1>
-    <p class="lead" style="max-width: 640px; margin: 0.5rem auto 0;">Chronological history of major updates, new moderation capabilities, and platform enhancements.</p>
+    <span class="eyebrow">Product & Architecture Releases</span>
+    <h1 style="margin-top:0.4rem;">Changelog <span class="gradient-text">&amp; Updates</span></h1>
+    <p class="lead" style="max-width: 640px; margin: 0.5rem auto 0;">Chronological release history for both the Aegis bot product releases and the Knub modular TypeScript framework.</p>
+    
+    <div style="display:flex; justify-content:center; gap:0.75rem; margin-top:1.5rem; flex-wrap:wrap;">
+      <a class="btn sm" href="#bot-releases">🤖 Bot Releases</a>
+      <a class="btn sm ghost" href="#knub-framework">🧩 Knub Framework</a>
+    </div>
   </div>
 </div>
 
-<section class="block tight" style="padding-top: 1rem;">
+<section class="block tight" style="padding-top: 1rem;" id="bot-releases">
   <div class="wrap">
+    <div style="text-align:center; margin-bottom: 1.5rem;">
+      <span class="pill primary" style="font-size:0.8rem; font-weight:700;">🤖 BOT APPLICATION RELEASES</span>
+    </div>
     <div style="display:flex; justify-content:center; gap: 0.5rem; flex-wrap:wrap; margin-bottom: 2.5rem;">
-      ${RELEASES.map(r => `<a class="pill ${r.version === "3.0.0" ? "primary" : ""}" href="#v${escapeHtml(r.version)}" style="font-weight:600;">v${escapeHtml(r.version)}</a>`).join("\n      ")}
+      ${RELEASES.map(r => `<a class="pill ${r.version === "3.2.0" ? "primary" : ""}" href="#v${escapeHtml(r.version)}" style="font-weight:600;">v${escapeHtml(r.version)}</a>`).join("\n      ")}
     </div>
 
     <div class="wrap-prose" style="margin-inline:auto">
@@ -1132,6 +1159,35 @@ export function renderChangelog(cfg: SiteConfig): string {
             <div style="display:flex; align-items:center; gap:0.6rem;">
               <h2 style="font-size:1.4rem; margin:0;">v${escapeHtml(r.version)}</h2>
               ${r.tag ? `<span class="pill primary" style="font-size:0.7rem; font-weight:700;">${escapeHtml(r.tag)}</span>` : ""}
+            </div>
+            <time datetime="${r.date}" style="font-size:0.83rem; color:var(--faint); font-weight:600;">${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time>
+          </div>
+          ${r.summary ? `<p style="color:var(--muted); font-size:0.95rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">${escapeHtml(r.summary)}</p>` : ""}
+          <ul style="padding-left:0; margin-top:0.6rem;">
+            ${r.highlights.map(h => renderHighlightItem(h)).join("\n            ")}
+          </ul>
+        </article>`).join("\n        ")}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block tight" style="padding-top: 2rem;" id="knub-framework">
+  <div class="wrap">
+    <div style="text-align:center; margin-bottom: 1.5rem;">
+      <span class="pill warn" style="font-size:0.8rem; font-weight:700;">🧩 KNUB MODULAR FRAMEWORK RELEASES</span>
+    </div>
+    <div style="display:flex; justify-content:center; gap: 0.5rem; flex-wrap:wrap; margin-bottom: 2.5rem;">
+      ${KNUB_RELEASES.map(r => `<a class="pill primary" href="#knub-v${escapeHtml(r.version)}" style="font-weight:600;">v${escapeHtml(r.version)}</a>`).join("\n      ")}
+    </div>
+
+    <div class="wrap-prose" style="margin-inline:auto">
+      <div class="timeline">
+        ${KNUB_RELEASES.map(r => `<article class="release reveal" id="knub-v${escapeHtml(r.version)}" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.5rem; margin-bottom: 2rem; backdrop-filter: blur(12px);">
+          <div class="release-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom: 0.75rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <h2 style="font-size:1.4rem; margin:0;">Knub Framework v${escapeHtml(r.version)}</h2>
+              ${r.tag ? `<span class="pill warn" style="font-size:0.7rem; font-weight:700;">${escapeHtml(r.tag)}</span>` : ""}
             </div>
             <time datetime="${r.date}" style="font-size:0.83rem; color:var(--faint); font-weight:600;">${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time>
           </div>

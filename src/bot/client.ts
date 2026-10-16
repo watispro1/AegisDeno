@@ -19,6 +19,8 @@ import { executeCommand } from "../commands/executor";
 import { sendGuildLog } from "../services/logging";
 import { processAutomod, processAutomodEdit } from "../services/automodExecution";
 import { getGuildConfig } from "../services/configuration";
+import { knubManager } from "../knub";
+import { registerDefaultPlugins } from "../knub/plugins";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -47,6 +49,12 @@ export function createClient(): Client {
 }
 
 export function setupEvents(client: Client): void {
+  // Initialize Knub plugins
+  registerDefaultPlugins();
+  knubManager.initialize(client).catch((err) => {
+    logger.error("[Knub] Plugin initialization error:", err);
+  });
+
   // ─── Ready ────────────────────────────────────────────────────────────────
   client.once(Events.ClientReady, (c) => {
     logger.info(`✅ Logged in as \x1b[1m${c.user.tag}\x1b[0m (${c.user.id})`);
@@ -126,10 +134,14 @@ export function setupEvents(client: Client): void {
         return;
       }
       await executeCommand(command, interaction);
-      } else if (interaction.isButton()) {
-        if (interaction.customId === "giveaway_enter" || interaction.customId === "giveaway_entrants") {
-          const { handleGiveawayButton } = await import("../commands/community/giveaway");
-          await handleGiveawayButton(interaction);
+      } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
+        const handledByPlugin = await knubManager.dispatchComponent(interaction as any);
+        if (handledByPlugin) return;
+
+        if (interaction.isButton()) {
+          if (interaction.customId === "giveaway_enter" || interaction.customId === "giveaway_entrants") {
+            const { handleGiveawayButton } = await import("../commands/community/giveaway");
+            await handleGiveawayButton(interaction);
         } else if (interaction.customId.startsWith("suggest_")) {
           const [, action, id] = interaction.customId.split("_");
           if (!id || !interaction.guildId || !["up", "down", "info"].includes(action)) return;
@@ -241,7 +253,8 @@ export function setupEvents(client: Client): void {
           }
         }
       }
-    });
+    }
+  });
 
   // ─── Automod & Autoresponder (new messages) ───────────────────────────────────────────────
   client.on(Events.MessageCreate, async (message) => {

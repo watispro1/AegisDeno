@@ -26,6 +26,8 @@ import {
 } from "./pages";
 import { commands } from "../commands/loader";
 import { VERSION } from "../version";
+import { knubManager } from "../knub";
+import { registerDefaultPlugins } from "../knub/plugins";
 
 const SITE_VERSION = VERSION;
 const STARTED_AT = Date.now();
@@ -168,6 +170,7 @@ function xmlEscape(s: string): string {
 }
 
 export function startWebServer(client: Client) {
+  registerDefaultPlugins();
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
   const cfg = siteConfig();
@@ -206,6 +209,7 @@ export function startWebServer(client: Client) {
       guilds: stats.guilds,
       users: stats.users,
       commands: stats.commands,
+      plugins: knubManager.getAllPlugins().length,
       gatewayPing: stats.ping,
     });
   });
@@ -225,6 +229,7 @@ export function startWebServer(client: Client) {
       guilds: stats.guilds,
       users: stats.users,
       commands: stats.commands,
+      plugins: knubManager.getAllPlugins().length,
       subcommands: cs.subcommands,
       options: cs.options,
       categories: cs.categories,
@@ -238,6 +243,21 @@ export function startWebServer(client: Client) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("X-Robots-Tag", "noindex");
     res.json({ commands: buildCatalog() });
+  });
+
+  app.get("/api/plugins", (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=600");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("X-Robots-Tag", "noindex");
+    res.json({
+      plugins: knubManager.getAllPlugins().map((p) => ({
+        name: p.name,
+        description: p.description,
+        version: p.version,
+        customHandlers: p.customIdHandlers?.length ?? 0,
+        events: p.events?.length ?? 0,
+      })),
+    });
   });
 
   app.post("/api/topgg/webhook", express.json(), (req, res) => {

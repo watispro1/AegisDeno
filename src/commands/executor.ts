@@ -44,85 +44,11 @@ async function replyError(
   }
 }
 
+import { knubManager } from "../knub";
+
 export async function executeCommand(
   command: Command,
   interaction: ChatInputCommandInteraction,
 ): Promise<void> {
-  if (command.guildOnly && !interaction.guildId) {
-    await replyError(
-      interaction,
-      "❌ This command can only be used in a server.",
-    );
-    return;
-  }
-
-  // Check user permissions
-  if (command.userPermissions?.length) {
-    // memberPermissions is null in DMs; already guarded by guildOnly above
-    if (!interaction.memberPermissions) {
-      await replyError(interaction, "❌ Could not verify your server permissions.");
-      return;
-    }
-
-    const missing = command.userPermissions.filter(
-      (permission) => !interaction.memberPermissions!.has(permission),
-    );
-
-    if (missing.length) {
-      logger.warn(
-        `Permission denied: /${interaction.commandName} by ${interaction.user.tag} ` +
-        `(${interaction.user.id}) in guild ${interaction.guildId ?? "DM"} — missing: ${formatPermissions(missing)}`
-      );
-      await replyError(
-        interaction,
-        `❌ You are missing the following permission(s): **${formatPermissions(missing)}**.`,
-      );
-      return;
-    }
-  }
-
-  // Check bot permissions
-  if (command.botPermissions?.length) {
-    const botMember = interaction.guild?.members.me;
-
-    if (!botMember) {
-      await replyError(
-        interaction,
-        "❌ I couldn't verify my permissions in this server.",
-      );
-      return;
-    }
-
-    const missing = command.botPermissions.filter(
-      (permission) => !botMember.permissions.has(permission),
-    );
-
-    if (missing.length) {
-      logger.warn(
-        `Bot missing permissions for /${interaction.commandName} in guild ${interaction.guildId}: ` +
-        formatPermissions(missing)
-      );
-      await replyError(
-        interaction,
-        `❌ I am missing the following permission(s): **${formatPermissions(missing)}**. ` +
-        `Please ask a server admin to grant these to my role.`,
-      );
-      return;
-    }
-  }
-
-  logger.debug(
-    `Command: /${interaction.commandName} by ${interaction.user.tag} (${interaction.user.id}) ` +
-    `in guild ${interaction.guildId ?? "DM"}`,
-  );
-
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    logger.error(`Unhandled error in /${interaction.commandName} by ${interaction.user.tag}:`, error);
-    await replyError(
-      interaction,
-      "❌ An unexpected error occurred while running this command. Please try again.",
-    );
-  }
+  await knubManager.executeCommandPipeline(command, interaction);
 }

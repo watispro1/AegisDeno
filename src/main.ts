@@ -99,6 +99,8 @@ async function main(): Promise<void> {
   // 6. Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Shutting down gracefully...`);
+    const { knubManager } = await import("./knub");
+    await knubManager.unloadAll().catch(err => logger.warn("Knub unload error:", err));
     shutdownScheduler();
     await closeDatabase().catch(err => logger.error("Database shutdown error:", err));
     client.destroy();

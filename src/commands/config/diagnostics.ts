@@ -54,9 +54,10 @@ export const command: Command = {
     // 3. Check Channels
     let loggingStatus = "❌ Not configured";
     if (guildConfig.loggingEnabled && guildConfig.loggingChannelId) {
-      const channel = guild.channels.cache.get(guildConfig.loggingChannelId);
-      if (channel) {
-        const canSend = channel.permissionsFor(botMember).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]);
+      const channel = guild.channels.cache.get(guildConfig.loggingChannelId)
+        ?? await guild.channels.fetch(guildConfig.loggingChannelId).catch(() => null);
+      if (channel && "permissionsFor" in channel) {
+        const canSend = channel.permissionsFor(botMember)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]);
         loggingStatus = canSend ? `✅ Configured (<#${channel.id}>)` : `⚠️ Configured (<#${channel.id}>) but missing Send Messages permission`;
       } else {
         loggingStatus = `⚠️ Configured but channel was deleted`;
@@ -65,9 +66,10 @@ export const command: Command = {
 
     let welcomeStatus = "❌ Not configured";
     if (guildConfig.welcomeEnabled && guildConfig.welcomeChannelId) {
-      const channel = guild.channels.cache.get(guildConfig.welcomeChannelId);
-      if (channel) {
-        const canSend = channel.permissionsFor(botMember).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]);
+      const channel = guild.channels.cache.get(guildConfig.welcomeChannelId)
+        ?? await guild.channels.fetch(guildConfig.welcomeChannelId).catch(() => null);
+      if (channel && "permissionsFor" in channel) {
+        const canSend = channel.permissionsFor(botMember)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]);
         welcomeStatus = canSend ? `✅ Configured (<#${channel.id}>)` : `⚠️ Configured (<#${channel.id}>) but missing Send Messages permission`;
       } else {
         welcomeStatus = `⚠️ Configured but channel was deleted`;
@@ -76,7 +78,8 @@ export const command: Command = {
 
     let welcomeRoleStatus = "ℹ️ Not configured";
     if (guildConfig.welcomeRoleId) {
-      const role = guild.roles.cache.get(guildConfig.welcomeRoleId);
+      const role = guild.roles.cache.get(guildConfig.welcomeRoleId)
+        ?? await guild.roles.fetch(guildConfig.welcomeRoleId).catch(() => null);
       welcomeRoleStatus = !role
         ? "⚠️ Configured role was deleted"
         : !role.editable
@@ -95,7 +98,19 @@ export const command: Command = {
         ].filter(Boolean).join(", ")})`
       : "❌ All rules disabled";
 
-    // 5. Build Embed
+    // 5. Check Knub Plugins
+    const { knubManager } = await import("../../knub");
+    const allPlugins = knubManager.getAllPlugins();
+    const pluginStates = await Promise.all(
+      allPlugins.map(async (p) => ({
+        name: p.name,
+        enabled: await knubManager.isPluginEnabledForGuild(guild.id, p.name),
+      })),
+    );
+    const enabledPlugins = pluginStates.filter(p => p.enabled).map(p => p.name);
+    const disabledPlugins = pluginStates.filter(p => !p.enabled).map(p => p.name);
+
+    // 6. Build Embed
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle("🛠️ Server Diagnostics & Setup")
@@ -106,6 +121,12 @@ export const command: Command = {
         { name: "Welcome Channel", value: welcomeStatus, inline: true },
         { name: "Welcome Role", value: welcomeRoleStatus, inline: true },
         { name: "Automod", value: automodStatus, inline: false },
+        {
+          name: "🧩 Knub Plugins",
+          value: `**Enabled (${enabledPlugins.length}):** ${enabledPlugins.join(", ")}\n` +
+            (disabledPlugins.length > 0 ? `**Disabled (${disabledPlugins.length}):** ${disabledPlugins.join(", ")}` : "*All modules active*"),
+          inline: false,
+        },
       );
 
     const recommendations: string[] = [];
@@ -117,6 +138,9 @@ export const command: Command = {
     }
     if (!hasAnyAutomod) {
       recommendations.push("• Enable some automod features using `/automod <rule> toggle`.");
+    }
+    if (disabledPlugins.length > 0) {
+      recommendations.push(`• You have ${disabledPlugins.length} disabled plugin(s). Manage with \`/plugins\`.`);
     }
 
     if (recommendations.length > 0) {

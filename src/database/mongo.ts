@@ -240,3 +240,14 @@ const BetaFeedbackSchema = new mongoose.Schema({
 });
 BetaFeedbackSchema.index({ guildId: 1, createdAt: -1 });
 export const BetaFeedbackModel = mongoose.model("BetaFeedback", BetaFeedbackSchema);
+
+const PluginConfigSchema = new mongoose.Schema({
+  guildId: { type: String, required: true },
+  pluginName: { type: String, required: true },
+  enabled: { type: Boolean, default: true },
+  config: { type: mongoose.Schema.Types.Mixed, default: {} },
+  updatedAt: { type: Date, default: Date.now },
+});
+PluginConfigSchema.index({ guildId: 1, pluginName: 1 }, { unique: true });
+export const PluginConfigModel = mongoose.model("PluginConfig", PluginConfigSchema);
+
