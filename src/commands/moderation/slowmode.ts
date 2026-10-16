@@ -150,31 +150,33 @@ export const command: Command = {
         .setTimestamp();
 
       // Quick-adjust buttons
-      const quickRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`slowmode_off_${targetChan.id}`)
-          .setLabel("Turn Off")
-          .setStyle(ButtonStyle.Success)
-          .setEmoji("🔓")
-          .setDisabled(seconds === 0),
-        new ButtonBuilder()
-          .setCustomId(`slowmode_5s_${targetChan.id}`)
-          .setLabel("5s")
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId(`slowmode_30s_${targetChan.id}`)
-          .setLabel("30s")
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId(`slowmode_5m_${targetChan.id}`)
-          .setLabel("5m")
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId(`slowmode_1h_${targetChan.id}`)
-          .setLabel("1h")
-          .setStyle(ButtonStyle.Danger),
-      );
+      const buildQuickRow = (rate: number) =>
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`slowmode_off_${targetChan.id}`)
+            .setLabel("Turn Off")
+            .setStyle(ButtonStyle.Success)
+            .setEmoji("🔓")
+            .setDisabled(rate === 0),
+          new ButtonBuilder()
+            .setCustomId(`slowmode_5s_${targetChan.id}`)
+            .setLabel("5s")
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId(`slowmode_30s_${targetChan.id}`)
+            .setLabel("30s")
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId(`slowmode_5m_${targetChan.id}`)
+            .setLabel("5m")
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId(`slowmode_1h_${targetChan.id}`)
+            .setLabel("1h")
+            .setStyle(ButtonStyle.Danger),
+        );
 
+      const quickRow = buildQuickRow(seconds);
       const sent = await interaction.editReply({ embeds: [embed], components: [quickRow] });
 
       await sendGuildLog(interaction.client, guildId, {
@@ -196,7 +198,7 @@ export const command: Command = {
         const key = parts.slice(1, -1).join("_");
         const newRate = quickPresets[key] ?? 0;
 
-        await i.deferUpdate();
+        await i.deferUpdate().catch(() => null);
         try {
           await (targetChan as TextChannel).setRateLimitPerUser(
             newRate,
@@ -206,7 +208,7 @@ export const command: Command = {
             .setTitle(newRate === 0 ? "🔓 Slowmode Disabled" : "🐌 Slowmode Set")
             .setColor(newRate === 0 ? 0x57F287 : 0x3498DB)
             .spliceFields(1, 1, { name: "⏱️ New Duration", value: formatDuration(newRate), inline: true });
-          await interaction.editReply({ embeds: [updatedEmbed], components: [quickRow] });
+          await interaction.editReply({ embeds: [updatedEmbed], components: [buildQuickRow(newRate)] }).catch(() => null);
         } catch (err) {
           logger.warn("Quick-adjust slowmode failed", err);
         }

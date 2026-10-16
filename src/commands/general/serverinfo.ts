@@ -60,22 +60,45 @@ export const command: Command = {
       embed.setImage(guild.bannerURL({ size: 1024 })!);
     }
 
+    const linkButtons: ButtonBuilder[] = [];
+    const iconUrl = guild.iconURL({ size: 1024, forceStatic: false });
+    if (iconUrl) {
+      linkButtons.push(
+        new ButtonBuilder()
+          .setLabel("Server Icon")
+          .setStyle(ButtonStyle.Link)
+          .setURL(iconUrl)
+          .setEmoji("🖼️")
+      );
+    }
+    const bannerUrl = guild.bannerURL({ size: 1024 });
+    if (bannerUrl) {
+      linkButtons.push(
+        new ButtonBuilder()
+          .setLabel("Server Banner")
+          .setStyle(ButtonStyle.Link)
+          .setURL(bannerUrl)
+          .setEmoji("🏳️")
+      );
+    }
+
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId("serverinfo_channels")
-        .setLabel("Channel Breakdown")
+        .setLabel("Channels")
         .setStyle(ButtonStyle.Secondary)
         .setEmoji("💬"),
       new ButtonBuilder()
         .setCustomId("serverinfo_roles")
-        .setLabel("Roles & Assets")
+        .setLabel("Roles")
         .setStyle(ButtonStyle.Secondary)
         .setEmoji("🎨"),
       new ButtonBuilder()
         .setCustomId("serverinfo_security")
-        .setLabel("Security Settings")
+        .setLabel("Security")
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji("🔒")
+        .setEmoji("🔒"),
+      ...linkButtons
     );
 
     const sent = await interaction.reply({ embeds: [embed], components: [buttons], fetchReply: true });
@@ -111,7 +134,12 @@ export const command: Command = {
     });
 
     collector.on("end", async () => {
-      await interaction.editReply({ components: [] }).catch(() => null);
+      if (linkButtons.length > 0) {
+        const preservedRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...linkButtons);
+        await interaction.editReply({ components: [preservedRow] }).catch(() => null);
+      } else {
+        await interaction.editReply({ components: [] }).catch(() => null);
+      }
     });
   },
 };

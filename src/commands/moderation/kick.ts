@@ -114,6 +114,7 @@ export const command: Command = {
     });
 
     let finalReason = reason;
+    let handled = false;
 
     const collector = prompt.createMessageComponentCollector({
       componentType: ComponentType.Button,
@@ -123,9 +124,12 @@ export const command: Command = {
     });
 
     collector.on("collect", async (i) => {
+      if (handled) return;
+
       if (i.customId === "kick_cancel") {
+        handled = true;
         collector.stop("cancelled");
-        await i.update({ content: "❌ Kick cancelled.", embeds: [], components: [] });
+        await i.update({ content: "❌ Kick cancelled.", embeds: [], components: [] }).catch(() => null);
         return;
       }
 
@@ -144,18 +148,19 @@ export const command: Command = {
         await i.showModal(modal);
 
         const modalResponse = await i.awaitModalSubmit({ time: 60_000, filter: (m) => m.user.id === interaction.user.id }).catch(() => null);
-        if (modalResponse) {
+        if (modalResponse && !handled) {
           finalReason = modalResponse.fields.getTextInputValue("kick_reason_input");
           const updatedEmbed = EmbedBuilder.from(confirmEmbed).spliceFields(1, 1, { name: "📝 Reason", value: finalReason, inline: false });
-          await modalResponse.deferUpdate();
-          await interaction.editReply({ embeds: [updatedEmbed], components: [confirmRow] });
+          await modalResponse.deferUpdate().catch(() => null);
+          await interaction.editReply({ embeds: [updatedEmbed], components: [confirmRow] }).catch(() => null);
         }
         return;
       }
 
       if (i.customId === "kick_confirm") {
+        handled = true;
         collector.stop("confirmed");
-        await i.deferUpdate();
+        await i.deferUpdate().catch(() => null);
 
         try {
           // DM before kicking so message can still be delivered
@@ -195,7 +200,7 @@ export const command: Command = {
             )
             .setTimestamp();
 
-          await i.editReply({ content: null, embeds: [resultEmbed], components: [] });
+          await i.editReply({ content: null, embeds: [resultEmbed], components: [] }).catch(() => null);
 
           await sendGuildLog(interaction.client, guildId, {
             title: "👢 Member Kicked",
@@ -204,7 +209,7 @@ export const command: Command = {
           });
         } catch (err) {
           logger.error(`Failed to kick user ${target.user.id} in guild ${guildId}`, err);
-          await i.editReply({ content: "❌ Failed to kick the member. Check my permissions and role hierarchy.", embeds: [], components: [] });
+          await i.editReply({ content: "❌ Failed to kick the member. Check my permissions and role hierarchy.", embeds: [], components: [] }).catch(() => null);
         }
       }
     });

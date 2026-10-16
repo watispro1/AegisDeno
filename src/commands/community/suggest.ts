@@ -227,6 +227,16 @@ export const command: Command = {
         return;
       }
 
+      if (suggestion.status === "approved" || suggestion.status === "rejected") {
+        await interaction.editReply(`❌ This suggestion is already **${suggestion.status}** and has been finalized.`);
+        return;
+      }
+
+      if (suggestion.status === "considered" && sub === "consider") {
+        await interaction.editReply("ℹ️ This suggestion is already marked as **under consideration**.");
+        return;
+      }
+
       let newStatus: "approved" | "rejected" | "considered";
       let statusColor: number;
       let statusText: string;
@@ -252,8 +262,11 @@ export const command: Command = {
           const msg = await channel.messages.fetch(suggestion.messageId).catch(() => null);
           if (msg && msg.embeds.length > 0) {
             const newEmbed = EmbedBuilder.from(msg.embeds[0])
-              .setColor(statusColor)
-              .spliceFields(0, 1, { name: "📊 Status", value: statusText, inline: true });
+              .setColor(statusColor);
+
+            const filteredFields = (newEmbed.data.fields ?? []).filter(f => f.name !== "📋 Staff Note");
+            newEmbed.setFields(filteredFields);
+            newEmbed.spliceFields(0, 1, { name: "📊 Status", value: statusText, inline: true });
 
             if (reason !== "No reason provided.") {
               newEmbed.addFields({ name: "📋 Staff Note", value: reason, inline: false });

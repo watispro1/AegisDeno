@@ -7,6 +7,57 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.2.0] — 2026-10-15
+
+### 📊 System Telemetry & Status Experience
+
+- **Overhauled:** `/about` command completely rewritten with interactive select-menu navigation across 4 dedicated views:
+  - **System Overview:** Version, Node.js runtime, Discord.js library, guild count, protected member total, gateway ping, uptime, and database connectivity.
+  - **Runtime Telemetry:** Real-time heap usage with visual ASCII meter (`█░`), RSS, external memory allocation, bot uptime, process uptime, architecture, and PID.
+  - **Network & Guilds:** Real-time WebSocket latency probe, cached channel tally, and top 5 largest cached guilds sorted by member count.
+  - **Database Diagnostics:** Live MongoDB round-trip ping latency probe (`admin().ping()`), database connection state, database name, and registered Mongoose models.
+  - **Refresh & Navigation:** On-demand live metric refresh with an active 2-minute interaction window, disabling gracefully on timeout, plus direct action links to the Web Status Page, Docs, and Dashboard.
+- **Redesigned:** `/status` web dashboard completely modernized:
+  - **Visual Health Indicator:** Animated pulse dot with dynamic color shifting based on system availability and ping threshold.
+  - **30-Day Uptime Bar:** Interactive historical operational bar visualization indicating service stability.
+  - **SLA Tier Matrix:** Clear tier definitions (Excellent <100ms, Good <200ms, Degraded <350ms, Unstable >350ms, Offline) with active tier indicator.
+  - **Component Health Status:** Granular health rows for Discord Gateway, Command Registry, Web Server, and Guild Coverage.
+  - **Endpoint Directory:** Machine-readable quick links to `/health`, `/api/stats`, `/api/commands`, and `/changelog.xml`.
+  - **On-Demand Refresh:** Immediate metric recalculation button with 360° spin animation and toast notification.
+- **Improved:** Web changelog and releases catalog in `pages.ts` expanded to include v3.2.0 highlights and tag badges.
+
+### 🐛 Bug Fixes
+
+- **Fixed:** `/embed quick` was posting two embeds instead of one. Added immediate `deferReply` so Discord acknowledges within 3 seconds (preventing client retries), plus an in-memory concurrency lock keyed on `userId:channelId` with a 3-second cooldown window.
+- **Fixed:** `/embed builder` "Post Embed" button could post duplicate embeds on rapid double-clicks. Added an instant `i.update()` call that clears the action row before `channel.send()` is awaited, and a `posted` boolean guard makes any subsequent click a no-op.
+- **Fixed:** Gateway-level interaction deduplication added to `client.ts` — a sliding 60-second `processedInteractions` cache now drops duplicate event deliveries from Discord gateway reconnections/retransmissions before they reach `executeCommand()`.
+- **Fixed:** `/purge` crashed with a Discord 400 error when only 1 message matched the filter. Discord's `bulk-delete` endpoint requires 2–100 messages; single-message deletions now fall through to `.delete()` instead.
+- **Fixed:** `/warn` undo button bypassed role hierarchy — a lower-ranked moderator could undo warnings on users with equal or higher roles. Hierarchy is now validated before `removeWarning()` is called.
+- **Fixed:** `/announce` "Send Announcement" button could double-send if clicked rapidly. Added `isSending` concurrency guard and immediate `i.update()` (stripping action row) before the announcement is dispatched to the target channel.
+- **Fixed:** `/poll` live vote count update could throw an unhandled rejection when two users voted simultaneously. `interaction.editReply()` is now wrapped in `.catch(() => null)`.
+- **Fixed:** Giveaway ending and rerolling failed silently when the giveaway channel was missing from client cache (cold start or sharded restarts). Now safely fetches from Discord API if the cache misses.
+- **Fixed:** `/remindme` with durations exceeding ~24.8 days suffered from Node.js 32-bit signed integer `setTimeout` overflow, causing the reminder to trigger immediately. Maximum duration is now capped to 24 days.
+- **Fixed:** `/note view` interactive deletion (`note_del_`) could cause unhandled promise rejections on deleted notes or database errors, and `/note clear` confirmation prompt had a typo ("Cleared cancelled"). Added comprehensive try/catch guards and safe reply handling.
+- **Fixed:** `/slowmode` quick-adjust preset buttons remained enabled for "Turn Off" even when slowmode was set to 0s. Button rows are now rebuilt dynamically with updated disabled states.
+- **Fixed:** `/suggest approve/deny/consider` allowed staff to re-finalize already approved or rejected suggestions, which could continuously append duplicate "Staff Note" fields until Discord's 25-field limit was exceeded. Added finalization status guards and deduplicated staff note embed fields.
+- **Fixed:** `/infractions` pagination collector lacked rejection handlers on `editReply()`, potentially causing unhandled exceptions if the message interaction expired.
+- **Fixed:** `/kick` confirmation button allowed potential duplicate kick actions from rapid repeated clicks or race conditions before collector closed. Added execution lock guard.
+- **Fixed:** `/ban` cancellation and confirmation handlers now safely catch rejection errors if interaction tokens expire.
+
+### ✨ Quality-of-Life & Navigation Enhancements
+
+- **Website:**
+  - **Back-to-Top Floating Button:** Smooth floating button automatically appears when scrolling down on long command, documentation, and troubleshooting pages.
+  - **Quick Search Hotkey (`/`):** Pressing `/` anywhere on `/commands` instantly focuses and selects the command filter search input.
+  - **Copy Toast Notifications:** Copying any slash command or code block snippet triggers an instant animated toast message (`Copied "/warn" to clipboard`).
+- **Bot Commands:**
+  - **`/help`:** Added persistent action rows linking directly to the Web Documentation, Command Reference, and Live Status page. Inspecting a command (`/help command:name`) adds a direct link button to its web reference anchor.
+  - **`/dashboard`:** Added direct "Web Dashboard" action button linking into the full web management portal.
+  - **`/remindme`:** Added support for week durations (`1w`) and interactive autocomplete suggestions for friendly duration presets (`10m`, `30m`, `1h`, `2h`, `1d`, `3d`, `1w`).
+  - **`/serverinfo`:** Added direct action buttons for high-resolution Server Icon and Server Banner with link preservation after collector timeout.
+
+## [3.1.1] — 2026-10-13
+
 ### 🛡️ Interactive Security & Data Integrity
 
 - **Hardened:** Role-panel clicks are verified against the stored panel, guild, message, and configured role before any role is changed. Deleted or forged controls cannot grant arbitrary roles.
@@ -44,6 +95,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### 🌐 Website Support
 
 - **New:** `/troubleshooting` provides a dedicated, navigable support guide for command registration, permissions, AutoMod, tickets, automation, status, and Fly.io deployment issues.
+
+## [3.1.0] — 2026-10-09
+
+### 🎁 Community Engagement & Moderation Expansion
+
+- **New:** `/giveaway` suite (`start`, `end`, `reroll`, `list`) featuring role requirements, multi-winner support, automated end timers, and winner direct messages.
+- **New:** `/infractions` staff dashboard displaying user warning history and active disciplinary cases in a tabbed, paginated embed.
+- **New:** `/remindme` utility supporting human-readable durations (`30m`, `2h`, `1d`) with optional channel delivery.
+- **Enhanced:** `/poll` completely rebuilt with interactive vote buttons, real-time bar graphs, anonymous voting option, multi-select mode, and moderator end buttons.
+- **Enhanced:** `/announce` upgraded with an interactive modal preview before publishing, 8-color palette selector, image attachment inputs, and announcement channel crossposting.
+- **Enhanced:** `/slowmode` updated with friendly preset options, quick-adjust action rows, and channel inspection.
 
 ## [3.0.0] — 2026-10-09
 

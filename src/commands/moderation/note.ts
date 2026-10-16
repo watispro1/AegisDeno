@@ -225,31 +225,35 @@ export const command: Command = {
         });
 
         collector.on("collect", async (i) => {
-          await i.deferUpdate();
+          try {
+            await i.deferUpdate().catch(() => null);
 
-          if (i.customId === "note_prev") {
-            page = Math.max(0, page - 1);
-          } else if (i.customId === "note_next") {
-            page = Math.min(totalPages() - 1, page + 1);
-          } else if (i.customId === "note_refresh") {
-            notes = await StaffNoteModel.find({ guildId, userId: target.id }).sort({ createdAt: -1 });
-            page = 0;
-          } else if (i.customId.startsWith("note_del_")) {
-            const noteId = i.customId.replace("note_del_", "");
-            const deleted = await StaffNoteModel.findOneAndDelete({ _id: noteId, guildId });
-            if (deleted) {
+            if (i.customId === "note_prev") {
+              page = Math.max(0, page - 1);
+            } else if (i.customId === "note_next") {
+              page = Math.min(totalPages() - 1, page + 1);
+            } else if (i.customId === "note_refresh") {
               notes = await StaffNoteModel.find({ guildId, userId: target.id }).sort({ createdAt: -1 });
-              if (page >= totalPages()) page = Math.max(0, totalPages() - 1);
-              await i.followUp({ content: `✅ Note deleted.`, ephemeral: true });
-            } else {
-              await i.followUp({ content: "❌ Note not found — it may have already been deleted.", ephemeral: true });
+              page = 0;
+            } else if (i.customId.startsWith("note_del_")) {
+              const noteId = i.customId.replace("note_del_", "");
+              const deleted = await StaffNoteModel.findOneAndDelete({ _id: noteId, guildId }).catch(() => null);
+              if (deleted) {
+                notes = await StaffNoteModel.find({ guildId, userId: target.id }).sort({ createdAt: -1 });
+                if (page >= totalPages()) page = Math.max(0, totalPages() - 1);
+                await i.followUp({ content: `✅ Note deleted.`, ephemeral: true }).catch(() => null);
+              } else {
+                await i.followUp({ content: "❌ Note not found — it may have already been deleted.", ephemeral: true }).catch(() => null);
+              }
             }
-          }
 
-          await i.editReply({
-            embeds: [buildEmbed()],
-            components: notes.length > 0 ? buildButtons() : [],
-          });
+            await i.editReply({
+              embeds: [buildEmbed()],
+              components: notes.length > 0 ? buildButtons() : [],
+            }).catch(() => null);
+          } catch (btnErr) {
+            logger.warn("Error handling note button interaction", btnErr);
+          }
         });
 
         collector.on("end", async () => {
@@ -342,28 +346,32 @@ export const command: Command = {
         });
 
         collector.on("collect", async (i) => {
-          if (i.customId === "note_clear_cancel") {
-            await i.update({ content: "❌ Cleared cancelled.", embeds: [], components: [] });
-            return;
-          }
+          try {
+            if (i.customId === "note_clear_cancel") {
+              await i.update({ content: "❌ Clear cancelled.", embeds: [], components: [] }).catch(() => null);
+              return;
+            }
 
-          await i.deferUpdate();
-          const result = await StaffNoteModel.deleteMany({ guildId, userId: target.id });
-          await i.editReply({
-            content: null,
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0x57F287)
-                .setTitle("🗑️ Notes Cleared")
-                .addFields(
-                  { name: "👤 Member",   value: `${target.tag} (<@${target.id}>)`, inline: true },
-                  { name: "🗑️ Deleted", value: `**${result.deletedCount}** note(s)`, inline: true },
-                  { name: "🛡️ By",      value: `<@${interaction.user.id}>`, inline: true },
-                )
-                .setTimestamp(),
-            ],
-            components: [],
-          });
+            await i.deferUpdate().catch(() => null);
+            const result = await StaffNoteModel.deleteMany({ guildId, userId: target.id });
+            await i.editReply({
+              content: null,
+              embeds: [
+                new EmbedBuilder()
+                  .setColor(0x57F287)
+                  .setTitle("🗑️ Notes Cleared")
+                  .addFields(
+                    { name: "👤 Member",   value: `${target.tag} (<@${target.id}>)`, inline: true },
+                    { name: "🗑️ Deleted", value: `**${result.deletedCount}** note(s)`, inline: true },
+                    { name: "🛡️ By",      value: `<@${interaction.user.id}>`, inline: true },
+                  )
+                  .setTimestamp(),
+              ],
+              components: [],
+            }).catch(() => null);
+          } catch (clearErr) {
+            logger.warn("Error clearing notes", clearErr);
+          }
         });
 
         collector.on("end", async (_, stopReason) => {

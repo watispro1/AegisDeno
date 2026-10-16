@@ -3,6 +3,8 @@ import {
   ChatInputCommandInteraction,
   EmbedBuilder,
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   StringSelectMenuBuilder,
   ComponentType,
   PermissionFlagsBits,
@@ -115,7 +117,25 @@ export const command: Command = {
         .setFooter({ text: "Aegis Bot • Command Manual" })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [detailEmbed], ephemeral: true });
+      const cmdButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setLabel("View on Web")
+          .setStyle(ButtonStyle.Link)
+          .setURL(`https://aegisdeno.fly.dev/commands#cmd-${cleanName}`)
+          .setEmoji("🌐"),
+        new ButtonBuilder()
+          .setLabel("Documentation")
+          .setStyle(ButtonStyle.Link)
+          .setURL("https://aegisdeno.fly.dev/docs")
+          .setEmoji("📖"),
+        new ButtonBuilder()
+          .setLabel("Support Server")
+          .setStyle(ButtonStyle.Link)
+          .setURL("https://discord.gg/DkZUgm3q4F")
+          .setEmoji("💬")
+      );
+
+      await interaction.reply({ embeds: [detailEmbed], components: [cmdButtons], ephemeral: true });
       return;
     }
 
@@ -173,9 +193,32 @@ export const command: Command = {
       selectMenu,
     );
 
+    const linkRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setLabel("Web Catalog")
+        .setStyle(ButtonStyle.Link)
+        .setURL("https://aegisdeno.fly.dev/commands")
+        .setEmoji("📋"),
+      new ButtonBuilder()
+        .setLabel("Documentation")
+        .setStyle(ButtonStyle.Link)
+        .setURL("https://aegisdeno.fly.dev/docs")
+        .setEmoji("📖"),
+      new ButtonBuilder()
+        .setLabel("Status")
+        .setStyle(ButtonStyle.Link)
+        .setURL("https://aegisdeno.fly.dev/status")
+        .setEmoji("📊"),
+      new ButtonBuilder()
+        .setLabel("Support")
+        .setStyle(ButtonStyle.Link)
+        .setURL("https://discord.gg/DkZUgm3q4F")
+        .setEmoji("💬"),
+    );
+
     const sent = await interaction.reply({
       embeds: [generateCategoryEmbed("all")],
-      components: [row],
+      components: [row, linkRow],
       ephemeral: true,
       fetchReply: true,
     });
@@ -192,13 +235,13 @@ export const command: Command = {
       const selected = componentInteraction.values[0];
       await componentInteraction.update({
         embeds: [generateCategoryEmbed(selected)],
-        components: [row],
+        components: [row, linkRow],
       });
     });
 
     collector.on("end", async () => {
       await interaction
-        .editReply({ components: [] })
+        .editReply({ components: [linkRow] })
         .catch(() => undefined);
     });
   },

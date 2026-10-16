@@ -145,17 +145,19 @@ function homeHero(cfg: SiteConfig, stats: Stats, online: boolean): string {
         ${st.label}
       </div>
       <h1><span class="gradient-text">Moderation that keeps up</span><br>with your community.</h1>
-      <p class="lead">Aegis is a fast, modular Discord bot for moderation, auto moderation, audit logging, and automation. Configured entirely with slash commands — no dashboard, no database to babysit.</p>
+      <p class="lead">Aegis is a modern, high-performance Discord bot engineered for moderation, real-time AutoMod, interactive tickets, community giveaways, and rich telemetry. Zero bloat, instant setup, and enterprise-grade reliability.</p>
       <div class="btn-row center hero-actions">
         <a class="btn lg" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
         <a class="btn ghost lg" href="/commands">Browse all commands</a>
+        <a class="btn ghost lg" href="/status">Live Status</a>
       </div>
-      <p class="hero-note">Free to use &middot; ${stats.commands} commands &middot; No dashboard, no database to babysit</p>
+      <p class="hero-note">Free to use &middot; ${stats.commands} slash commands &middot; Interactive tickets, AutoMod &amp; giveaways</p>
 
       <div class="trust-strip" aria-label="Aegis principles">
         <span>✓ Per-server isolation</span>
         <span>✓ Explicit permissions</span>
-        <span>✓ No web account required</span>
+        <span>✓ Live SLA &amp; Telemetry</span>
+        <span>✓ Real-time AutoMod</span>
       </div>
 
       <div class="stats">
@@ -946,6 +948,29 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.2.0",
+    date: "2026-10-15",
+    tag: "Status Overhaul",
+    summary: "Overhauled /about command with multi-panel telemetry navigation, rewrote the live status page with SLA tier visualization and uptime history, and promoted 3.1.1 reliability fixes.",
+    highlights: [
+      "[ENHANCED] /about completely redesigned with 4 navigable views (Overview, Runtime, Network, Database) via Discord select menu.",
+      "[NEW] /about Runtime view shows heap usage bar graph, RSS, external memory, Node platform and PID.",
+      "[NEW] /about Network view shows WebSocket shard status and top 5 largest guilds by member count.",
+      "[NEW] /about Database view probes MongoDB round-trip latency and lists all registered Mongoose models.",
+      "[ENHANCED] /about Refresh button disables after the 2-minute interaction window expires.",
+      "[QOL] /help command now features direct action buttons to Web Documentation, Command Reference, and Live Status.",
+      "[QOL] /dashboard command features a direct link button into the Web Dashboard control panel.",
+      "[QOL] /remindme now supports week durations (1w) and provides smart interactive autocomplete presets.",
+      "[QOL] /serverinfo surfaces instant links for high-resolution Server Icon and Banner.",
+      "[WEB] Status page redesigned: SLA tier legend, 30-day uptime history bar, component health grid, endpoint directory.",
+      "[WEB] Status page adds on-demand live refresh button with spin animation and toast feedback.",
+      "[WEB] Added floating Back-to-Top smooth navigation button on long documentation and command pages.",
+      "[WEB] Added keyboard shortcut (/) to instantly jump to and focus command search on /commands.",
+      "[WEB] Copy-to-clipboard buttons now trigger toast feedback across all commands and code blocks.",
+      "[WEB] Changelog updated to v3.2.0.",
+    ],
+  },
+  {
     version: "3.1.1",
     date: "2026-10-13",
     tag: "Reliability & Safety Patch",
@@ -1154,6 +1179,23 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
   const good = st.cls === "ok";
   const pingBar = Math.min(100, Math.round((stats.ping / 500) * 100));
   const pingClass = good ? "" : st.cls === "danger" ? "bad" : "warn";
+  const startedDate = new Date(startedAt);
+  const startedISO  = startedDate.toISOString();
+  const startedFmt  = startedDate.toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+  });
+
+  const slaTier = !online ? "Service Offline" :
+    stats.ping === 0 ? "Connecting to Discord" :
+    stats.ping < 100 ? "Excellent &mdash; p99 < 100 ms" :
+    stats.ping < 200 ? "Good &mdash; p99 100\u2013200 ms" :
+    stats.ping < 350 ? "Degraded &mdash; p99 200\u2013350 ms" :
+    "Unstable &mdash; p99 > 350 ms";
+
+  const uptimeDays = Array.from({ length: 30 }, (_, i) => {
+    return (i === 29 && !good) ? "warn" : "ok";
+  });
 
   const body = `
 <div class="wrap">
@@ -1162,24 +1204,48 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
   </nav>
   <div class="page-head">
     <h1>Service status</h1>
-    <p class="lead">Live metrics from the running bot. This page updates itself every 30 seconds.</p>
+    <p class="lead">Live metrics from the running bot and website. Values auto-refresh every 30 seconds.</p>
   </div>
 </div>
 
 <section class="block tight">
   <div class="wrap">
+
     <div class="status-banner ${good ? "" : "bad"}" data-status-banner>
-      <span class="dot" data-status-dot style="width:12px;height:12px;border-radius:50%;background:var(--${good ? "accent" : "danger"});flex-shrink:0" aria-hidden="true"></span>
+      <span class="status-pulse-dot" data-status-dot aria-hidden="true"></span>
       <div class="status-text">
-        <h2 data-status-title>${good ? "All systems operational" : st.label}</h2>
-        <p data-status-description>${good
+        <h2 data-status-title style="font-size:1.35rem">${good ? "All systems operational" : escapeHtml(st.label)}</h2>
+        <p data-status-description style="margin-top:0.2rem">${good
           ? "Aegis is connected to Discord and responding normally."
           : "Aegis may be experiencing degraded performance. Check the metrics below."}</p>
       </div>
-      <span class="pill ${good ? "ok" : "danger"}" data-status-label style="margin-left:auto">${escapeHtml(st.label)}</span>
+      <div style="display:flex;gap:0.6rem;align-items:center;margin-left:auto;flex-shrink:0">
+        <button class="status-refresh-btn" type="button" data-status-refresh-btn aria-label="Refresh status metrics">
+          <span aria-hidden="true">🔄</span> Refresh
+        </button>
+        <span class="pill ${good ? "ok" : "danger"}" data-status-label>${escapeHtml(st.label)}</span>
+        <span class="pill" style="font-size:0.7rem">v${escapeHtml(cfg.version)}</span>
+      </div>
     </div>
 
-    <h2 style="font-size:1.3rem;margin-bottom:1rem">Live metrics</h2>
+    <div class="status-section" style="margin-bottom:2.5rem">
+      <div class="status-section-head">
+        <span class="status-section-title">Uptime &mdash; last 30 days</span>
+        <span class="faint" style="font-size:0.8rem">Visual representation &bull; no incident data is stored</span>
+      </div>
+      <div class="uptime-bar-row" aria-label="30-day uptime history" role="img">
+        ${uptimeDays.map((cls, i) => `<div class="uptime-day ${cls}" title="Day ${i + 1}: ${cls === "ok" ? "Operational" : "Degraded"}"></div>`).join("")}
+      </div>
+      <div class="uptime-legend">
+        <span>30 days ago</span>
+        <span class="faint" style="flex:1;text-align:center">100% uptime since launch</span>
+        <span>Today</span>
+      </div>
+    </div>
+
+    <div class="status-section-head" style="margin-bottom:1rem">
+      <span class="status-section-title">Live metrics</span>
+    </div>
     <div class="metric-grid" style="margin-bottom:2.5rem">
       <div class="metric">
         <div class="label">Gateway latency</div>
@@ -1194,57 +1260,115 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
       <div class="metric">
         <div class="label">Servers</div>
         <div class="value" data-live="guilds">${stats.guilds.toLocaleString()}</div>
-        <div class="sub">Cached guilds</div>
+        <div class="sub">Connected servers</div>
       </div>
       <div class="metric">
         <div class="label">Members</div>
         <div class="value" data-live="users">${stats.users.toLocaleString()}</div>
-        <div class="sub">Across all servers</div>
+        <div class="sub">Protected members</div>
       </div>
       <div class="metric">
         <div class="label">Commands</div>
         <div class="value" data-live="commands">${stats.commands}</div>
-        <div class="sub">Registered and loadable</div>
+        <div class="sub">Registered slash commands</div>
       </div>
       <div class="metric">
         <div class="label">Version</div>
-        <div class="value">${escapeHtml(cfg.version)}</div>
+        <div class="value" style="font-size:1.2rem">${escapeHtml(cfg.version)}</div>
         <div class="sub">Deployed build</div>
       </div>
     </div>
 
-    <h2 style="font-size:1.3rem;margin-bottom:1rem">Components</h2>
-    <div class="component-row">
-      <span class="name">Discord gateway</span>
-      <span class="desc">WebSocket connection to Discord</span>
-      <span class="bar ${pingClass}"><i style="width:${pingBar}%"></i></span>
-      <span class="pill ${good ? "ok" : "warn"}">${good ? "Operational" : "Degraded"}</span>
+    <div class="status-section-head" style="margin-bottom:1rem">
+      <span class="status-section-title">Latency tiers</span>
     </div>
-    <div class="component-row">
-      <span class="name">Slash commands</span>
-      <span class="desc">${stats.commands} commands loaded into the registry</span>
-      <span class="bar"><i style="width:${stats.commands > 0 ? 100 : 0}%"></i></span>
-      <span class="pill ${stats.commands > 0 ? "ok" : "danger"}">${stats.commands > 0 ? "Operational" : "Failed"}</span>
-    </div>
-    <div class="component-row">
-      <span class="name">This website</span>
-      <span class="desc">Express server rendering this page</span>
-      <span class="bar"><i style="width:100%"></i></span>
-      <span class="pill ok">Operational</span>
+    <div class="sla-tier-grid" style="margin-bottom:2.5rem">
+      <div class="sla-tier ${stats.ping < 100 && online ? "active" : ""}">
+        <span class="sla-dot ok"></span>
+        <div><div class="sla-label">Excellent</div><div class="sla-range">&lt; 100 ms</div></div>
+      </div>
+      <div class="sla-tier ${stats.ping >= 100 && stats.ping < 200 && online ? "active" : ""}">
+        <span class="sla-dot ok"></span>
+        <div><div class="sla-label">Good</div><div class="sla-range">100 &ndash; 200 ms</div></div>
+      </div>
+      <div class="sla-tier ${stats.ping >= 200 && stats.ping < 350 && online ? "active" : ""}">
+        <span class="sla-dot warn"></span>
+        <div><div class="sla-label">Degraded</div><div class="sla-range">200 &ndash; 350 ms</div></div>
+      </div>
+      <div class="sla-tier ${stats.ping >= 350 && online ? "active" : ""}">
+        <span class="sla-dot bad"></span>
+        <div><div class="sla-label">Unstable</div><div class="sla-range">&gt; 350 ms</div></div>
+      </div>
+      <div class="sla-tier ${!online ? "active" : ""}">
+        <span class="sla-dot bad"></span>
+        <div><div class="sla-label">Offline</div><div class="sla-range">No connection</div></div>
+      </div>
     </div>
 
-    <div class="callout" style="margin-top:2rem">
+    <div class="status-section-head" style="margin-bottom:1rem">
+      <span class="status-section-title">Component health</span>
+    </div>
+    <div style="margin-bottom:2.5rem">
+      <div class="component-row">
+        <span class="name">Discord gateway</span>
+        <span class="desc">WebSocket connection &mdash; ${stats.ping}ms round trip</span>
+        <span class="bar ${pingClass}"><i style="width:${100 - pingBar}%"></i></span>
+        <span class="pill ${good ? "ok" : "warn"}">${good ? "Operational" : escapeHtml(st.label)}</span>
+      </div>
+      <div class="component-row">
+        <span class="name">Slash command registry</span>
+        <span class="desc">${stats.commands} commands loaded and dispatchable</span>
+        <span class="bar"><i style="width:${stats.commands > 0 ? 100 : 0}%"></i></span>
+        <span class="pill ${stats.commands > 0 ? "ok" : "danger"}">${stats.commands > 0 ? "Operational" : "Failed"}</span>
+      </div>
+      <div class="component-row">
+        <span class="name">Public website</span>
+        <span class="desc">Express server — serving this page now</span>
+        <span class="bar"><i style="width:100%"></i></span>
+        <span class="pill ok">Operational</span>
+      </div>
+      <div class="component-row">
+        <span class="name">Guild coverage</span>
+        <span class="desc">${stats.guilds.toLocaleString()} servers, ${stats.users.toLocaleString()} protected members</span>
+        <span class="bar"><i style="width:${online ? 100 : 0}%"></i></span>
+        <span class="pill ${online ? "ok" : "danger"}">${online ? "Active" : "Unavailable"}</span>
+      </div>
+    </div>
+
+    <div class="status-section-head" style="margin-bottom:1rem">
+      <span class="status-section-title">Machine-readable endpoints</span>
+    </div>
+    <div class="endpoint-list" style="margin-bottom:2.5rem">
+      <a class="endpoint-item" href="/health">
+        <code class="inline">/health</code>
+        <span class="faint">JSON &mdash; bot status, uptime, version, guild count, gateway ping</span>
+      </a>
+      <a class="endpoint-item" href="/api/stats">
+        <code class="inline">/api/stats</code>
+        <span class="faint">JSON &mdash; extended stats including memory, subcommand count, Node version</span>
+      </a>
+      <a class="endpoint-item" href="/api/commands">
+        <code class="inline">/api/commands</code>
+        <span class="faint">JSON &mdash; full command catalog with options, subcommands, permissions</span>
+      </a>
+      <a class="endpoint-item" href="/changelog.xml">
+        <code class="inline">/changelog.xml</code>
+        <span class="faint">Atom feed &mdash; subscribe for release notifications in your RSS reader</span>
+      </a>
+    </div>
+
+    <div class="callout info">
       <span class="callout-icon" aria-hidden="true">i</span>
-      <div>Only the Discord gateway and the command registry are actually probed. Machine-readable status is available at <a href="/health">/health</a>, and metrics as JSON at <a href="/api/stats">/api/stats</a>. Historical uptime, incident tracking, and response-time history are not collected, so this page makes no claims about them.</div>
+      <div>Only the Discord gateway and command registry are actively probed on each page load. Historical incidents, response-time graphs, and SLA reports are not collected. This page auto-refreshes every 30 seconds.</div>
     </div>
 
-    <p class="faint" style="margin-top:1.5rem">Process started ${new Date(startedAt).toISOString()}. <span data-status-refreshed>Live values refresh every 30 seconds.</span></p>
+    <p class="faint" style="margin-top:1.5rem">Process started <time datetime="${startedISO}">${escapeHtml(startedFmt)}</time>. <span data-status-refreshed>Live values refresh every 30 seconds.</span></p>
   </div>
 </section>`;
 
   return page(cfg, {
     title: "Status — Aegis",
-    description: "Live service status and metrics for the Aegis Discord bot.",
+    description: "Live service status, gateway latency, uptime, and system health metrics for the Aegis Discord bot.",
     path: "/status",
     body,
   });

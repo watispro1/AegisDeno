@@ -314,7 +314,8 @@ export const command: Command = {
       const count = rerollCount ?? giveaway.winnerCount ?? 1;
       const winners = await pickWinners(giveaway.entrants ?? [], count);
 
-      const channel = interaction.client.channels.cache.get(giveaway.channelId) as TextChannel | null;
+      const channel = (interaction.client.channels.cache.get(giveaway.channelId)
+        ?? await interaction.client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;
       if (channel) {
         const winnerMentions = winners.length > 0
           ? winners.map(w => `<@${w}>`).join(", ")
@@ -387,7 +388,8 @@ async function endGiveaway(
 
   await GiveawayModel.updateOne({ guildId, messageId }, { $set: { winners } });
 
-  const channel = client.channels.cache.get(giveaway.channelId) as TextChannel | null;
+  const channel = (client.channels.cache.get(giveaway.channelId)
+    ?? await client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;
   if (channel) {
     const winnerMentions = winners.length > 0
       ? winners.map((w: string) => `<@${w}>`).join(", ")

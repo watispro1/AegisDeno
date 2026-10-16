@@ -191,35 +191,39 @@ export const command: Command = {
       });
 
       collector.on("collect", async (i) => {
-        await i.deferUpdate();
+        try {
+          await i.deferUpdate().catch(() => null);
 
-        if (i.customId === "inf_overview") {
-          currentView = "overview";
-        } else if (i.customId === "inf_warns") {
-          currentView = "warnings";
-          warnPage = 0;
-        } else if (i.customId === "inf_cases") {
-          currentView = "cases";
-          casePage = 0;
-        } else if (i.customId === "inf_prev") {
-          if (currentView === "warnings" && warnPage > 0) warnPage--;
-          if (currentView === "cases"    && casePage > 0) casePage--;
-        } else if (i.customId === "inf_next") {
-          const warnPages = Math.ceil(warnings.length / WARNS_PER_PAGE);
-          const casePages = Math.ceil(cases.length / CASES_PER_PAGE);
-          if (currentView === "warnings" && warnPage < warnPages - 1) warnPage++;
-          if (currentView === "cases"    && casePage < casePages - 1) casePage++;
+          if (i.customId === "inf_overview") {
+            currentView = "overview";
+          } else if (i.customId === "inf_warns") {
+            currentView = "warnings";
+            warnPage = 0;
+          } else if (i.customId === "inf_cases") {
+            currentView = "cases";
+            casePage = 0;
+          } else if (i.customId === "inf_prev") {
+            if (currentView === "warnings" && warnPage > 0) warnPage--;
+            if (currentView === "cases"    && casePage > 0) casePage--;
+          } else if (i.customId === "inf_next") {
+            const warnPages = Math.ceil(warnings.length / WARNS_PER_PAGE);
+            const casePages = Math.ceil(cases.length / CASES_PER_PAGE);
+            if (currentView === "warnings" && warnPage < warnPages - 1) warnPage++;
+            if (currentView === "cases"    && casePage < casePages - 1) casePage++;
+          }
+
+          const embed =
+            currentView === "overview" ? buildOverviewEmbed()
+            : currentView === "warnings" ? buildWarningsEmbed(warnPage)
+            : buildCasesEmbed(casePage);
+
+          await interaction.editReply({
+            embeds: [embed],
+            components: [buildNavRow(currentView, warnPage, casePage)],
+          }).catch(() => null);
+        } catch (colErr) {
+          logger.warn("Infractions collector error", colErr);
         }
-
-        const embed =
-          currentView === "overview" ? buildOverviewEmbed()
-          : currentView === "warnings" ? buildWarningsEmbed(warnPage)
-          : buildCasesEmbed(casePage);
-
-        await interaction.editReply({
-          embeds: [embed],
-          components: [buildNavRow(currentView, warnPage, casePage)],
-        });
       });
 
       collector.on("end", async () => {
@@ -228,7 +232,7 @@ export const command: Command = {
 
     } catch (err) {
       logger.error(`Failed to load infractions for ${target.id} in guild ${guildId}`, err);
-      await interaction.editReply("❌ Failed to load infraction record. Please try again.");
+      await interaction.editReply("❌ Failed to load infraction record. Please try again.").catch(() => null);
     }
   },
 };

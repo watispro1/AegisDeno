@@ -114,11 +114,11 @@ export const command: Command = {
 
     collector.on("collect", async (i) => {
       if (i.customId === "ban_cancel") {
-        await i.update({ content: "❌ Ban cancelled.", embeds: [], components: [] });
+        await i.update({ content: "❌ Ban cancelled.", embeds: [], components: [] }).catch(() => null);
         return;
       }
 
-      await i.deferUpdate();
+      await i.deferUpdate().catch(() => null);
 
       try {
         const guild = interaction.guild!;
@@ -161,7 +161,7 @@ export const command: Command = {
           )
           .setTimestamp();
 
-        await i.editReply({ content: null, embeds: [resultEmbed], components: [] });
+        await i.editReply({ content: null, embeds: [resultEmbed], components: [] }).catch(() => null);
 
         await sendGuildLog(interaction.client, guildId, {
           title: "🔨 Member Banned",
@@ -170,7 +170,7 @@ export const command: Command = {
         });
       } catch (err) {
         logger.error(`Failed to ban user ${target.id} in guild ${guildId}`, err);
-        await i.editReply({ content: "❌ Failed to ban the user. Check my permissions and role hierarchy.", embeds: [], components: [] });
+        await i.editReply({ content: "❌ Failed to ban the user. Check my permissions and role hierarchy.", embeds: [], components: [] }).catch(() => null);
       }
     });
 

@@ -1254,49 +1254,201 @@ mark { background: var(--warn-soft); color: var(--text); border-radius: 3px; pad
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1.35rem 1.5rem;
+  padding: 1.5rem 1.75rem;
   border-radius: var(--r-lg);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  background: var(--accent-soft);
-  margin-bottom: 2rem;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface));
+  margin-bottom: 2.5rem;
   flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
 }
-.status-banner.bad { border-color: color-mix(in srgb, var(--danger) 32%, var(--border)); background: var(--danger-soft); }
-.status-banner .status-text h2 { font-size: 1.25rem; margin: 0; }
-.status-banner .status-text p { color: var(--muted); font-size: 0.9rem; margin-top: 0.2rem; }
+.status-banner.bad {
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--border));
+  background: linear-gradient(135deg, var(--danger-soft), var(--surface));
+}
+.status-banner .status-text h2 { font-size: 1.3rem; margin: 0; }
+.status-banner .status-text p { color: var(--muted); font-size: 0.91rem; margin-top: 0.25rem; }
 
-.metric-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+/* Animated pulse dot */
+.status-pulse-dot {
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 0 var(--accent);
+  animation: statusPulse 2.4s infinite;
+}
+.status-banner.bad .status-pulse-dot {
+  background: var(--danger);
+  animation: statusPulseDanger 2.4s infinite;
+}
+@keyframes statusPulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  60%  { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes statusPulseDanger {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent); }
+  60%  { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Section headings */
+.status-section { }
+.status-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+.status-section-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--faint);
+  font-weight: 700;
+}
+
+/* Uptime history bars */
+.uptime-bar-row {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 0.5rem;
+  height: 32px;
+  align-items: stretch;
+}
+.uptime-day {
+  flex: 1;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+  cursor: default;
+}
+.uptime-day.ok {
+  background: color-mix(in srgb, var(--accent) 28%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.uptime-day.warn {
+  background: color-mix(in srgb, var(--warn) 32%, var(--surface));
+  border-color: color-mix(in srgb, var(--warn) 24%, transparent);
+}
+.uptime-day.bad {
+  background: color-mix(in srgb, var(--danger) 32%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+}
+.uptime-day:hover { transform: scaleY(1.1); }
+.uptime-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.77rem;
+  color: var(--faint);
+  margin-top: 0.35rem;
+}
+
+/* Metric grid */
+.metric-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .metric {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r);
   padding: 1.15rem 1.25rem;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-.metric .label { font-size: 0.73rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--faint); font-weight: 600; }
-.metric .value { font-family: var(--display); font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 0.3rem; letter-spacing: -0.02em; }
+.metric:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.metric .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--faint); font-weight: 700; }
+.metric .value { font-family: var(--display); font-size: 1.65rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 0.3rem; letter-spacing: -0.02em; }
 .metric .value.good { color: var(--accent); }
 .metric .value.warn { color: var(--warn); }
-.metric .sub { font-size: 0.8rem; color: var(--faint); margin-top: 0.15rem; }
+.metric .sub { font-size: 0.79rem; color: var(--faint); margin-top: 0.2rem; }
 
-.component-row {
+/* SLA tier grid */
+.sla-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+.sla-tier {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   padding: 1rem 1.15rem;
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--surface);
-  margin-bottom: 0.6rem;
+  opacity: 0.55;
+  transition: opacity 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-.component-row .name { font-weight: 600; min-width: 180px; }
-.component-row .desc { color: var(--muted); font-size: 0.87rem; flex: 1; }
+.sla-tier.active {
+  opacity: 1;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.sla-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sla-dot.ok  { background: var(--accent); }
+.sla-dot.warn { background: var(--warn); }
+.sla-dot.bad  { background: var(--danger); }
+.sla-label { font-weight: 650; font-size: 0.9rem; }
+.sla-range { font-size: 0.78rem; color: var(--faint); margin-top: 0.1rem; }
 
+/* Component row */
+.component-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  margin-bottom: 0.6rem;
+  transition: border-color 0.2s var(--ease);
+}
+.component-row:hover { border-color: var(--border-strong); }
+.component-row .name { font-weight: 650; font-size: 0.93rem; min-width: 200px; }
+.component-row .desc { color: var(--muted); font-size: 0.85rem; flex: 1; }
+
+/* Endpoint list */
+.endpoint-list { display: grid; gap: 0.5rem; }
+.endpoint-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.endpoint-item:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  text-decoration: none;
+}
+.endpoint-item code.inline { flex-shrink: 0; }
+.endpoint-item .faint { min-width: 0; }
+
+/* Bar */
 .bar {
   height: 6px;
   border-radius: 99px;
   background: var(--surface-2);
   overflow: hidden;
-  min-width: 120px;
+  min-width: 80px;
+  flex-shrink: 0;
 }
 .bar i { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.6s var(--ease-out); }
 .bar.warn i { background: var(--warn); }
@@ -1676,6 +1828,72 @@ input:checked + .toggle-slider:before { transform: translateX(20px); background-
   max-width: 640px;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+}
+
+/* ── Back to Top Floating Button ──────────────────────────────────── */
+.back-to-top {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 990;
+}
+.back-to-top:hover {
+  background: var(--surface-2);
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(8px);
+}
+.back-to-top.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.back-to-top.visible:hover {
+  transform: translateY(-2px);
+}
+
+/* ── Status Refresh Button ────────────────────────────────────────── */
+.status-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  transition: all 0.2s ease;
+}
+.status-refresh-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--primary);
+  color: var(--text);
+}
+.status-refresh-btn.spinning span {
+  display: inline-block;
+  animation: spinRefresh 0.6s linear infinite;
+}
+@keyframes spinRefresh {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 /* ── Responsive ────────────────────────────────────────────────────── */

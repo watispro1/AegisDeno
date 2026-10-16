@@ -15,6 +15,9 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 
+/** Short-term debounce lock preventing duplicate concurrent submissions by the same user to the same channel */
+const activeQuickEmbeds = new Set<string>();
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("embed")
@@ -96,6 +99,16 @@ export const command: Command = {
         return interaction.reply({ content: "❌ Please select a valid text channel.", ephemeral: true });
       }
 
+      // Concurrency lock to prevent duplicate submissions from rapid clicks or gateway retries
+      const lockKey = `${interaction.user.id}:${channel.id}`;
+      if (activeQuickEmbeds.has(lockKey)) {
+        return interaction.reply({ content: "⚠️ Please wait a moment between posting embeds.", ephemeral: true });
+      }
+      activeQuickEmbeds.add(lockKey);
+      setTimeout(() => activeQuickEmbeds.delete(lockKey), 3000);
+
+      await interaction.deferReply({ ephemeral: true });
+
       const embed = new EmbedBuilder()
         .setTitle(title)
         .setDescription(description)
@@ -103,8 +116,13 @@ export const command: Command = {
         .setTimestamp();
       if (footer) embed.setFooter({ text: footer });
 
-      await (channel as TextChannel).send({ embeds: [embed] }).catch(() => null);
-      return interaction.reply({ content: `✅ Embed posted to <#${channel.id}>.`, ephemeral: true });
+      try {
+        await (channel as TextChannel).send({ embeds: [embed] });
+        await interaction.editReply({ content: `✅ Embed posted to <#${channel.id}>.` });
+      } catch {
+        await interaction.editReply({ content: `❌ Failed to send embed to <#${channel.id}>. Please check my permissions.` });
+      }
+      return;
     }
 
     // ─── BUILDER MODE ─────────────────────────────────────────────────────────
@@ -319,14 +337,28 @@ export const command: Command = {
       }
 
       if (i.customId === "embed_send") {
+        if (posted) return;
         posted = true;
-        await (channel as TextChannel).send({ embeds: [buildEmbed()] }).catch(() => null);
+        collector.stop("posted");
+
+        // Immediately disable the button row and acknowledge to prevent race conditions
         await i.update({
-          content: `✅ Embed successfully posted to <#${channel.id}>!`,
+          content: `⏳ Posting embed to <#${channel.id}>...`,
           embeds: [],
           components: [],
         });
-        collector.stop();
+
+        try {
+          await (channel as TextChannel).send({ embeds: [buildEmbed()] });
+          await interaction.editReply({
+            content: `✅ Embed successfully posted to <#${channel.id}>!`,
+          });
+        } catch {
+          await interaction.editReply({
+            content: `❌ Failed to post embed to <#${channel.id}>. Please check my permissions.`,
+          });
+        }
+        return;
       }
     });
 

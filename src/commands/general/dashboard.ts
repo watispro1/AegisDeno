@@ -108,6 +108,11 @@ export const command: Command = {
           .setLabel("Roles Overview")
           .setStyle(ButtonStyle.Secondary)
           .setEmoji("🎭"),
+        new ButtonBuilder()
+          .setLabel("Web Dashboard")
+          .setStyle(ButtonStyle.Link)
+          .setURL("https://aegisdeno.fly.dev/dashboard")
+          .setEmoji("🌐"),
       );
       return [row1, row2];
     };

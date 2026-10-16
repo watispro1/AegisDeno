@@ -227,6 +227,9 @@ export const clientScript = String.raw`
       btn.textContent = label;
       btn.classList.add('copied');
       btn.setAttribute('aria-live', 'polite');
+      if (window.showToast && text) {
+        window.showToast('Copied "' + text + '" to clipboard');
+      }
       setTimeout(function () {
         btn.innerHTML = original;
         btn.classList.remove('copied');
@@ -361,6 +364,17 @@ export const clientScript = String.raw`
       if (e.key === 'Escape') {
         search.value = '';
         apply();
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '/' && document.activeElement !== search) {
+        var activeTag = (document.activeElement && document.activeElement.tagName) || '';
+        if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA' && activeTag !== 'SELECT') {
+          e.preventDefault();
+          search.focus();
+          search.select();
+        }
       }
     });
 
@@ -523,6 +537,17 @@ export const clientScript = String.raw`
         .catch(function () {});
     };
     refresh();
+    var refreshBtn = document.querySelector('[data-status-refresh-btn]');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', function () {
+        refreshBtn.classList.add('spinning');
+        refresh();
+        if (window.showToast) window.showToast('Live status refreshed');
+        setTimeout(function () {
+          refreshBtn.classList.remove('spinning');
+        }, 600);
+      });
+    }
     setInterval(refresh, 30000);
   }
 
@@ -663,6 +688,26 @@ export const clientScript = String.raw`
       item.appendChild(description);
       logBox.insertBefore(item, logBox.firstChild);
     }
+  });
+
+  /* ── Back to Top Floating Button ──────────────────────────────── */
+  var backToTop = document.createElement('button');
+  backToTop.className = 'back-to-top';
+  backToTop.setAttribute('type', 'button');
+  backToTop.setAttribute('aria-label', 'Back to top');
+  backToTop.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>';
+  document.body.appendChild(backToTop);
+
+  window.addEventListener('scroll', function () {
+    if (window.scrollY > 320) {
+      backToTop.classList.add('visible');
+    } else {
+      backToTop.classList.remove('visible');
+    }
+  }, { passive: true });
+
+  backToTop.addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 })();
 `;

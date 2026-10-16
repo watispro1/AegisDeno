@@ -15,11 +15,11 @@ import { sendGuildLog } from "../../services/logging";
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function parseDuration(raw: string): number | null {
-  const match = raw.trim().match(/^(\d+)\s*(s|m|h|d)$/i);
+  const match = raw.trim().match(/^(\d+)\s*(s|m|h|d|w)$/i);
   if (!match) return null;
   const n = parseInt(match[1]);
   const unit = match[2].toLowerCase();
-  const multi: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+  const multi: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400, w: 604800 };
   return n * multi[unit];
 }
 
@@ -27,7 +27,8 @@ function formatDuration(seconds: number): string {
   if (seconds < 60)    return `${seconds}s`;
   if (seconds < 3600)  return `${Math.floor(seconds / 60)}m ${seconds % 60 > 0 ? `${seconds % 60}s` : ""}`.trim();
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-  return `${Math.floor(seconds / 86400)}d`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d`;
+  return `${Math.floor(seconds / 604800)}w`;
 }
 
 // ─── Command ─────────────────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ export const command: Command = {
       opt.setName("reminder").setDescription("What should I remind you about?").setRequired(true).setMaxLength(512)
     )
     .addStringOption(opt =>
-      opt.setName("duration").setDescription("When to remind you (e.g. 30m, 2h, 1d)").setRequired(true)
+      opt.setName("duration").setDescription("When to remind you (e.g. 30m, 2h, 1d, 1w)").setRequired(true).setAutocomplete(true)
     )
     .addBooleanOption(opt =>
       opt.setName("channel_reminder").setDescription("Also ping you in this channel (default: DM only)").setRequired(false)
@@ -58,9 +59,9 @@ export const command: Command = {
         ephemeral: true,
       });
     }
-    if (durationSec > 86400 * 30) {
+    if (durationSec > 86400 * 24) {
       return interaction.reply({
-        content: "❌ Reminders cannot be set more than 30 days ahead.",
+        content: "❌ Reminders cannot be set more than 24 days ahead.",
         ephemeral: true,
       });
     }
@@ -112,6 +113,24 @@ export const command: Command = {
         logger.warn(`Reminder delivery failed for user ${interaction.user.id}`, err);
       }
     }, durationSec * 1000);
+  },
+
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused().trim().toLowerCase();
+    const presets = [
+      { name: "10 minutes", value: "10m" },
+      { name: "30 minutes", value: "30m" },
+      { name: "1 hour", value: "1h" },
+      { name: "2 hours", value: "2h" },
+      { name: "4 hours", value: "4h" },
+      { name: "8 hours", value: "8h" },
+      { name: "12 hours", value: "12h" },
+      { name: "1 day (tomorrow)", value: "1d" },
+      { name: "3 days", value: "3d" },
+      { name: "1 week", value: "1w" },
+    ];
+    const filtered = presets.filter(p => !focused || p.name.toLowerCase().includes(focused) || p.value.toLowerCase().includes(focused));
+    await interaction.respond(filtered.slice(0, 10).map(p => ({ name: `${p.value} (${p.name})`, value: p.value })));
   },
 };
 

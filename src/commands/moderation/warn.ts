@@ -148,6 +148,11 @@ export const command: Command = {
           }
         } else if (i.customId.startsWith("warn_undo_")) {
           const warnId = i.customId.replace("warn_undo_", "");
+          const hierarchyOk = await isRoleHierarchyValid(interaction.client, guildId, i.user.id, target.id);
+          if (!hierarchyOk) {
+            await i.reply({ content: "❌ You cannot modify warnings for this user due to role hierarchy.", ephemeral: true });
+            return;
+          }
           const removed = await removeWarning(warnId);
           if (removed) {
             await i.reply({ content: `↩️ Warning \`${warnId}\` has been removed. Undone by <@${i.user.id}>.`, ephemeral: false });

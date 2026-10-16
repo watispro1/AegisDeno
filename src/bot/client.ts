@@ -88,8 +88,29 @@ export function setupEvents(client: Client): void {
     }
   }
 
+  // ─── Interaction Deduplication Cache (60s sliding window) ───────────────────
+  const processedInteractions = new Map<string, number>();
+  const INTERACTION_CACHE_TTL_MS = 60_000;
+
+  const dedupeSweepInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [id, ts] of processedInteractions) {
+      if (now - ts > INTERACTION_CACHE_TTL_MS) {
+        processedInteractions.delete(id);
+      }
+    }
+  }, 30_000);
+  dedupeSweepInterval.unref?.();
+
   // ─── Slash Commands ────────────────────────────────────────────────────────
   client.on(Events.InteractionCreate, async (interaction) => {
+    // Gateway retransmission guard
+    if (processedInteractions.has(interaction.id)) {
+      logger.debug(`Ignoring duplicate interaction delivery: ${interaction.id}`);
+      return;
+    }
+    processedInteractions.set(interaction.id, Date.now());
+
     if (interaction.isAutocomplete()) {
       const command = client.commands.get(interaction.commandName);
       if (!command?.autocomplete) return;

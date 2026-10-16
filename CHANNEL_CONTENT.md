@@ -45,7 +45,7 @@ Welcome to the AegisDeno server! Please follow these basic guidelines so everyon
 8. **Voice Etiquette**
    No soundboard spam, screamers, or loud background noise in voice channels.
 
-*Note: Infractions are logged automatically by AegisDeno. Repeated warnings will escalate to timeouts, kicks, or bans.*
+_Note: Infractions are logged automatically by AegisDeno. Repeated warnings will escalate to timeouts, kicks, or bans._
 ```
 
 ---
@@ -64,18 +64,17 @@ Welcome to the AegisDeno server! Please follow these basic guidelines so everyon
 **First announcement message:**
 
 ```markdown
-🛡️ **AegisDeno v3.0 is live!**
+🛡️ **AegisDeno v3.2 is live! — System Telemetry & Status Overhaul**
 
 What's new in this release:
-• Rebuilt slash commands across all modules
-• Dual-layer AutoMod (Discord Native + bot filters)
-• Support ticket system with transcript exports
-• Interactive suggestion voting with live counters
-• Self-serve role panels via `/rolepanel`
-• Live web dashboard and documentation at https://aegisdeno.fly.dev
+• 📊 **Overhauled `/about` command:** Interactive select menu with 4 dedicated views: System Overview, Runtime Telemetry (with ASCII heap meter), Network & Guilds, and live Database Diagnostics (MongoDB round-trip ping probe).
+• 🌐 **Redesigned Web Status Page:** Modern visual dashboard with SLA health tiers, 30-day uptime history visualization, component status rows, and machine-readable JSON endpoints (`/status`).
+• 🏓 **Upgraded `/ping` command:** Shows WebSocket heartbeat, round-trip message latency, MongoDB ping, uptime, and direct live status link.
+• 🎁 **Giveaways, Polls & Reminders:** Role requirements, multi-winner draws, persistent recovery across restarts, and `/remindme`.
+• ⚡ **Reliability & Security Hardening:** Hardened role panels, atomic suggestion voting, and safe ticket teardown.
 
 🔗 **Add AegisDeno:** https://discord.com/oauth2/authorize?client_id=1554631691421876254
-🗳️ **Vote on Top.gg:** https://top.gg/bot/aegisdeno/vote
+📊 **Live Status:** https://aegisdeno.fly.dev/status
 📖 **Changelog:** https://aegisdeno.fly.dev/changelog
 ```
 
@@ -96,14 +95,16 @@ What's new in this release:
 
 ```markdown
 ### 1. Invite the Bot
+
 Add AegisDeno with the required permissions:
 https://discord.com/oauth2/authorize?client_id=1554631691421876254
 
-*Make sure the AegisDeno role is placed above member roles in Server Settings → Roles so moderation commands work properly.*
+_Make sure the AegisDeno role is placed above member roles in Server Settings → Roles so moderation commands work properly._
 
 ---
 
 ### 2. Quick Setup (1-Click Preset)
+
 Run this command in any admin channel to apply a pre-configured template:
 `/preset apply preset:community`
 
@@ -115,32 +116,34 @@ Presets available:
 ---
 
 ### 3. Key Feature Setup (Manual)
+
 If you want to configure modules individually:
 
 • **Set up Mod Logs:**
-  `/logging channel channel:#mod-logs`
-  `/logging toggle enabled:true`
+`/logging channel channel:#mod-logs`
+`/logging toggle enabled:true`
 
 • **Set up Ticket Panel:**
-  `/ticket setup channel:#open-a-ticket staff_role:@Support title:"Support Tickets" description:"Click below to open a ticket."`
+`/ticket setup channel:#open-a-ticket staff_role:@Support title:"Support Tickets" description:"Click below to open a ticket."`
 
 • **Set up Member Verification:**
-  `/verify setup channel:#verification verified_role:@Member type:button`
+`/verify setup channel:#verification verified_role:@Member type:button`
 
 • **Set up Welcome Messages:**
-  `/welcome channel channel:#welcome`
-  `/welcome toggle enabled:true`
+`/welcome channel channel:#welcome`
+`/welcome toggle enabled:true`
 
 • **Set up AutoMod:**
-  `/automod words toggle enabled:true`
-  `/automod words action action:warn`
-  `/automod links toggle enabled:true`
-  `/automod mentions toggle enabled:true`
-  `/automod mentions limit count:5`
+`/automod words toggle enabled:true`
+`/automod words action action:warn`
+`/automod links toggle enabled:true`
+`/automod mentions toggle enabled:true`
+`/automod mentions limit count:5`
 
 ---
 
 ### 4. Check Everything
+
 Run `/diagnostics` or `/config view` to verify your configuration.
 
 📖 Full Docs: https://aegisdeno.fly.dev
@@ -171,7 +174,7 @@ Run `/diagnostics` or `/config view` to verify your configuration.
 • 🗳️ **Top.gg Page:** https://top.gg/bot/aegisdeno/vote
 • 💬 **Support Server:** https://discord.gg/DkZUgm3q4F
 
-*Voting on Top.gg is free and takes just a few seconds — it helps more servers discover AegisDeno!*
+_Voting on Top.gg is free and takes just a few seconds — it helps more servers discover AegisDeno!_
 ```
 
 ---
@@ -271,12 +274,14 @@ Quick reminders:
 ```
 /rolepanel create channel:#roles role1:@Announcements role2:@Events role3:@Updates
 ```
-*(Enter "Notification Roles" for Title and "Click to toggle your notification pings:" for Description in the modal)*
+
+_(Enter "Notification Roles" for Title and "Click to toggle your notification pings:" for Description in the modal)_
 
 ```
 /rolepanel create channel:#roles role1:@Developer role2:@Beta Tester role3:@Gamer
 ```
-*(Enter "Community Roles" for Title and "Pick your interest roles:" for Description in the modal)*
+
+_(Enter "Community Roles" for Title and "Pick your interest roles:" for Description in the modal)_
 
 ---
 
@@ -600,30 +605,30 @@ Private voice room for moderators and admins. Please keep discussion confidentia
 
 ## 🎨 Recommended Channel Emoji Icons
 
-| Channel | Emoji | Purpose |
-|---|---|---|
-| `#rules` | 📜 | Rules and guidelines |
-| `#announcements` | 📢 | Bot news and updates |
-| `#getting-started` | 🚀 | First-time setup guide |
-| `#links` | 🔗 | Official links and invite |
-| `#topgg-votes` | 🗳️ | Top.gg upvote feed |
-| `#general` | 💬 | Main chat |
-| `#bot-commands` | 🤖 | Command testing |
-| `#suggestions` | 💡 | Feature suggestions |
-| `#polls` | 📊 | Server polls |
-| `#roles` | 🎭 | Self-assignable roles |
-| `#welcome` | 👋 | Welcome messages |
-| `#giveaways` | 🎉 | Giveaways and events |
-| `#open-a-ticket` | 🎟️ | Support ticket panel |
-| `#verification` | 🛡️ | Verification button panel |
-| `#setup-help` | ❓ | Troubleshooting forum |
-| `#faq` | 📚 | Frequently asked questions |
-| `#dev-chat` | 💻 | Developer discussion |
-| `#github-logs` | 🐙 | GitHub commits and PRs |
-| `#beta-testing` | 🧪 | Staging bot testing |
-| `#staff-chat` | 🔒 | Staff discussion |
-| `#mod-logs` | 📋 | Moderation audit log |
-| `#bot-config` | ⚙️ | Admin bot configuration |
-| `Lounge` | 🔊 | Public voice chat |
-| `Support Waiting Room` | 🎧 | Voice support queue |
-| `Staff VC` | 🔒 | Staff voice meetings |
+| Channel                | Emoji | Purpose                    |
+| ---------------------- | ----- | -------------------------- |
+| `#rules`               | 📜    | Rules and guidelines       |
+| `#announcements`       | 📢    | Bot news and updates       |
+| `#getting-started`     | 🚀    | First-time setup guide     |
+| `#links`               | 🔗    | Official links and invite  |
+| `#topgg-votes`         | 🗳️    | Top.gg upvote feed         |
+| `#general`             | 💬    | Main chat                  |
+| `#bot-commands`        | 🤖    | Command testing            |
+| `#suggestions`         | 💡    | Feature suggestions        |
+| `#polls`               | 📊    | Server polls               |
+| `#roles`               | 🎭    | Self-assignable roles      |
+| `#welcome`             | 👋    | Welcome messages           |
+| `#giveaways`           | 🎉    | Giveaways and events       |
+| `#open-a-ticket`       | 🎟️    | Support ticket panel       |
+| `#verification`        | 🛡️    | Verification button panel  |
+| `#setup-help`          | ❓    | Troubleshooting forum      |
+| `#faq`                 | 📚    | Frequently asked questions |
+| `#dev-chat`            | 💻    | Developer discussion       |
+| `#github-logs`         | 🐙    | GitHub commits and PRs     |
+| `#beta-testing`        | 🧪    | Staging bot testing        |
+| `#staff-chat`          | 🔒    | Staff discussion           |
+| `#mod-logs`            | 📋    | Moderation audit log       |
+| `#bot-config`          | ⚙️    | Admin bot configuration    |
+| `Lounge`               | 🔊    | Public voice chat          |
+| `Support Waiting Room` | 🎧    | Voice support queue        |
+| `Staff VC`             | 🔒    | Staff voice meetings       |

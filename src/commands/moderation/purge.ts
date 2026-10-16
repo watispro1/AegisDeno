@@ -164,10 +164,17 @@ export const command: Command = {
 
         await i.deferUpdate();
         try {
-          const deleted = await channel.bulkDelete(toDelete, true);
+          let deletedCount = 0;
+          if (toDelete.length === 1) {
+            await toDelete[0].delete();
+            deletedCount = 1;
+          } else {
+            const deleted = await channel.bulkDelete(toDelete, true);
+            deletedCount = deleted.size;
+          }
 
           // Build a progress bar representation
-          const pct = Math.round((deleted.size / toDelete.length) * 100);
+          const pct = Math.round((deletedCount / toDelete.length) * 100);
           const barFilled = Math.round(pct / 10);
           const progressBar = "█".repeat(barFilled) + "░".repeat(10 - barFilled) + ` ${pct}%`;
 
@@ -176,12 +183,12 @@ export const command: Command = {
             .setTitle("🗑️ Messages Purged")
             .addFields(
               { name: "📌 Channel",    value: `<#${channel.id}>`, inline: true },
-              { name: "🗑️ Deleted",   value: `**${deleted.size}** of ${toDelete.length} message(s)`, inline: true },
+              { name: "🗑️ Deleted",   value: `**${deletedCount}** of ${toDelete.length} message(s)`, inline: true },
               { name: "🔍 Filter",     value: `\`${filter}\`${keyword ? ` — \`${keyword}\`` : ""}${target ? ` + from <@${target.id}>` : ""}`, inline: true },
               { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
               { name: "📊 Completion", value: `\`${progressBar}\``, inline: false },
             )
-            .setFooter({ text: deleted.size < toDelete.length ? "Some messages may have been too old to delete (>14 days)." : "All messages deleted successfully." })
+            .setFooter({ text: deletedCount < toDelete.length ? "Some messages may have been too old to delete (>14 days)." : "All messages deleted successfully." })
             .setTimestamp();
 
           await i.editReply({ content: null, embeds: [resultEmbed], components: [] });
@@ -189,7 +196,7 @@ export const command: Command = {
           await sendGuildLog(interaction.client, guildId, {
             title: "🗑️ Messages Purged",
             color: 0xED4245,
-            description: `**Channel:** <#${channel.id}>\n**Deleted:** ${deleted.size}/${toDelete.length}\n**Filter:** \`${filter}\`${keyword ? ` — \`${keyword}\`` : ""}\n**User Filter:** ${target ? `<@${target.id}>` : "None"}\n**Moderator:** ${interaction.user.tag}`,
+            description: `**Channel:** <#${channel.id}>\n**Deleted:** ${deletedCount}/${toDelete.length}\n**Filter:** \`${filter}\`${keyword ? ` — \`${keyword}\`` : ""}\n**User Filter:** ${target ? `<@${target.id}>` : "None"}\n**Moderator:** ${interaction.user.tag}`,
           });
         } catch (err) {
           logger.error(`Failed to purge messages in channel ${channel.id} guild ${guildId}`, err);

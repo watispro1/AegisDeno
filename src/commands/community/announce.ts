@@ -176,6 +176,7 @@ export const command: Command = {
       filter: (i) => i.user.id === interaction.user.id,
     });
 
+    let isSending = false;
     collector.on("collect", async (i) => {
       if (i.customId === "ann_cancel") {
         collector.stop();
@@ -223,8 +224,10 @@ export const command: Command = {
       }
 
       if (i.customId === "ann_send") {
-        collector.stop();
-        await i.deferUpdate();
+        if (isSending) return;
+        isSending = true;
+        collector.stop("sent");
+        await i.update({ content: "⏳ Sending announcement...", components: [] });
         try {
           const sent = await (channel as TextChannel).send({
             content: pingContent || undefined,

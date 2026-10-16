@@ -240,7 +240,7 @@ export const command: Command = {
         }
 
         // Update live results
-        await interaction.editReply({ embeds: [buildPollEmbed()], components: buildVoteRow() });
+        await interaction.editReply({ embeds: [buildPollEmbed()], components: buildVoteRow() }).catch(() => null);
       }
     });
 
