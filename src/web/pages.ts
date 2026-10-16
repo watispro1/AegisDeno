@@ -1126,76 +1126,192 @@ function renderHighlightItem(h: string): string {
 }
 
 export function renderChangelog(cfg: SiteConfig): string {
+  const totalReleases = RELEASES.length + KNUB_RELEASES.length;
+  const latestBot = RELEASES[0];
+  const latestKnub = KNUB_RELEASES[0];
+  const earliestDate = RELEASES[RELEASES.length - 1].date;
+
+  const botVersionPills = RELEASES.map(r =>
+    `<a class="cl-ver-pill" href="#v${escapeHtml(r.version)}" data-version="${escapeHtml(r.version)}" data-track="bot">` +
+    `<span class="cl-ver-num">v${escapeHtml(r.version)}</span>` +
+    `<span class="cl-ver-date">${new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></a>`
+  ).join("\n");
+
+  const knubVersionPills = KNUB_RELEASES.map(r =>
+    `<a class="cl-ver-pill knub" href="#knub-v${escapeHtml(r.version)}" data-version="${escapeHtml(r.version)}" data-track="knub">` +
+    `<span class="cl-ver-num">v${escapeHtml(r.version)}</span>` +
+    `<span class="cl-ver-date">${new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></a>`
+  ).join("\n");
+
+  const botCards = RELEASES.map(r =>
+    `<article class="cl-card reveal" id="v${escapeHtml(r.version)}" data-track="bot" data-search="${escapeHtml([r.version, r.tag ?? "", r.summary ?? "", ...r.highlights].join(" ").toLowerCase())}">` +
+    `<div class="cl-card-header"><div class="cl-card-meta"><div class="cl-card-version">` +
+    `<span class="cl-version-badge">v${escapeHtml(r.version)}</span>` +
+    (r.tag ? `<span class="pill primary cl-tag-pill">${escapeHtml(r.tag)}</span>` : "") +
+    `</div><time class="cl-date" datetime="${r.date}">` +
+    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>` +
+    `${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}` +
+    `</time></div><a class="cl-permalink" href="#v${escapeHtml(r.version)}" aria-label="Permalink to v${escapeHtml(r.version)}">#</a></div>` +
+    (r.summary ? `<p class="cl-summary">${escapeHtml(r.summary)}</p>` : "") +
+    `<ul class="cl-highlights">${r.highlights.map(h => renderHighlightItem(h)).join("")}</ul></article>`
+  ).join("\n");
+
+  const knubCards = KNUB_RELEASES.map(r =>
+    `<article class="cl-card cl-card--knub reveal" id="knub-v${escapeHtml(r.version)}" data-track="knub" data-search="${escapeHtml([r.version, r.tag ?? "", r.summary ?? "", ...r.highlights].join(" ").toLowerCase())}">` +
+    `<div class="cl-card-header"><div class="cl-card-meta"><div class="cl-card-version">` +
+    `<span class="cl-version-badge cl-version-badge--knub">Knub v${escapeHtml(r.version)}</span>` +
+    (r.tag ? `<span class="pill warn cl-tag-pill">${escapeHtml(r.tag)}</span>` : "") +
+    `</div><time class="cl-date" datetime="${r.date}">` +
+    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>` +
+    `${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}` +
+    `</time></div><a class="cl-permalink" href="#knub-v${escapeHtml(r.version)}" aria-label="Permalink to Knub v${escapeHtml(r.version)}">#</a></div>` +
+    (r.summary ? `<p class="cl-summary">${escapeHtml(r.summary)}</p>` : "") +
+    `<ul class="cl-highlights">${r.highlights.map(h => renderHighlightItem(h)).join("")}</ul></article>`
+  ).join("\n");
+
   const body = `
-<div class="wrap">
+<style>
+/* ── Changelog page ─────────────────────────────────────────────── */
+.cl-hero{text-align:center;padding:clamp(2.5rem,6vw,4rem) 0 1.5rem}
+.cl-stats-ribbon{display:flex;justify-content:center;gap:2.5rem;flex-wrap:wrap;margin:1.75rem auto 0;padding:1.1rem 2rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);max-width:680px}
+.cl-stat{text-align:center}
+.cl-stat-val{font-size:1.65rem;font-weight:800;color:var(--primary);line-height:1.1}
+.cl-stat-label{font-size:0.73rem;color:var(--faint);text-transform:uppercase;font-weight:600;letter-spacing:.05em;margin-top:.2rem}
+.cl-feed-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:.75rem 1.25rem;margin-bottom:1.75rem;font-size:.85rem}
+.cl-feed-bar a{display:inline-flex;align-items:center;gap:.4rem;font-weight:600}
+.cl-filter-bar{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin:2rem 0 1.5rem}
+.cl-filter-bar .search{flex:1;min-width:200px}
+.cl-filter-tabs{display:flex;gap:.4rem;flex-shrink:0}
+.cl-tab{display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .9rem;border-radius:var(--r-sm);font-size:.85rem;font-weight:600;cursor:pointer;background:var(--surface);border:1px solid var(--border);color:var(--text-2);transition:all .18s}
+.cl-tab:hover{border-color:var(--primary);color:var(--primary)}
+.cl-tab[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:#fff}
+.cl-tab-count{font-size:.72rem;opacity:.75}
+.cl-layout{display:grid;grid-template-columns:220px 1fr;gap:2.5rem;align-items:start}
+@media(max-width:840px){.cl-layout{grid-template-columns:1fr}}
+.cl-sidebar{position:sticky;top:calc(var(--nav-h,64px) + 1rem);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:1rem 0;overflow:hidden;max-height:calc(100vh - 100px);overflow-y:auto}
+.cl-sidebar-section{padding:.5rem 1rem .25rem}
+.cl-sidebar-title{font-size:.68rem;text-transform:uppercase;font-weight:700;letter-spacing:.08em;color:var(--faint);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+.cl-sidebar-divider{height:1px;background:var(--border);margin:.5rem 0}
+.cl-ver-pill{display:flex;justify-content:space-between;align-items:center;padding:.32rem 1rem;text-decoration:none;border-left:2px solid transparent;transition:all .15s}
+.cl-ver-pill:hover{background:var(--bg-alt);border-left-color:var(--primary)}
+.cl-ver-pill.active{background:color-mix(in srgb,var(--primary) 10%,transparent);border-left-color:var(--primary)}
+.cl-ver-pill.knub:hover{border-left-color:#f5a623}
+.cl-ver-pill.knub.active{background:color-mix(in srgb,#f5a623 10%,transparent);border-left-color:#f5a623}
+.cl-ver-num{font-size:.83rem;font-weight:600;color:var(--text)}
+.cl-ver-date{font-size:.72rem;color:var(--faint)}
+.cl-section-header{display:flex;align-items:center;gap:.75rem;margin:2rem 0 1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.cl-section-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .85rem;border-radius:100px;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.cl-section-badge--bot{background:color-mix(in srgb,var(--primary) 15%,transparent);color:var(--primary);border:1px solid color-mix(in srgb,var(--primary) 30%,transparent)}
+.cl-section-badge--knub{background:color-mix(in srgb,#f5a623 12%,transparent);color:#c87f00;border:1px solid color-mix(in srgb,#f5a623 30%,transparent)}
+.cl-section-count{font-size:.8rem;color:var(--faint);margin-left:auto}
+.cl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.5rem 1.75rem;margin-bottom:1.25rem;position:relative;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.cl-card:hover{border-color:color-mix(in srgb,var(--primary) 40%,transparent);box-shadow:0 4px 20px color-mix(in srgb,var(--primary) 8%,transparent)}
+.cl-card--knub{border-left:3px solid color-mix(in srgb,#f5a623 60%,transparent)}
+.cl-card--knub:hover{border-color:color-mix(in srgb,#f5a623 50%,transparent);box-shadow:0 4px 20px color-mix(in srgb,#f5a623 8%,transparent)}
+.cl-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--primary),transparent);opacity:0;transition:opacity .2s}
+.cl-card:hover::before{opacity:1}
+.cl-card--knub::before{background:linear-gradient(90deg,#f5a623,transparent)}
+.cl-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.85rem}
+.cl-card-meta{display:flex;flex-direction:column;gap:.45rem}
+.cl-card-version{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.cl-version-badge{font-size:1.2rem;font-weight:800;color:var(--text);font-family:var(--mono);letter-spacing:-.02em}
+.cl-version-badge--knub{color:#c87f00}
+.cl-tag-pill{font-size:.65rem!important;padding:.12rem .5rem!important}
+.cl-date{display:inline-flex;align-items:center;gap:.35rem;font-size:.8rem;color:var(--faint);font-weight:500}
+.cl-permalink{font-size:1rem;color:var(--faint);text-decoration:none;opacity:0;transition:opacity .15s;padding:.2rem .4rem}
+.cl-card:hover .cl-permalink{opacity:1}
+.cl-summary{font-size:.92rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;padding-bottom:.85rem;border-bottom:1px solid var(--border)}
+.cl-highlights{padding:0;margin:0}
+.cl-card[hidden]{display:none!important}
+.cl-empty{text-align:center;padding:3rem 1rem;color:var(--faint)}
+.cl-empty strong{display:block;margin-bottom:.5rem;font-size:1.05rem;color:var(--text-2)}
+</style>
+
+<div class="wrap cl-hero">
   <nav class="breadcrumbs" aria-label="Breadcrumb">
     <a href="/">Home</a><span class="sep">/</span><span>Changelog</span>
   </nav>
-  <div class="page-head" style="text-align:center; padding: 2rem 0 1rem;">
-    <span class="eyebrow">Product & Architecture Releases</span>
-    <h1 style="margin-top:0.4rem;">Changelog <span class="gradient-text">&amp; Updates</span></h1>
-    <p class="lead" style="max-width: 640px; margin: 0.5rem auto 0;">Chronological release history for both the Aegis bot product releases and the Knub modular TypeScript framework.</p>
-    
-    <div style="display:flex; justify-content:center; gap:0.75rem; margin-top:1.5rem; flex-wrap:wrap;">
-      <a class="btn sm" href="#bot-releases">🤖 Bot Releases</a>
-      <a class="btn sm ghost" href="#knub-framework">🧩 Knub Framework</a>
-    </div>
+  <span class="eyebrow">Product &amp; Architecture Releases</span>
+  <h1 style="margin-top:.35rem">Changelog <span class="gradient-text">&amp; Updates</span></h1>
+  <p class="lead" style="max-width:600px;margin:.6rem auto 0">Chronological release history for the Aegis Discord bot and the Knub modular TypeScript framework.</p>
+  <div class="cl-stats-ribbon">
+    <div class="cl-stat"><div class="cl-stat-val">${totalReleases}</div><div class="cl-stat-label">Total Releases</div></div>
+    <div class="cl-stat"><div class="cl-stat-val">v${escapeHtml(latestBot.version)}</div><div class="cl-stat-label">Latest Bot</div></div>
+    <div class="cl-stat"><div class="cl-stat-val">v${escapeHtml(latestKnub.version)}</div><div class="cl-stat-label">Latest Knub</div></div>
+    <div class="cl-stat"><div class="cl-stat-val">${new Date(earliestDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</div><div class="cl-stat-label">Since</div></div>
   </div>
 </div>
 
-<section class="block tight" style="padding-top: 1rem;" id="bot-releases">
+<section class="block" style="padding-top:1.25rem">
   <div class="wrap">
-    <div style="text-align:center; margin-bottom: 1.5rem;">
-      <span class="pill primary" style="font-size:0.8rem; font-weight:700;">🤖 BOT APPLICATION RELEASES</span>
-    </div>
-    <div style="display:flex; justify-content:center; gap: 0.5rem; flex-wrap:wrap; margin-bottom: 2.5rem;">
-      ${RELEASES.map(r => `<a class="pill ${r.version === "3.2.0" ? "primary" : ""}" href="#v${escapeHtml(r.version)}" style="font-weight:600;">v${escapeHtml(r.version)}</a>`).join("\n      ")}
+    <div class="cl-feed-bar">
+      <span>Subscribe to release notifications via your RSS reader.</span>
+      <a href="/changelog.xml">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg>
+        Atom Feed
+      </a>
     </div>
 
-    <div class="wrap-prose" style="margin-inline:auto">
-      <div class="timeline">
-        ${RELEASES.map(r => `<article class="release reveal" id="v${escapeHtml(r.version)}" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.5rem; margin-bottom: 2rem; backdrop-filter: blur(12px);">
-          <div class="release-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom: 0.75rem;">
-            <div style="display:flex; align-items:center; gap:0.6rem;">
-              <h2 style="font-size:1.4rem; margin:0;">v${escapeHtml(r.version)}</h2>
-              ${r.tag ? `<span class="pill primary" style="font-size:0.7rem; font-weight:700;">${escapeHtml(r.tag)}</span>` : ""}
-            </div>
-            <time datetime="${r.date}" style="font-size:0.83rem; color:var(--faint); font-weight:600;">${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time>
-          </div>
-          ${r.summary ? `<p style="color:var(--muted); font-size:0.95rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">${escapeHtml(r.summary)}</p>` : ""}
-          <ul style="padding-left:0; margin-top:0.6rem;">
-            ${r.highlights.map(h => renderHighlightItem(h)).join("\n            ")}
-          </ul>
-        </article>`).join("\n        ")}
+    <div class="cl-filter-bar">
+      <div class="search">
+        <span class="icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+        <label class="visually-hidden" for="cl-search">Search releases</label>
+        <input id="cl-search" type="search" placeholder="Search releases, features, fixes\u2026" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="cl-filter-tabs" role="group" aria-label="Filter releases">
+        <button class="cl-tab" type="button" data-filter="all" aria-pressed="true">All <span class="cl-tab-count">${totalReleases}</span></button>
+        <button class="cl-tab" type="button" data-filter="bot" aria-pressed="false">\uD83E\uDD16 Bot <span class="cl-tab-count">${RELEASES.length}</span></button>
+        <button class="cl-tab" type="button" data-filter="knub" aria-pressed="false">\uD83E\uDDE9 Knub <span class="cl-tab-count">${KNUB_RELEASES.length}</span></button>
       </div>
     </div>
-  </div>
-</section>
 
-<section class="block tight" style="padding-top: 2rem;" id="knub-framework">
-  <div class="wrap">
-    <div style="text-align:center; margin-bottom: 1.5rem;">
-      <span class="pill warn" style="font-size:0.8rem; font-weight:700;">🧩 KNUB MODULAR FRAMEWORK RELEASES</span>
-    </div>
-    <div style="display:flex; justify-content:center; gap: 0.5rem; flex-wrap:wrap; margin-bottom: 2.5rem;">
-      ${KNUB_RELEASES.map(r => `<a class="pill primary" href="#knub-v${escapeHtml(r.version)}" style="font-weight:600;">v${escapeHtml(r.version)}</a>`).join("\n      ")}
-    </div>
-
-    <div class="wrap-prose" style="margin-inline:auto">
-      <div class="timeline">
-        ${KNUB_RELEASES.map(r => `<article class="release reveal" id="knub-v${escapeHtml(r.version)}" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.5rem; margin-bottom: 2rem; backdrop-filter: blur(12px);">
-          <div class="release-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom: 0.75rem;">
-            <div style="display:flex; align-items:center; gap:0.6rem;">
-              <h2 style="font-size:1.4rem; margin:0;">Knub Framework v${escapeHtml(r.version)}</h2>
-              ${r.tag ? `<span class="pill warn" style="font-size:0.7rem; font-weight:700;">${escapeHtml(r.tag)}</span>` : ""}
-            </div>
-            <time datetime="${r.date}" style="font-size:0.83rem; color:var(--faint); font-weight:600;">${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time>
+    <div class="cl-layout">
+      <aside class="cl-sidebar" aria-label="Release navigation">
+        <div class="cl-sidebar-section" id="cl-sb-bot">
+          <div class="cl-sidebar-title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="8" r="5"/><path d="M9 17H6a3 3 0 0 0-3 3M15 17h3a3 3 0 0 1 3 3"/></svg>
+            Bot Releases
           </div>
-          ${r.summary ? `<p style="color:var(--muted); font-size:0.95rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">${escapeHtml(r.summary)}</p>` : ""}
-          <ul style="padding-left:0; margin-top:0.6rem;">
-            ${r.highlights.map(h => renderHighlightItem(h)).join("\n            ")}
-          </ul>
-        </article>`).join("\n        ")}
+          ${botVersionPills}
+        </div>
+        <div class="cl-sidebar-divider"></div>
+        <div class="cl-sidebar-section" id="cl-sb-knub">
+          <div class="cl-sidebar-title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            Knub Framework
+          </div>
+          ${knubVersionPills}
+        </div>
+        <div class="cl-sidebar-divider"></div>
+        <div class="cl-sidebar-section">
+          <a href="/changelog.xml" class="cl-ver-pill" style="border-left:none;font-size:.8rem;color:var(--faint);gap:.35rem">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg>
+            Atom Feed
+          </a>
+        </div>
+      </aside>
+
+      <div class="cl-main">
+        <div id="cl-empty" class="cl-empty" hidden>
+          <strong>No matching releases</strong>
+          Try a different search term or clear the filter.
+        </div>
+
+        <div id="cl-section-bot">
+          <div class="cl-section-header">
+            <span class="cl-section-badge cl-section-badge--bot">\uD83E\uDD16 Bot Application</span>
+            <span class="cl-section-count">${RELEASES.length} release${RELEASES.length !== 1 ? "s" : ""}</span>
+          </div>
+          ${botCards}
+        </div>
+
+        <div id="cl-section-knub" style="margin-top:2rem">
+          <div class="cl-section-header">
+            <span class="cl-section-badge cl-section-badge--knub">\uD83E\uDDE9 Knub Framework</span>
+            <span class="cl-section-count">${KNUB_RELEASES.length} release${KNUB_RELEASES.length !== 1 ? "s" : ""}</span>
+          </div>
+          ${knubCards}
+        </div>
       </div>
     </div>
   </div>
@@ -1205,11 +1321,72 @@ export function renderChangelog(cfg: SiteConfig): string {
   <div class="wrap">
     ${ctaBox(cfg, "Want to test these features live?", "Try our interactive playground browser sandbox or add Aegis directly to your server.")}
   </div>
-</section>`;
+</section>
+
+<script>
+(function(){
+  const tabs=document.querySelectorAll('.cl-tab');
+  const cards=document.querySelectorAll('.cl-card');
+  const searchInput=document.getElementById('cl-search');
+  const emptyState=document.getElementById('cl-empty');
+  const sbBot=document.getElementById('cl-sb-bot');
+  const sbKnub=document.getElementById('cl-sb-knub');
+  const secBot=document.getElementById('cl-section-bot');
+  const secKnub=document.getElementById('cl-section-knub');
+  let activeFilter='all';
+  let searchTerm='';
+
+  function applyFilters(){
+    let anyVisible=false;
+    if(activeFilter==='all'){secBot.hidden=false;secKnub.hidden=false;sbBot.style.display='';sbKnub.style.display='';}
+    else if(activeFilter==='bot'){secBot.hidden=false;secKnub.hidden=true;sbBot.style.display='';sbKnub.style.display='none';}
+    else{secBot.hidden=true;secKnub.hidden=false;sbBot.style.display='none';sbKnub.style.display='';}
+    cards.forEach(function(card){
+      const track=card.dataset.track;
+      const inTrack=activeFilter==='all'||activeFilter===track;
+      const inSearch=!searchTerm||(card.dataset.search||'').includes(searchTerm);
+      const visible=inTrack&&inSearch;
+      card.hidden=!visible;
+      if(visible)anyVisible=true;
+    });
+    emptyState.hidden=anyVisible;
+  }
+
+  tabs.forEach(function(tab){
+    tab.addEventListener('click',function(){
+      tabs.forEach(function(t){t.setAttribute('aria-pressed','false');});
+      tab.setAttribute('aria-pressed','true');
+      activeFilter=tab.dataset.filter;
+      applyFilters();
+    });
+  });
+
+  if(searchInput){
+    searchInput.addEventListener('input',function(){
+      searchTerm=searchInput.value.toLowerCase().trim();
+      applyFilters();
+    });
+  }
+
+  if('IntersectionObserver' in window){
+    const observer=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){
+          const id=entry.target.id;
+          document.querySelectorAll('.cl-ver-pill').forEach(function(p){p.classList.remove('active');});
+          const link=document.querySelector('.cl-ver-pill[href="#'+id+'"]');
+          if(link)link.classList.add('active');
+        }
+      });
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('.cl-card').forEach(function(card){observer.observe(card);});
+  }
+})();
+</script>`;
 
   return page(cfg, {
-    title: "Changelog — Aegis Discord Bot",
-    description: "Release history and detailed feature changelog for the Aegis Discord bot.",
+    title: "Changelog \u2014 Aegis Discord Bot",
+    description: "Release history and detailed feature changelog for the Aegis Discord bot and the Knub modular TypeScript framework.",
     path: "/changelog",
     body,
     headExtra: jsonLd({

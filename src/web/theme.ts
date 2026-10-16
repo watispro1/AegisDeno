@@ -32,6 +32,12 @@ const lightTokens = `
   --shadow-lg: 0 24px 56px -20px rgba(15, 23, 42, 0.28);
   --code-bg: rgba(15, 23, 42, 0.055);
   --selection: rgba(88, 101, 242, 0.22);
+
+  --glass: rgba(255, 255, 255, 0.58);
+  --glass-strong: rgba(255, 255, 255, 0.74);
+  --glass-border: rgba(15, 23, 42, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.85);
+  --glass-shadow: 0 18px 44px -26px rgba(15, 23, 42, 0.32), 0 2px 10px -6px rgba(15, 23, 42, 0.14);
 `;
 
 const cyberpunkTokens = `
@@ -155,6 +161,14 @@ export const styles = `
   --code-bg: rgba(255, 255, 255, 0.06);
   --selection: rgba(88, 101, 242, 0.35);
 
+  --glass: color-mix(in srgb, var(--bg-alt) 52%, transparent);
+  --glass-strong: color-mix(in srgb, var(--bg-alt) 72%, transparent);
+  --glass-border: color-mix(in srgb, var(--text) 13%, transparent);
+  --glass-highlight: rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 20px 48px -26px rgba(0, 0, 0, 0.78), 0 2px 10px -6px rgba(0, 0, 0, 0.5);
+  --glass-blur: 22px;
+  --glass-sat: 180%;
+
   --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --display: 'Outfit', 'Inter', system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -263,7 +277,11 @@ body::before {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse 55% 32% at 50% -8%, var(--primary-soft), transparent 70%);
+  background:
+    radial-gradient(ellipse 48% 34% at 12% -6%, var(--primary-soft), transparent 66%),
+    radial-gradient(ellipse 42% 30% at 90% 2%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 68%),
+    radial-gradient(ellipse 46% 32% at 78% 88%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 70%),
+    radial-gradient(ellipse 52% 34% at 50% -8%, var(--primary-soft), transparent 72%);
 }
 
 body::after {
@@ -1894,6 +1912,146 @@ input:checked + .toggle-slider:before { transform: translateX(20px); background-
 @keyframes spinRefresh {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+
+/* ── Liquid Glass (Apple-style) ────────────────────────────────────── */
+.glass,
+.card,
+.cmd-card,
+details.acc,
+.step,
+.metric,
+.component-row,
+.endpoint-item,
+.dash-card,
+.pg-card,
+.table-wrap,
+.cta-box,
+.status-banner,
+.stat,
+.hero-panel,
+.site-search-panel,
+.modal-content,
+.docs-side,
+.toast {
+  background: var(--glass);
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+}
+
+/* These carry a colored tint; blend the tint over the frosted base */
+.cta-box {
+  background:
+    radial-gradient(ellipse 70% 100% at 50% 0%, var(--primary-soft), transparent 70%),
+    var(--glass);
+}
+.status-banner {
+  background: linear-gradient(135deg, var(--accent-soft), var(--glass));
+}
+.status-banner.bad {
+  background: linear-gradient(135deg, var(--danger-soft), var(--glass));
+}
+
+/* Top specular sheen for the larger panels */
+.card::after,
+.cmd-card::after,
+.dash-card::after,
+.pg-card::after,
+.cta-box::after,
+.hero-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--glass-highlight), transparent 34%);
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+}
+.card,
+.cmd-card,
+.dash-card,
+.pg-card,
+.cta-box,
+.hero-panel { position: relative; }
+
+/* Keep the internal layers above the sheen */
+.cmd-card > summary,
+.cmd-body,
+.card > *,
+.dash-card > *,
+.pg-card > * { position: relative; z-index: 1; }
+
+/* Nav + floating chrome gets a deeper frosted look */
+.nav {
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+.nav.scrolled {
+  border-bottom-color: var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+.site-search-panel,
+.modal-content { background: var(--glass-strong); }
+
+.back-to-top {
+  background: var(--glass);
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+}
+
+.btn.ghost {
+  background: var(--glass);
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+.btn.ghost:hover { background: var(--glass-strong); border-color: var(--primary); }
+
+.pill,
+.badge,
+.tab,
+.copy-btn,
+.sub-item,
+.cmd-run,
+.icon-btn:hover,
+kbd {
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+}
+
+/* Card hover keeps the specular rim while deepening the shadow */
+.card:hover,
+.cmd-card:hover,
+.metric:hover,
+.component-row:hover,
+.endpoint-item:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--glass-border));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 24px 54px -28px rgba(0, 0, 0, 0.82);
+}
+.stat:hover { background: var(--glass-strong); }
+
+/* Hairline separators inside glass panels pick up the rim light */
+.cmd-body,
+.hero-panel,
+.component-row,
+.window-bar { border-color: var(--glass-border); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass, .card, .cmd-card, details.acc, .step, .metric, .component-row,
+  .endpoint-item, .dash-card, .pg-card, .table-wrap, .cta-box, .status-banner,
+  .stat, .hero-panel, .site-search-panel, .modal-content, .docs-side, .toast,
+  .nav, .back-to-top, .btn.ghost {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--bg-alt);
+  }
 }
 
 /* ── Responsive ────────────────────────────────────────────────────── */
