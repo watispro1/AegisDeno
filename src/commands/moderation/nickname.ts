@@ -6,6 +6,7 @@ import {
 } from "discord.js";
 import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
+import { logger } from "../../utils/logger";
 import { Command } from "../../types/discord";
 
 export const command: Command = {
@@ -52,7 +53,15 @@ export const command: Command = {
     }
 
     await interaction.deferReply();
-    await target.setNickname(name, `Changed by ${interaction.user.tag}`);
+    try {
+      await target.setNickname(name, `Changed by ${interaction.user.tag}`);
+    } catch (err) {
+      logger.warn(`Failed to set nickname for ${target.id} in guild ${guildId}:`, err);
+      await interaction.editReply({
+        content: "❌ I could not update that nickname. Check that I have **Manage Nicknames** and a role above theirs.",
+      });
+      return;
+    }
     await interaction.editReply(name ? `✅ Set **${target.user.tag}**'s nickname to **${name}**.` : `✅ Cleared **${target.user.tag}**'s nickname.`);
     await sendGuildLog(interaction.client, guildId, {
       title: "✏️ Nickname Changed",

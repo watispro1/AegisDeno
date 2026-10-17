@@ -367,17 +367,6 @@ export const clientScript = String.raw`
       }
     });
 
-    document.addEventListener('keydown', function (e) {
-      if (e.key === '/' && document.activeElement !== search) {
-        var activeTag = (document.activeElement && document.activeElement.tagName) || '';
-        if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA' && activeTag !== 'SELECT') {
-          e.preventDefault();
-          search.focus();
-          search.select();
-        }
-      }
-    });
-
     if (filterBar) {
       var chips = Array.prototype.slice.call(filterBar.querySelectorAll('.tab'));
 

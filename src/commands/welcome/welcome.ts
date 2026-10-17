@@ -80,7 +80,7 @@ export const command: Command = {
       const statusEmbed = new EmbedBuilder()
         .setColor(enabled ? 0x57F287 : 0xED4245)
         .setTitle("👋 Welcome Message Configuration")
-        .setThumbnail(interaction.guild!.iconURL() ?? "")
+        .setThumbnail(interaction.guild!.iconURL() ?? null)
         .addFields(
           {
             name: "🟢 Status",

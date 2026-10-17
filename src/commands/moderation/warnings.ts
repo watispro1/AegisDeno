@@ -28,11 +28,12 @@ export const command: Command = {
       .setTimestamp();
 
     if (warnings.length > 0) {
-      const fields = warnings.slice(-5).map((w, i) => ({
-        name: `Warning ${warnings.length - 4 + i > 0 ? warnings.length - 4 + i : i + 1} • <t:${Math.floor(new Date(w.createdAt).getTime() / 1000)}:f>`,
+      // warnings are sorted newest-first, so the first five are the most recent.
+      const fields = warnings.slice(0, 5).map((w, i) => ({
+        name: `Warning ${warnings.length - i} • <t:${Math.floor(new Date(w.createdAt).getTime() / 1000)}:f>`,
         value: `**Reason:** ${w.reason.slice(0, 900)}\n**Moderator:** <@${w.moderatorId}>`,
       }));
-      embed.addFields(fields.reverse()); // Show newest first
+      embed.addFields(fields);
     }
 
     await interaction.reply({ embeds: [embed] });

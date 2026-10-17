@@ -69,6 +69,11 @@ export const CommunityPlugin = definePlugin<CommunityPluginConfig>({
               .setLabel(`Downvote (${suggestion.downvotes.length})`)
               .setStyle(4)
               .setEmoji("👎"),
+            new ButtonBuilder()
+              .setCustomId(`suggest_info_${suggestion.id}`)
+              .setLabel("Details")
+              .setStyle(2)
+              .setEmoji("ℹ️"),
           );
 
         await msg.edit({ embeds: [newEmbed], components: [row] }).catch(() => null);

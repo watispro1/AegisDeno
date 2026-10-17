@@ -33,6 +33,8 @@ const GuildConfigSchema = new mongoose.Schema({
   language: { type: String, default: "en" },
   loggingEnabled: { type: Boolean, default: false },
   loggingChannelId: { type: String, default: null },
+  // Per-category toggles for the audit log, e.g. { modActions: true, messageDeletes: false }.
+  logCategories: { type: mongoose.Schema.Types.Mixed, default: null },
   welcomeEnabled: { type: Boolean, default: false },
   welcomeChannelId: { type: String, default: null },
   welcomeMessage: { type: String, default: "Welcome {user} to **{server}**! You are member #{member_count}." },

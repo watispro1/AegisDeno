@@ -372,6 +372,7 @@ ${entries}
   app.get("/privacy-policy", (_req, res) => res.redirect(301, "/privacy"));
   app.get("/terms-of-service", (_req, res) => res.redirect(301, "/terms"));
   app.get("/guide", (_req, res) => res.redirect(301, "/docs"));
+  app.get("/help", (_req, res) => res.redirect(301, "/troubleshooting"));
   app.get("/status.json", (_req, res) => res.redirect(301, "/health"));
 
   const send = (res: Response, html: string, code = 200, cacheControl?: string) => {

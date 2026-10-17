@@ -35,16 +35,23 @@ export const command: Command = {
       sub
         .setName("export")
         .setDescription("Export all guild moderation history as a JSON file.")
-    ),
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
   category: "moderation",
   guildOnly: true,
+  userPermissions: [PermissionFlagsBits.ModerateMembers],
 
   async execute(interaction) {
     if (!interaction.guild) return;
     const subcommand = interaction.options.getSubcommand();
 
     if (subcommand === "view") {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
+        await interaction.reply({ content: "❌ You need `Moderate Members` permission to view cases.", ephemeral: true });
+        return;
+      }
+
       const caseId = interaction.options.getString("case_id", true);
       const record = await ModerationCaseModel.findOne({ guildId: interaction.guild.id, _id: caseId }).catch(() => null);
 

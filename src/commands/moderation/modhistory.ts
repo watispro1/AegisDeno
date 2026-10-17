@@ -31,6 +31,8 @@ const ACTION_FILTER_CHOICES = [
 ];
 
 const PAGE_SIZE = 5;
+/** Upper bound on the cases pulled for pagination; the service merges cases + warnings. */
+const HISTORY_LIMIT = 250;
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -64,7 +66,7 @@ export const command: Command = {
 
     await interaction.deferReply({ ephemeral: true });
 
-    let allCases = await getModerationCases(guildId, target.id);
+    let allCases = await getModerationCases(guildId, target.id, HISTORY_LIMIT);
     let filteredCases = initialFilter === "all" ? allCases : allCases.filter(c => c.action === initialFilter);
 
     let page = 0;
@@ -173,7 +175,7 @@ export const command: Command = {
       } else if (i.customId === "mh_next") {
         page = Math.min(totalPages() - 1, page + 1);
       } else if (i.customId === "mh_refresh") {
-        allCases = await getModerationCases(guildId, target.id);
+        allCases = await getModerationCases(guildId, target.id, HISTORY_LIMIT);
         filteredCases = currentFilter === "all" ? allCases : allCases.filter(c => c.action === currentFilter);
         page = 0;
       } else if (i.customId.startsWith("mh_filter_")) {

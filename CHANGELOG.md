@@ -7,6 +7,42 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.3.0] — 2026-10-17
+
+### 🪟 Apple Glassmorphism Design Overhaul
+
+- **Full VisionOS / macOS Sonoma Liquid-Glass Materials:**
+  - Modernized the web portal design system with layered frosted glass tokens (`--glass`, `--glass-strong`, `--glass-highlight`, `--glass-border`, `--glass-shadow`).
+  - Integrated rich `-webkit-backdrop-filter` and `backdrop-filter` with dual blur and color saturation.
+  - Added specular rim lighting and 175-degree top sheen gradients across cards, panels, search bars, and navigation headers.
+  - Added macOS traffic-light window controls (`.window-dots`) and spotlight search bar pill with glass vibrancy.
+  - Re-architected interactive states for stat widgets, cards, command cards, tables, pills, and toasts with subtle elevation shadows.
+  - Added accessibility support via `@media (prefers-reduced-transparency: reduce)` high-contrast solid backgrounds.
+
+### 🧩 Knub Plugin Framework v1.1.0
+
+- **High-Throughput In-Memory Caching:**
+  - Added 30-second sliding TTL in-memory cache for `isPluginEnabledForGuild` and `getGuildPluginConfig`.
+  - Eliminates repeated database queries during high-concurrency interaction bursts.
+  - Instant cache invalidation on `setPluginEnabledForGuild` and `setGuildPluginConfig`.
+- **Dynamic Configuration Mutation (`setGuildConfig`):**
+  - Added `setGuildPluginConfig<T>()` and `ctx.setGuildConfig()` allowing plugins to mutate and persist per-server plugin configurations safely.
+- **Guild Lifecycle Hooks (`onGuildLoaded` & `GuildCreate`):**
+  - Added `onGuildLoaded` dispatching across cached guilds on client initialization.
+  - Added `handleGuildCreate(guild)` invoked via Discord `Events.GuildCreate` to initialize per-guild plugin states when the bot joins new servers.
+- **Plugin Dependency Declarations:**
+  - Added `dependencies?: string[]` declaration with registration-time validation.
+- **Component Handler Polish:**
+  - Streamlined component interaction pipeline directly through Knub plugin dispatcher.
+  - Strengthened `roles` plugin with safe regex pattern matching (`^rolepanel_([^_]+)_(.+)$`).
+
+### 🐛 Bug Fixes & Gateway Hardening
+
+- **Fixed:** Unhandled runtime crashes in `Events.GuildMemberRemove` when uncached members leave. Added safe optional chaining on `member.user` properties.
+- **Fixed:** Welcome message delivery failure on cold cache. When `config.welcomeChannelId` is not in `guild.channels.cache`, the bot now asynchronously fetches the channel via Discord API rather than silently dropping messages.
+- **Fixed:** Removed redundant duplicate component button handlers in `client.ts` that were bypassed by Knub plugin routing.
+- **Fixed:** Role panel customId parsing vulnerability when role IDs or panel IDs contain complex delimiter characters.
+
 ## [3.2.0] — 2026-10-15
 
 ### 📊 System Telemetry & Status Experience

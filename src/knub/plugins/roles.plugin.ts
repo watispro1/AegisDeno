@@ -18,10 +18,9 @@ export const RolesPlugin = definePlugin<RolesPluginConfig>({
         if (!interaction.isButton() || !interaction.guild || !interaction.member) return;
         await interaction.deferReply({ ephemeral: true });
 
-        const parts = interaction.customId.split("_");
-        const panelId = parts[1];
-        const roleId = parts[2];
-        if (!panelId || !roleId) return;
+        const match = interaction.customId.match(/^rolepanel_([^_]+)_(.+)$/);
+        if (!match) return;
+        const [, panelId, roleId] = match;
 
         const { toggleRoleFromPanel } = await import("../../services/rolePanelService");
         const member = await interaction.guild.members.fetch(interaction.user.id);

@@ -38,8 +38,8 @@ export async function getTotalWarningCount(guildId: string, userId: string): Pro
   return await WarningModel.countDocuments({ guildId, userId });
 }
 
-export async function removeWarning(warningId: string): Promise<boolean> {
-  const result = await WarningModel.findByIdAndDelete(warningId);
+export async function removeWarning(guildId: string, warningId: string): Promise<boolean> {
+  const result = await WarningModel.findOneAndDelete({ _id: warningId, guildId });
   return result !== null;
 }
 

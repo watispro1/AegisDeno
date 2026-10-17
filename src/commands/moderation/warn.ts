@@ -153,7 +153,7 @@ export const command: Command = {
             await i.reply({ content: "❌ You cannot modify warnings for this user due to role hierarchy.", ephemeral: true });
             return;
           }
-          const removed = await removeWarning(warnId);
+          const removed = await removeWarning(guildId, warnId);
           if (removed) {
             await i.reply({ content: `↩️ Warning \`${warnId}\` has been removed. Undone by <@${i.user.id}>.`, ephemeral: false });
             // Disable the undo button after use

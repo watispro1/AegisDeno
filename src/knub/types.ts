@@ -19,6 +19,7 @@ export interface PluginContext<TConfig = any> {
   config: TConfig;
   getPlugin<T = any>(name: string): KnubPlugin<T> | undefined;
   getGuildConfig(guildId: string): Promise<TConfig>;
+  setGuildConfig(guildId: string, config: Partial<TConfig>): Promise<void>;
   logger: typeof logger;
 }
 
@@ -40,6 +41,7 @@ export interface KnubPluginDefinition<TConfig = any> {
   name: string;
   description: string;
   version?: string;
+  dependencies?: string[];
   defaultConfig?: TConfig;
   commands?: Command[];
   events?: PluginEventListener[];
@@ -49,7 +51,8 @@ export interface KnubPluginDefinition<TConfig = any> {
   onGuildLoaded?: (guildId: string, guildConfig: TConfig) => Promise<void> | void;
 }
 
-export interface KnubPlugin<TConfig = any> extends Required<Omit<KnubPluginDefinition<TConfig>, "onLoad" | "onUnload" | "onGuildLoaded">> {
+export interface KnubPlugin<TConfig = any> extends Required<Omit<KnubPluginDefinition<TConfig>, "onLoad" | "onUnload" | "onGuildLoaded" | "dependencies">> {
+  dependencies?: string[];
   onLoad?: (ctx: PluginContext<TConfig>) => Promise<void> | void;
   onUnload?: (ctx: PluginContext<TConfig>) => Promise<void> | void;
   onGuildLoaded?: (guildId: string, guildConfig: TConfig) => Promise<void> | void;

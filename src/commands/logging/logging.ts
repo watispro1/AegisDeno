@@ -64,8 +64,6 @@ export const command: Command = {
     if (sub === "status") {
       const enabled = config.loggingEnabled ?? false;
       const channelId = config.loggingChannelId;
-      // Read per-category toggles (stored in config or default to all on)
-      const categories = (config as any).logCategories as Record<string, boolean> | undefined;
 
       const buildStatusEmbed = (cats: Record<string, boolean> | undefined) => {
         const catLines = LOG_CATEGORIES.map(c => {
@@ -130,7 +128,7 @@ export const command: Command = {
         return rows;
       };
 
-      let currentCats = (config as any).logCategories as Record<string, boolean> | undefined;
+      let currentCats = config.logCategories ?? undefined;
       let currentEnabled = enabled;
 
       const sent = await interaction.reply({
@@ -153,7 +151,7 @@ export const command: Command = {
           const key = i.customId.replace("log_cat_", "");
           if (!currentCats) currentCats = Object.fromEntries(LOG_CATEGORIES.map(c => [c.key, true]));
           currentCats[key] = !(currentCats[key] ?? true);
-          await updateGuildConfig(guildId, { logCategories: currentCats } as any);
+          await updateGuildConfig(guildId, { logCategories: currentCats });
         } else if (i.customId === "log_toggle_master") {
           currentEnabled = !currentEnabled;
           await updateGuildConfig(guildId, { loggingEnabled: currentEnabled });

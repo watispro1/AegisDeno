@@ -230,7 +230,7 @@ export const command: Command = {
         modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
         await i.showModal(modal);
 
-        const modalSubmit = await i.awaitModalSubmit({ time: 300_000 }).catch(() => null) as ModalSubmitInteraction | null;
+        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === "embed_desc_modal" }).catch(() => null) as ModalSubmitInteraction | null;
         if (!modalSubmit) return;
 
         description = modalSubmit.fields.getTextInputValue("embed_desc_input").replace(/\\n/g, "\n");
@@ -265,7 +265,7 @@ export const command: Command = {
         );
         await i.showModal(modal);
 
-        const modalSubmit = await i.awaitModalSubmit({ time: 300_000 }).catch(() => null) as ModalSubmitInteraction | null;
+        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === "embed_meta_modal" }).catch(() => null) as ModalSubmitInteraction | null;
         if (!modalSubmit) return;
 
         title = modalSubmit.fields.getTextInputValue("embed_title_input");
@@ -318,7 +318,7 @@ export const command: Command = {
         );
         await i.showModal(modal);
 
-        const modalSubmit = await i.awaitModalSubmit({ time: 300_000 }).catch(() => null) as ModalSubmitInteraction | null;
+        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === "embed_media_modal" }).catch(() => null) as ModalSubmitInteraction | null;
         if (!modalSubmit) return;
 
         const a = modalSubmit.fields.getTextInputValue("embed_author_input").trim();

@@ -5,6 +5,27 @@ All notable architectural and system changes to the Knub TypeScript modular plug
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This framework follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-10-17
+
+### ⚡ Performance, Lifecycle Hooks & Configuration API
+
+- **High-Throughput In-Memory Caching:**
+  - Added 30-second sliding TTL in-memory cache for `isPluginEnabledForGuild` and `getGuildPluginConfig`.
+  - Eliminates repeated database queries during high-concurrency interaction bursts (e.g., giveaway rollouts, rapid button clicks, or traffic spikes).
+  - Synchronous cache invalidation on `setPluginEnabledForGuild` and `setGuildPluginConfig`.
+- **Dynamic Per-Guild Configuration Mutation (`setGuildConfig`):**
+  - Added `setGuildPluginConfig<T>(guildId, pluginName, config)` on `KnubManager` and exposed `ctx.setGuildConfig(guildId, config)` directly within `PluginContext`.
+  - Allows plugins to mutate and persist per-server plugin configurations safely with automatic MongoDB persistence and cache synchronization.
+- **Guild Lifecycle Dispatching (`onGuildLoaded` & `GuildCreate`):**
+  - Added full `onGuildLoaded(guildId, config)` dispatching across all cached guilds during bot initialization.
+  - Added `handleGuildCreate(guild)` invoked via Discord `Events.GuildCreate` to initialize per-guild plugin states as soon as the bot joins new servers.
+- **Plugin Dependency Declarations:**
+  - Added `dependencies?: string[]` declaration on `KnubPluginDefinition` and `KnubPlugin`.
+  - Automatically verifies that declared dependencies are registered with `KnubManager` upon plugin registration.
+- **Component Handler Polish:**
+  - Streamlined component interaction pipeline with regex capture group extraction.
+  - Strengthened `roles` plugin with safe regex pattern matching (`^rolepanel_([^_]+)_(.+)$`).
+
 ## [1.0.0] — 2026-10-15
 
 ### 🚀 Initial Knub Modular Architecture Launch

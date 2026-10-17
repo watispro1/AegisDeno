@@ -10,7 +10,7 @@ import {
   ComponentType,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { getWarningsForUser, removeWarning } from "../../services/warnings";
+import { getWarningsForUser } from "../../services/warnings";
 import { getModerationCases } from "../../services/moderationCases";
 
 const CASES_PER_PAGE = 5;
@@ -63,7 +63,7 @@ export const command: Command = {
 
       // ── Build overview embed ───────────────────────────────────────────────
       function buildOverviewEmbed(): EmbedBuilder {
-        const recentWarn = warnings.at(-1);
+        const recentWarn = warnings.at(0);
         const recentCase = cases.at(0);
         return new EmbedBuilder()
           .setColor(warnings.length === 0 && cases.length === 0 ? 0x57F287 : 0xED4245)

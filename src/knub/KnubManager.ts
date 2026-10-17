@@ -1,6 +1,7 @@
 import type {
   Client,
   ChatInputCommandInteraction,
+  Guild,
 } from "discord.js";
 import type { Command } from "../types/discord";
 import type {
@@ -44,6 +45,10 @@ export class KnubManager {
   private postHooks: CommandPostHook[] = [];
   private eventCleanups: Array<() => void> = [];
 
+  // In-memory TTL caches (30-second window) to avoid redundant MongoDB queries
+  private pluginEnabledCache = new Map<string, { enabled: boolean; expiresAt: number }>();
+  private guildConfigCache = new Map<string, { config: any; expiresAt: number }>();
+
   constructor() {
     // Default Knub Pre-Filter pipeline
     this.addPreFilter(guildOnlyFilter);
@@ -60,6 +65,18 @@ export class KnubManager {
     if (this.plugins.has(plugin.name)) {
       return;
     }
+
+    // Verify declared plugin dependencies
+    if (plugin.dependencies?.length) {
+      for (const dep of plugin.dependencies) {
+        if (!this.plugins.has(dep)) {
+          logger.warn(
+            `[Knub] Plugin "${plugin.name}" declares dependency on "${dep}", which is not yet registered.`,
+          );
+        }
+      }
+    }
+
     this.plugins.set(plugin.name, plugin);
     logger.debug(`[Knub] Registered plugin: ${plugin.name} v${plugin.version}`);
   }
@@ -115,6 +132,33 @@ export class KnubManager {
         }
       }
     }
+
+    // Dispatch onGuildLoaded for all guilds currently cached in memory
+    if (client.guilds.cache.size > 0) {
+      for (const guild of client.guilds.cache.values()) {
+        await this.handleGuildCreate(guild);
+      }
+    }
+  }
+
+  /** Called when the bot joins a server or during initial startup synchronization. */
+  public async handleGuildCreate(guild: Guild): Promise<void> {
+    for (const plugin of this.plugins.values()) {
+      if (plugin.onGuildLoaded) {
+        try {
+          const isEnabled = await this.isPluginEnabledForGuild(guild.id, plugin.name);
+          if (isEnabled) {
+            const config = await this.getGuildPluginConfig(guild.id, plugin.name);
+            await plugin.onGuildLoaded(guild.id, config);
+          }
+        } catch (err) {
+          logger.warn(
+            `[Knub] Error in onGuildLoaded for plugin "${plugin.name}" in guild "${guild.id}":`,
+            err,
+          );
+        }
+      }
+    }
   }
 
   public async unloadAll(): Promise<void> {
@@ -122,6 +166,8 @@ export class KnubManager {
       cleanup();
     }
     this.eventCleanups = [];
+    this.pluginEnabledCache.clear();
+    this.guildConfigCache.clear();
 
     for (const plugin of this.plugins.values()) {
       if (plugin.onUnload && this.client) {
@@ -135,10 +181,18 @@ export class KnubManager {
   }
 
   public async isPluginEnabledForGuild(guildId: string, pluginName: string): Promise<boolean> {
+    const cacheKey = `${guildId}:${pluginName}`;
+    const cached = this.pluginEnabledCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && now < cached.expiresAt) {
+      return cached.enabled;
+    }
+
     try {
       const doc = await PluginConfigModel.findOne({ guildId, pluginName }).lean() as any;
-      if (!doc) return true; // Enabled by default
-      return doc.enabled ?? true;
+      const enabled = doc ? (doc.enabled ?? true) : true;
+      this.pluginEnabledCache.set(cacheKey, { enabled, expiresAt: now + 30_000 });
+      return enabled;
     } catch {
       return true;
     }
@@ -149,6 +203,9 @@ export class KnubManager {
     pluginName: string,
     enabled: boolean,
   ): Promise<void> {
+    const cacheKey = `${guildId}:${pluginName}`;
+    this.pluginEnabledCache.set(cacheKey, { enabled, expiresAt: Date.now() + 30_000 });
+
     await PluginConfigModel.updateOne(
       { guildId, pluginName },
       { $set: { enabled, updatedAt: new Date() } },
@@ -157,16 +214,41 @@ export class KnubManager {
   }
 
   public async getGuildPluginConfig<T>(guildId: string, pluginName: string): Promise<T> {
+    const cacheKey = `${guildId}:${pluginName}`;
+    const cached = this.guildConfigCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && now < cached.expiresAt) {
+      return cached.config as T;
+    }
+
     const plugin = this.getPlugin(pluginName);
     const defaults = (plugin?.defaultConfig ?? {}) as T;
 
     try {
       const doc = await PluginConfigModel.findOne({ guildId, pluginName }).lean() as any;
-      if (!doc || !doc.config) return defaults;
-      return { ...defaults, ...doc.config };
+      const merged = (!doc || !doc.config) ? defaults : { ...defaults, ...doc.config };
+      this.guildConfigCache.set(cacheKey, { config: merged, expiresAt: now + 30_000 });
+      return merged;
     } catch {
       return defaults;
     }
+  }
+
+  public async setGuildPluginConfig<T = any>(
+    guildId: string,
+    pluginName: string,
+    config: Partial<T>,
+  ): Promise<void> {
+    const current = await this.getGuildPluginConfig<T>(guildId, pluginName);
+    const updated = { ...current, ...config };
+    const cacheKey = `${guildId}:${pluginName}`;
+    this.guildConfigCache.set(cacheKey, { config: updated, expiresAt: Date.now() + 30_000 });
+
+    await PluginConfigModel.updateOne(
+      { guildId, pluginName },
+      { $set: { config: updated, updatedAt: new Date() } },
+      { upsert: true },
+    );
   }
 
   public findPluginForCommand(command: Command): KnubPlugin<any> | undefined {
@@ -293,6 +375,15 @@ export class KnubManager {
         }
 
         if (matched) {
+          // Respect per-guild plugin enable/disable for interactive components,
+          // matching the behaviour already applied to slash commands.
+          if (interaction.guildId && !(await this.isPluginEnabledForGuild(interaction.guildId, plugin.name))) {
+            await interaction
+              .reply({ content: `❌ The **${plugin.name}** plugin is disabled in this server by administrators.`, ephemeral: true })
+              .catch(() => null);
+            return true;
+          }
+
           const ctx = this.createContext(plugin);
           try {
             await handler(interaction, match, ctx);
@@ -318,6 +409,8 @@ export class KnubManager {
       config: plugin.defaultConfig,
       getPlugin: <P = any>(name: string) => this.getPlugin<P>(name),
       getGuildConfig: (guildId: string) => this.getGuildPluginConfig<TConfig>(guildId, plugin.name),
+      setGuildConfig: (guildId: string, config: Partial<TConfig>) =>
+        this.setGuildPluginConfig<TConfig>(guildId, plugin.name, config),
       logger,
     };
   }

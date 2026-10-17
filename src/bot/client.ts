@@ -134,125 +134,8 @@ export function setupEvents(client: Client): void {
         return;
       }
       await executeCommand(command, interaction);
-      } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
-        const handledByPlugin = await knubManager.dispatchComponent(interaction as any);
-        if (handledByPlugin) return;
-
-        if (interaction.isButton()) {
-          if (interaction.customId === "giveaway_enter" || interaction.customId === "giveaway_entrants") {
-            const { handleGiveawayButton } = await import("../commands/community/giveaway");
-            await handleGiveawayButton(interaction);
-        } else if (interaction.customId.startsWith("suggest_")) {
-          const [, action, id] = interaction.customId.split("_");
-          if (!id || !interaction.guildId || !["up", "down", "info"].includes(action)) return;
-
-          if (action === "info") {
-            const { getSuggestion } = await import("../services/suggestions");
-            const suggestion = await getSuggestion(interaction.guildId, id);
-            if (!suggestion) {
-              await interaction.reply({ content: "❌ This suggestion no longer exists.", ephemeral: true }).catch(() => null);
-              return;
-            }
-            await interaction.reply({
-              content: `**Suggestion details**\nStatus: **${suggestion.status}**\n👍 ${suggestion.upvotes.length} · 👎 ${suggestion.downvotes.length}\n\n${suggestion.content}`,
-              ephemeral: true,
-            }).catch(() => null);
-            return;
-          }
-
-          await interaction.deferUpdate().catch(() => null);
-
-          const { voteOnSuggestion } = await import("../services/suggestions");
-          const suggestion = await voteOnSuggestion(interaction.guildId, id, interaction.user.id, action as "up" | "down");
-          
-          if (!suggestion) return;
-
-          const msg = interaction.message;
-          const oldEmbed = msg.embeds[0];
-          if (!oldEmbed) return;
-
-          const newEmbed = EmbedBuilder.from(oldEmbed)
-            .spliceFields(1, 1, { name: "Votes", value: `👍 ${suggestion.upvotes.length} | 👎 ${suggestion.downvotes.length}`, inline: true });
-
-          const row = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(
-              new ButtonBuilder()
-                .setCustomId(`suggest_up_${suggestion.id}`)
-                .setLabel(`Upvote (${suggestion.upvotes.length})`)
-                .setStyle(3)
-                .setEmoji("👍"),
-              new ButtonBuilder()
-                .setCustomId(`suggest_down_${suggestion.id}`)
-                .setLabel(`Downvote (${suggestion.downvotes.length})`)
-                .setStyle(4)
-                .setEmoji("👎")
-            );
-
-          await msg.edit({ embeds: [newEmbed], components: [row] }).catch(() => null);
-        } else if (interaction.customId.startsWith("ticket_create_")) {
-          if (!interaction.guild) return;
-          await interaction.deferReply({ ephemeral: true });
-
-          const staffRoleId = interaction.customId.replace("ticket_create_", "");
-          const cleanStaffRole = staffRoleId === "general" ? null : staffRoleId;
-
-          const { createTicketChannel } = await import("../services/ticketService");
-          const result = await createTicketChannel(interaction.guild, interaction.user.id, "General Support", cleanStaffRole);
-
-          if (result) {
-            await interaction.editReply({ content: `✅ Ticket created! Please head to ${result.channel}.` });
-          } else {
-            await interaction.editReply({ content: "❌ You already have an open ticket or an error occurred." });
-          }
-        } else if (interaction.customId.startsWith("ticket_close_")) {
-          if (!interaction.guild) return;
-          await interaction.deferReply({ ephemeral: true });
-
-          const { canCloseTicket, closeTicket } = await import("../services/ticketService");
-          if (!await canCloseTicket(interaction.guild, interaction.channelId, interaction.user.id)) {
-            await interaction.editReply({ content: "❌ Only the ticket opener or support staff can close this ticket." });
-            return;
-          }
-          const closed = await closeTicket(interaction.guild, interaction.channelId, interaction.user.id, "Closed via button");
-
-          if (closed) {
-            await interaction.editReply({ content: "🔒 Ticket closure initiated." });
-          } else {
-            await interaction.editReply({ content: "❌ Unable to close ticket." });
-          }
-        } else if (interaction.customId === "verify_start") {
-          if (!interaction.guild || !interaction.member) return;
-          await interaction.deferReply({ ephemeral: true });
-
-          const { processVerification } = await import("../services/verificationService");
-          const member = await interaction.guild.members.fetch(interaction.user.id);
-          const result = await processVerification(interaction.guild, member);
-
-          await interaction.editReply({ content: result.message });
-        } else if (interaction.customId.startsWith("rolepanel_")) {
-          if (!interaction.guild || !interaction.member) return;
-          await interaction.deferReply({ ephemeral: true });
-
-          const parts = interaction.customId.split("_");
-          const panelId = parts[1];
-          const roleId = parts[2];
-          if (!panelId || !roleId) return;
-
-          const { toggleRoleFromPanel } = await import("../services/rolePanelService");
-          const member = await interaction.guild.members.fetch(interaction.user.id);
-
-          try {
-            const res = await toggleRoleFromPanel(interaction.guild, member, roleId, panelId, interaction.message.id);
-            await interaction.editReply({
-              content: res.added
-                ? `✅ Granted role **${res.roleName}**.`
-                : `🗑️ Removed role **${res.roleName}**.`,
-            });
-          } catch (err: any) {
-            await interaction.editReply({ content: `❌ ${err.message || "Failed to update role."}` });
-          }
-        }
-      }
+    } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
+      await knubManager.dispatchComponent(interaction as any);
     }
   });
 
@@ -293,34 +176,40 @@ export function setupEvents(client: Client): void {
         `**Channel:** <#${message.channelId}>`,
         message.content ? `\n**Content:**\n\`\`\`\n${message.content.substring(0, 900)}\`\`\`` : "",
       ].join("\n"),
-    });
+    }, "messageDeletes");
   });
 
   // ─── Member Join ──────────────────────────────────────────────────────────
   client.on(Events.GuildMemberAdd, async (member: GuildMember) => {
     // Log event
+    const userTag = member.user?.tag ?? "Unknown User";
+    const avatarUrl = member.user?.displayAvatarURL?.();
+
     await sendGuildLog(client, member.guild.id, {
       title: "📥 Member Joined",
       color: 0x57F287,
-      description: `${member.user.tag} (<@${member.user.id}>) joined the server.`,
-      thumbnail: { url: member.user.displayAvatarURL() },
+      description: `${userTag} (<@${member.user.id}>) joined the server.`,
+      thumbnail: avatarUrl ? { url: avatarUrl } : undefined,
       fields: [
         { name: "Account Created", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
         { name: "Member Count",    value: String(member.guild.memberCount), inline: true },
       ],
-    });
+    }, "memberJoins");
 
     // Welcome message and Auto-role
     const config = await getGuildConfig(member.guild.id);
     
     if (config.welcomeRoleId) {
       await member.roles.add(config.welcomeRoleId).catch(err => 
-        logger.warn(`Failed to assign auto-role ${config.welcomeRoleId} to ${member.user.tag} in ${member.guild.id}:`, err)
+        logger.warn(`Failed to assign auto-role ${config.welcomeRoleId} to ${userTag} in ${member.guild.id}:`, err)
       );
     }
 
     if (config.welcomeEnabled && config.welcomeChannelId) {
-      const channel = member.guild.channels.cache.get(config.welcomeChannelId) as TextChannel | undefined;
+      let channel = member.guild.channels.cache.get(config.welcomeChannelId) as TextChannel | undefined;
+      if (!channel) {
+        channel = (await member.guild.channels.fetch(config.welcomeChannelId).catch(() => null)) as TextChannel | null ?? undefined;
+      }
       if (channel) {
         const msg = config.welcomeMessage
           .replace(/{user}/g, `<@${member.user.id}>`)
@@ -334,14 +223,25 @@ export function setupEvents(client: Client): void {
 
   // ─── Member Leave ─────────────────────────────────────────────────────────
   client.on(Events.GuildMemberRemove, async (member) => {
+    const user = member.user;
+    const tag = user?.tag ?? "Unknown User";
+    const id = member.id;
+    const avatar = user?.displayAvatarURL?.();
+
     await sendGuildLog(client, member.guild.id, {
       title: "📤 Member Left",
       color: 0xE67E22,
-      description: `${member.user.tag} (<@${member.user.id}>) left the server.`,
-      thumbnail: { url: member.user.displayAvatarURL() },
+      description: `${tag} (<@${id}>) left the server.`,
+      thumbnail: avatar ? { url: avatar } : undefined,
       fields: [
         { name: "Joined At", value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : "Unknown", inline: true },
       ],
-    });
+    }, "memberLeaves");
+  });
+
+  // ─── Guild Join / Discovery ────────────────────────────────────────────────
+  client.on(Events.GuildCreate, async (guild) => {
+    logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
+    await knubManager.handleGuildCreate(guild);
   });
 }

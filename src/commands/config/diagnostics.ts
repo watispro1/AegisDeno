@@ -134,7 +134,7 @@ export const command: Command = {
       recommendations.push("• Grant missing permissions to the bot's role in server settings.");
     }
     if (!guildConfig.loggingEnabled || !guildConfig.loggingChannelId) {
-      recommendations.push("• Set up a logging channel using `/logging setup`.");
+      recommendations.push("• Set up a logging channel using `/logging channel`.");
     }
     if (!hasAnyAutomod) {
       recommendations.push("• Enable some automod features using `/automod <rule> toggle`.");

@@ -6,6 +6,8 @@ export interface GuildConfig {
   language: string;
   loggingEnabled: boolean;
   loggingChannelId: string | null;
+  /** Per-category audit log toggles keyed by category name; absent means default (on). */
+  logCategories: Record<string, boolean> | null;
   welcomeEnabled: boolean;
   welcomeChannelId: string | null;
   welcomeMessage: string;
@@ -22,6 +24,7 @@ const DEFAULT_CONFIG: Omit<GuildConfig, "guildId"> = {
   language: "en",
   loggingEnabled: false,
   loggingChannelId: null,
+  logCategories: null,
   welcomeEnabled: false,
   welcomeChannelId: null,
   welcomeMessage: "Welcome {user} to **{server}**! You are member #{member_count}.",
@@ -41,6 +44,7 @@ function normalizeGuildConfig(guildId: string, source?: Partial<GuildConfig>): G
     language: config.language ?? DEFAULT_CONFIG.language,
     loggingEnabled: config.loggingEnabled ?? DEFAULT_CONFIG.loggingEnabled,
     loggingChannelId: config.loggingChannelId ?? DEFAULT_CONFIG.loggingChannelId,
+    logCategories: config.logCategories ?? DEFAULT_CONFIG.logCategories,
     welcomeEnabled: config.welcomeEnabled ?? DEFAULT_CONFIG.welcomeEnabled,
     welcomeChannelId: config.welcomeChannelId ?? DEFAULT_CONFIG.welcomeChannelId,
     welcomeMessage: config.welcomeMessage ?? DEFAULT_CONFIG.welcomeMessage,
