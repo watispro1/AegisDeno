@@ -18,6 +18,7 @@ import { commands } from "../commands/loader";
 import { executeCommand } from "../commands/executor";
 import { sendGuildLog } from "../services/logging";
 import { processAutomod, processAutomodEdit } from "../services/automodExecution";
+import { processAutoResponders } from "../services/autoResponderService";
 import { getGuildConfig } from "../services/configuration";
 import { knubManager } from "../knub";
 import { registerDefaultPlugins } from "../knub/plugins";
@@ -144,8 +145,10 @@ export function setupEvents(client: Client): void {
     if (message.author.bot || !message.guildId) return;
 
     // 1. Autoresponder check
-    const { processAutoResponders } = await import("../services/autoResponderService");
-    const responded = await processAutoResponders(message);
+    const responded = await processAutoResponders(message).catch(err => {
+      logger.error("Autoresponder error:", err);
+      return false;
+    });
     if (responded) return;
 
     // 2. Automod check

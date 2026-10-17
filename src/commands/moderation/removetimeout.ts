@@ -19,7 +19,13 @@ export const command: Command = {
   botPermissions:  [PermissionFlagsBits.ModerateMembers],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
-    const target = interaction.options.getMember("user") as GuildMember | null;
+    let target = interaction.options.getMember("user") as GuildMember | null;
+    if (!target) {
+      const user = interaction.options.getUser("user");
+      if (user && interaction.guild) {
+        target = await interaction.guild.members.fetch(user.id).catch(() => null);
+      }
+    }
     const guildId = interaction.guildId!;
 
     if (!target) {

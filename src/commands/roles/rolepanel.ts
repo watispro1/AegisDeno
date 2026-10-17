@@ -131,17 +131,25 @@ export const command: Command = {
       const title = modalResponse.fields.getTextInputValue("panel_title");
       const description = modalResponse.fields.getTextInputValue("panel_desc");
       
+      const getFieldVal = (id: string, fallback: string) => {
+        try {
+          return modalResponse.fields.getTextInputValue(id).trim() || fallback;
+        } catch {
+          return fallback;
+        }
+      };
+
       const rolesInput = [];
-      const label1 = modalResponse.fields.getTextInputValue("label1") || role1.name;
+      const label1 = getFieldVal("label1", role1.name);
       rolesInput.push({ roleId: role1.id, label: label1 });
 
       if (role2) {
-        const label2 = modalResponse.fields.getTextInputValue("label2") || role2.name;
+        const label2 = getFieldVal("label2", role2.name);
         rolesInput.push({ roleId: role2.id, label: label2 });
       }
 
       if (role3) {
-        const label3 = modalResponse.fields.getTextInputValue("label3") || role3.name;
+        const label3 = getFieldVal("label3", role3.name);
         rolesInput.push({ roleId: role3.id, label: label3 });
       }
 

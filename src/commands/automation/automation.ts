@@ -125,7 +125,7 @@ export const command: Command = {
         }
 
         const channel = await interaction.guild!.channels.fetch(selected.id).catch(() => null);
-        const me = interaction.guild!.members.me;
+        const me = interaction.guild!.members.me ?? await interaction.guild!.members.fetchMe().catch(() => null);
 
         if (
           !(channel instanceof TextChannel) ||
@@ -168,7 +168,7 @@ export const command: Command = {
         }
 
         const channel = await interaction.guild!.channels.fetch(selected.id).catch(() => null);
-        const me = interaction.guild!.members.me;
+        const me = interaction.guild!.members.me ?? await interaction.guild!.members.fetchMe().catch(() => null);
 
         if (
           !(channel instanceof TextChannel) ||

@@ -5,6 +5,7 @@ import {
   AttachmentBuilder,
 } from "discord.js";
 import type { Command } from "../../types/discord";
+import { isValidObjectId } from "mongoose";
 import { ModerationCaseModel } from "../../database/mongo";
 
 export const command: Command = {
@@ -53,6 +54,10 @@ export const command: Command = {
       }
 
       const caseId = interaction.options.getString("case_id", true);
+      if (!isValidObjectId(caseId)) {
+        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, ephemeral: true });
+        return;
+      }
       const record = await ModerationCaseModel.findOne({ guildId: interaction.guild.id, _id: caseId }).catch(() => null);
 
       if (!record) {
@@ -82,6 +87,10 @@ export const command: Command = {
       }
 
       const caseId = interaction.options.getString("case_id", true);
+      if (!isValidObjectId(caseId)) {
+        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, ephemeral: true });
+        return;
+      }
       const newReason = interaction.options.getString("reason", true);
 
       const record = await ModerationCaseModel.findOneAndUpdate(
@@ -105,6 +114,10 @@ export const command: Command = {
       }
 
       const caseId = interaction.options.getString("case_id", true);
+      if (!isValidObjectId(caseId)) {
+        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, ephemeral: true });
+        return;
+      }
       const res = await ModerationCaseModel.deleteOne({ guildId: interaction.guild.id, _id: caseId }).catch(() => null);
 
       if (res && res.deletedCount > 0) {

@@ -125,9 +125,9 @@ export const command: Command = {
 
     if (subcommand === "add") {
       const targetUser = interaction.options.getUser("user", true);
-      const channel = interaction.channel as TextChannel;
-      if (!channel.name.startsWith("ticket-") || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
-        await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
+      const channel = interaction.channel as TextChannel | null;
+      if (!channel || !("name" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
+        await interaction.reply({ content: "❌ This command can only be used inside an active ticket channel.", ephemeral: true });
         return;
       }
       const ok = await addUserToTicket(channel, targetUser.id);
@@ -140,9 +140,9 @@ export const command: Command = {
 
     if (subcommand === "remove") {
       const targetUser = interaction.options.getUser("user", true);
-      const channel = interaction.channel as TextChannel;
-      if (!channel.name.startsWith("ticket-") || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
-        await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
+      const channel = interaction.channel as TextChannel | null;
+      if (!channel || !("name" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
+        await interaction.reply({ content: "❌ This command can only be used inside an active ticket channel.", ephemeral: true });
         return;
       }
       const ok = await removeUserFromTicket(channel, targetUser.id);
@@ -154,9 +154,9 @@ export const command: Command = {
     }
 
     if (subcommand === "claim") {
-      const channel = interaction.channel as TextChannel;
-      if (!channel.name.startsWith("ticket-") || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
-        await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
+      const channel = interaction.channel as TextChannel | null;
+      if (!channel || !("name" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
+        await interaction.reply({ content: "❌ This command can only be used inside an active ticket channel.", ephemeral: true });
         return;
       }
 
@@ -171,9 +171,9 @@ export const command: Command = {
     }
 
     if (subcommand === "transcript") {
-      const channel = interaction.channel as TextChannel;
-      if (!channel.name.startsWith("ticket-") || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
-        await interaction.reply({ content: "❌ This command can only be used inside a ticket channel.", ephemeral: true });
+      const channel = interaction.channel as TextChannel | null;
+      if (!channel || !("name" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
+        await interaction.reply({ content: "❌ This command can only be used inside an active ticket channel.", ephemeral: true });
         return;
       }
 

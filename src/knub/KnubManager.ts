@@ -393,6 +393,20 @@ export class KnubManager {
               `[Knub] Component handler error in plugin "${plugin.name}" for customId "${customId}":`,
               err,
             );
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction
+                .reply({
+                  content: "❌ An error occurred while processing this action. Please try again.",
+                  ephemeral: true,
+                })
+                .catch(() => null);
+            } else if (interaction.deferred && !interaction.replied) {
+              await interaction
+                .editReply({
+                  content: "❌ An error occurred while processing this action. Please try again.",
+                })
+                .catch(() => null);
+            }
             return true;
           }
         }

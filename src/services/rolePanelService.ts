@@ -99,7 +99,7 @@ export async function toggleRoleFromPanel(
   }).lean();
   if (!panel) throw new Error("This role panel is no longer active.");
 
-  const role = guild.roles.cache.get(roleId);
+  const role = guild.roles.cache.get(roleId) ?? await guild.roles.fetch(roleId).catch(() => null);
   if (!role) {
     throw new Error("Role no longer exists.");
   }

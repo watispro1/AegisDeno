@@ -119,7 +119,7 @@ export async function processVerification(
       return { success: true, message: "You are already verified!" };
     }
 
-    const role = guild.roles.cache.get(config.verifiedRoleId);
+    const role = guild.roles.cache.get(config.verifiedRoleId) ?? await guild.roles.fetch(config.verifiedRoleId).catch(() => null);
     if (!role) {
       return { success: false, message: "Configured verified role no longer exists." };
     }

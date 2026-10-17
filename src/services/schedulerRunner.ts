@@ -43,7 +43,8 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       .setTimestamp();
 
     if (task.type === "reminder") {
-      embed.setFooter({ text: `Reminder set by <@${task.creatorId}>` });
+      const creator = client.users.cache.get(task.creatorId) ?? await client.users.fetch(task.creatorId).catch(() => null);
+      embed.setFooter({ text: creator ? `Reminder for ${creator.tag ?? creator.username}` : `Reminder ID: ${taskId}` });
     }
 
     await channel.send({

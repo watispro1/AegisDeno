@@ -30,9 +30,10 @@ export const command: Command = {
   botPermissions:  [PermissionFlagsBits.BanMembers],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
-    const userId  = interaction.options.getString("user_id", true).trim();
-    const reason  = interaction.options.getString("reason") ?? "No reason provided.";
-    const guildId = interaction.guildId!;
+    const rawUserId = interaction.options.getString("user_id", true).trim();
+    const userId    = rawUserId.replace(/[<@!>]/g, "").trim();
+    const reason    = interaction.options.getString("reason") ?? "No reason provided.";
+    const guildId   = interaction.guildId!;
 
     if (!/^\d{17,20}$/.test(userId)) {
       return interaction.reply({ content: "❌ That doesn't look like a valid Discord user ID (17-20 digits).", ephemeral: true });

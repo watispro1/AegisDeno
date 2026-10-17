@@ -194,7 +194,10 @@ export async function closeTicket(
     ticket.reason = reason;
     await ticket.save();
 
-    const channel = guild.channels.cache.get(channelId) as TextChannel | undefined;
+    let channel = guild.channels.cache.get(channelId) as TextChannel | undefined;
+    if (!channel) {
+      channel = (await guild.channels.fetch(channelId).catch(() => null)) as TextChannel | null ?? undefined;
+    }
     if (channel) {
       await channel.send({
         embeds: [

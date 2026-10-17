@@ -380,7 +380,7 @@ export function renderFeatures(cfg: SiteConfig): string {
     </div>
   </div>
 
-  <div class="ft-category-nav reveal" id="ft-nav" role="tablist" aria-label="Feature categories">
+  <div class="ft-category-nav reveal" id="ft-nav" role="group" aria-label="Feature categories">
     <button class="ft-cat-btn" type="button" data-filter="all" aria-pressed="true">✨ All Systems</button>
     <button class="ft-cat-btn" type="button" data-filter="tickets" aria-pressed="false">🎫 Support Tickets</button>
     <button class="ft-cat-btn" type="button" data-filter="verification" aria-pressed="false">🛡️ Anti-Raid Gate</button>
@@ -1305,7 +1305,7 @@ export function renderTroubleshooting(cfg: SiteConfig): string {
       <p style="color:var(--muted);font-size:.95rem;line-height:1.6;margin-bottom:1.25rem">
         Over 75% of "Missing Permissions" errors occur because Aegis's highest role is positioned lower than the member or role it is attempting to moderate or assign. Discord enforces this rule strictly, even if Aegis has Administrator privileges.
       </p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;background:rgba(0,0,0,0.2);padding:1.25rem;border-radius:var(--r-lg);border:1px solid var(--glass-border)">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;background:var(--surface-2);padding:1.25rem;border-radius:var(--r-lg);border:1px solid var(--glass-border)">
         <div style="border-left:3px solid #ff4d4f;padding-left:1rem">
           <div style="font-weight:700;color:#ff4d4f;font-size:.85rem;text-transform:uppercase">❌ Problematic Setup</div>
           <div style="margin-top:.4rem;font-size:.85rem;color:var(--text-2);line-height:1.5">
@@ -1347,12 +1347,12 @@ export function renderTroubleshooting(cfg: SiteConfig): string {
           <span>/plugins list</span>
           <span style="font-size:.72rem;color:var(--faint)">Knub plugins</span>
         </button>
-        <button type="button" class="help-command-pill" data-copy="/automod exempt list">
-          <span>/automod exempt list</span>
-          <span style="font-size:.72rem;color:var(--faint)">Exemptions</span>
+        <button type="button" class="help-command-pill" data-copy="/ticket setup">
+          <span>/ticket setup</span>
+          <span style="font-size:.72rem;color:var(--faint)">Ticket desk</span>
         </button>
-        <button type="button" class="help-command-pill" data-copy="/clean 50">
-          <span>/clean 50</span>
+        <button type="button" class="help-command-pill" data-copy="/purge 50">
+          <span>/purge 50</span>
           <span style="font-size:.72rem;color:var(--faint)">Purge messages</span>
         </button>
       </div>
@@ -1390,7 +1390,7 @@ export function renderTroubleshooting(cfg: SiteConfig): string {
           <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
             <li>Visit the <a href="/status" style="color:var(--link)">Status Page</a> to verify gateway latency and connection health.</li>
             <li>Check if the bot process is restarting or encountering memory pressure in host logs.</li>
-            <li>If the button belongs to an older setup panel that was recreated, recreate the panel with <code class="inline">/ticket panel</code> to refresh component custom IDs.</li>
+            <li>If the button belongs to an older setup panel that was recreated, recreate the panel with <code class="inline">/ticket setup</code> to refresh component custom IDs.</li>
           </ol>
         </div>
       </details>
@@ -1443,7 +1443,7 @@ export function renderTroubleshooting(cfg: SiteConfig): string {
           <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
             <li>Confirm Aegis has <strong>Manage Messages</strong> and <strong>Read Message History</strong> in that channel.</li>
             <li>Run <code class="inline">/automod status</code> to confirm that the specific filter (invites, profanity, spam) is toggled on.</li>
-            <li>Run <code class="inline">/automod exempt list</code> to verify the author does not hold an exempted moderator role.</li>
+            <li>Run <code class="inline">/automod status</code> to verify the author does not hold an exempted moderator role or post in an exempt channel.</li>
           </ol>
         </div>
       </details>
@@ -1481,7 +1481,7 @@ export function renderTroubleshooting(cfg: SiteConfig): string {
           <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
             <li>Open the <a href="https://discord.com/developers/applications" target="_blank" rel="noopener" style="color:var(--link)">Discord Developer Portal</a>.</li>
             <li>Select your Bot application &rarr; <strong>Bot</strong> tab &rarr; Enable <strong>Server Members Intent</strong> and <strong>Message Content Intent</strong>.</li>
-            <li>Run <code class="inline">/welcome test</code> to verify channel delivery and auto-role assignment.</li>
+            <li>Run <code class="inline">/welcome preview</code> to verify channel delivery and auto-role assignment.</li>
           </ol>
         </div>
       </details>

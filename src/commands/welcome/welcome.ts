@@ -190,7 +190,7 @@ export const command: Command = {
     // ── CHANNEL ───────────────────────────────────────────────────────────────
     if (sub === "channel") {
       const channel = interaction.options.getChannel("channel", true);
-      const me = interaction.guild?.members.me;
+      const me = interaction.guild?.members.me ?? await interaction.guild?.members.fetchMe().catch(() => null);
       const targetChannel = await interaction.guild!.channels.fetch(channel.id).catch(() => null);
 
       if (

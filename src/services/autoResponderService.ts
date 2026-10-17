@@ -13,6 +13,13 @@ export interface AutoResponder {
   createdAt: Date;
 }
 
+interface CacheEntry {
+  responders: any[];
+  expiresAt: number;
+}
+const responderCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 30_000;
+
 export async function addAutoResponder(input: {
   guildId: string;
   trigger: string;
@@ -21,6 +28,7 @@ export async function addAutoResponder(input: {
   createdBy: string;
 }): Promise<AutoResponder | null> {
   try {
+    responderCache.delete(input.guildId);
     const id = `ar-${crypto.randomUUID()}`;
     const doc = await AutoResponderModel.create({
       id,
@@ -39,6 +47,7 @@ export async function addAutoResponder(input: {
 
 export async function removeAutoResponder(guildId: string, id: string): Promise<boolean> {
   try {
+    responderCache.delete(guildId);
     const res = await AutoResponderModel.deleteOne({ guildId, id });
     return res.deletedCount > 0;
   } catch {
@@ -60,7 +69,15 @@ export async function processAutoResponders(message: Message): Promise<boolean> 
 
   try {
     const content = message.content.toLowerCase();
-    const responders = await AutoResponderModel.find({ guildId: message.guild.id, enabled: true });
+    const now = Date.now();
+    const cached = responderCache.get(message.guild.id);
+    let responders: any[];
+    if (cached && now < cached.expiresAt) {
+      responders = cached.responders;
+    } else {
+      responders = await AutoResponderModel.find({ guildId: message.guild.id, enabled: true }).lean();
+      responderCache.set(message.guild.id, { responders, expiresAt: now + CACHE_TTL_MS });
+    }
 
     for (const ar of responders) {
       const trigger = ar.trigger.toLowerCase();

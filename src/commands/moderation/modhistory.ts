@@ -156,9 +156,15 @@ export const command: Command = {
       return [nav, filters];
     };
 
+    const getComponents = () => {
+      if (allCases.length === 0) return [];
+      const [nav, filters] = buildButtons();
+      return filteredCases.length > 0 ? [nav, filters] : [filters];
+    };
+
     const sent = await interaction.editReply({
       embeds: [buildEmbed()],
-      components: filteredCases.length > 0 ? buildButtons() : [],
+      components: getComponents(),
     });
 
     const collector = sent.createMessageComponentCollector({
@@ -186,7 +192,7 @@ export const command: Command = {
 
       await i.editReply({
         embeds: [buildEmbed()],
-        components: filteredCases.length > 0 ? buildButtons() : [],
+        components: getComponents(),
       });
     });
 

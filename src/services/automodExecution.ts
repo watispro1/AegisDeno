@@ -146,7 +146,7 @@ async function enforceAutomod(
       await addWarning(
         message.guildId,
         message.author.id,
-        client.user!.id,
+        client.user?.id ?? "Aegis",
         `Automod violation: ${ruleName}`
       );
     } catch (err) {

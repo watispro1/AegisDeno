@@ -159,14 +159,15 @@ export const command: Command = {
 
         await i.deferUpdate();
         try {
-          const textChannels = guild.channels.cache.filter(
-            c => c.isTextBased() && "permissionOverwrites" in c
-          ) as Map<string, TextChannel>;
+          const allChannels = await guild.channels.fetch().catch(() => null);
+          const channelCollection = allChannels ?? guild.channels.cache;
 
           let locked = 0;
-          for (const [, ch] of textChannels) {
-            await ch.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }).catch(() => null);
-            locked++;
+          for (const [, ch] of channelCollection) {
+            if (ch && ch.isTextBased() && "permissionOverwrites" in ch) {
+              await (ch as TextChannel).permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }).catch(() => null);
+              locked++;
+            }
           }
 
           const resultEmbed = new EmbedBuilder()
