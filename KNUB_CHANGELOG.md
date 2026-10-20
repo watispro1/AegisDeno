@@ -5,6 +5,31 @@ All notable architectural and system changes to the Knub TypeScript modular plug
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This framework follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-10-20
+
+### ⭐ Starboard Plugin Architecture & Partial Reaction Hydration
+
+- **Starboard Plugin (`starboardPlugin` v1.0.0):**
+  - Modular Knub plugin listening to `Events.MessageReactionAdd` and `Events.MessageReactionRemove`.
+  - Seamless handling of Discord partials: automatically hydrates partial reactions and messages via `reaction.fetch()` and `reaction.message.fetch()`.
+  - Reaction threshold verification against per-guild configuration with dynamic live star count recalculation.
+  - Golden embed generation with author metadata, source jump links, attachment detection, and image previews.
+- **Dedicated Persistence Layer:**
+  - High-performance `StarboardConfig` collection for immediate per-guild lookup.
+  - `StarboardEntry` collection with unique compound index on `(guildId, originalMessageId)` preventing duplicate posts.
+  - Automatic deletion cleanup if stars drop below threshold after creation.
+
+## [1.1.1] — 2026-10-20
+
+### 🛡️ Component Dispatcher & Verification Hardening
+
+- **Verification Plugin Exception Safety:**
+  - Added safe optional catching (`.catch(() => null)`) on `guild.members.fetch(interaction.user.id)` inside the `verify_start` button handler.
+  - Prevents unhandled promise rejections when users leave the server during verification or when Discord API rate limits occur.
+  - Emits friendly ephemeral guidance to prompt the user to retry if their member record cannot be fetched.
+- **Component Handler Graceful Fallbacks:**
+  - Standardized error logging in `knubManager.dispatchComponent` to preserve full error stack traces while ensuring interaction responses complete.
+
 ## [1.1.0] — 2026-10-17
 
 ### ⚡ Performance, Lifecycle Hooks & Configuration API

@@ -2,8 +2,6 @@ import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
   renderHome,
-  renderDashboard,
-  renderPlayground,
   renderFeatures,
   renderCommands,
   renderDocs,
@@ -61,8 +59,6 @@ async function main() {
 
   const pages: [string, string][] = [
     ["index.html", renderHome(cfg, stats, false)],
-    ["dashboard.html", renderDashboard(cfg, stats, false)],
-    ["playground.html", renderPlayground(cfg)],
     ["features.html", renderFeatures(cfg)],
     ["commands.html", renderCommands(cfg)],
     ["docs.html", renderDocs(cfg)],

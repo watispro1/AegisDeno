@@ -95,8 +95,12 @@ export async function processAutoResponders(message: Message): Promise<boolean> 
         const formattedResponse = ar.response
           .replace(/{user}/g, `<@${message.author.id}>`)
           .replace(/{username}/g, message.author.username)
+          .replace(/{tag}/g, message.author.tag)
+          .replace(/{user_id}/g, message.author.id)
           .replace(/{server}/g, message.guild.name)
+          .replace(/{server_id}/g, message.guild.id)
           .replace(/{channel}/g, `<#${message.channelId}>`)
+          .replace(/{channel_id}/g, message.channelId)
           .replace(/{member_count}/g, String(message.guild.memberCount));
 
         if ("send" in message.channel && typeof message.channel.send === "function") {

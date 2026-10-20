@@ -69,6 +69,17 @@ Commands should fail safely and return a useful ephemeral error when an interact
 
 Developer commands are owner-only. The owner ID should be supplied through `DISCORD_OWNER_ID`; do not add executable evaluation of arbitrary JavaScript to the bot.
 
+## Web Portal & Design System Architecture
+
+The web dashboard and public reference pages live under `src/web/`:
+
+- `theme.ts` — Unified CSS design system featuring Apple VisionOS-inspired Liquid Glass materials, semantic tokens, and instant on/off toggling (`data-glass="on|off"`).
+- `layout.ts` — Global HTML layout scaffolding including responsive navigation, search dialog modal, theme toggles, and metadata.
+- `client.ts` — Client-side vanilla JavaScript controlling theme persistence (`aegis-theme`), glass state persistence (`aegis-glass`), global search (`Ctrl+K`), quick clipboard copying, and keyboard shortcuts (`G`). Note: NEVER include string template literals (`${...}`) in `clientScript` to preserve smoke test compliance.
+- `assets.ts` — Inlined SVGs and synchronous `themeInitScript` executed before DOM paint to prevent styling flash.
+- `pages.ts` — Server-side rendered HTML generators for all core public and authenticated routes.
+- `server.ts` — Express server managing asset hashing, route registration, live telemetry streaming, and HTTP compression.
+
 ## Project Direction
 
 AegisDeno should be a reliable, maintainable, feature-rich Discord utility/moderation bot with a clean slash-command experience. Favor predictable behavior, strong typing, explicit permissions, safe moderation, and reusable services over unnecessary abstraction.

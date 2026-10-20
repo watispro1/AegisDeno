@@ -19,7 +19,11 @@ export const VerificationPlugin = definePlugin<VerificationPluginConfig>({
         await interaction.deferReply({ ephemeral: true });
 
         const { processVerification } = await import("../../services/verificationService");
-        const member = await interaction.guild.members.fetch(interaction.user.id);
+        const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+        if (!member) {
+          await interaction.editReply({ content: "❌ Unable to locate your member record in this server. Please rejoin or try again." });
+          return;
+        }
         const result = await processVerification(interaction.guild, member);
 
         await interaction.editReply({ content: result.message });

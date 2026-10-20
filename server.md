@@ -502,7 +502,7 @@ Administrative commands for guild settings and 1-click server templates.
 ### 8. 📊 Community & Utility Suite — `/dashboard`, `/embed`, `/poll`, `/rolepanel`, `/welcome`, `/userinfo`, `/serverinfo`, `/diagnostics`
 
 - **`/dashboard`**
-  - Displays an interactive server control panel with live metric counters (members, active automod rules, open tickets, pending suggestions) and action buttons (`Refresh Stats`, `AutoMod Status`, `Open Tickets`, `Pending Suggestions`).
+  - Displays an interactive server control panel with live metric counters (members, active automod rules, open tickets, pending suggestions) and action buttons (`Refresh Stats`, `AutoMod Status`, `Open Tickets`, `Pending Suggestions`, plus a direct link into the Web Operations Dashboard with toggleable Liquid Glass).
 - **`/embed channel:<#channel> title:<text> description:<text> [color:<hex>] [footer:<text>] [image:<url>]`**
   - Interactive rich embed builder with live ephemeral preview and direct channel dispatch controls (`Send Embed`, `Cancel`).
 - **`/poll question:<text> option1:<A> option2:<B> ... duration:<hours>`**

@@ -33,11 +33,11 @@ const lightTokens = `
   --code-bg: rgba(15, 23, 42, 0.055);
   --selection: rgba(88, 101, 242, 0.22);
 
-  --glass: rgba(255, 255, 255, 0.58);
-  --glass-strong: rgba(255, 255, 255, 0.74);
-  --glass-border: rgba(15, 23, 42, 0.12);
-  --glass-highlight: rgba(255, 255, 255, 0.85);
-  --glass-shadow: 0 18px 44px -26px rgba(15, 23, 42, 0.32), 0 2px 10px -6px rgba(15, 23, 42, 0.14);
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-strong: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(15, 23, 42, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.98);
+  --glass-shadow: 0 16px 36px -12px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
 `;
 
 const cyberpunkTokens = `
@@ -163,12 +163,12 @@ export const styles = `
   --selection: rgba(94, 106, 210, 0.38);
 
   /* Apple liquid-glass — true frosted glass */
-  --glass: rgba(255, 255, 255, 0.042);
-  --glass-strong: rgba(255, 255, 255, 0.078);
-  --glass-border: rgba(255, 255, 255, 0.108);
-  --glass-highlight: rgba(255, 255, 255, 0.13);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.06);
-  --glass-blur: 44px;
+  --glass: rgba(255, 255, 255, 0.046);
+  --glass-strong: rgba(255, 255, 255, 0.084);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.22);
+  --glass-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.65), 0 4px 14px -3px rgba(0, 0, 0, 0.4);
+  --glass-blur: 48px;
   --glass-sat: 210%;
 
   /* SF Pro-inspired type stack */
@@ -190,13 +190,13 @@ export const styles = `
 }
 
 [data-theme='light'] { ${lightTokens}
-  --glass: rgba(255, 255, 255, 0.65);
-  --glass-strong: rgba(255, 255, 255, 0.82);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-highlight: rgba(255, 255, 255, 0.92);
-  --glass-shadow: 0 8px 32px rgba(0,0,0,0.11), inset 0 1px 0 rgba(255,255,255,0.88);
-  --glass-blur: 44px;
-  --glass-sat: 180%;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-strong: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(15, 23, 42, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.98);
+  --glass-shadow: 0 16px 36px -12px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+  --glass-blur: 48px;
+  --glass-sat: 190%;
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 [data-theme='cyberpunk'] { ${cyberpunkTokens} }
@@ -205,13 +205,13 @@ export const styles = `
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) { ${lightTokens}
-    --glass: rgba(255, 255, 255, 0.65);
-    --glass-strong: rgba(255, 255, 255, 0.82);
-    --glass-border: rgba(0, 0, 0, 0.08);
-    --glass-highlight: rgba(255, 255, 255, 0.92);
-    --glass-shadow: 0 8px 32px rgba(0,0,0,0.11), inset 0 1px 0 rgba(255,255,255,0.88);
-    --glass-blur: 44px;
-    --glass-sat: 180%;
+    --glass: rgba(255, 255, 255, 0.72);
+    --glass-strong: rgba(255, 255, 255, 0.88);
+    --glass-border: rgba(15, 23, 42, 0.14);
+    --glass-highlight: rgba(255, 255, 255, 0.98);
+    --glass-shadow: 0 16px 36px -12px rgba(15, 23, 42, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+    --glass-blur: 48px;
+    --glass-sat: 190%;
     --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 }
@@ -2176,11 +2176,106 @@ kbd {
   .stat, .hero-panel, .site-search-panel, .modal-content, .docs-side, .toast,
   .nav, .back-to-top, .btn.ghost, .site-search-input-wrap,
   .status-hero-card, .subsystem-card, .ft-showcase-card, .help-cat-card,
-  .help-issue-card, .cl-stat-box, .cl-sidebar, .cl-card, .cl-empty {
+  .help-issue-card, .cl-stat-box, .cl-sidebar, .cl-card, .cl-empty,
+  .bento-card, .cmd-pill {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
     background: var(--bg-alt) !important;
   }
+}
+
+/* ── Liquid Glass Toggle Button ──────────────────────────────────── */
+.glass-toggle {
+  position: relative;
+  transition: all 0.2s var(--ease);
+}
+.glass-toggle .icon-glass {
+  transition: transform 0.25s var(--spring);
+}
+.glass-toggle:hover .icon-glass {
+  transform: scale(1.12);
+}
+.glass-toggle[aria-pressed="true"] {
+  color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: 0 0 14px -3px var(--primary-ring), inset 0 1px 0 rgba(255,255,255,0.18);
+}
+.glass-toggle[aria-pressed="true"] .icon-glass {
+  filter: drop-shadow(0 0 4px var(--primary));
+}
+.glass-toggle[aria-pressed="false"] {
+  opacity: 0.65;
+}
+.glass-toggle[aria-pressed="false"]:hover {
+  opacity: 1;
+}
+
+/* ── Liquid Glass Toggle: Solid / Opaque Performance Mode ───────── */
+[data-glass="off"],
+[data-glass="off"] :root {
+  --glass: var(--surface);
+  --glass-strong: var(--surface-2);
+  --glass-border: var(--border);
+  --glass-highlight: transparent;
+  --glass-shadow: var(--shadow-sm);
+  --glass-blur: 0px;
+  --glass-sat: 100%;
+}
+
+[data-glass="off"] .glass,
+[data-glass="off"] .card,
+[data-glass="off"] .cmd-card,
+[data-glass="off"] details.acc,
+[data-glass="off"] .step,
+[data-glass="off"] .metric,
+[data-glass="off"] .component-row,
+[data-glass="off"] .endpoint-item,
+[data-glass="off"] .dash-card,
+[data-glass="off"] .pg-card,
+[data-glass="off"] .table-wrap,
+[data-glass="off"] .cta-box,
+[data-glass="off"] .status-banner,
+[data-glass="off"] .stat,
+[data-glass="off"] .hero-panel,
+[data-glass="off"] .site-search-panel,
+[data-glass="off"] .modal-content,
+[data-glass="off"] .docs-side,
+[data-glass="off"] .toast,
+[data-glass="off"] .nav,
+[data-glass="off"] .back-to-top,
+[data-glass="off"] .btn.ghost,
+[data-glass="off"] .site-search-input-wrap,
+[data-glass="off"] .status-hero-card,
+[data-glass="off"] .subsystem-card,
+[data-glass="off"] .ft-showcase-card,
+[data-glass="off"] .help-cat-card,
+[data-glass="off"] .help-issue-card,
+[data-glass="off"] .cl-stat-box,
+[data-glass="off"] .cl-sidebar,
+[data-glass="off"] .cl-card,
+[data-glass="off"] .cl-empty,
+[data-glass="off"] .bento-card,
+[data-glass="off"] .cmd-pill,
+[data-glass="off"] .pill,
+[data-glass="off"] .badge,
+[data-glass="off"] .tab,
+[data-glass="off"] .copy-btn,
+[data-glass="off"] .sub-item,
+[data-glass="off"] .cmd-run,
+[data-glass="off"] .icon-btn:hover,
+[data-glass="off"] kbd {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--bg-alt);
+}
+
+[data-glass="off"] .cmd-card::after,
+[data-glass="off"] .dash-card::after,
+[data-glass="off"] .pg-card::after,
+[data-glass="off"] .cta-box::after,
+[data-glass="off"] .hero-panel::after,
+[data-glass="off"] .status-hero-card::after {
+  display: none !important;
 }
 
 .spinning svg, svg.spinning {
@@ -2372,6 +2467,192 @@ kbd {
   color: #fff;
   border-color: transparent;
   box-shadow: 0 4px 14px -3px var(--primary-ring);
+}
+
+/* ── Interactive Command Pill Row ──────────────────────────────────── */
+.cmd-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: center;
+  align-items: center;
+  margin: 1.5rem 0 2.25rem;
+}
+.cmd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: 980px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+.cmd-pill:hover {
+  transform: translateY(-2px);
+  background: var(--glass-strong);
+  border-color: var(--primary);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 6px 16px -4px var(--primary-ring);
+}
+.cmd-pill .pill-copy {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-family: var(--font);
+}
+
+/* ── Interactive Hero Preview Tabs ─────────────────────────────────── */
+.preview-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 980px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.preview-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 980px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: #949ba4;
+  transition: all 0.2s var(--ease);
+}
+.preview-tab-btn:hover {
+  color: #f2f3f5;
+}
+.preview-tab-btn[aria-pressed="true"] {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 8px -2px var(--primary-ring);
+}
+.preview-panel {
+  display: none;
+}
+.preview-panel.active {
+  display: block;
+}
+
+/* ── Bento Grid of Core Pillars ───────────────────────────────────── */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+.bento-card {
+  position: relative;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s var(--ease);
+  overflow: hidden;
+}
+.bento-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--primary);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 16px 36px -12px var(--primary-ring);
+}
+.bento-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--primary-ring);
+}
+.bento-card h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+.bento-card p {
+  color: var(--text-2);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
+  flex: 1;
+}
+.bento-points {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem 0;
+  display: grid;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.bento-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.bento-points li::before {
+  content: "✓";
+  color: var(--accent);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── Interactive Feature Demo Button ──────────────────────────────── */
+.ft-demo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid transparent;
+  transition: all 0.18s var(--ease);
+  box-shadow: 0 2px 8px -2px var(--primary-ring);
+}
+.ft-demo-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+.ft-demo-btn:active {
+  transform: translateY(0);
+}
+.ft-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 980px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid var(--primary-ring);
 }
 
 .ft-showcase-card {
@@ -2959,10 +3240,376 @@ details[open] > .help-issue-summary::after {
   border-color: var(--primary);
 }
 
-/* ── Responsive ────────────────────────────────────────────────────── */
+/* ── Glass Toggle Button ────────────────────────────────────────────── */
+.glass-toggle {
+  position: relative;
+  overflow: hidden;
+  transition: color 0.16s, background 0.16s, border-color 0.16s, box-shadow 0.18s var(--ease);
+}
+.glass-toggle[aria-pressed='true'] {
+  color: var(--link);
+  background: var(--primary-soft);
+  border-color: var(--primary-ring);
+  box-shadow: 0 0 0 2px var(--primary-ring), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.glass-toggle[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.18), transparent 70%);
+  pointer-events: none;
+}
+.glass-toggle[aria-pressed='false'] {
+  color: var(--faint);
+  opacity: 0.7;
+}
+.glass-toggle[aria-pressed='false']:hover {
+  opacity: 1;
+}
+
+/* ── Liquid Glass OFF mode ──────────────────────────────────────────── */
+/*
+ * When data-glass="off" all backdrop-filter and translucency is removed.
+ * Elements get solid opaque surfaces instead, which is faster on low-end
+ * hardware, OLED displays, or for users who prefer reduced transparency.
+ */
+[data-glass='off'] {
+  --glass: var(--surface-2);
+  --glass-strong: var(--surface-2);
+  --glass-border: var(--border);
+  --glass-highlight: transparent;
+  --glass-shadow: var(--shadow-md);
+  --glass-blur: 0px;
+  --glass-sat: 100%;
+}
+
+/* Strip all blur/saturation filters from every glass-using element */
+[data-glass='off'] .nav,
+[data-glass='off'] .nav-links,
+[data-glass='off'] .card,
+[data-glass='off'] .step,
+[data-glass='off'] .stat,
+[data-glass='off'] .stats,
+[data-glass='off'] details.acc,
+[data-glass='off'] .site-search-panel,
+[data-glass='off'] .site-search-input-wrap,
+[data-glass='off'] .site-search-backdrop,
+[data-glass='off'] .btn.ghost,
+[data-glass='off'] .hero-panel,
+[data-glass='off'] .window-bar,
+[data-glass='off'] .cl-card,
+[data-glass='off'] .cl-sidebar,
+[data-glass='off'] .cl-filter-tabs,
+[data-glass='off'] .cl-empty,
+[data-glass='off'] .bento-card,
+[data-glass='off'] .preview-panel,
+[data-glass='off'] .preview-tabs,
+[data-glass='off'] .ft-card,
+[data-glass='off'] .ft-hero-badge,
+[data-glass='off'] [class*='glass'] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Solid nav bar when glass is off */
+[data-glass='off'] .nav {
+  background: var(--bg);
+  border-bottom-color: var(--border);
+}
+[data-glass='off'] .nav.scrolled {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Solid card surfaces */
+[data-glass='off'] .card,
+[data-glass='off'] .step,
+[data-glass='off'] .cl-card,
+[data-glass='off'] .bento-card,
+[data-glass='off'] .ft-card {
+  background: var(--bg-alt);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Solid stat grid */
+[data-glass='off'] .stat {
+  background: var(--bg-alt);
+}
+[data-glass='off'] .stats {
+  background: var(--border);
+}
+
+/* Solid search panel */
+[data-glass='off'] .site-search-panel {
+  background: var(--bg-alt);
+}
+[data-glass='off'] .site-search-input-wrap {
+  background: var(--surface-2);
+}
+[data-glass='off'] .site-search-backdrop {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(3, 5, 12, 0.82);
+}
+
+/* Solid accordion */
+[data-glass='off'] details.acc {
+  background: var(--bg-alt);
+}
+
+/* Solid mobile nav */
+[data-glass='off'] .nav-links {
+  background: var(--bg-alt);
+}
+
+/* Solid changelog sidebar */
+[data-glass='off'] .cl-sidebar,
+[data-glass='off'] .cl-filter-tabs,
+[data-glass='off'] .cl-empty {
+  background: var(--bg-alt);
+}
+
+/* Ghost button solid */
+[data-glass='off'] .btn.ghost {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-sm);
+}
+[data-glass='off'] .btn.ghost:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+/* Reduce background ambient orbs when glass is off (keep subtle) */
+[data-glass='off'] body::before {
+  opacity: 0.45;
+}
+[data-glass='off'] body::after {
+  opacity: 0.3;
+}
+
+/* Glass toggle icon tint when off */
+[data-glass='off'] .glass-toggle {
+  color: var(--faint);
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+[data-glass='off'] .glass-toggle::after { display: none; }
+
+/* ── Reduced transparency OS preference ─────────────────────────────── */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-blur: 0px;
+    --glass-sat: 100%;
+  }
+  .nav,
+  .card, .step, .stat, .stats,
+  details.acc,
+  .site-search-panel, .site-search-input-wrap,
+  .btn.ghost, .hero-panel, .window-bar,
+  .cl-card, .cl-sidebar, .cl-filter-tabs {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* ── Reading Progress Bar ─────────────────────────────────────────── */
+.reading-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary), #8b5cf6, var(--accent));
+  z-index: 9999;
+  pointer-events: none;
+  transition: width 0.1s ease-out;
+  box-shadow: 0 0 8px rgba(88, 101, 242, 0.45);
+}
+
+/* ── Code Block Copy Button ───────────────────────────────────────── */
+pre.block {
+  position: relative;
+}
+.code-copy-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.74rem;
+  font-family: var(--font);
+  font-weight: 550;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.18s var(--ease);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 5;
+}
+pre.block:hover .code-copy-btn,
+pre.block:focus-within .code-copy-btn {
+  opacity: 1;
+}
+.code-copy-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+/* ── Docs Mobile Navigation & Header ───────────────────────────────── */
+.docs-header {
+  margin-bottom: 1.75rem;
+}
+.docs-meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+.docs-mobile-nav {
+  display: none;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+.docs-mobile-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.4rem;
+}
+.docs-mobile-select {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+.docs-mobile-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-ring);
+}
+
+/* ── Floating Back to Top Button ──────────────────────────────────── */
+.back-to-top {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--glass-strong);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 900;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px);
+  transition: all 0.25s var(--ease);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+.back-to-top.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.back-to-top:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px var(--primary-ring);
+}
+
+/* ── Mobile and Tablet Responsiveness ─────────────────────────────── */
+@media (max-width: 992px) {
+  .docs-layout {
+    grid-template-columns: 200px 1fr;
+    gap: 1.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --nav-h: 60px;
+  }
+  .wrap {
+    padding-left: 1.15rem;
+    padding-right: 1.15rem;
+  }
+  .docs-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .docs-side {
+    display: none;
+  }
+  .docs-mobile-nav {
+    display: block;
+  }
+  .code-copy-btn {
+    opacity: 0.9;
+  }
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--r-sm);
+    box-shadow: inset -8px 0 8px -8px rgba(0, 0, 0, 0.2);
+  }
+  .table-wrap table {
+    min-width: 520px;
+  }
+  .prose pre.block {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-top: 2.2rem;
+  }
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  .hero-panel {
+    padding: 1.25rem 1rem;
+  }
+  .hero-title {
+    font-size: 2.4rem;
+  }
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+}
+
 @media (max-width: 620px) {
   .cmd-toolbar { position: static; }
-  .stats { grid-template-columns: repeat(2, 1fr); }
   .btn.lg { width: 100%; }
   .btn-row { flex-direction: column; }
   .btn-row.center { align-items: center; }
@@ -2972,9 +3619,42 @@ details[open] > .help-issue-summary::after {
   .component-row .bar { width: 100%; }
 }
 
+@media (max-width: 480px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+  .hero-title {
+    font-size: 2rem;
+  }
+  .lead {
+    font-size: 1rem;
+  }
+  .btn-row, .hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .btn.lg, .btn.block {
+    width: 100%;
+    justify-content: center;
+  }
+  .nav-inner {
+    padding: 0 0.5rem;
+  }
+  .docs-meta-badges {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .back-to-top {
+    bottom: 1.25rem;
+    right: 1.25rem;
+    width: 42px;
+    height: 42px;
+  }
+}
+
 /* ── Print ─────────────────────────────────────────────────────────── */
 @media print {
-  .nav, footer.site, .cmd-toolbar, .btn, body::before, body::after { display: none !important; }
+  .nav, footer.site, .cmd-toolbar, .btn, .back-to-top, .reading-progress-bar, body::before, body::after { display: none !important; }
   body { background: #fff; color: #000; }
 }
 `;

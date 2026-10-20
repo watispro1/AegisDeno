@@ -31,6 +31,13 @@ export const clientScript = String.raw`
     btn.setAttribute('title', dark ? 'Switch to light theme' : 'Switch to dark theme');
   }
 
+  function syncThemeDots(theme) {
+    var dots = document.querySelectorAll('.window-dots');
+    dots.forEach(function (d) {
+      d.style.opacity = theme === 'light' ? '0.85' : '1';
+    });
+  }
+
   document.addEventListener('click', function (e) {
     var btn = e.target.closest && e.target.closest('.theme-toggle');
     if (!btn) return;
@@ -43,6 +50,46 @@ export const clientScript = String.raw`
 
   syncToggle();
 
+  /* ── Liquid Glass Toggle ───────────────────────────────────────── */
+  var GLASS_STORAGE_KEY = 'aegis-glass';
+  function currentGlass() {
+    var attr = root.getAttribute('data-glass');
+    if (attr) return attr;
+    try {
+      var saved = localStorage.getItem(GLASS_STORAGE_KEY);
+      if (saved === 'off') return 'off';
+    } catch (e) {}
+    return 'on';
+  }
+
+  function syncGlassToggle() {
+    var btns = document.querySelectorAll('.glass-toggle');
+    var isGlassOn = currentGlass() !== 'off';
+    btns.forEach(function (btn) {
+      btn.setAttribute('aria-pressed', isGlassOn ? 'true' : 'false');
+      btn.setAttribute('aria-label', isGlassOn ? 'Switch to solid performance mode' : 'Switch to liquid glass frosted mode');
+      btn.setAttribute('title', isGlassOn ? 'Liquid Glass: ON (Click to disable) [G]' : 'Liquid Glass: OFF (Click to enable) [G]');
+    });
+  }
+
+  function toggleGlass() {
+    var next = currentGlass() === 'on' ? 'off' : 'on';
+    root.setAttribute('data-glass', next);
+    try { localStorage.setItem(GLASS_STORAGE_KEY, next); } catch (err) {}
+    syncGlassToggle();
+    if (window.showToast) {
+      window.showToast(next === 'on' ? '✨ Liquid Glass: Enabled (VisionOS Frosted Materials)' : '⚡ Liquid Glass: Disabled (Performance Opaque Mode)');
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('.glass-toggle');
+    if (!btn) return;
+    toggleGlass();
+  });
+
+  syncGlassToggle();
+
   /* ── Global page and command search ───────────────────────────── */
   var searchDialog = document.getElementById('site-search-dialog');
   var searchInput = document.getElementById('site-search-input');
@@ -51,13 +98,12 @@ export const clientScript = String.raw`
   var lastSearchFocus = null;
   var commandIndex = null;
   var pagesIndex = [
-    { name: 'Dashboard', detail: 'Live bot metrics and service overview', href: '/dashboard', icon: '◈' },
+    { name: 'Features', detail: 'AutoMod, tickets, anti-raid, and moderation', href: '/features', icon: '✦' },
     { name: 'Command reference', detail: 'Browse every Aegis slash command', href: '/commands', icon: '/' },
-    { name: 'Features', detail: 'Tickets, moderation, automation, and more', href: '/features', icon: '✦' },
     { name: 'Documentation', detail: 'Setup guides and permission reference', href: '/docs', icon: '▤' },
     { name: 'Status', detail: 'Current bot health and gateway metrics', href: '/status', icon: '●' },
     { name: 'Changelog', detail: 'Product updates and release history', href: '/changelog', icon: '↗' },
-    { name: 'Playground', detail: 'Explore interactive Aegis examples', href: '/playground', icon: '⌘' }
+    { name: 'Troubleshooting & Help', detail: 'Diagnostics, common questions and fixes', href: '/troubleshooting', icon: '?' }
   ];
 
   function closeSiteSearch() {
@@ -131,6 +177,14 @@ export const clientScript = String.raw`
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSiteSearch(); }
     else if (e.key === 'Escape') closeSiteSearch();
+    else if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      var tag = (e.target && e.target.tagName) || '';
+      var isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable);
+      if (!isInput && (!searchDialog || searchDialog.hidden)) {
+        e.preventDefault();
+        toggleGlass();
+      }
+    }
   });
 
   /* ── Sticky nav shadow ────────────────────────────────────────── */
@@ -540,114 +594,66 @@ export const clientScript = String.raw`
     setInterval(refresh, 30000);
   }
 
-  /* ── Interactive Command & Embed Playground ───────────────────── */
-  var pgSelect = document.getElementById('pg-command-select');
-  var pgUser = document.getElementById('pg-user-input');
-  var pgReason = document.getElementById('pg-reason-input');
-  var pgSeverity = document.getElementById('pg-severity-select');
-  var pgEmbedTitle = document.getElementById('pg-embed-title');
-  var pgEmbedDesc = document.getElementById('pg-embed-desc');
-  var pgEmbedColor = document.getElementById('pg-embed-card');
-  var pgField1Val = document.getElementById('pg-f1-val');
-  var pgField2Val = document.getElementById('pg-f2-val');
-  var pgCmdString = document.getElementById('pg-cmd-string');
-  var pgButtonsRow = document.getElementById('pg-buttons-row');
-
-  if (pgSelect) {
-    var updatePlayground = function () {
-      var cmd = pgSelect.value || 'ticket';
-      var user = (pgUser && pgUser.value.trim()) || '@Member';
-      if (!user.startsWith('@') && !user.startsWith('#')) user = '@' + user;
-      var reason = (pgReason && pgReason.value.trim()) || 'Support inquiry';
-      var severity = (pgSeverity && pgSeverity.value) || 'medium';
-
-      if (cmd === 'ticket') {
-        if (pgEmbedTitle) pgEmbedTitle.textContent = '🎫 Support Tickets';
-        if (pgEmbedDesc) pgEmbedDesc.textContent = 'Need assistance? Click the button below to open a private support ticket with our team.';
-        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = '#3498db';
-        if (pgField1Val) pgField1Val.textContent = 'General Support';
-        if (pgField2Val) pgField2Val.textContent = 'Staff Role: @SupportTeam';
-        if (pgCmdString) pgCmdString.textContent = '/ticket setup channel:#support staff_role:@SupportTeam title:"Support Tickets"';
-        if (pgButtonsRow) {
-          pgButtonsRow.innerHTML = '<button class="d-btn primary" type="button">🎫 Create Ticket</button>';
-        }
-      } else if (cmd === 'verify') {
-        if (pgEmbedTitle) pgEmbedTitle.textContent = '🛡️ Server Verification Required';
-        if (pgEmbedDesc) pgEmbedDesc.textContent = 'Click the button below to verify your account and gain access to the rest of the server.';
-        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = '#2ecc71';
-        if (pgField1Val) pgField1Val.textContent = '@Verified Member';
-        if (pgField2Val) pgField2Val.textContent = 'Type: BUTTON';
-        if (pgCmdString) pgCmdString.textContent = '/verify setup channel:#verify verified_role:@Verified type:button';
-        if (pgButtonsRow) {
-          pgButtonsRow.innerHTML = '<button class="d-btn success" type="button">✅ Verify Account</button>';
-        }
-      } else if (cmd === 'rolepanel') {
-        if (pgEmbedTitle) pgEmbedTitle.textContent = '🎭 Choose Your Roles';
-        if (pgEmbedDesc) pgEmbedDesc.textContent = 'Click the buttons below to toggle your self-assignable server roles.';
-        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = '#9b59b6';
-        if (pgField1Val) pgField1Val.textContent = '@Announcements, @Events, @Updates';
-        if (pgField2Val) pgField2Val.textContent = 'Mode: Interactive Toggle';
-        if (pgCmdString) pgCmdString.textContent = '/rolepanel create channel:#roles role1:@Announcements role2:@Events role3:@Updates';
-        if (pgButtonsRow) {
-          pgButtonsRow.innerHTML = '<button class="d-btn primary" type="button">📢 Announcements</button> <button class="d-btn primary" type="button">🎉 Events</button> <button class="d-btn primary" type="button">🔔 Updates</button>';
-        }
-      } else if (cmd === 'suggest') {
-        if (pgEmbedTitle) pgEmbedTitle.textContent = '💡 Community Suggestion #4092';
-        if (pgEmbedDesc) pgEmbedDesc.textContent = user + ': "' + reason + '"';
-        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = '#f1c40f';
-        if (pgField1Val) pgField1Val.textContent = '👍 24 | 👎 2';
-        if (pgField2Val) pgField2Val.textContent = 'Status: PENDING';
-        if (pgCmdString) pgCmdString.textContent = '/suggest suggestion:"' + reason + '"';
-        if (pgButtonsRow) {
-          pgButtonsRow.innerHTML = '<button class="d-btn secondary" type="button">👍 Upvote (24)</button> <button class="d-btn secondary" type="button">👎 Downvote (2)</button>';
-        }
-      } else if (cmd === 'warn') {
-        if (pgEmbedTitle) pgEmbedTitle.textContent = '⚠️ Member Warned';
-        if (pgEmbedDesc) pgEmbedDesc.textContent = user + ' was issued a formal warning by @Moderator.';
-        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = severity === 'high' ? '#ed4245' : severity === 'medium' ? '#ffa500' : '#fee75c';
-        if (pgField1Val) pgField1Val.textContent = reason;
-        if (pgField2Val) pgField2Val.textContent = severity.toUpperCase();
-        if (pgCmdString) pgCmdString.textContent = '/warn user:' + user + ' reason:"' + reason + '" severity:' + severity;
-        if (pgButtonsRow) {
-          pgButtonsRow.innerHTML = '<button class="d-btn primary" type="button">📜 Warning History</button> <button class="d-btn danger" type="button">❌ Undo Warn</button>';
-        }
-      } else if (cmd === 'purge') {
-        if (pgEmbedTitle) pgEmbedTitle.textContent = '🗑️ Purge Preview';
-        if (pgEmbedDesc) pgEmbedDesc.textContent = 'Found 25 message(s) matching your filter in #general.';
-        if (pgEmbedColor) pgEmbedColor.style.borderLeftColor = '#ed4245';
-        if (pgField1Val) pgField1Val.textContent = 'Filter: Bots Only';
-        if (pgField2Val) pgField2Val.textContent = 'Sample: • @BotUser: hello...';
-        if (pgCmdString) pgCmdString.textContent = '/purge amount:25 filter:bots';
-        if (pgButtonsRow) {
-          pgButtonsRow.innerHTML = '<button class="d-btn danger" type="button">🗑️ Delete 25 messages</button> <button class="d-btn secondary" type="button">✖️ Cancel</button>';
-        }
-      }
-    };
-
-    pgSelect.addEventListener('change', updatePlayground);
-    if (pgUser) pgUser.addEventListener('input', updatePlayground);
-    if (pgReason) pgReason.addEventListener('input', updatePlayground);
-    if (pgSeverity) pgSeverity.addEventListener('change', updatePlayground);
-    updatePlayground();
+  /* ── Interactive Hero Preview Tabs ───────────────────────────── */
+  var previewTabBtns = document.querySelectorAll('.preview-tab-btn');
+  var previewPanels = document.querySelectorAll('.preview-panel');
+  if (previewTabBtns.length && previewPanels.length) {
+    previewTabBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var targetId = btn.getAttribute('data-tab');
+        previewTabBtns.forEach(function (b) {
+          b.setAttribute('aria-pressed', String(b === btn));
+        });
+        previewPanels.forEach(function (p) {
+          p.classList.toggle('active', p.id === targetId);
+        });
+      });
+    });
   }
 
-  /* ── Interactive Server Calculator ───────────────────────────── */
-  var calcSlider = document.getElementById('calc-members');
-  var calcVal = document.getElementById('calc-members-val');
-  var calcPing = document.getElementById('calc-ping');
-  var calcRam = document.getElementById('calc-ram');
-  var calcPreset = document.getElementById('calc-preset');
+  /* ── Command Copy Pills ───────────────────────────────────────── */
+  document.addEventListener('click', function (e) {
+    var pill = e.target.closest && e.target.closest('.cmd-pill');
+    if (!pill) return;
+    var cmd = pill.getAttribute('data-cmd');
+    if (!cmd) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(cmd).then(function () {
+        if (window.showToast) window.showToast('Copied ' + cmd + ' to clipboard!');
+      }).catch(function () {
+        if (window.showToast) window.showToast('Selected ' + cmd);
+      });
+    } else if (window.showToast) {
+      window.showToast('Selected ' + cmd);
+    }
+  });
 
-  if (calcSlider) {
-    calcSlider.addEventListener('input', function () {
-      var members = parseInt(calcSlider.value, 10);
-      if (calcVal) calcVal.textContent = members.toLocaleString() + ' members';
-      var ram = Math.round(18 + (members / 5000) * 4);
-      var ping = Math.round(12 + (members / 10000) * 2);
-      var preset = members > 25000 ? 'Strict Enterprise' : members > 5000 ? 'Community Standard' : 'Casual Friendly';
-      if (calcRam) calcRam.textContent = ram + ' MB';
-      if (calcPing) calcPing.textContent = ping + ' ms';
-      if (calcPreset) calcPreset.textContent = preset;
+  /* ── Interactive Feature Demo Buttons ─────────────────────────── */
+  document.addEventListener('click', function (e) {
+    var demoBtn = e.target.closest && e.target.closest('.ft-demo-btn');
+    if (!demoBtn) return;
+    var msg = demoBtn.getAttribute('data-demo-msg');
+    if (msg && window.showToast) {
+      window.showToast(msg);
+    }
+  });
+
+  /* ── Features Page Category Filter ────────────────────────────── */
+  var ftCatBtns = document.querySelectorAll('.ft-cat-btn');
+  var ftCards = document.querySelectorAll('.ft-showcase-card');
+  if (ftCatBtns.length && ftCards.length) {
+    ftCatBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var filter = btn.getAttribute('data-filter') || 'all';
+        ftCatBtns.forEach(function (b) {
+          b.setAttribute('aria-pressed', String(b === btn));
+        });
+        ftCards.forEach(function (card) {
+          var cat = card.getAttribute('data-category');
+          var visible = filter === 'all' || cat === filter;
+          card.style.display = visible ? '' : 'none';
+        });
+      });
     });
   }
 
@@ -698,5 +704,78 @@ export const clientScript = String.raw`
   backToTop.addEventListener('click', function () {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
+
+  /* ── Reading Scroll Progress Bar ────────────────────────────── */
+  var progressBar = document.createElement('div');
+  progressBar.className = 'reading-progress-bar';
+  document.body.appendChild(progressBar);
+
+  function updateProgress() {
+    var total = document.documentElement.scrollHeight - window.innerHeight;
+    if (total <= 0) {
+      progressBar.style.width = '0%';
+      return;
+    }
+    var current = window.scrollY;
+    var pct = Math.min(100, Math.max(0, (current / total) * 100));
+    progressBar.style.width = pct.toFixed(2) + '%';
+  }
+  window.addEventListener('scroll', updateProgress, { passive: true });
+  window.addEventListener('resize', updateProgress, { passive: true });
+  updateProgress();
+
+  /* ── Code Block Copy Buttons ─────────────────────────────────── */
+  var codeBlocks = document.querySelectorAll('pre.block');
+  codeBlocks.forEach(function (pre) {
+    if (pre.querySelector('.code-copy-btn')) return;
+    var btn = document.createElement('button');
+    btn.className = 'code-copy-btn';
+    btn.setAttribute('type', 'button');
+    btn.setAttribute('aria-label', 'Copy code snippet');
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copy</span>';
+
+    btn.addEventListener('click', function () {
+      var code = pre.querySelector('code');
+      var text = (code ? code.textContent : pre.textContent) || '';
+      text = text.trim();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+          btn.innerHTML = '<span style="color:var(--accent)">✓</span><span>Copied!</span>';
+          if (window.showToast) window.showToast('Copied code to clipboard');
+          setTimeout(function () {
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copy</span>';
+          }, 2000);
+        }).catch(function () {});
+      }
+    });
+
+    pre.appendChild(btn);
+  });
+
+  /* ── Docs Section Highlighting ───────────────────────────────── */
+  var docHeadings = document.querySelectorAll('.docs-content h2[id]');
+  var docLinks = document.querySelectorAll('.docs-side a[href^="#"]');
+  var mobileSelect = document.getElementById('docs-section-select');
+  if (docHeadings.length && (docLinks.length || mobileSelect)) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          var id = entry.target.id;
+          docLinks.forEach(function (a) {
+            var href = a.getAttribute('href');
+            var match = href === '#' + id;
+            a.classList.toggle('active', match);
+          });
+          if (mobileSelect) {
+            mobileSelect.value = '#' + id;
+          }
+        }
+      });
+    }, { rootMargin: '-80px 0px -70% 0px' });
+
+    docHeadings.forEach(function (h) {
+      observer.observe(h);
+    });
+  }
 })();
 `;

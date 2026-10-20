@@ -6,6 +6,7 @@ import { RolesPlugin } from "./roles.plugin";
 import { VerificationPlugin } from "./verification.plugin";
 import { AutomodPlugin } from "./automod.plugin";
 import { GeneralPlugin, ConfigPlugin, AutoresponderPlugin } from "./utility.plugin";
+import { StarboardPlugin } from "./starboard.plugin";
 
 export * from "./moderation.plugin";
 export * from "./community.plugin";
@@ -14,6 +15,7 @@ export * from "./roles.plugin";
 export * from "./verification.plugin";
 export * from "./automod.plugin";
 export * from "./utility.plugin";
+export * from "./starboard.plugin";
 
 export function registerDefaultPlugins(): void {
   knubManager.registerPlugin(ModerationPlugin);
@@ -25,4 +27,5 @@ export function registerDefaultPlugins(): void {
   knubManager.registerPlugin(GeneralPlugin);
   knubManager.registerPlugin(ConfigPlugin);
   knubManager.registerPlugin(AutoresponderPlugin);
+  knubManager.registerPlugin(StarboardPlugin);
 }

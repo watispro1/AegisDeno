@@ -19,12 +19,12 @@ Modular Discord moderation, AutoMod, verification anti-raid, ticket support, rea
 ```markdown
 # AegisDeno — Moderation & Community Suite
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/watipro/AegisDeno)
+[![Version](https://img.shields.io/badge/version-3.3.1-blue.svg)](https://github.com/watipro/AegisDeno)
 [![Discord.js](https://img.shields.io/badge/discord.js-v14.27-5865F2.svg)](https://discord.js.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-v5.0-3178C6.svg)](https://www.typescriptlang.org/)
 [![MongoDB](https://img.shields.io/badge/mongodb-v9.0-47A248.svg)](https://www.mongodb.com/)
 
-AegisDeno is an all-in-one moderation, security, anti-raid, and community automation bot designed for modern Discord servers. Built with Node.js, TypeScript, and MongoDB.
+AegisDeno is an all-in-one moderation, security, anti-raid, and community automation bot designed for modern Discord servers. Built with Node.js, TypeScript, MongoDB, and a web control center featuring toggleable Liquid Glass materials.
 
 ---
 

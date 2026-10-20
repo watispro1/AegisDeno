@@ -7,6 +7,86 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.3.2] — 2026-10-20
+
+
+- **New Plugin: `starboard` v1.0.0**
+  - Automatically reposts highly-reacted messages to a dedicated starboard channel.
+  - Listens to `messageReactionAdd` and `messageReactionRemove` Discord gateway events with full partial-message/reaction hydration for cold-cache safety.
+  - Per-guild configuration persisted in MongoDB (`StarboardConfig` collection), separate from the generic `PluginConfig` store for cheap per-reaction lookups.
+  - Tracks posted entries in a `StarboardEntry` collection to prevent duplicate starboard posts and enable live star-count updates on the embed.
+  - Gold (`#FFD700`) embed includes author avatar, message content, first image attachment (or embed image), source channel, jump link, and formatted timestamp.
+
+- **`/starboard` Slash Command** (requires `Manage Server`):
+  - `/starboard setup #channel` — set the channel where starred messages are posted.
+  - `/starboard threshold <n>` — set the minimum reaction count required (1–100).
+  - `/starboard emoji <emoji>` — change the trigger emoji (Unicode or custom).
+  - `/starboard selfstar <true|false>` — allow or deny the message author's own reaction from counting toward the threshold.
+  - `/starboard ignore add/remove [#channel] [@role]` — exclude specific channels or roles from being starred.
+  - `/starboard config` — view the full current configuration in a formatted embed.
+  - `/starboard list [limit]` — show the most recent starboard entries (up to 20).
+  - `/starboard toggle <true|false>` — master enable/disable switch.
+
+- **Database:**
+  - Added `StarboardConfigModel` Mongoose schema (indexed on `guildId`, unique).
+  - Added `StarboardEntryModel` Mongoose schema (compound unique index on `guildId + sourceMessageId`, plus `createdAt` descending index for efficient list queries).
+
+## [3.3.1] — 2026-10-20
+
+### 🪟 Liquid Glass 2.0 & Interactive Controls
+
+- **Heavily Improved Liquid Glass Materials:**
+  - Upgraded optical refraction and diffusion tokens with dual-angle specular highlights (`--glass-highlight: rgba(255, 255, 255, 0.22)` in dark mode, `rgba(255, 255, 255, 0.98)` in light mode).
+  - Enhanced frosted blur physics to 48px radius with 210% saturation boost and dynamic rim light illumination.
+  - Added prismatic hover lifts and subtle specular flares on cards, metrics, and navigation elements.
+  - Multi-tier ambient shadows: `0 16px 40px -12px rgba(0, 0, 0, 0.65)` for deep natural grounding.
+
+- **Toggleable Liquid Glass Mode (On / Off):**
+  - Added accessible `.glass-toggle` button in the navbar right alongside the theme switch, with crystal isometric icon, active glow, and `aria-pressed` states.
+  - Added `G` keyboard shortcut for toggling Liquid Glass on/off anywhere outside active form inputs.
+  - Added synchronous `themeInitScript` support reading `aegis-glass` from `localStorage` to eliminate FOUC (flash of unstyled content).
+  - Added high-performance solid/opaque mode (`[data-glass="off"]`): completely disables GPU-intensive backdrop blur filters and switches to high-contrast solid surfaces for low-power hardware, older devices, or OLED battery savings.
+  - Glass toggle button visually reflects state with active glow ring (`aria-pressed="true"`) and faded icon when off.
+  - Added `@media (prefers-reduced-transparency: reduce)` support: automatically disables all `backdrop-filter` for users who have OS-level transparency reduction enabled.
+
+### 🌐 Web Experience & QoL Enhancements
+
+- **Quick Command Clipboard Copy:**
+  - Added one-click copy support for slash command strings with immediate `.copied` visual feedback and toast confirmation.
+  - Wired up clipboard feedback across `/commands` and home page command pills.
+- **Client Script Hardening:**
+  - Fixed `syncThemeDots` undefined reference bug during theme toggle, ensuring zero console exceptions when cycling dark/light themes.
+
+### 🗂️ Web Site Streamlining
+
+- **Removed `/dashboard` and `/playground` pages:**
+  - Eliminated the Live Dashboard and Command Playground web pages to simplify the site to its core public-facing content.
+  - Added permanent `301` HTTP redirects from both removed paths to `/features`.
+  - Cleaned navigation links and footer product columns to remove all references.
+- **Home Page Bento Redesign:**
+  - Replaced the previous layout with a clean bento capability grid covering core features (AutoMod, Tickets, Anti-Raid, Audit Logs, Role Panels, Analytics).
+  - Added quick-copy slash command pills (`/timeout`, `/automod`, `/ticket`, `/verify`, `/warn`, `/poll`) to the hero section.
+  - Added an interactive terminal preview with three tabs: AutoMod Shield, Precision Timeout, and Support Desk — each showing a realistic Discord embed mock-up.
+- **Features Page Overhaul:**
+  - Rebuilt the features page as a bento showcase grid with category filter tabs (All / Moderation / AutoMod / Community / Integrations).
+  - Added interactive demo toast buttons on each feature card showing simulated bot responses.
+  - Added an expandable deep-dive section with capability toggles and real-time audit log stream simulation.
+- **Smoke Tests Updated:**
+  - `scripts/smoke-web.ts` updated to verify `301` redirects for removed pages and confirm no broken internal links.
+
+### 🤖 Bot Command Reliability & Bug Fixes
+
+- **Moderation `/timeout`:**
+  - Fixed quick-action timeout extension: dynamically calculates remaining timeout duration rather than overwriting with a flat 1 hour, clamped safely to Discord's 28-day ceiling.
+  - Added full audit trail logging and `addModerationCase` entry for timeout extension actions.
+- **Moderation `/lock`:**
+  - Hardened emergency server lockdown (`/lock server`) by filtering out thread channels (`!ch.isThread()`), preventing unhandled `permissionOverwrites.edit` exceptions.
+  - Added graceful rejection with parent channel guidance when running `/lock channel` or `/lock status` inside thread channels.
+- **AutoResponder Service:**
+  - Expanded variable replacement tokens with `{tag}`, `{user_id}`, `{server_id}`, and `{channel_id}`.
+- **Verification Plugin:**
+  - Added safe `.catch(() => null)` guard on member fetching to prevent unhandled rejection when users leave or during API rate limits.
+
 ## [3.3.0] — 2026-10-17
 
 ### 🪟 Apple Glassmorphism Design Overhaul

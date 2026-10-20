@@ -61,7 +61,26 @@ _Note: Infractions are logged automatically by AegisDeno. Repeated warnings will
 /embed quick channel:#announcements title:"AegisDeno Announcements" description:"This channel is for official bot releases, changelogs, maintenance notices, and major project news.\n\nTurn on channel notifications to stay updated on new releases." color:"#5865F2" footer:"AegisDeno Updates"
 ```
 
-**First announcement message:**
+**Latest announcement message (v3.3.1):**
+
+```markdown
+🛡️ **AegisDeno v3.3.1 is live! — Liquid Glass 2.0 & QoL Patch**
+
+What's new in this patch update:
+• 🪟 **Liquid Glass 2.0 Overhaul:** Apple VisionOS/macOS Sequoia frosted glass physics with dual-angle specular highlights, enhanced 48px blur, 210% saturation boost, and dynamic prismatic hover lifts.
+• ⚡ **Toggleable Liquid Glass Mode:** Seamless toggle between VisionOS frosted materials and high-contrast solid performance mode via the navbar `.glass-toggle` button, the `/dashboard` operations center, or the `G` keyboard shortcut.
+• 📋 **One-Click Command Copy:** Instant command string copying on `/commands` with live toast feedback and checkmark animations.
+• ⏱️ **Hardened `/timeout` Extensions:** Quick-action button now dynamically computes duration from current expiration time with full audit logging and case tracking.
+• 🔒 **Thread-Safe Lockdown:** `/lock server` cleanly skips thread channels, preventing unhandled exceptions.
+• 💬 **Enhanced AutoResponders:** Added `{tag}`, `{user_id}`, `{server_id}`, and `{channel_id}` variables.
+• 🛡️ **Verification Hardening:** Safe optional catching on member fetching during button verification.
+
+🔗 **Add AegisDeno:** https://discord.com/oauth2/authorize?client_id=1554631691421876254
+🌐 **Web Dashboard:** https://aegisdeno.fly.dev/dashboard
+📖 **Changelog:** https://aegisdeno.fly.dev/changelog
+```
+
+**Previous announcement message (v3.2):**
 
 ```markdown
 🛡️ **AegisDeno v3.2 is live! — System Telemetry & Status Overhaul**

@@ -266,14 +266,33 @@ export const command: Command = {
             });
           } else if (bi.customId === `timeout_extend_${target.id}`) {
             await bi.deferUpdate();
-            const extensionMs = 3600 * 1000;
-            const newUntil = new Date(Date.now() + extensionMs);
             const refreshedMember = await interaction.guild!.members.fetch(target.id).catch(() => null);
             if (!refreshedMember) {
               await bi.followUp({ content: "❌ Member no longer found in the server.", ephemeral: true });
               return;
             }
-            await refreshedMember.timeout(extensionMs, `Timeout extended +1h by ${bi.user.tag}`).catch(() => null);
+            const currentEnd = (refreshedMember.communicationDisabledUntil && refreshedMember.communicationDisabledUntil > new Date())
+              ? refreshedMember.communicationDisabledUntil.getTime()
+              : Date.now();
+            const maxAllowed = Date.now() + 28 * 86400_000;
+            const newExpiryMs = Math.min(currentEnd + 3600_000, maxAllowed);
+            const durationMs = Math.max(newExpiryMs - Date.now(), 60_000);
+            const newUntil = new Date(newExpiryMs);
+
+            await refreshedMember.timeout(durationMs, `Timeout extended +1h by ${bi.user.tag}`).catch(() => null);
+            await addModerationCase({
+              guildId,
+              userId: target.id,
+              moderatorId: bi.user.id,
+              action: "timeout",
+              reason: `Timeout extended by +1h via quick action by ${bi.user.tag}`,
+              details: `Extended until ${newUntil.toISOString()}`,
+            });
+            await sendGuildLog(interaction.client, guildId, {
+              title: "⏱️ Timeout Extended (+1h)",
+              color: 0xFEE75C,
+              description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Extended by:** ${bi.user.tag}\n**New Expiry:** <t:${Math.floor(newUntil.getTime() / 1000)}:R>`,
+            });
             await bi.followUp({
               content: `⏩ Timeout extended. New expiry: <t:${Math.floor(newUntil.getTime() / 1000)}:R>`,
               ephemeral: true,

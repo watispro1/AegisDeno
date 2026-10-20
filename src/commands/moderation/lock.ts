@@ -85,6 +85,9 @@ export const command: Command = {
       if (!targetChannel || !("permissionOverwrites" in targetChannel)) {
         return interaction.reply({ content: "❌ Invalid channel.", ephemeral: true });
       }
+      if (targetChannel.isThread?.()) {
+        return interaction.reply({ content: "❌ Target is a thread channel — check the parent text channel status instead.", ephemeral: true });
+      }
 
       const overwrite = targetChannel.permissionOverwrites.cache.get(guild.roles.everyone.id);
       const isLocked = overwrite?.deny.has(PermissionFlagsBits.SendMessages) ?? false;
@@ -164,7 +167,7 @@ export const command: Command = {
 
           let locked = 0;
           for (const [, ch] of channelCollection) {
-            if (ch && ch.isTextBased() && "permissionOverwrites" in ch) {
+            if (ch && ch.isTextBased() && !ch.isThread?.() && "permissionOverwrites" in ch) {
               await (ch as TextChannel).permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }).catch(() => null);
               locked++;
             }
@@ -210,6 +213,10 @@ export const command: Command = {
       const targetChannel = (interaction.options.getChannel("channel") ?? interaction.channel) as TextChannel | null;
       if (!targetChannel || !("permissionOverwrites" in targetChannel)) {
         await interaction.editReply("❌ Invalid channel — please select a text channel.");
+        return;
+      }
+      if (targetChannel.isThread?.()) {
+        await interaction.editReply("❌ Threads inherit permissions from their parent channel. Please lock the parent channel instead.");
         return;
       }
 

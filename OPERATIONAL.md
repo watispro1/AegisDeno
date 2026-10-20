@@ -25,6 +25,14 @@ Aegis provides a robust set of moderation and administration commands. Key comma
 - `/modhistory`: View a user's warning and moderation history (requires `ModerateMembers`).
 - `/developer`: Special command restricted to the configured bot owner (usually to manage global overrides or fetch deep debug info).
 
+## Web Portal Operations & Visual Performance
+
+The web portal features an Apple VisionOS-inspired Liquid Glass design system with real-time telemetry streaming:
+- **Liquid Glass Materials**: Translucent frosted panels with multi-layer blur and specular rim highlights.
+- **Glass Toggle Mode**: Operators and visitors can toggle Liquid Glass on or off via the `.glass-toggle` button in the navbar or `/dashboard`, or by pressing `G`. When set to off (`data-glass="off"`), the site falls back to clean, high-performance solid surfaces to conserve GPU resources on low-power devices.
+- **Real-time Live Telemetry**: `/status` and `/dashboard` stream live shard latency, memory consumption, connected guilds, and AutoMod rule triggers.
+- **Interactive Simulator**: The `/playground` route allows operators to preview Discord embeds, support tickets, verification panels, and moderation prompts before server deployment.
+
 ## Deployment Checks
 
 Aegis is optimized for deployment via platforms like Fly.io. Follow these checks to ensure a safe rollout:

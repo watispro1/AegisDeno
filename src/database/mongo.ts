@@ -253,3 +253,38 @@ const PluginConfigSchema = new mongoose.Schema({
 PluginConfigSchema.index({ guildId: 1, pluginName: 1 }, { unique: true });
 export const PluginConfigModel = mongoose.model("PluginConfig", PluginConfigSchema);
 
+// ─── Starboard ────────────────────────────────────────────────────────────────
+
+/**
+ * Per-guild starboard configuration stored in MongoDB.
+ * Separate from PluginConfig so it can be queried cheaply on every reaction.
+ */
+const StarboardConfigSchema = new mongoose.Schema({
+  guildId:         { type: String, required: true, unique: true },
+  channelId:       { type: String, default: null },       // target channel
+  emoji:           { type: String, default: "⭐" },        // trigger emoji
+  threshold:       { type: Number, default: 3 },          // minimum reactions
+  selfStar:        { type: Boolean, default: false },      // allow author to star own message
+  ignoredChannels: { type: [String], default: [] },       // channels excluded from starring
+  ignoredRoles:    { type: [String], default: [] },       // roles whose messages are excluded
+  enabled:         { type: Boolean, default: true },
+  updatedAt:       { type: Date, default: Date.now },
+});
+export const StarboardConfigModel = mongoose.model("StarboardConfig", StarboardConfigSchema);
+
+/**
+ * Tracks messages that have already been posted to the starboard to prevent
+ * duplicate entries and enable live count updates on the starboard embed.
+ */
+const StarboardEntrySchema = new mongoose.Schema({
+  guildId:         { type: String, required: true },
+  sourceChannelId: { type: String, required: true },  // channel of original message
+  sourceMessageId: { type: String, required: true },  // ID of original message
+  authorId:        { type: String, required: true },
+  starboardMessageId: { type: String, required: true }, // posted embed message ID
+  starCount:       { type: Number, default: 0 },
+  createdAt:       { type: Date, default: Date.now },
+});
+StarboardEntrySchema.index({ guildId: 1, sourceMessageId: 1 }, { unique: true });
+StarboardEntrySchema.index({ guildId: 1, createdAt: -1 });
+export const StarboardEntryModel = mongoose.model("StarboardEntry", StarboardEntrySchema);

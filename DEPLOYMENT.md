@@ -45,6 +45,7 @@ A step-by-step guide for deploying Aegis to production on Fly.io with MongoDB At
 - [ ] Set `DISCORD_TEST_GUILD_ID` to a private test server ID for fast command registration
 - [ ] Run `npm install`
 - [ ] Run `npm run build` — should compile with 0 TypeScript errors
+- [ ] Run `npm test` — executes full smoke-test suite verifying 28+ routes, asset hashing, CSP, security headers, and Liquid Glass initialization
 - [ ] Run `npm start` and verify:
   - [ ] `✅ Successfully connected to MongoDB!` appears
   - [ ] `✅ Logged in as Aegis#XXXX` appears

@@ -64,6 +64,28 @@
 - [x] Add a troubleshooting guide for MongoDB, Discord token issues, slash command registration, and scheduler problems
 - [x] Add contributor notes for project structure, command loading, and service boundaries
 - [x] Add release checklist and operational verification notes before publishing new versions
+- [x] Update all project documentation (`.md` files) across bot guides, server setup, and changelogs for v3.3.1
+
+### v3.3.2 Milestone (Starboard Plugin, Web Docs Overhaul & Mobile QoL)
+- [x] Create modular Knub Starboard plugin (`starboardPlugin` v1.0.0) with partial reaction hydration
+- [x] Add `/starboard` command suite (setup, threshold, emoji, selfstar, ignore, config, list, toggle)
+- [x] Add `StarboardConfig` and `StarboardEntry` MongoDB models with unique compound indexes
+- [x] Overhaul `/docs` manual with comprehensive Starboard, Tickets, Verification, and AutoMod guides
+- [x] Add mobile TOC quick-jump navigation and IntersectionObserver active heading tracker
+- [x] Add reading progress indicator and automatic 1-click clipboard copy buttons for code blocks
+- [x] Full mobile/tablet responsive design enhancements (table scroll cues, drawer styling, touch targets)
+- [x] Update all project documentation, changelogs, and bump version to 3.3.2
+
+### v3.3.1 Patch Update (Liquid Glass & QoL)
+- [x] Heavily improve Liquid Glass styling with VisionOS 2.0 optical tokens and dynamic specular sheen
+- [x] Implement on/off toggle system for Liquid Glass (`.glass-toggle`, `aegis-glass` persistence, `data-glass="off"` solid mode)
+- [x] Add `G` keyboard shortcut for toggling Liquid Glass
+- [x] Add command string clipboard copy with toast feedback on command reference pages
+- [x] Fix `syncThemeDots` undefined reference bug during theme toggle
+- [x] Fix `/timeout` extension button to dynamically calculate duration from current remaining time with audit logging
+- [x] Harden `/lock` emergency server lockdown against thread channel exceptions
+- [x] Expand AutoResponder variable replacements with `{tag}`, `{user_id}`, `{server_id}`, `{channel_id}`
+- [x] Harden verification plugin member resolution against unhandled rejections
 
 ## Nice-to-have after core work
 
@@ -76,5 +98,5 @@
 ## Notes
 
 - The current codebase is strongest in moderation commands, scheduler logic, and the web dashboard.
-- The biggest remaining work is operational hardening, correct end-to-end admin workflows, and a polished product roadmap for community management.
-- The next milestone should be to finish reliability checks around moderation flows, automod safety, and deployment assumptions before adding broad feature work.
+- Liquid Glass 2.0 is active by default with instant accessibility/performance fallback to solid opaque surfaces (`data-glass="off"`).
+- All smoke tests and TypeScript builds validate cleanly across 11 core routes and API endpoints.

@@ -6,7 +6,7 @@
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 import { loadCommands } from "../src/commands/loader";
-import { renderHome, renderDashboard, renderPlayground, renderFeatures, renderCommands, renderDocs, renderTroubleshooting, renderChangelog, renderStatus, renderTerms, renderPrivacy, renderNotFound, type SiteConfig } from "../src/web/pages";
+import { renderHome, renderFeatures, renderCommands, renderDocs, renderTroubleshooting, renderChangelog, renderStatus, renderTerms, renderPrivacy, renderNotFound, type SiteConfig } from "../src/web/pages";
 import { styles } from "../src/web/theme";
 import { clientScript } from "../src/web/client";
 import { themeInitScript } from "../src/web/assets";
@@ -30,8 +30,6 @@ async function main() {
 
   const pages: [string, string][] = [
     ["/", renderHome(cfg, stats, true)],
-    ["/dashboard", renderDashboard(cfg, stats, true)],
-    ["/playground", renderPlayground(cfg)],
     ["/features", renderFeatures(cfg)],
     ["/commands", renderCommands(cfg)],
     ["/docs", renderDocs(cfg)],

@@ -133,6 +133,12 @@ The web server sets `Cache-Control: no-cache` on HTML pages by default. If you'r
 ### `/stats` returns zeros for guild count
 The bot is connected but hasn't joined any guilds yet. Invite it using the OAuth2 URL from `/diagnostics` or the invite link in `.env`.
 
+### Frosted glass background looks flat or solid
+Liquid Glass requires CSS `backdrop-filter` support:
+1. **Device Setting**: Check if your operating system has "Reduce transparency" enabled (Windows: Settings → Accessibility → Visual effects → Transparency effects; macOS: System Settings → Accessibility → Display → Reduce transparency). The site automatically respects this accessibility preference.
+2. **Site Glass Toggle**: Check if Liquid Glass was toggled off. Click the `.glass-toggle` button in the navbar or press `G` to re-enable VisionOS frosted materials.
+3. **Browser Support**: Older browser versions without `-webkit-backdrop-filter` support will automatically receive clean solid fallbacks.
+
 ---
 
 ## 🔵 Fly.io deployment issues

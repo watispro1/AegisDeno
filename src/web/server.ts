@@ -9,8 +9,6 @@ import { faviconSvg, ogImageSvg, manifest, themeInitScript } from "./assets";
 import { botPermissionBitfield, buildCatalog, catalogStats, getCommand } from "./catalog";
 import {
   renderHome,
-  renderDashboard,
-  renderPlayground,
   renderFeatures,
   renderCommands,
   renderDocs,
@@ -149,8 +147,6 @@ interface RenderContext {
 
 const ROUTES: RouteDef[] = [
   { path: "/", render: (c, x) => renderHome(c, x.stats, x.online), priority: "1.0", live: true },
-  { path: "/dashboard", render: (c, x) => renderDashboard(c, x.stats, x.online), priority: "0.9", live: true },
-  { path: "/playground", render: c => renderPlayground(c), priority: "0.9" },
   { path: "/features", render: c => renderFeatures(c), priority: "0.9" },
   { path: "/commands", render: c => renderCommands(c), priority: "0.9" },
   { path: "/docs", render: c => renderDocs(c), priority: "0.8" },
@@ -369,6 +365,8 @@ ${entries}
 
   app.get("/command", (_req, res) => res.redirect(302, "/commands"));
   app.get("/commands/:name", (req, res) => res.redirect(301, `/commands#cmd-${String(req.params.name ?? "")}`));
+  app.get("/dashboard", (_req, res) => res.redirect(301, "/features"));
+  app.get("/playground", (_req, res) => res.redirect(301, "/features"));
   app.get("/privacy-policy", (_req, res) => res.redirect(301, "/privacy"));
   app.get("/terms-of-service", (_req, res) => res.redirect(301, "/terms"));
   app.get("/guide", (_req, res) => res.redirect(301, "/docs"));

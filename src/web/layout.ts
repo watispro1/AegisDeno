@@ -27,14 +27,12 @@ export interface LayoutOptions {
 }
 
 export const NAV: NavLink[] = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Playground", href: "/playground" },
-  { label: "Commands", href: "/commands" },
   { label: "Features", href: "/features" },
+  { label: "Commands", href: "/commands" },
   { label: "Docs", href: "/docs" },
-  { label: "Help", href: "/troubleshooting" },
   { label: "Status", href: "/status" },
   { label: "Changelog", href: "/changelog" },
+  { label: "Help", href: "/troubleshooting" },
 ];
 
 function esc(s: string): string {
@@ -63,6 +61,7 @@ function activeFor(current: string | undefined, href: string): string | null {
 
 const sunIcon = `<svg class="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>`;
 const moonIcon = `<svg class="icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
+const glassIcon = `<svg class="icon-glass" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>`;
 const menuIcon = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`;
 
 export function layout(o: LayoutOptions): string {
@@ -135,6 +134,9 @@ ${o.headExtra || ""}
       <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme">
         ${sunIcon}${moonIcon}
       </button>
+      <button class="icon-btn glass-toggle" type="button" aria-label="Toggle Liquid Glass" aria-pressed="true" title="Toggle Liquid Glass (G)">
+        ${glassIcon}
+      </button>
       <button class="icon-btn site-search-trigger" type="button" aria-label="Search the Aegis website and commands" aria-haspopup="dialog" aria-controls="site-search-dialog" title="Search (Ctrl K)">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
       </button>
@@ -182,10 +184,9 @@ ${o.body}
       <div class="footer-col">
         <h4>Product</h4>
         <ul>
-          <li><a href="/dashboard">Dashboard</a></li>
-          <li><a href="/playground">Playground</a></li>
           <li><a href="/features">Features</a></li>
           <li><a href="/commands">Commands</a></li>
+          <li><a href="/docs">Documentation</a></li>
           <li><a href="/changelog">Changelog</a></li>
           <li><a href="/status">Status</a></li>
         </ul>
