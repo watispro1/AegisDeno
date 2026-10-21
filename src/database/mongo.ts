@@ -226,7 +226,8 @@ export const GiveawayModel = mongoose.model("Giveaway", GiveawaySchema);
 const BetaProgramSchema = new mongoose.Schema({
   guildId: { type: String, required: true, unique: true },
   testerIds: { type: [String], default: [] },
-  enabledFeatures: { type: [String], default: ["beta-feedback"] },
+  enabledFeatures: { type: [String], default: ["beta-feedback", "command-lab"] },
+  enrolledGuilds: { type: [String], default: [] },
   updatedBy: { type: String, default: null },
   updatedAt: { type: Date, default: Date.now },
 });
@@ -237,10 +238,17 @@ const BetaFeedbackSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   authorId: { type: String, required: true },
   feature: { type: String, required: true },
+  category: { type: String, default: "bug" },
+  severity: { type: String, default: "medium" },
+  status: { type: String, default: "open" },
   content: { type: String, required: true },
+  staffNote: { type: String, default: null },
+  resolvedBy: { type: String, default: null },
+  resolvedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
-BetaFeedbackSchema.index({ guildId: 1, createdAt: -1 });
+BetaFeedbackSchema.index({ guildId: 1, status: 1, createdAt: -1 });
+BetaFeedbackSchema.index({ authorId: 1, createdAt: -1 });
 export const BetaFeedbackModel = mongoose.model("BetaFeedback", BetaFeedbackSchema);
 
 const PluginConfigSchema = new mongoose.Schema({

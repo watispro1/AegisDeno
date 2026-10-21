@@ -9,7 +9,21 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [3.3.2] — 2026-10-20
 
+### 🧪 Beta Program & Command Lab Overhaul
+- **Comprehensive Command Lab Simulation Suite (`/beta lab`):**
+  - Added multi-scan safety simulator supporting Caps Percentage, Repetitive Character Flooding, Discord & Obfuscated Invite Link Scanning, Mass Mention Velocity, and Token Shannon Entropy.
+  - Returns color-coded threat ratings (`SAFE`, `LOW RISK`, `SUSPICIOUS`, `HIGH RISK`, `CRITICAL`), threat scores (0–100), and non-enforcing AutoMod recommendations.
+- **Multi-Guild Beta Network (`/beta guild-enroll` / `/beta guild-unenroll`):**
+  - Expanded beta feature availability beyond the single primary hub to authorized partner servers.
+- **Structured Feedback Management & Triage Suite:**
+  - Added categorization (`bug`, `feature`, `improvement`, `question`) and severity tiers (`low`, `medium`, `high`, `critical`).
+  - Added staff triage commands: `/beta feedback-view`, `/beta feedback-triage`, and `/beta feedback-list` with filtering.
+- **Tester Profiles & Honors (`/beta profile`, `/beta leaderboard`):**
+  - Added contributor statistics, resolution counts, and earned tester badges (`🧪 Beta Pioneer`, `🐛 Bug Hunter`, `🏆 Verified Contributor`, `💎 Master Diagnostician`).
+- **Modular Beta Flags:**
+  - Expanded rollout flags to 6 active experiments: `beta-feedback`, `experimental-automod` (caps & character flood), `command-lab`, `smart-anti-raid`, `ai-moderation-preview`, and `starboard-custom-rules`.
 
+### ⭐ Starboard Plugin
 - **New Plugin: `starboard` v1.0.0**
   - Automatically reposts highly-reacted messages to a dedicated starboard channel.
   - Listens to `messageReactionAdd` and `messageReactionRemove` Discord gateway events with full partial-message/reaction hydration for cold-cache safety.

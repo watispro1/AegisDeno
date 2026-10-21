@@ -980,6 +980,7 @@ const DOC_SECTIONS = [
   { id: "roles",        label: "Role Panels & Self-Roles" },
   { id: "starboard",    label: "Starboard" },
   { id: "suggestions",  label: "Suggestions & Voting" },
+  { id: "beta",         label: "Beta & Command Lab" },
   { id: "automod",      label: "Auto Moderation" },
   { id: "logging",      label: "Audit Logging" },
   { id: "welcome",      label: "Welcome Messages" },
@@ -1167,17 +1168,54 @@ export function renderDocs(cfg: SiteConfig): string {
 /suggest consider id:&lt;id&gt; reason:"Under review"</code></pre>
       <p><code class="inline">/suggest submit</code> opens a guided form. Voting remains available while a suggestion is pending or under consideration, then locks when staff approves or denies it.</p>
 
-      <h2 id="beta">Beta Program</h2>
-      <p>Aegis runs managed experiments in its designated beta server. Access has two layers: a member must be enrolled as a tester and the requested feature must be enabled by beta staff.</p>
-      <h3>Beta staff workflow</h3>
+      <h2 id="beta">Beta Program &amp; Command Lab</h2>
+      <p>Aegis provides a managed experimentation and diagnostics framework for beta servers and authorized partner communities. Feature access is gated through two layers: a server must be enrolled in the beta network, and individual members can be enrolled into the tester roster to access experimental features, feedback triage, and the safety simulator.</p>
+
+      <div class="callout tip">
+        <span class="callout-icon" aria-hidden="true">🧪</span>
+        <div><strong>Non-Enforcing Safety Simulator:</strong> Testers and moderators can use <code class="inline">/beta lab</code> to evaluate messages against excessive caps, character floods, disguised Discord invites, mass mentions, and token Shannon entropy without issuing warnings or timeouts.</div>
+      </div>
+
+      <h3>Tester &amp; Diagnostics Commands</h3>
       <pre class="block"><code>/beta status
-/beta tester-add user:@Tester
-/beta feature-enable feature:"Experimental AutoMod"
-/beta feedback-list</code></pre>
-      <h3>Tester workflow</h3>
-      <pre class="block"><code>/beta lab message:"THIS IS A CAPS FILTER PREVIEW"
-/beta feedback message:"Expected behavior, actual behavior, and reproduction steps"</code></pre>
-      <p>The current experimental feature is caps filtering. Enrolled testers can configure it with <code class="inline">/automod caps toggle</code>, <code class="inline">/automod caps limit</code>, and <code class="inline">/automod caps action</code>. The rule ignores short messages and only enforces while its beta flag remains enabled.</p>
+/beta lab message:"TESTING 123 LOOOOOOOL discord.gg/fake" type:full
+/beta feedback message:"Steps to reproduce the unexpected interaction..." category:bug severity:high
+/beta profile [user:@Tester]
+/beta leaderboard</code></pre>
+
+      <h3>Beta Staff &amp; Triage Workflow</h3>
+      <pre class="block"><code>/beta tester-add user:@Member
+/beta tester-remove user:@Member
+/beta feature-enable feature:"Experimental AutoMod (Caps &amp; Flood)"
+/beta feature-disable feature:"Heuristic Toxicity &amp; Spam Analyzer"
+/beta feedback-list status:open category:bug
+/beta feedback-view id:BETA-78A3
+/beta feedback-triage id:BETA-78A3 status:resolved note:"Fixed in patch 3.3.2"</code></pre>
+
+      <h3>Command Lab Simulation Suites</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Suite</th><th>Checks Performed</th><th>Heuristic Logic</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Caps Percentage</strong></td><td>Uppercase ratio and minimum letter length.</td><td>Flags messages &gt; 8 letters with &ge; 80% uppercase content.</td></tr>
+            <tr><td><strong>Character Flood</strong></td><td>Consecutive repeating characters or spam runs.</td><td>Flags streaks of 4+ identical repeating letters or symbols.</td></tr>
+            <tr><td><strong>Discord Invite Shield</strong></td><td>Standard links and zero-width obfuscated invites.</td><td>Extracts invite codes and catches hidden zero-width evasion.</td></tr>
+            <tr><td><strong>Mass Mention Velocity</strong></td><td>User, role, and broadcast ping count.</td><td>Weighted evaluation of member pings and @everyone abuse.</td></tr>
+            <tr><td><strong>Shannon Entropy</strong></td><td>Token distribution and linguistic randomness.</td><td>Detects copypasta script spam (&lt; 2.0 bits) and token leaks (&gt; 4.8 bits).</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Beta Feature Flags</h3>
+      <p>Aegis supports 6 modular beta feature flags spanning security, heuristics, and community tools:</p>
+      <ul>
+        <li><code class="inline">beta-feedback</code> — Structured ticketing queue with severity, categories, and staff notes.</li>
+        <li><code class="inline">experimental-automod</code> — Heuristic caps and repetitive character flooding detection.</li>
+        <li><code class="inline">command-lab</code> — Interactive rule simulator playground.</li>
+        <li><code class="inline">smart-anti-raid</code> — Adaptive member arrival velocity analysis.</li>
+        <li><code class="inline">ai-moderation-preview</code> — Statistical pattern matching and token entropy analyzer.</li>
+        <li><code class="inline">starboard-custom-rules</code> — Advanced tiered starboards with role-based multipliers.</li>
+      </ul>
 
       <h2 id="automod">Auto Moderation</h2>
       <p>AutoMod scans messages in real time to enforce community guidelines before moderators need to intervene.</p>
@@ -1612,16 +1650,16 @@ export const RELEASES: Release[] = [
   {
     version: "3.3.2",
     date: "2026-10-20",
-    tag: "Starboard Plugin",
-    summary: "Introduces the Starboard plugin — a fully configurable message hall-of-fame system that automatically reposts highly-reacted messages to a dedicated channel, with per-guild emoji, threshold, self-star rules, and channel/role ignore lists.",
+    tag: "Starboard & Beta Lab Overhaul",
+    summary: "Introduces the modular Starboard plugin, comprehensive Command Lab simulation suite, multi-guild beta network authorization, and structured feedback triage workflows.",
     highlights: [
       "[NEW] Starboard plugin v1.0.0: automatic message starboard powered by messageReactionAdd/Remove events with partial-data hydration.",
-      "[NEW] /starboard setup/threshold/emoji/selfstar/ignore/config/list/toggle — eight subcommands for full per-guild configuration.",
-      "[NEW] Live star-count updates on existing starboard embeds as more reactions are added or removed.",
-      "[NEW] Per-guild MongoDB StarboardConfig collection for cheap per-reaction config lookups without touching PluginConfig.",
-      "[NEW] StarboardEntry collection with compound unique index prevents duplicate starboard posts across restarts.",
-      "[NEW] Gold (#FFD700) embeds include author avatar, message content, first image/attachment, source channel link, and jump-to-message URL.",
-      "[WEB] Version bumped to 3.3.2. Website changelog, docs page, and README updated.",
+      "[NEW] /starboard suite: 8 subcommands for threshold, emoji, selfstar, ignore, and live star count synchronization.",
+      "[ENHANCED] /beta program & Command Lab: 14 subcommands covering simulation suites, multi-guild enrollment, and feedback triage.",
+      "[NEW] /beta lab multi-scan safety simulator: evaluates excessive caps, character flooding runs, disguised Discord invites, mass mentions, and Shannon entropy.",
+      "[NEW] Structured feedback ticketing with category, severity ratings, and staff triage (/beta feedback-triage, /beta feedback-view).",
+      "[NEW] Tester honors and contributor leaderboard (/beta profile, /beta leaderboard) with earned diagnostic badges.",
+      "[WEB] Documentation manual overhauled with interactive mobile navigation, reading progress indicator, and code copy tools.",
     ],
   },
   {
