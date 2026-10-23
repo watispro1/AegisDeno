@@ -12,6 +12,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
+import { addModerationCase } from "../../services/moderationCases";
 
 type FilterMode = "all" | "bots" | "humans" | "links" | "images" | "embeds" | "keyword";
 
@@ -58,6 +59,9 @@ export const command: Command = {
     .addStringOption(opt =>
       opt.setName("keyword").setDescription("Keyword to search for (required when filter=keyword)").setRequired(false).setMaxLength(100)
     )
+    .addStringOption(opt =>
+      opt.setName("reason").setDescription("Reason for the purge (recorded in mod logs)").setRequired(false).setMaxLength(256)
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
   guildOnly: true,
@@ -69,6 +73,7 @@ export const command: Command = {
     const filter  = (interaction.options.getString("filter") ?? "all") as FilterMode;
     const target  = interaction.options.getUser("user");
     const keyword = interaction.options.getString("keyword");
+    const reason  = interaction.options.getString("reason") ?? "Channel message cleanup";
     const channel = interaction.channel;
     const guildId = interaction.guildId!;
 
@@ -196,7 +201,16 @@ export const command: Command = {
           await sendGuildLog(interaction.client, guildId, {
             title: "🗑️ Messages Purged",
             color: 0xED4245,
-            description: `**Channel:** <#${channel.id}>\n**Deleted:** ${deletedCount}/${toDelete.length}\n**Filter:** \`${filter}\`${keyword ? ` — \`${keyword}\`` : ""}\n**User Filter:** ${target ? `<@${target.id}>` : "None"}\n**Moderator:** ${interaction.user.tag}`,
+            description: `**Channel:** <#${channel.id}>\n**Deleted:** ${deletedCount}/${toDelete.length}\n**Filter:** \`${filter}\`${keyword ? ` — \`${keyword}\`` : ""}\n**User Filter:** ${target ? `<@${target.id}>` : "None"}\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
+          });
+
+          await addModerationCase({
+            guildId,
+            userId: target?.id ?? interaction.user.id,
+            moderatorId: interaction.user.id,
+            action: "purge",
+            reason,
+            details: `Channel: #${channel.name || channel.id} | Deleted ${deletedCount} message(s) [Filter: ${filter}]`,
           });
         } catch (err) {
           logger.error(`Failed to purge messages in channel ${channel.id} guild ${guildId}`, err);

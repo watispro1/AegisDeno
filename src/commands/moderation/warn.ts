@@ -29,7 +29,20 @@ export const command: Command = {
       opt.setName("user").setDescription("The member to warn").setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the warning").setRequired(true).setMaxLength(512)
+      opt
+        .setName("preset")
+        .setDescription("Quick rule violation preset")
+        .setRequired(false)
+        .addChoices(
+          { name: "📢 Spamming or text flooding", value: "Spamming or text flooding" },
+          { name: "🤬 Harassment or toxic behavior", value: "Harassment or toxic behavior" },
+          { name: "🔞 Inappropriate / NSFW content", value: "Inappropriate or NSFW content" },
+          { name: "🔗 Unauthorized advertising or promo links", value: "Unauthorized advertising or promo links" },
+          { name: "🛑 Disrespecting staff or rule evasion", value: "Disrespecting staff or rule evasion" },
+        )
+    )
+    .addStringOption(opt =>
+      opt.setName("reason").setDescription("Custom reason for the warning").setRequired(false).setMaxLength(512)
     )
     .addStringOption(opt =>
       opt
@@ -51,11 +64,21 @@ export const command: Command = {
   userPermissions: [PermissionFlagsBits.ModerateMembers],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
-    const target   = interaction.options.getUser("user", true);
-    const reason   = interaction.options.getString("reason", true);
-    const severity = interaction.options.getString("severity") ?? "low";
-    const silent   = interaction.options.getBoolean("silent") ?? false;
-    const guildId  = interaction.guildId!;
+    const target       = interaction.options.getUser("user", true);
+    const preset       = interaction.options.getString("preset");
+    const customReason = interaction.options.getString("reason");
+    const severity     = interaction.options.getString("severity") ?? "low";
+    const silent       = interaction.options.getBoolean("silent") ?? false;
+    const guildId      = interaction.guildId!;
+
+    if (!preset && !customReason) {
+      return interaction.reply({
+        content: "❌ Please provide either a `preset` or a custom `reason` (or both).",
+        ephemeral: true,
+      });
+    }
+
+    const reason = preset && customReason ? `[${preset}] ${customReason}` : (preset || customReason!);
 
     if (target.id === interaction.user.id) {
       return interaction.reply({ content: "❌ You cannot warn yourself.", ephemeral: true });
@@ -106,9 +129,14 @@ export const command: Command = {
           .setEmoji("📜"),
         new ButtonBuilder()
           .setCustomId(`warn_undo_${String((warning as any)._id)}`)
-          .setLabel("Undo This Warn")
+          .setLabel("Undo Warning")
           .setStyle(ButtonStyle.Danger)
           .setEmoji("↩️"),
+        new ButtonBuilder()
+          .setCustomId(`warn_timeout_${target.id}`)
+          .setLabel("Timeout (10m)")
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji("⚡"),
       );
 
       const sent = await interaction.editReply({ embeds: [embed], components: [buttons] });
@@ -162,6 +190,21 @@ export const command: Command = {
           } else {
             await i.reply({ content: "❌ Could not find that warning — it may have already been removed.", ephemeral: true });
           }
+        } else if (i.customId.startsWith("warn_timeout_")) {
+          const hierarchyOk = await isRoleHierarchyValid(interaction.client, guildId, i.user.id, target.id);
+          if (!hierarchyOk) {
+            await i.reply({ content: "❌ You cannot timeout this user due to role hierarchy.", ephemeral: true });
+            return;
+          }
+          const member = await interaction.guild?.members.fetch(target.id).catch(() => null);
+          if (!member || !member.moderatable) {
+            await i.reply({ content: "❌ Cannot timeout member — they may have left or have higher roles than the bot.", ephemeral: true });
+            return;
+          }
+          await member.timeout(10 * 60 * 1000, `Quick escalation from warn: ${reason} (by ${i.user.tag})`);
+          buttons.components[2].setDisabled(true).setLabel("Timed Out (10m)");
+          await interaction.editReply({ embeds: [embed], components: [buttons] }).catch(() => null);
+          await i.reply({ content: `⚡ **<@${target.id}>** has been placed in a **10-minute timeout** by <@${i.user.id}>.`, ephemeral: false });
         }
       });
 

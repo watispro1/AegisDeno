@@ -3,8 +3,6 @@ import { getAutomodConfig } from "./automod";
 import { addWarning } from "./warnings";
 import { sendGuildLog } from "./logging";
 import { logger } from "../utils/logger";
-import { BETA_GUILD_ID } from "../config/env";
-import { isBetaFeatureEnabled, isBetaGuild } from "./beta";
 
 const LINK_REGEX = /https?:\/\/[^\s]+/gi;
 
@@ -103,29 +101,21 @@ async function handleAutomod(client: Client, message: Message): Promise<void> {
     }
   }
 
-  // 5. Experimental caps and flood filters. Deliberately available only through
-  // the managed beta program for enrolled servers.
-  if (!triggeredRule && message.guildId && (await isBetaGuild(message.guildId))) {
-    const experimentalEnabled = await isBetaFeatureEnabled(message.guildId, "experimental-automod");
-    if (experimentalEnabled) {
-      // 5a. Caps filter
-      if (config.caps.enabled) {
-        const letters = message.content.match(/[a-z]/gi) ?? [];
-        const uppercase = letters.filter(letter => letter === letter.toUpperCase()).length;
-        const percentage = letters.length ? (uppercase / letters.length) * 100 : 0;
-        if (letters.length >= 8 && percentage >= config.caps.threshold) {
-          triggeredRule = config.caps;
-          ruleName = "Excessive Caps (Beta)";
-        }
-      }
+  // 5. Caps and character flood filters
+  if (!triggeredRule && config.caps?.enabled) {
+    const letters = message.content.match(/[a-z]/gi) ?? [];
+    const uppercase = letters.filter(letter => letter === letter.toUpperCase()).length;
+    const percentage = letters.length ? (uppercase / letters.length) * 100 : 0;
+    if (letters.length >= 8 && percentage >= (config.caps.threshold ?? 70)) {
+      triggeredRule = config.caps;
+      ruleName = "Excessive Caps";
+    }
 
-      // 5b. Character flood filter
-      if (!triggeredRule) {
-        const runMatches = message.content.match(/(.)\1{4,}/gi) ?? [];
-        if (runMatches.length > 0) {
-          triggeredRule = config.caps;
-          ruleName = "Character Flood (Beta)";
-        }
+    if (!triggeredRule) {
+      const runMatches = message.content.match(/(.)\1{4,}/gi) ?? [];
+      if (runMatches.length > 0) {
+        triggeredRule = config.caps;
+        ruleName = "Character Flood";
       }
     }
   }

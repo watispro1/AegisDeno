@@ -31,8 +31,6 @@ export const NAV: NavLink[] = [
   { label: "Commands", href: "/commands" },
   { label: "Docs", href: "/docs" },
   { label: "Status", href: "/status" },
-  { label: "Changelog", href: "/changelog" },
-  { label: "Help", href: "/troubleshooting" },
 ];
 
 function esc(s: string): string {

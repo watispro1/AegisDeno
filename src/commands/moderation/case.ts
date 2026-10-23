@@ -21,6 +21,12 @@ export const command: Command = {
     )
     .addSubcommand(sub =>
       sub
+        .setName("user")
+        .setDescription("List recent moderation cases for a specific member.")
+        .addUserOption(opt => opt.setName("user").setDescription("The member whose cases to list").setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub
         .setName("edit")
         .setDescription("Edit the reason on a moderation case.")
         .addStringOption(opt => opt.setName("case_id").setDescription("Database ID of the case").setRequired(true))
@@ -47,6 +53,18 @@ export const command: Command = {
     if (!interaction.guild) return;
     const subcommand = interaction.options.getSubcommand();
 
+    const ACTION_ICONS: Record<string, string> = {
+      ban: "🔨",
+      unban: "↩️",
+      kick: "👢",
+      timeout: "⏱️",
+      untimeout: "🔓",
+      warn: "⚠️",
+      purge: "🗑️",
+      lock: "🔒",
+      unlock: "🔓",
+    };
+
     if (subcommand === "view") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
         await interaction.reply({ content: "❌ You need `Moderate Members` permission to view cases.", ephemeral: true });
@@ -65,16 +83,55 @@ export const command: Command = {
         return;
       }
 
+      const icon = ACTION_ICONS[record.action.toLowerCase()] ?? "📜";
       const embed = new EmbedBuilder()
-        .setTitle(`📜 Moderation Case — ${caseId}`)
-        .setColor(0x3498DB)
+        .setTitle(`${icon} Moderation Case #${caseId}`)
+        .setColor(record.action === "ban" ? 0xED4245 : (record.action === "timeout" ? 0xFEE75C : 0x3498DB))
         .addFields(
-          { name: "Target User", value: `<@${record.userId}> (\`${record.userId}\`)`, inline: true },
-          { name: "Moderator", value: `<@${record.moderatorId}>`, inline: true },
-          { name: "Action", value: `\`${record.action.toUpperCase()}\``, inline: true },
-          { name: "Reason", value: record.reason, inline: false },
-          { name: "Date", value: `<t:${Math.floor(record.createdAt.getTime() / 1000)}:F>`, inline: true }
-        );
+          { name: "👤 Target User", value: `<@${record.userId}> (\`${record.userId}\`)`, inline: true },
+          { name: "🛡️ Moderator",   value: `<@${record.moderatorId}>`, inline: true },
+          { name: "⚖️ Action",      value: `\`${record.action.toUpperCase()}\``, inline: true },
+          { name: "📝 Reason",      value: record.reason || "No reason provided", inline: false },
+          ...(record.details ? [{ name: "ℹ️ Details", value: record.details, inline: false }] : []),
+          { name: "📅 Timestamp",   value: `<t:${Math.floor(record.createdAt.getTime() / 1000)}:F> (<t:${Math.floor(record.createdAt.getTime() / 1000)}:R>)`, inline: false }
+        )
+        .setFooter({ text: `Guild ID: ${interaction.guild.id}` })
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      return;
+    }
+
+    if (subcommand === "user") {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
+        await interaction.reply({ content: "❌ You need `Moderate Members` permission to view cases.", ephemeral: true });
+        return;
+      }
+
+      const user = interaction.options.getUser("user", true);
+      const records = await ModerationCaseModel.find({ guildId: interaction.guild.id, userId: user.id })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean();
+
+      if (records.length === 0) {
+        await interaction.reply({ content: `✅ No moderation cases found on record for **${user.tag}** (<@${user.id}>).`, ephemeral: true });
+        return;
+      }
+
+      const lines = records.map((r, i) => {
+        const icon = ACTION_ICONS[r.action.toLowerCase()] ?? "📜";
+        const dateStr = `<t:${Math.floor(new Date(r.createdAt).getTime() / 1000)}:R>`;
+        return `**${i + 1}.** ${icon} \`${r.action.toUpperCase()}\` — ${r.reason} (${dateStr})\n└ *ID:* \`${String((r as any)._id)}\` · *Mod:* <@${r.moderatorId}>`;
+      });
+
+      const embed = new EmbedBuilder()
+        .setTitle(`📜 Case History for ${user.tag} (${records.length})`)
+        .setThumbnail(user.displayAvatarURL())
+        .setColor(0x5865F2)
+        .setDescription(lines.join("\n\n"))
+        .setFooter({ text: "Use /case view case_id:<id> for single case inspection." })
+        .setTimestamp();
 
       await interaction.reply({ embeds: [embed], ephemeral: true });
       return;

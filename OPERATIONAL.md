@@ -20,10 +20,13 @@ Aegis provides a robust set of moderation and administration commands. Key comma
   - `/automod words toggle|add|remove|action`: Manage blocked words filter.
   - `/automod links toggle|action`: Manage link filtering.
   - `/automod mentions toggle|limit|action`: Manage mention-spam filter.
-  - `/automod status`: View current automod settings.
-- `/ban`, `/kick`, `/timeout`, `/warn`: Core moderation tools (require corresponding permissions like `BanMembers`, `KickMembers`, `ModerateMembers`).
-- `/modhistory`: View a user's warning and moderation history (requires `ModerateMembers`).
-- `/developer`: Special command restricted to the configured bot owner (usually to manage global overrides or fetch deep debug info).
+  - `/automod caps toggle|threshold|action`: Manage uppercase and character flood detection.
+  - `/automod status`: Interactive status hub with toggle buttons.
+- `/warn`, `/timeout`, `/ban`, `/kick`: Core moderation suite with preset reason choices, confirmation embeds, and instant quick-actions (Timeout 10m, +1h Extend, Undo, Revoke Ban).
+- `/case`: Comprehensive moderation case history lookup (`/case view`, `/case user`), reason updates (`/case edit`), and JSON audit exports (`/case export`).
+- `/purge`: Filtered bulk message deletion with preview prompt, audit reason logging, and progress bar.
+- `/developer`: Restricted bot-owner diagnostics for live heap memory, cached guilds, and loaded commands.
+- `/sync`: Live slash command re-registration without process restarts.
 
 ## Web Portal Operations & Visual Performance
 

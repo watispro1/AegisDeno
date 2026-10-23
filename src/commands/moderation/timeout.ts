@@ -14,6 +14,7 @@ import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { addModerationCase } from "../../services/moderationCases";
+import { ModerationCaseModel } from "../../database/mongo";
 
 const DURATION_CHOICES = [
   { name: "60 seconds",  value: 60 },
@@ -51,6 +52,19 @@ export const command: Command = {
         .addChoices(...DURATION_CHOICES)
     )
     .addStringOption(opt =>
+      opt
+        .setName("preset")
+        .setDescription("Common infraction reason preset")
+        .setRequired(false)
+        .addChoices(
+          { name: "📢 Excessive Spamming / Chat Flooding", value: "Excessive Spamming / Chat Flooding" },
+          { name: "🤬 Harassment, Hate Speech, or Toxicity", value: "Harassment, Hate Speech, or Toxicity" },
+          { name: "🔞 Inappropriate / NSFW Behavior", value: "Inappropriate or NSFW Behavior" },
+          { name: "🛑 Argumentative / Refusing Staff Direction", value: "Argumentative / Refusing Staff Direction" },
+          { name: "🔗 Self-Promotion / Suspicious Links", value: "Unauthorized Self-Promotion" },
+        )
+    )
+    .addStringOption(opt =>
       opt.setName("reason").setDescription("Reason for the timeout").setMaxLength(512).setRequired(false)
     )
     .addBooleanOption(opt =>
@@ -70,11 +84,13 @@ export const command: Command = {
         target = await interaction.guild.members.fetch(user.id).catch(() => null);
       }
     }
-    const durationSec = interaction.options.getInteger("duration", true);
-    const durationMs  = durationSec * 1000;
-    const reason      = interaction.options.getString("reason") ?? "No reason provided.";
-    const silent      = interaction.options.getBoolean("silent") ?? false;
-    const guildId     = interaction.guildId!;
+    const durationSec  = interaction.options.getInteger("duration", true);
+    const durationMs   = durationSec * 1000;
+    const preset       = interaction.options.getString("preset");
+    const customReason = interaction.options.getString("reason");
+    const reason       = preset && customReason ? `[${preset}] ${customReason}` : (preset || customReason || "No reason provided.");
+    const silent       = interaction.options.getBoolean("silent") ?? false;
+    const guildId      = interaction.guildId!;
 
     if (!target || typeof target === "string") {
       return interaction.reply({ content: "❌ Member not found in this server.", ephemeral: true });
@@ -207,6 +223,11 @@ export const command: Command = {
             .setLabel("Extend (+1h)")
             .setStyle(ButtonStyle.Secondary)
             .setEmoji("⏩"),
+          new ButtonBuilder()
+            .setCustomId(`timeout_cases_${target.id}`)
+            .setLabel("Case History")
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji("📜"),
         );
 
         const resultMsg = await i.editReply({ content: null, embeds: [resultEmbed], components: [actionRow] });
@@ -297,6 +318,22 @@ export const command: Command = {
               content: `⏩ Timeout extended. New expiry: <t:${Math.floor(newUntil.getTime() / 1000)}:R>`,
               ephemeral: true,
             });
+          } else if (bi.customId === `timeout_cases_${target.id}`) {
+            const cases = await ModerationCaseModel.find({ guildId, userId: target.id })
+              .sort({ createdAt: -1 })
+              .limit(5)
+              .lean();
+            if (cases.length === 0) {
+              await bi.reply({ content: `✅ <@${target.id}> has no prior moderation cases recorded.`, ephemeral: true });
+            } else {
+              const lines = cases.map((c, idx) =>
+                `**${idx + 1}.** \`${c.action.toUpperCase()}\` — ${c.reason} (<t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>)`
+              );
+              await bi.reply({
+                content: `📜 **Recent Moderation Cases for <@${target.id}> (${cases.length}):**\n${lines.join("\n")}`,
+                ephemeral: true,
+              });
+            }
           }
         });
 

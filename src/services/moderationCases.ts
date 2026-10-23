@@ -8,7 +8,10 @@ export type ModerationAction =
   | "timeout"
   | "untimeout"
   | "unban"
-  | "clearwarnings";
+  | "clearwarnings"
+  | "purge"
+  | "lock"
+  | "unlock";
 
 export interface ModerationCase {
   _id: string;

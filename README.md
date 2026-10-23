@@ -1,6 +1,6 @@
 # AegisDeno
 
-[![Version](https://img.shields.io/badge/version-3.3.2-blue.svg)](https://github.com/watipro/AegisDeno)
+[![Version](https://img.shields.io/badge/version-3.3.3-blue.svg)](https://github.com/watipro/AegisDeno)
 [![Discord.js](https://img.shields.io/badge/discord.js-v14.27-5865F2.svg)](https://discord.js.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-v5.0-3178C6.svg)](https://www.typescriptlang.org/)
 [![MongoDB](https://img.shields.io/badge/mongodb-v9.0-47A248.svg)](https://www.mongodb.com/)
@@ -13,6 +13,7 @@ AegisDeno is a modular Discord moderation, anti-raid, and community management b
 ## Features
 
 ### Web Portal & Design System
+
 - **Liquid Glass 2.0**: Ultra-refined frosted glass aesthetic with multi-layer blur, specular rim lights, and iridescent highlights. Fully CSS-driven — toggling is instant and layout-shift-free.
 - **Toggleable Glass Mode**: One-click toggle between VisionOS frosted materials and high-contrast solid performance mode via the navbar button or `G` keyboard shortcut. Preference persists across sessions (FOUC-free via `themeInitScript`).
 - **Reading Progress Bar**: Subtle gradient scroll progress indicator across all documentation and guides.
@@ -22,29 +23,34 @@ AegisDeno is a modular Discord moderation, anti-raid, and community management b
 - **Global Site Search**: `Ctrl+K` search dialog covering all pages and every slash command with live results.
 
 ### Starboard & Community Showcase (New in v3.3.2)
+
 - **Starboard Plugin**: Configurable server hall-of-fame system powered by the Knub framework (`/starboard`).
 - **Customizable Triggers**: Custom trigger emoji, configurable reaction thresholds (1–50), and author self-star prevention toggles.
 - **Safe Persistence**: Unique compound indexes prevent duplicate starboard posts; dynamically updates star counts as reactions change over time.
 - **Channel & Role Filters**: Ignore sensitive channels (e.g., `#staff-chat`) or excluded roles from starboard evaluation.
 
 ### Moderation & Security
-- **Core Commands**: `/warn`, `/timeout`, `/removetimeout`, `/kick`, `/ban`, `/unban`, `/purge`, `/lock`, `/note`, `/slowmode`, `/nickname`.
+
+- **Core Commands**: Enhanced `/warn` (rule presets, history, undo, quick-timeout), `/timeout` (presets, +1h extend, remove, case history), `/ban` (presets, account age audit, instant revoke), `/purge` (filter, preview, progress bar, case audit), `/kick`, `/unban`, `/lock`, `/note`, `/slowmode`, `/nickname`.
 - **Staff Analytics**: `/modstats` interactive staff activity metrics.
 - **Warning Escalation**: Automated punishments when warning thresholds are reached (`/escalation`).
-- **Case Tracking**: View (`/case view`), edit reasons (`/case edit`), delete (`/case delete`), or export moderation logs as JSON (`/case export`).
+- **Case Tracking**: Complete case suite (`/case view`, `/case user`, `/case edit`, `/case delete`, `/case export`) with action icons and timestamps.
 - **Moderation Presets**: Apply security presets (`casual`, `community`, `gaming`, `strict`) via `/preset apply`.
 
 ### Automod & Anti-Raid
+
 - **Content Filtering**: Banned words filter, link filter, mass-mention protection, and chat rate-limiting (`/automod`).
 - **Exemptions**: Safe-list trusted roles and channels (`/automod exempt`).
 - **Verification**: Interactive 1-click button or CAPTCHA verification panels (`/verify setup`) with exception-safe error handling.
 
 ### Support Tickets & Roles
+
 - **Support Tickets**: Interactive ticket panels with private channel creation and staff permissions (`/ticket setup`, `/ticket close`).
 - **Role Panels**: Self-assignable button role panels (`/rolepanel create`).
 - **Auto-Responders**: Automated bot replies with rich variables (`{user}`, `{tag}`, `{user_id}`, `{server}`, `{server_id}`, `{channel}`, `{channel_id}`, `{member_count}`) via `/autoresponder`.
 
 ### Community Tools
+
 - **Suggestions System**: Interactive suggestion boards with live voting and staff approval workflows (`/suggest`).
 - **Native Polls**: Discord native poll integration with multi-select and duration timers (`/poll`).
 - **Scheduled Tasks**: One-off reminders and recurring announcements (`/automation`).
@@ -55,10 +61,12 @@ AegisDeno is a modular Discord moderation, anti-raid, and community management b
 ## Setup & Running Locally
 
 ### 1. Prerequisites
+
 - **Node.js** v20.0.0 or higher
 - **MongoDB** connection URI (MongoDB Atlas or local instance)
 
 ### 2. Installation
+
 ```bash
 git clone https://github.com/watipro/AegisDeno.git
 cd AegisDeno
@@ -67,7 +75,9 @@ cp .env.example .env
 ```
 
 ### 3. Configuration
+
 Fill out `.env` with your bot credentials:
+
 ```env
 DISCORD_TOKEN="your_bot_token"
 DISCORD_APPLICATION_ID="your_discord_app_id"
@@ -77,6 +87,7 @@ PORT=3000
 ```
 
 ### 4. Running
+
 ```bash
 # Typecheck
 npm run typecheck
@@ -102,10 +113,10 @@ fly deploy
 
 ## Documentation
 
-- [`DISCOVERY.md`](./DISCOVERY.md) — Top.gg & App Directory submission details.
-- [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Production deployment guide.
+- [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Production deployment & Fly.io guide.
 - [`OPERATIONAL.md`](./OPERATIONAL.md) — Maintenance and server administration guide.
 - [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) — Troubleshooting guide for database, Discord tokens, and slash commands.
+- [`server.md`](./server.md) — Official Aegis Support Server blueprint & channel permissions architecture.
 
 ---
 

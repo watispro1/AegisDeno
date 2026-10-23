@@ -7,6 +7,43 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.3.3] — 2026-10-23
+
+### 🛡️ Core Moderation Overhaul
+- **Enhanced `/warn` Command:**
+  - Added quick `preset` violation dropdown (Spam, Harassment/Toxicity, NSFW, Promo links, Rule evasion) with combined custom reason support.
+  - Added instant interactive **⚡ Timeout (10m)** quick-escalation button on the confirmation embed for repeat offenders.
+  - Preserved **📜 Warning History** and **↩️ Undo Warning** action buttons.
+- **Enhanced `/timeout` Command:**
+  - Added infraction `preset` choices (Spamming, Harassment, Inappropriate Language, Argumentative, Promo Links).
+  - Added on-demand **📜 Case History** inspection button allowing moderators to review past actions immediately.
+  - Kept **🔓 Remove Timeout** and **⏩ Extend (+1h)** dynamic adjustment buttons.
+- **Enhanced `/ban` Command:**
+  - Added severe infraction `preset` choices (Severe Harassment, Compromised/Raid Account, Malicious Content, Mass Spam, Prior Infractions).
+  - Enriched ban confirmation prompt with target account age (`<t:...:R>`) and guild join date metrics.
+  - Added instant **↩️ Revoke Ban (Unban)** button on post-ban response.
+- **Enhanced `/case` Command Suite:**
+  - Added `/case user` subcommand to browse a member's recent infraction history with action icons (🔨, ⏱️, ⚠️, 👢, 🗑️).
+  - Enriched `/case view` with color-coded embed designs and formatted relative timestamps.
+- **Enhanced `/purge` Command:**
+  - Added audit `reason` logging for bulk message cleanups.
+  - Added automatic case record creation in `ModerationCaseModel`.
+  - Expanded `ModerationAction` type union with `"purge" | "lock" | "unlock"`.
+
+### 🧹 Lean Architecture & Developer Bloat Removal
+- **Removed `/beta` Command & Lab Simulator:**
+  - Completely removed the 600+ line `/beta` Command Lab simulation suite, tester roster management, and triage queues.
+  - Removed `BetaProgramModel` and `BetaFeedbackModel` database schemas.
+- **Standardized AutoMod Rules:**
+  - Decoupled Caps Percentage and Character Flood detection from the beta program, making them standard AutoMod rules for all servers via `/automod caps`.
+
+### 🌐 Web & Documentation Streamlining
+- **Streamlined Navigation Bar:**
+  - Consolidated top navigation bar to 4 core links: **Features**, **Commands**, **Docs**, and **Status**.
+- **Consolidated Documentation Handbook:**
+  - Incorporated an interactive Troubleshooting & FAQs table and Release Changelog highlights directly into `/docs`.
+  - Pruned redundant markdown files (`CHANNEL_CONTENT.md`, `KNUB_CHANGELOG.md`, `DISCOVERY.md`) in favor of centralized documentation.
+
 ## [3.3.2] — 2026-10-20
 
 ### 🧪 Beta Program & Command Lab Overhaul

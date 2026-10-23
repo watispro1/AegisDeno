@@ -980,14 +980,14 @@ const DOC_SECTIONS = [
   { id: "roles",        label: "Role Panels & Self-Roles" },
   { id: "starboard",    label: "Starboard" },
   { id: "suggestions",  label: "Suggestions & Voting" },
-  { id: "beta",         label: "Beta & Command Lab" },
   { id: "automod",      label: "Auto Moderation" },
   { id: "logging",      label: "Audit Logging" },
   { id: "welcome",      label: "Welcome Messages" },
   { id: "automation",   label: "Automation & Schedules" },
   { id: "configuration",label: "Configuration" },
   { id: "permissions",  label: "Permissions Matrix" },
-  { id: "troubleshooting", label: "Troubleshooting" },
+  { id: "troubleshooting", label: "Troubleshooting & FAQs" },
+  { id: "changelog",    label: "Release Changelog" },
   { id: "architecture", label: "Architecture & Security" },
 ];
 
@@ -1168,55 +1168,6 @@ export function renderDocs(cfg: SiteConfig): string {
 /suggest consider id:&lt;id&gt; reason:"Under review"</code></pre>
       <p><code class="inline">/suggest submit</code> opens a guided form. Voting remains available while a suggestion is pending or under consideration, then locks when staff approves or denies it.</p>
 
-      <h2 id="beta">Beta Program &amp; Command Lab</h2>
-      <p>Aegis provides a managed experimentation and diagnostics framework for beta servers and authorized partner communities. Feature access is gated through two layers: a server must be enrolled in the beta network, and individual members can be enrolled into the tester roster to access experimental features, feedback triage, and the safety simulator.</p>
-
-      <div class="callout tip">
-        <span class="callout-icon" aria-hidden="true">🧪</span>
-        <div><strong>Non-Enforcing Safety Simulator:</strong> Testers and moderators can use <code class="inline">/beta lab</code> to evaluate messages against excessive caps, character floods, disguised Discord invites, mass mentions, and token Shannon entropy without issuing warnings or timeouts.</div>
-      </div>
-
-      <h3>Tester &amp; Diagnostics Commands</h3>
-      <pre class="block"><code>/beta status
-/beta lab message:"TESTING 123 LOOOOOOOL discord.gg/fake" type:full
-/beta feedback message:"Steps to reproduce the unexpected interaction..." category:bug severity:high
-/beta profile [user:@Tester]
-/beta leaderboard</code></pre>
-
-      <h3>Beta Staff &amp; Triage Workflow</h3>
-      <pre class="block"><code>/beta tester-add user:@Member
-/beta tester-remove user:@Member
-/beta feature-enable feature:"Experimental AutoMod (Caps &amp; Flood)"
-/beta feature-disable feature:"Heuristic Toxicity &amp; Spam Analyzer"
-/beta feedback-list status:open category:bug
-/beta feedback-view id:BETA-78A3
-/beta feedback-triage id:BETA-78A3 status:resolved note:"Fixed in patch 3.3.2"</code></pre>
-
-      <h3>Command Lab Simulation Suites</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Suite</th><th>Checks Performed</th><th>Heuristic Logic</th></tr></thead>
-          <tbody>
-            <tr><td><strong>Caps Percentage</strong></td><td>Uppercase ratio and minimum letter length.</td><td>Flags messages &gt; 8 letters with &ge; 80% uppercase content.</td></tr>
-            <tr><td><strong>Character Flood</strong></td><td>Consecutive repeating characters or spam runs.</td><td>Flags streaks of 4+ identical repeating letters or symbols.</td></tr>
-            <tr><td><strong>Discord Invite Shield</strong></td><td>Standard links and zero-width obfuscated invites.</td><td>Extracts invite codes and catches hidden zero-width evasion.</td></tr>
-            <tr><td><strong>Mass Mention Velocity</strong></td><td>User, role, and broadcast ping count.</td><td>Weighted evaluation of member pings and @everyone abuse.</td></tr>
-            <tr><td><strong>Shannon Entropy</strong></td><td>Token distribution and linguistic randomness.</td><td>Detects copypasta script spam (&lt; 2.0 bits) and token leaks (&gt; 4.8 bits).</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>Beta Feature Flags</h3>
-      <p>Aegis supports 6 modular beta feature flags spanning security, heuristics, and community tools:</p>
-      <ul>
-        <li><code class="inline">beta-feedback</code> — Structured ticketing queue with severity, categories, and staff notes.</li>
-        <li><code class="inline">experimental-automod</code> — Heuristic caps and repetitive character flooding detection.</li>
-        <li><code class="inline">command-lab</code> — Interactive rule simulator playground.</li>
-        <li><code class="inline">smart-anti-raid</code> — Adaptive member arrival velocity analysis.</li>
-        <li><code class="inline">ai-moderation-preview</code> — Statistical pattern matching and token entropy analyzer.</li>
-        <li><code class="inline">starboard-custom-rules</code> — Advanced tiered starboards with role-based multipliers.</li>
-      </ul>
-
       <h2 id="automod">Auto Moderation</h2>
       <p>AutoMod scans messages in real time to enforce community guidelines before moderators need to intervene.</p>
       <pre class="block"><code>/automod status
@@ -1263,8 +1214,44 @@ export function renderDocs(cfg: SiteConfig): string {
       <p>Aegis enforces strict role hierarchy checks and re-verifies user and bot permissions at execution time.</p>
       ${permissionTable()}
 
-      <h2 id="troubleshooting">Troubleshooting &amp; Gotchas</h2>
-      <p>Use the dedicated <a href="/troubleshooting">Troubleshooting Guide</a> for symptom-based fixes covering command registration, role hierarchy, AutoMod, tickets, reminders, website status, and deployment. Start with <code class="inline">/diagnostics</code> whenever possible.</p>
+      <h2 id="troubleshooting">Troubleshooting &amp; FAQs</h2>
+      <p>Quickly diagnose and resolve common setup, permissions, and moderation issues. Start with <code class="inline">/diagnostics</code> in your server to run an automated health check on bot permissions and channel routing.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Issue / Symptom</th><th>Likely Cause</th><th>Recommended Solution</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>"Missing Permissions" on Ban / Timeout</strong></td>
+              <td>Target member has a role equal to or above Aegis&#39; highest role.</td>
+              <td>In Server Settings &rarr; Roles, drag Aegis&#39; integration role above the roles of members and moderators it needs to manage.</td>
+            </tr>
+            <tr>
+              <td><strong>Slash commands not showing up in Discord</strong></td>
+              <td>Discord global registration propagation delay (up to 1 hour).</td>
+              <td>Run <code class="inline">/sync guild_only:true</code> for instant guild-scoped command updates, or reinvite the bot with the <code class="inline">applications.commands</code> OAuth2 scope.</td>
+            </tr>
+            <tr>
+              <td><strong>AutoMod blocking staff or testing accounts</strong></td>
+              <td>No exempt roles or exempt channels configured.</td>
+              <td>Run <code class="inline">/automod exempt role:@Staff</code> or configure an exempt channel via <code class="inline">/automod exempt channel:#staff-logs</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>Buttons not responding or showing "Interaction failed"</strong></td>
+              <td>Temporary Discord gateway latency or collector timeout.</td>
+              <td>Interactive panels expire after their designated safety window (default 30–60s for confirmations). Re-run the command to generate a fresh panel.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="changelog">Release Changelog &amp; Highlights</h2>
+      <p>Recent major updates and stability patches for Aegis:</p>
+      <ul>
+        <li><strong>v3.3.2</strong> — Modular Starboard plugin suite, streamlined command architecture, and mobile documentation enhancements.</li>
+        <li><strong>v3.3.1</strong> — Apple VisionOS-inspired Liquid Glass 2.0 design system with dynamic toggle, hardened emergency server lockdown (<code class="inline">/lock</code>), and dynamic timeout duration calculator.</li>
+        <li><strong>v3.3.0</strong> — Knub plugin framework integration, interactive support tickets, self-assignable role panels, and automated suggestion workflows.</li>
+      </ul>
 
       <h2 id="architecture">Architecture &amp; Data Security</h2>
       <p>All configuration, ticket records, and AutoMod rules are isolated by guild ID. Aegis never shares data between servers and writes audit logs directly to your Discord channels.</p>
@@ -1622,7 +1609,6 @@ function sectionCommandCount(section: string): number {
     logging: ["logging"],
     welcome: ["welcome"],
     automation: ["automation"],
-    beta: ["beta"],
     tickets: ["ticket"],
     verification: ["verify"],
     roles: ["rolepanel"],
@@ -1630,6 +1616,7 @@ function sectionCommandCount(section: string): number {
     suggestions: ["suggest"],
     permissions: [],
     troubleshooting: [],
+    changelog: [],
     architecture: [],
     quickstart: ["help", "config"],
   };
