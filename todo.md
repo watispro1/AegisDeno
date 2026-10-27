@@ -4,6 +4,13 @@
 
 ### Website + repo hygiene
 - [x] Removed all stale public GitHub repository URLs and open-source references in transition to proprietary platform
+- [x] Add Changelog link directly to the top navigation bar across all site pages
+- [x] Completely removed Liquid Glass UI and all `backdrop-filter` effects for maximum rendering performance and zero frame drops
+- [x] Replaced glass styling with sleek, solid, high-contrast surface hierarchy and fast shadows
+- [x] Removed glass toggle button, client scripts, theme-init hooks, and keyboard shortcuts
+- [x] Completely redesigned Home, Features, Changelog, and Status pages to developer-grade engineering aesthetic (Linear/Tailscale/Raycast)
+- [x] Replaced simulated fake chat and fabricated metrics with interactive Command & Response Inspector and authentic live telemetry
+- [x] Replaced fake 90-day uptime grid on Status page with genuine runtime specifications and machine-readable health probes
 - [x] Validate the public site metadata, invite links, and docs navigation after the latest release sweep
 - [x] Re-check mobile navigation, search results, and command deep links for regressions
 - [x] Audit README/setup guidance for copy-paste accuracy before the next release

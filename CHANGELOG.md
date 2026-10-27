@@ -68,6 +68,23 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Lean Mongoose Deserialization (`warnings.ts`, `case.ts`):**
   - Applied `.lean()` across warning lookups and `/case export` operations to return plain JavaScript objects, reducing memory allocation by up to 80%.
 
+### ⚡ Web Portal High-Performance Redesign & Glass System Removal
+- **Complete Elimination of Glassmorphism & `backdrop-filter` Overhead:**
+  - Fully removed heavy `-webkit-backdrop-filter` and `backdrop-filter` blur calculations across all page components (navbars, cards, modals, search panels, stat grids, accordions, and buttons).
+  - Replaced translucent blur layers with solid, high-contrast, GPU-efficient surface designs (`--bg-alt`, `--surface-2`, `--border`) with subtle elevation shadows (`--shadow-sm`, `--shadow-md`).
+  - Purged all legacy glass tokens (`--glass`, `--glass-strong`, `--glass-border`, `--glass-highlight`) and redirected tokens to solid, high-performance palette colors.
+  - Removed dead `data-glass` attribute logic, theme initialization checks, and client storage listeners.
+  - Removed the glass toggle button from navigation and removed the corresponding `'g'`/`'G'` keyboard shortcut.
+- **Developer-Grade Authentic Portal Redesign:**
+  - Redesigned all primary pages (`Home`, `Features`, `Changelog`, `Status`, `Docs`, `Commands`) with a disciplined, high-density developer aesthetic (Linear / Tailscale / Raycast style).
+  - Removed all AI marketing buzzwords, rainbow gradient headers, and exaggerated claims.
+  - Eliminated simulated/fake chat animations and fabricated statistics (such as fake 90-day uptime history grids or synthetic sub-15ms claims).
+  - Replaced home hero simulation with an interactive **Command & Response Inspector** showcasing real inputs, options, permissions, and Discord response embeds for Ghost Watch, Trust Score, Ban Appeals, and Mod Reports.
+  - Upgraded the Status page with authentic cluster telemetry (live PID, Node/V8 runtime version, primary shard state, Knub plugin states, and machine-readable API endpoints).
+- **Enhanced Website Navigation:**
+  - Added dedicated **Changelog** link directly to the primary top navigation bar across all desktop and mobile page layouts.
+  - Streamlined header actions for faster loading and reduced DOM complexity.
+
 ## [3.3.3] — 2026-10-23
 
 ### 🛡️ Core Moderation Overhaul

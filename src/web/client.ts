@@ -50,46 +50,6 @@ export const clientScript = String.raw`
 
   syncToggle();
 
-  /* ── Liquid Glass Toggle ───────────────────────────────────────── */
-  var GLASS_STORAGE_KEY = 'aegis-glass';
-  function currentGlass() {
-    var attr = root.getAttribute('data-glass');
-    if (attr) return attr;
-    try {
-      var saved = localStorage.getItem(GLASS_STORAGE_KEY);
-      if (saved === 'off') return 'off';
-    } catch (e) {}
-    return 'on';
-  }
-
-  function syncGlassToggle() {
-    var btns = document.querySelectorAll('.glass-toggle');
-    var isGlassOn = currentGlass() !== 'off';
-    btns.forEach(function (btn) {
-      btn.setAttribute('aria-pressed', isGlassOn ? 'true' : 'false');
-      btn.setAttribute('aria-label', isGlassOn ? 'Switch to solid performance mode' : 'Switch to liquid glass frosted mode');
-      btn.setAttribute('title', isGlassOn ? 'Liquid Glass: ON (Click to disable) [G]' : 'Liquid Glass: OFF (Click to enable) [G]');
-    });
-  }
-
-  function toggleGlass() {
-    var next = currentGlass() === 'on' ? 'off' : 'on';
-    root.setAttribute('data-glass', next);
-    try { localStorage.setItem(GLASS_STORAGE_KEY, next); } catch (err) {}
-    syncGlassToggle();
-    if (window.showToast) {
-      window.showToast(next === 'on' ? '✨ Liquid Glass: Enabled (VisionOS Frosted Materials)' : '⚡ Liquid Glass: Disabled (Performance Opaque Mode)');
-    }
-  }
-
-  document.addEventListener('click', function (e) {
-    var btn = e.target.closest && e.target.closest('.glass-toggle');
-    if (!btn) return;
-    toggleGlass();
-  });
-
-  syncGlassToggle();
-
   /* ── Global page and command search ───────────────────────────── */
   var searchDialog = document.getElementById('site-search-dialog');
   var searchInput = document.getElementById('site-search-input');
@@ -177,14 +137,6 @@ export const clientScript = String.raw`
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSiteSearch(); }
     else if (e.key === 'Escape') closeSiteSearch();
-    else if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      var tag = (e.target && e.target.tagName) || '';
-      var isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable);
-      if (!isInput && (!searchDialog || searchDialog.hidden)) {
-        e.preventDefault();
-        toggleGlass();
-      }
-    }
   });
 
   /* ── Sticky nav shadow ────────────────────────────────────────── */

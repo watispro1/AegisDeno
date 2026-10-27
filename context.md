@@ -73,9 +73,9 @@ Developer commands are owner-only. The owner ID should be supplied through `DISC
 
 The web dashboard and public reference pages live under `src/web/`:
 
-- `theme.ts` — Unified CSS design system featuring Apple VisionOS-inspired Liquid Glass materials, semantic tokens, and instant on/off toggling (`data-glass="on|off"`).
-- `layout.ts` — Global HTML layout scaffolding including responsive navigation, search dialog modal, theme toggles, and metadata.
-- `client.ts` — Client-side vanilla JavaScript controlling theme persistence (`aegis-theme`), glass state persistence (`aegis-glass`), global search (`Ctrl+K`), quick clipboard copying, and keyboard shortcuts (`G`). Note: NEVER include string template literals (`${...}`) in `clientScript` to preserve smoke test compliance.
+- `theme.ts` — Unified CSS design system featuring high-performance solid surface styling, semantic tokens, and clean typography with zero GPU/render bottleneck from `backdrop-filter`.
+- `layout.ts` — Global HTML layout scaffolding including responsive navigation (with direct Changelog link), search dialog modal, theme toggle (`data-theme`), and metadata.
+- `client.ts` — Client-side vanilla JavaScript controlling theme persistence (`aegis-theme`), global search (`Ctrl+K`), and quick clipboard copying. Note: NEVER include string template literals (`${...}`) in `clientScript` to preserve smoke test compliance.
 - `assets.ts` — Inlined SVGs and synchronous `themeInitScript` executed before DOM paint to prevent styling flash.
 - `pages.ts` — Server-side rendered HTML generators for all core public and authenticated routes.
 - `server.ts` — Express server managing asset hashing, route registration, live telemetry streaming, and HTTP compression.
