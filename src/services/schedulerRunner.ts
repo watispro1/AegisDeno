@@ -36,6 +36,16 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       return;
     }
 
+    if (channel.guild.id !== task.guildId) {
+      logger.error(
+        `Task ${taskId}: channel ${task.channelId} belongs to guild ${channel.guild.id}, not ${task.guildId} — removing task.`,
+      );
+      await deleteTask(task.guildId, taskId).catch(err =>
+        logger.error(`Task ${taskId}: failed to delete cross-guild task`, err)
+      );
+      return;
+    }
+
     const embed = new EmbedBuilder()
       .setColor(task.type === "reminder" ? 0x5865F2 : 0x57F287)
       .setTitle(task.type === "reminder" ? "⏰ Reminder" : "📅 Scheduled Message")

@@ -133,6 +133,13 @@ async function main() {
   const pluginsJson = await (await fetch(origin + "/api/plugins")).json();
   check("plugins api returns array", Array.isArray(pluginsJson.plugins));
 
+  const oversizedWebhook = await fetch(origin + "/api/topgg/webhook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ payload: "x".repeat(20 * 1024) }),
+  });
+  check("webhook rejects oversized payload", oversizedWebhook.status === 413, String(oversizedWebhook.status));
+
   console.log("\nInvite permissions");
   const { botPermissionBitfield } = await import("../src/web/catalog");
   const bits = botPermissionBitfield();

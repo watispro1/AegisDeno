@@ -63,6 +63,7 @@ typings/
 # Database
 *.db
 *.sqlite
+*.sqlite-*
 
 # Dist
 dist/
@@ -72,4 +73,3 @@ server.md
 CHANNEL_CONTENT.md
 .agents/
 .gemini/
-

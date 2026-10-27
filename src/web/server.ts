@@ -256,7 +256,9 @@ export function startWebServer(client: Client) {
     });
   });
 
-  app.post("/api/topgg/webhook", express.json(), (req, res) => {
+  // Top.gg sends a small JSON object; bound parsing prevents unauthenticated
+  // requests from consuming unbounded memory before the shared-secret check.
+  app.post("/api/topgg/webhook", express.json({ limit: "16kb" }), (req, res) => {
     const auth = process.env.TOPGG_WEBHOOK_AUTH;
     if (!auth) {
       logger.warn("Rejected Top.gg webhook because TOPGG_WEBHOOK_AUTH is not configured.");
