@@ -1867,9 +1867,9 @@ export const RELEASES: Release[] = [
   },
   {
     version: "3.3.3",
-    date: "2026-10-23",
-    tag: "Core Moderation Overhaul & Lean Architecture",
-    summary: "Overhauled core moderation commands with violation presets and quick escalation buttons, removed experimental beta command lab bloat, standardized AutoMod rules, and streamlined documentation.",
+    date: "2026-10-27",
+    tag: "Core Moderation Overhaul & Production Hardening",
+    summary: "Overhauled core moderation commands, removed experimental beta command lab bloat, and strengthened scheduler isolation, data validation, public telemetry, webhook handling, and moderation-data retention.",
     highlights: [
       "[ENHANCED] /warn: Quick rule violation presets, instant 10m timeout quick-escalation button, and interactive warning history.",
       "[ENHANCED] /timeout: Reason presets, dynamic remaining time extension, remove timeout, and on-demand case history inspector.",
@@ -1878,6 +1878,15 @@ export const RELEASES: Release[] = [
       "[ENHANCED] /purge: Added audit reason logging, case tracking in ModerationCaseModel, and visual progress bar.",
       "[CLEANUP] Pruned developer/beta bloat: completely removed experimental /beta Command Lab simulation suite and beta feedback models.",
       "[ENHANCED] AutoMod: Decoupled caps percentage and character flood detection from beta, enabling them universally via /automod caps.",
+      "[SECURITY] Scheduler now validates channel ownership before delivering a message, preventing cross-guild delivery from stale or malformed tasks.",
+      "[SECURITY] Command cooldowns reserve atomically before execution, blocking concurrent bypasses while releasing failed-command reservations.",
+      "[SECURITY] Public telemetry no longer exposes Node.js version, heap usage, exact startup time, or plugin inventory.",
+      "[SECURITY] Public API routes now have per-client rate limiting, and the Top.gg webhook rejects oversized request bodies.",
+      "[RELIABILITY] Scheduler startup restoration is bounded, projected, indexed, and limited to valid recent tasks.",
+      "[DATA] Guild configuration values are validated and bounded at the service boundary, including IDs, escalation rules, messages, and log categories.",
+      "[DATA] Warnings, moderation cases, and staff notes now expire automatically after one year through MongoDB retention indexes.",
+      "[MODERATION] Case exports are capped at 5,000 records and export only the fields required for an audit archive.",
+      "[MAINTENANCE] Removed committed SQLite runtime databases and sidecar files; production dependency audit is clean.",
     ],
   },
   {
@@ -2850,7 +2859,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
 
       <h3>Operational data</h3>
       <ul>
-        <li>Process memory usage, uptime, and gateway latency, used for the <a href="/status">status page</a> and the homepage counters.</li>
+        <li>Uptime and gateway latency, used for the <a href="/status">status page</a> and the homepage counters.</li>
         <li>Server logs containing error messages, used to diagnose faults.</li>
       </ul>
 
@@ -2879,7 +2888,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
       <h2 id="retention">7. Data retention</h2>
       <ul>
         <li><strong>Configuration and automod rules:</strong> retained while Aegis is in the server, then deleted on removal or after a defined period.</li>
-        <li><strong>Warnings:</strong> retained until a moderator clears them with <code class="inline">/clearwarnings</code>, or until Aegis is removed.</li>
+        <li><strong>Warnings, moderation cases, and staff notes:</strong> automatically expire after one year, or may be deleted earlier by an authorized moderator.</li>
         <li><strong>Audit log entries:</strong> written to your own Discord channel and governed by your message retention settings; we do not keep a separate copy.</li>
         <li><strong>Operational logs:</strong> retained for a short period for debugging, then discarded.</li>
       </ul>

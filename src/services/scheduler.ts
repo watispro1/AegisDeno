@@ -1,5 +1,8 @@
 import { TaskModel } from "../database/mongo";
 
+const MAX_RESTORED_TASKS = 10_000;
+const OVERDUE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 export type TaskType = "reminder" | "scheduled";
 
 export interface ScheduledTask {
@@ -96,6 +99,11 @@ export async function deleteTask(guildId: string, id: string): Promise<boolean> 
 }
 
 export async function getAllPendingTasks(): Promise<ScheduledTask[]> {
-  const docs = await TaskModel.find();
-  return docs.map(doc => toTask(doc.toObject()));
+  const cutoff = new Date(Date.now() - OVERDUE_RESTORE_WINDOW_MS);
+  const docs = await TaskModel.find({ executeAt: { $gte: cutoff } })
+    .select("guildId channelId creatorId type payload executeAt intervalMs createdAt")
+    .sort({ executeAt: 1 })
+    .limit(MAX_RESTORED_TASKS)
+    .lean();
+  return docs.map(doc => toTask(doc));
 }

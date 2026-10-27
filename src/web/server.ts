@@ -39,6 +39,31 @@ const ASSET_VERSION = createHash("sha256")
   .slice(0, 8);
 
 const COMPRESSIBLE = /^(text\/|application\/(json|xml|manifest\+json|atom\+xml|rss\+xml)|image\/svg)/;
+const RATE_WINDOW_MS = 60_000;
+const API_REQUESTS_PER_WINDOW = 120;
+const requestCounts = new Map<string, { count: number; windowStartedAt: number }>();
+
+function apiRateLimit(req: Request, res: Response, next: NextFunction): void {
+  const now = Date.now();
+  const key = req.ip || req.socket.remoteAddress || "unknown";
+  const current = requestCounts.get(key);
+  const entry = !current || now - current.windowStartedAt >= RATE_WINDOW_MS
+    ? { count: 0, windowStartedAt: now }
+    : current;
+  entry.count++;
+  requestCounts.set(key, entry);
+  if (requestCounts.size > 10_000) {
+    for (const [address, value] of requestCounts) {
+      if (now - value.windowStartedAt >= RATE_WINDOW_MS) requestCounts.delete(address);
+    }
+  }
+  if (entry.count > API_REQUESTS_PER_WINDOW) {
+    res.setHeader("Retry-After", "60");
+    res.status(429).json({ error: "rate_limited" });
+    return;
+  }
+  next();
+}
 
 function siteConfig(): SiteConfig {
   const appId = process.env.DISCORD_APPLICATION_ID?.trim();
@@ -182,6 +207,7 @@ export function startWebServer(client: Client) {
     next();
   });
   app.use(compression);
+  app.use("/api", apiRateLimit);
 
   const online = (): boolean => Boolean(client?.isReady?.());
   const isOnline = (): boolean => online();
@@ -204,12 +230,10 @@ export function startWebServer(client: Client) {
     res.json({
       status: isOnline() ? "ok" : "degraded",
       version: SITE_VERSION,
-      startedAt: new Date(STARTED_AT).toISOString(),
       uptime: Math.floor(stats.uptime / 1000),
       guilds: stats.guilds,
       users: stats.users,
       commands: stats.commands,
-      plugins: knubManager.getAllPlugins().length,
       gatewayPing: stats.ping,
     });
   });
@@ -223,18 +247,12 @@ export function startWebServer(client: Client) {
     res.json({
       online: isOnline(),
       version: SITE_VERSION,
-      startedAt: STARTED_AT,
       ping: stats.ping,
       uptime: Math.floor(stats.uptime / 1000),
       guilds: stats.guilds,
       users: stats.users,
       commands: stats.commands,
-      plugins: knubManager.getAllPlugins().length,
-      subcommands: cs.subcommands,
-      options: cs.options,
-      categories: cs.categories,
-      memoryMb: Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1)),
-      nodeVersion: process.version,
+      catalog: cs,
     });
   });
 
@@ -260,7 +278,9 @@ export function startWebServer(client: Client) {
     });
   });
 
-  app.post("/api/topgg/webhook", express.json(), (req, res) => {
+  // Top.gg sends a small JSON object; bound parsing prevents unauthenticated
+  // requests from consuming unbounded memory before the shared-secret check.
+  app.post("/api/topgg/webhook", express.json({ limit: "16kb" }), (req, res) => {
     const auth = process.env.TOPGG_WEBHOOK_AUTH;
     if (!auth) {
       logger.warn("Rejected Top.gg webhook because TOPGG_WEBHOOK_AUTH is not configured.");

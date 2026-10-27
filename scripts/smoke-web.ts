@@ -126,12 +126,20 @@ async function main() {
   const statsJson = await apiStats.clone().json();
   check("stats returns online: true", statsJson.online === true);
   check("stats returns valid ping", typeof statsJson.ping === "number");
+  check("stats omits runtime internals", !("nodeVersion" in statsJson) && !("memoryMb" in statsJson) && !("startedAt" in statsJson));
 
   const commandsJson = await (await fetch(origin + "/api/commands")).json();
   check("commands api returns array", Array.isArray(commandsJson.commands));
 
   const pluginsJson = await (await fetch(origin + "/api/plugins")).json();
   check("plugins api returns array", Array.isArray(pluginsJson.plugins));
+
+  const oversizedWebhook = await fetch(origin + "/api/topgg/webhook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ payload: "x".repeat(20 * 1024) }),
+  });
+  check("webhook rejects oversized payload", oversizedWebhook.status === 413, String(oversizedWebhook.status));
 
   console.log("\nInvite permissions");
   const { botPermissionBitfield } = await import("../src/web/catalog");

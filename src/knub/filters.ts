@@ -99,8 +99,18 @@ export const botPermissionsFilter: CommandFilter = {
   },
 };
 
-/** Cooldown tracker: maps commandName:userId -> timestamp when next allowed */
+/** Cooldown tracker: maps commandName:userId -> timestamp when next allowed. */
 const cooldownCache = new Map<string, number>();
+const COOLDOWN_SWEEP_INTERVAL_MS = 60_000;
+let lastCooldownSweep = 0;
+
+function sweepExpiredCooldowns(now: number): void {
+  if (now - lastCooldownSweep < COOLDOWN_SWEEP_INTERVAL_MS) return;
+  lastCooldownSweep = now;
+  for (const [key, expiresAt] of cooldownCache) {
+    if (expiresAt <= now) cooldownCache.delete(key);
+  }
+}
 
 /** Pre-filter: Knub-style per-command user rate limiting */
 export const cooldownFilter: CommandFilter = {
@@ -111,6 +121,7 @@ export const cooldownFilter: CommandFilter = {
 
     const key = `${ctx.interaction.commandName}:${ctx.userId}`;
     const now = Date.now();
+    sweepExpiredCooldowns(now);
     const expiresAt = cooldownCache.get(key);
 
     if (expiresAt && now < expiresAt) {
@@ -121,22 +132,21 @@ export const cooldownFilter: CommandFilter = {
       };
     }
 
+    // Reserve before command execution so concurrent interactions cannot all
+    // pass the check before a post-hook gets a chance to update the cache.
+    cooldownCache.set(key, now + cooldownMs);
     ctx.metadata.set("cooldownKey", key);
-    ctx.metadata.set("cooldownMs", cooldownMs);
     return { ok: true };
   },
 };
 
-/** Post-hook: Updates cooldown after execution */
+/** Post-hook: Rolls back a reservation when command execution fails. */
 export const cooldownUpdateHook: CommandPostHook = {
   name: "cooldownUpdate",
   execute(ctx, { success }) {
-    if (success) {
+    if (!success) {
       const key = ctx.metadata.get("cooldownKey");
-      const cooldownMs = ctx.metadata.get("cooldownMs");
-      if (key && cooldownMs) {
-        cooldownCache.set(key, Date.now() + cooldownMs);
-      }
+      if (key) cooldownCache.delete(key);
     }
   },
 };

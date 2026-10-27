@@ -8,6 +8,8 @@ import type { Command } from "../../types/discord";
 import { isValidObjectId } from "mongoose";
 import { ModerationCaseModel } from "../../database/mongo";
 
+const MAX_EXPORT_CASES = 5_000;
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("case")
@@ -193,7 +195,17 @@ export const command: Command = {
 
       await interaction.deferReply({ ephemeral: true });
 
-      const cases = await ModerationCaseModel.find({ guildId: interaction.guild.id }).sort({ createdAt: -1 }).lean();
+      const cases = await ModerationCaseModel.find({ guildId: interaction.guild.id })
+        .select("guildId userId moderatorId action reason details createdAt")
+        .sort({ createdAt: -1 })
+        .limit(MAX_EXPORT_CASES + 1)
+        .lean();
+      if (cases.length > MAX_EXPORT_CASES) {
+        await interaction.editReply(
+          `❌ This server has more than ${MAX_EXPORT_CASES.toLocaleString()} moderation cases. Narrow the export before trying again.`,
+        );
+        return;
+      }
       const jsonData = JSON.stringify(cases, null, 2);
       const buffer = Buffer.from(jsonData, "utf-8");
       const attachment = new AttachmentBuilder(buffer, { name: `moderation-export-${interaction.guild.id}.json` });
