@@ -1648,6 +1648,23 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "3.3.3",
+    date: "2026-10-27",
+    tag: "Production Hardening",
+    summary: "Strengthens scheduler isolation, command throttling, data validation, public telemetry, webhook handling, and moderation-data retention for safer production operation.",
+    highlights: [
+      "[SECURITY] Scheduler now validates channel ownership before delivering a message, preventing cross-guild delivery from stale or malformed tasks.",
+      "[SECURITY] Command cooldowns reserve atomically before execution, blocking concurrent bypasses while releasing failed-command reservations.",
+      "[SECURITY] Public telemetry no longer exposes Node.js version, heap usage, exact startup time, or plugin inventory.",
+      "[SECURITY] Public API routes now have per-client rate limiting, and the Top.gg webhook rejects oversized request bodies.",
+      "[RELIABILITY] Scheduler startup restoration is bounded, projected, indexed, and limited to valid recent tasks.",
+      "[DATA] Guild configuration values are validated and bounded at the service boundary, including IDs, escalation rules, messages, and log categories.",
+      "[DATA] Warnings, moderation cases, and staff notes now expire automatically after one year through MongoDB retention indexes.",
+      "[MODERATION] Case exports are capped at 5,000 records and export only the fields required for an audit archive.",
+      "[MAINTENANCE] Removed committed SQLite runtime databases and sidecar files; production dependency audit is clean.",
+    ],
+  },
+  {
     version: "3.3.2",
     date: "2026-10-20",
     tag: "Starboard & Beta Lab Overhaul",

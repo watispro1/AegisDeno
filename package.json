@@ -1,6 +1,6 @@
 {
   "name": "aegisdeno",
-  "version": "3.3.2",
+  "version": "3.3.3",
   "description": "",
   "main": "dist/main.js",
   "scripts": {
