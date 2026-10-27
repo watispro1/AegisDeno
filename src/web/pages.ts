@@ -2608,7 +2608,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
 
       <h3>Operational data</h3>
       <ul>
-        <li>Process memory usage, uptime, and gateway latency, used for the <a href="/status">status page</a> and the homepage counters.</li>
+        <li>Uptime and gateway latency, used for the <a href="/status">status page</a> and the homepage counters.</li>
         <li>Server logs containing error messages, used to diagnose faults.</li>
       </ul>
 
@@ -2637,7 +2637,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
       <h2 id="retention">7. Data retention</h2>
       <ul>
         <li><strong>Configuration and automod rules:</strong> retained while Aegis is in the server, then deleted on removal or after a defined period.</li>
-        <li><strong>Warnings:</strong> retained until a moderator clears them with <code class="inline">/clearwarnings</code>, or until Aegis is removed.</li>
+        <li><strong>Warnings, moderation cases, and staff notes:</strong> automatically expire after one year, or may be deleted earlier by an authorized moderator.</li>
         <li><strong>Audit log entries:</strong> written to your own Discord channel and governed by your message retention settings; we do not keep a separate copy.</li>
         <li><strong>Operational logs:</strong> retained for a short period for debugging, then discarded.</li>
       </ul>

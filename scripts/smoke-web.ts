@@ -126,6 +126,7 @@ async function main() {
   const statsJson = await apiStats.clone().json();
   check("stats returns online: true", statsJson.online === true);
   check("stats returns valid ping", typeof statsJson.ping === "number");
+  check("stats omits runtime internals", !("nodeVersion" in statsJson) && !("memoryMb" in statsJson) && !("startedAt" in statsJson));
 
   const commandsJson = await (await fetch(origin + "/api/commands")).json();
   check("commands api returns array", Array.isArray(commandsJson.commands));

@@ -29,15 +29,15 @@ export async function closeDatabase(): Promise<void> {
 
 const GuildConfigSchema = new mongoose.Schema({
   guildId: { type: String, required: true, unique: true },
-  prefix: { type: String, default: "!" },
-  language: { type: String, default: "en" },
+  prefix: { type: String, default: "!", maxlength: 16 },
+  language: { type: String, default: "en", maxlength: 10 },
   loggingEnabled: { type: Boolean, default: false },
   loggingChannelId: { type: String, default: null },
   // Per-category toggles for the audit log, e.g. { modActions: true, messageDeletes: false }.
   logCategories: { type: mongoose.Schema.Types.Mixed, default: null },
   welcomeEnabled: { type: Boolean, default: false },
   welcomeChannelId: { type: String, default: null },
-  welcomeMessage: { type: String, default: "Welcome {user} to **{server}**! You are member #{member_count}." },
+  welcomeMessage: { type: String, default: "Welcome {user} to **{server}**! You are member #{member_count}.", maxlength: 1000 },
   welcomeRoleId: { type: String, default: null },
   suggestionsChannelId: { type: String, default: null },
   // Escalation: auto-actions when a user hits X warnings
@@ -56,6 +56,7 @@ const WarningSchema = new mongoose.Schema({
   reason: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
 });
+WarningSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const WarningModel = mongoose.model("Warning", WarningSchema);
 
 const ModerationCaseSchema = new mongoose.Schema({
@@ -68,6 +69,7 @@ const ModerationCaseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 ModerationCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+ModerationCaseSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const ModerationCaseModel = mongoose.model("ModerationCase", ModerationCaseSchema);
 
 const TaskSchema = new mongoose.Schema({
@@ -80,6 +82,7 @@ const TaskSchema = new mongoose.Schema({
   intervalMs: { type: Number, default: null },
   createdAt: { type: Date, default: Date.now },
 });
+TaskSchema.index({ guildId: 1, executeAt: 1 });
 export const TaskModel = mongoose.model("ScheduledTask", TaskSchema);
 
 const AutomodSchema = new mongoose.Schema({
@@ -183,6 +186,7 @@ const StaffNoteSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 StaffNoteSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+StaffNoteSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const StaffNoteModel = mongoose.model("StaffNote", StaffNoteSchema);
 
 const RolePanelSchema = new mongoose.Schema({
