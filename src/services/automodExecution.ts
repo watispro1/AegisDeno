@@ -3,6 +3,7 @@ import { getAutomodConfig } from "./automod";
 import { addWarning } from "./warnings";
 import { sendGuildLog } from "./logging";
 import { logger } from "../utils/logger";
+import { AutomodHitModel } from "../database/mongo";
 
 const LINK_REGEX = /https?:\/\/[^\s]+/gi;
 
@@ -122,7 +123,29 @@ async function handleAutomod(client: Client, message: Message): Promise<void> {
 
   if (!triggeredRule) return;
 
+  // Map the human-readable rule name to a short schema key for analytics
+  const ruleKeyMap: Record<string, string> = {
+    "Spam Detection":  "spam",
+    "Blocked Words":   "words",
+    "Mention Spam":    "mentions",
+    "Link Filtering":  "links",
+    "Excessive Caps":  "caps",
+    "Character Flood": "caps",
+  };
+  const ruleKey = ruleKeyMap[ruleName] ?? ruleName.toLowerCase();
+
   await enforceAutomod(client, message, member, triggeredRule.action, ruleName);
+
+  // Log the hit for /modreport analytics (fire-and-forget)
+  AutomodHitModel.create({
+    guildId:     message.guildId,
+    userId:      message.author.id,
+    channelId:   message.channelId,
+    rule:        ruleKey,
+    action:      triggeredRule.action,
+    content:     message.content.slice(0, 200) || null,
+    triggeredAt: new Date(),
+  }).catch(err => logger.warn("Failed to log automod hit:", err));
 }
 
 async function enforceAutomod(

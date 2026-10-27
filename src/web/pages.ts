@@ -1248,9 +1248,10 @@ export function renderDocs(cfg: SiteConfig): string {
       <h2 id="changelog">Release Changelog &amp; Highlights</h2>
       <p>Recent major updates and stability patches for Aegis:</p>
       <ul>
+        <li><strong>v3.4.0</strong> — Proprietary platform transition, Ghost Watch silent surveillance, Algorithmic Trust Score, automated Ban Appeal workflow, and Mod Report digest.</li>
+        <li><strong>v3.3.3</strong> — Core moderation overhaul with infraction presets and quick-escalation buttons, lean architecture, and standardized AutoMod rules.</li>
         <li><strong>v3.3.2</strong> — Modular Starboard plugin suite, streamlined command architecture, and mobile documentation enhancements.</li>
         <li><strong>v3.3.1</strong> — Apple VisionOS-inspired Liquid Glass 2.0 design system with dynamic toggle, hardened emergency server lockdown (<code class="inline">/lock</code>), and dynamic timeout duration calculator.</li>
-        <li><strong>v3.3.0</strong> — Knub plugin framework integration, interactive support tickets, self-assignable role panels, and automated suggestion workflows.</li>
       </ul>
 
       <h2 id="architecture">Architecture &amp; Data Security</h2>
@@ -1634,6 +1635,38 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "3.4.0",
+    date: "2026-10-26",
+    tag: "Proprietary Platform & Unique Moderation Suite",
+    summary: "Transitions Aegis to an enterprise proprietary platform with 4 exclusive moderation systems: Ghost Watch, Algorithmic Trust Score, Ban Appeal Workflow, and Moderation Analytics Digest, with high-performance in-memory caching.",
+    highlights: [
+      "[NEW] Ghost Watch (/watchlist): Silent member surveillance tracking messages, edits, deletes, joins, leaves, and role changes via gateway events with direct DM alerts to staff.",
+      "[PERF] Ghost Watch High-Throughput Engine: In-memory O(1) active target Set rejection bypassing 99.99% of database queries on high-traffic servers.",
+      "[NEW] Algorithmic Trust Score (/trustscore): 0–100 composite member integrity score factoring account age, server tenure, warning deductions, case history, and veteran bonuses.",
+      "[FIXED] Trust Score: Parallelized database aggregation queries, added ephemeral privacy toggle, and fixed dynamic live refresh reactivity.",
+      "[NEW] Automated Ban Appeal Workflow (/appeal): Generates unique 8-character appeal codes (AGS-XXXX) on /ban, delivers via DM, supports modal submissions, and automates unbanning upon staff approval.",
+      "[FIXED] Appeal Access: Decoupled /appeal submit permissions so banned and regular members can file appeals without requiring staff permissions.",
+      "[NEW] Moderation Analytics Digest (/modreport): Multi-tab interactive digest with Overview KPIs, Top Offenders leaderboard, Moderator activity rankings, and AutoMod rule triggers.",
+      "[PERF] Mod Report Tab Caching: In-memory session embed caching providing instant (<5ms) tab switching and live on-demand re-querying.",
+      "[SYSTEM] Proprietary Architecture: Fully closed-source distribution with private package licensing.",
+    ],
+  },
+  {
+    version: "3.3.3",
+    date: "2026-10-23",
+    tag: "Core Moderation Overhaul & Lean Architecture",
+    summary: "Overhauled core moderation commands with violation presets and quick escalation buttons, removed experimental beta command lab bloat, standardized AutoMod rules, and streamlined documentation.",
+    highlights: [
+      "[ENHANCED] /warn: Quick rule violation presets, instant 10m timeout quick-escalation button, and interactive warning history.",
+      "[ENHANCED] /timeout: Reason presets, dynamic remaining time extension, remove timeout, and on-demand case history inspector.",
+      "[ENHANCED] /ban: Severe infraction presets, account age and join date audit metrics in confirmation embed, and 1-click ban revocation button.",
+      "[ENHANCED] /case: Added /case user subcommand to browse member infraction history with action icons, and richer single-case cards.",
+      "[ENHANCED] /purge: Added audit reason logging, case tracking in ModerationCaseModel, and visual progress bar.",
+      "[CLEANUP] Pruned developer/beta bloat: completely removed experimental /beta Command Lab simulation suite and beta feedback models.",
+      "[ENHANCED] AutoMod: Decoupled caps percentage and character flood detection from beta, enabling them universally via /automod caps.",
+    ],
+  },
   {
     version: "3.3.2",
     date: "2026-10-20",

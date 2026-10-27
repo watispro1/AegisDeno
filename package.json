@@ -1,8 +1,9 @@
 {
   "name": "aegisdeno",
-  "version": "3.3.3",
-  "description": "",
+  "version": "3.4.0",
+  "description": "Aegis - Elite Discord Moderation & Server Protection",
   "main": "dist/main.js",
+  "private": true,
   "scripts": {
     "test": "npm run build && npx tsx scripts/smoke-web.ts",
     "dev": "tsx src/main.ts",
@@ -14,7 +15,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "type": "commonjs",
   "dependencies": {
     "discord.js": "^14.27.0",

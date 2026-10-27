@@ -13,6 +13,8 @@ import { Command } from "../../types/discord";
 import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
 import { addModerationCase } from "../../services/moderationCases";
+import { BanAppealModel } from "../../database/mongo";
+import { generateAppealCode } from "./appeal";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -178,16 +180,53 @@ export const command: Command = {
           details: `Deleted messages: ${deleteDays} day(s)`,
         });
 
+        // Auto-generate ban appeal record & DM the user their appeal code
+        let appealCode = "";
+        try {
+          appealCode = generateAppealCode();
+          await BanAppealModel.create({
+            appealCode,
+            guildId,
+            userId: target.id,
+            moderatorId: interaction.user.id,
+            banReason: reason,
+          });
+
+          const appealEmbed = new EmbedBuilder()
+            .setColor(0xFEE75C)
+            .setTitle("📋 You Have Been Banned — Appeal Information")
+            .setDescription(
+              `You were banned from **${guild.name}**.\n\n` +
+              `If you believe this was a mistake, you may submit a ban appeal.\n` +
+              `**Your appeal code is: \`${appealCode}\`**\n\n` +
+              `To submit your appeal:\n` +
+              `1. Join a server where **Aegis** is present\n` +
+              `2. Use the command: \`/appeal submit code:${appealCode}\`\n` +
+              `3. Staff will review your appeal and DM you the decision.`
+            )
+            .addFields(
+              { name: "📝 Ban Reason",   value: reason, inline: false },
+              { name: "🆔 Appeal Code",  value: `\`${appealCode}\``, inline: true },
+              { name: "📅 Banned On",    value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+            )
+            .setFooter({ text: `Aegis Ban Appeal System • ${guild.name}` })
+            .setTimestamp();
+          await target.send({ embeds: [appealEmbed] }).catch(() => null);
+        } catch (appealErr) {
+          logger.warn(`Failed to create/send appeal for ban of ${target.id} in ${guildId}:`, appealErr);
+        }
+
         const resultEmbed = new EmbedBuilder()
           .setColor(0xED4245)
           .setTitle("🔨 Member Banned")
           .setThumbnail(target.displayAvatarURL())
           .addFields(
-            { name: "👤 User",         value: `${target.tag} (<@${target.id}>)`, inline: false },
-            { name: "📝 Reason",       value: reason, inline: false },
-            { name: "🛡️ Moderator",   value: interaction.user.tag, inline: true },
-            { name: "🗑️ Msg Deletion", value: `${deleteDays} day(s)`, inline: true },
-            { name: "🔕 DM Sent",      value: (!silent && member) ? "✅ Yes" : "❌ No / Silent", inline: true },
+            { name: "👤 User",          value: `${target.tag} (<@${target.id}>)`, inline: false },
+            { name: "📝 Reason",        value: reason, inline: false },
+            { name: "🛡️ Moderator",    value: interaction.user.tag, inline: true },
+            { name: "🗑️ Msg Deletion",  value: `${deleteDays} day(s)`, inline: true },
+            { name: "🔕 DM Sent",       value: (!silent && member) ? "✅ Yes" : "❌ No / Silent", inline: true },
+            ...(appealCode ? [{ name: "📋 Appeal Code", value: `\`${appealCode}\` — DM sent with instructions`, inline: false }] : []),
           )
           .setTimestamp();
 

@@ -5,6 +5,7 @@ import {
   Collection,
   Events,
   GuildMember,
+  Message,
   TextChannel,
   ActivityType,
   PresenceUpdateStatus,
@@ -22,6 +23,14 @@ import { processAutoResponders } from "../services/autoResponderService";
 import { getGuildConfig } from "../services/configuration";
 import { knubManager } from "../knub";
 import { registerDefaultPlugins } from "../knub/plugins";
+import {
+  watchlistOnJoin,
+  watchlistOnLeave,
+  watchlistOnMessage,
+  watchlistOnMessageEdit,
+  watchlistOnMessageDelete,
+  watchlistOnRoleChange,
+} from "../services/watchlistService";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -140,7 +149,7 @@ export function setupEvents(client: Client): void {
     }
   });
 
-  // ─── Automod & Autoresponder (new messages) ───────────────────────────────────────────────
+  // ─── Automod & Autoresponder (new messages) ──────────────────────────────
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.guildId) return;
 
@@ -151,7 +160,12 @@ export function setupEvents(client: Client): void {
     });
     if (responded) return;
 
-    // 2. Automod check
+    // 2. Ghost Watch — alert watchers on message
+    watchlistOnMessage(client, message).catch(err =>
+      logger.warn("Watchlist message error:", err)
+    );
+
+    // 3. Automod check
     await processAutomod(client, message).catch(err =>
       logger.error("Automod error (create):", err)
     );
@@ -163,6 +177,12 @@ export function setupEvents(client: Client): void {
     // Fetch partial to get full content
     const msg = newMessage.partial ? await newMessage.fetch().catch(() => null) : newMessage;
     if (!msg || msg.author?.bot) return;
+
+    // Ghost Watch — alert watchers on message edit
+    watchlistOnMessageEdit(client, msg).catch(err =>
+      logger.warn("Watchlist edit error:", err)
+    );
+
     await processAutomodEdit(client, msg).catch(err =>
       logger.error("Automod error (update):", err)
     );
@@ -171,6 +191,14 @@ export function setupEvents(client: Client): void {
   // ─── Message Delete Logging ────────────────────────────────────────────────
   client.on(Events.MessageDelete, async (message) => {
     if (!message.guildId || message.author?.bot) return;
+
+    // Ghost Watch — alert watchers on message delete
+    if (message.author) {
+      watchlistOnMessageDelete(client, message as Message).catch(err =>
+        logger.warn("Watchlist delete error:", err)
+      );
+    }
+
     await sendGuildLog(client, message.guildId, {
       title: "🗑️ Message Deleted",
       color: 0xE74C3C,
@@ -199,6 +227,9 @@ export function setupEvents(client: Client): void {
       ],
     }, "memberJoins");
 
+    // Ghost Watch — notify watchers on join
+    watchlistOnJoin(client, member).catch(err => logger.warn("Watchlist join error:", err));
+
     // Welcome message and Auto-role
     const config = await getGuildConfig(member.guild.id);
     
@@ -224,6 +255,13 @@ export function setupEvents(client: Client): void {
     }
   });
 
+  // ─── Member Update (role changes for Ghost Watch) ─────────────────────────
+  client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+    watchlistOnRoleChange(client, oldMember, newMember).catch(err =>
+      logger.warn("Watchlist roleChange error:", err)
+    );
+  });
+
   // ─── Member Leave ─────────────────────────────────────────────────────────
   client.on(Events.GuildMemberRemove, async (member) => {
     const user = member.user;
@@ -240,6 +278,9 @@ export function setupEvents(client: Client): void {
         { name: "Joined At", value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : "Unknown", inline: true },
       ],
     }, "memberLeaves");
+
+    // Ghost Watch — notify watchers on leave
+    watchlistOnLeave(client, member).catch(err => logger.warn("Watchlist leave error:", err));
   });
 
   // ─── Guild Join / Discovery ────────────────────────────────────────────────

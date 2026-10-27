@@ -1,5 +1,19 @@
 # Aegis Todo
 
+## Current iteration
+
+### Website + repo hygiene
+- [x] Removed all stale public GitHub repository URLs and open-source references in transition to proprietary platform
+- [x] Validate the public site metadata, invite links, and docs navigation after the latest release sweep
+- [x] Re-check mobile navigation, search results, and command deep links for regressions
+- [x] Audit README/setup guidance for copy-paste accuracy before the next release
+
+### Bug triage backlog
+- [x] Revisit any edge cases around missing env vars, invalid bot invite URLs, and partial config states
+- [x] Review command/website interactions that depend on live fetches and ensure they degrade gracefully without network access
+- [x] Check for stale assumptions in docs, support links, and release notes after updates
+- [x] Add a lightweight regression checklist for future web and bot changes
+
 ## High-priority work
 
 ### Core reliability
@@ -74,6 +88,23 @@
 - [x] Add contributor notes for project structure, command loading, and service boundaries
 - [x] Add release checklist and operational verification notes before publishing new versions
 - [x] Update all project documentation (`.md` files) across bot guides, server setup, and changelogs for v3.3.1
+
+### v3.4.0 Milestone (Exclusive Features & Proprietary Transition)
+
+- [x] Transition to proprietary platform: removed all public GitHub repository links, issue trackers, and copyleft licenses; updated `package.json` to `UNLICENSED` / `private: true`
+- [x] Implement Ghost Watch (`/watchlist`): silent member surveillance system monitoring messages, edits, deletes, joins, leaves, and role changes with private DM alerts to staff
+- [x] Implement Trust Score (`/trustscore`): real-time 0–100 algorithmic risk scoring incorporating account age, guild tenure, warning penalties, active cases, and veteran longevity bonuses
+- [x] Implement Ban Appeal Workflow (`/appeal`): automatic 8-character appeal code generation (`AGS-XXXX`) during bans, DM delivery, modal submission, and automated unban execution on approval
+- [x] Implement Mod Report Digest (`/modreport`): interactive 24h/7d analytics dashboard breaking down moderation actions, top repeat offenders, moderator activity, and AutoMod triggers
+- [x] Register gateway event listeners in `src/bot/client.ts` for real-time watchlist surveillance
+- [x] Wire automatic appeal code creation and DM dispatch directly into `/ban`
+- [x] Wire AutoMod enforcement telemetry into `AutomodHitModel` for live reporting
+- [x] High-throughput in-memory Ghost Watch caching with O(1) active target Set rejection
+- [x] Parallelized database queries and live embed refresh reactivity for `/trustscore`
+- [x] Decoupled `/appeal submit` permissions for accessible ban appellant modal submission
+- [x] Instant session tab caching with on-demand refresh for `/modreport`
+- [x] Updated public web changelog (`RELEASES`), release highlights, and `CHANGELOG.md`
+- [x] Verify all TypeScript compilation cleanly passes with zero errors
 
 ### v3.3.3 Milestone (Lean Architecture & Moderation Overhaul)
 

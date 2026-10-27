@@ -25,8 +25,8 @@ export async function addWarning(
 }
 
 export async function getWarningsForUser(guildId: string, userId: string): Promise<Warning[]> {
-  const warnings = await WarningModel.find({ guildId, userId }).sort({ createdAt: -1 });
-  return warnings.map(w => w.toObject()) as unknown as Warning[];
+  const warnings = await WarningModel.find({ guildId, userId }).sort({ createdAt: -1 }).lean();
+  return warnings as unknown as Warning[];
 }
 
 export async function clearWarningsForUser(guildId: string, userId: string): Promise<number> {

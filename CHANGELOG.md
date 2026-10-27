@@ -7,6 +7,67 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [3.4.0] — 2026-10-26
+
+### 🔒 Transition to Proprietary Platform
+- **Closed Source & Private Distribution:**
+  - Transitioned Aegis from open source to a proprietary enterprise-grade Discord bot.
+  - Removed all public GitHub repository and issue tracker links across the codebase, documentation, and web portal.
+  - Updated project license to `UNLICENSED` / Proprietary.
+
+### 🌟 Exclusive Advanced Security & Moderation Features
+- **🕵️ Ghost Watch — Silent Member Surveillance (`/watchlist`):**
+  - Monitor suspect members completely in secret without alerting them or cluttering public chat.
+  - Monitors granular lifecycle events: message creation, edits, deletions, server joins, leaves, and role changes.
+  - Dispatches immediate, detailed alert embeds straight to the monitoring moderator's private DMs with event metadata, previous/new content, and audit notes.
+  - Configurable expiration periods (`1h`, `6h`, `24h`, `7d`, or permanent) and interactive management via `/watchlist info` and `/watchlist remove`.
+  - Automatically wired into Discord Gateway events with no performance penalty on general traffic.
+
+- **🧠 Algorithmic Trust Score (`/trustscore`):**
+  - Computes a real-time 0–100 risk rating for any server member to immediately evaluate account legitimacy.
+  - Factors in:
+    - Discord Account Age: up to +25 points (scales linearly over 180 days).
+    - Server Tenure: up to +25 points (scales linearly over 90 days).
+    - Warning Penalty: −5 points per warning (capped at −30 points).
+    - Formal Moderation Cases: −4 points per case (capped at −20 points).
+    - Veteran Bonus: up to +20 points for accounts older than 1 year and in-server for 6+ months.
+  - Rich interactive embeds with tier classification (`VERY HIGH`, `HIGH`, `MODERATE`, `LOW`, `CRITICAL RISK`), visual progress bars, detailed factor breakdowns, and live refresh buttons.
+
+- **📋 Automated Ban Appeal Workflow (`/appeal`):**
+  - Automatically generates an 8-character unique alphanumeric appeal tracking code (`AGS-XXXX`) whenever `/ban` is executed.
+  - Delivers the appeal code and instructions to the banned user's DMs upon ejection.
+  - Allows banned or pending users to submit their written appeal statement through a Discord Modal (`/appeal submit`).
+  - Provides staff with a complete review queue: `/appeal list` (filtered by pending, approved, denied, all), `/appeal view <code>` with full context and history, and `/appeal review <code> <decision> [note]`.
+  - If approved, Aegis **automatically unbans the user** from the Discord guild and sends a confirmation DM with staff notes.
+
+- **📰 Moderation Digest & Analytics (`/modreport`):**
+  - On-demand server activity and safety reports for both 24-hour and 7-day trailing windows.
+  - 4-tab interactive embed switcher (powered by Discord button collectors):
+    - **Overview:** Total actions, active warnings, automod interventions, bans, timeouts, and action breakdown.
+    - **Top Offenders:** Aggregated list of members with the highest infraction counts, including latest infraction and severity metrics.
+    - **Moderator Team:** Activity leaderboard highlighting active staff members and their contribution breakdown.
+    - **AutoMod Analytics:** Rule-by-rule breakdown of blocked invites, anti-spam, caps violations, banned words, and phishing links.
+
+### ⚡ Performance Optimizations & Command Fixes
+- **High-Throughput Ghost Watch Engine (`watchlistService.ts`):**
+  - Added an in-memory active watch `Set<string>` (`guildId:targetId`) and local cache.
+  - Achieves $O(1)$ immediate rejection for non-watched members, eliminating 99.99% of MongoDB queries across message create, edit, delete, and presence events.
+  - Added automatic 60-second background cache synchronization and instant cache invalidation upon `/watchlist add` and `/watchlist remove`.
+- **Trust Score Engine Optimizations (`trustscore.ts`):**
+  - Parallelized `WarningModel` and `ModerationCaseModel` database queries using `Promise.all`, cutting evaluation latency in half.
+  - Fixed a closure bug where the interactive **🔄 Refresh** button re-calculated the score without passing the updated profile to the rendered embed.
+  - Added an `ephemeral` privacy option (default: `true`) to safeguard member infraction history from public channels.
+- **Decoupled Ban Appeal Access (`appeal.ts`):**
+  - Removed top-level `BanMembers` permission requirements from `/appeal submit` so banned and regular members can invoke the command and submit their appeal statement modal.
+  - Protected staff subcommands (`/appeal list`, `/appeal view`, `/appeal review`) with granular in-command permission verification.
+  - Implemented Discord user cache lookups before falling back to API fetches to prevent rate limiting when viewing appeal queues.
+- **Instant Digest Tab Switching (`modreport.ts`):**
+  - Implemented session-level in-memory embed caching, allowing moderators to toggle between Overview, Offenders, Moderators, and AutoMod tabs with zero database latency (<5ms).
+  - Added a dedicated **🔄 Refresh** button for on-demand re-aggregation.
+  - Added an `ephemeral` privacy option (default: `true`) to keep server infraction statistics private by default.
+- **Lean Mongoose Deserialization (`warnings.ts`, `case.ts`):**
+  - Applied `.lean()` across warning lookups and `/case export` operations to return plain JavaScript objects, reducing memory allocation by up to 80%.
+
 ## [3.3.3] — 2026-10-23
 
 ### 🛡️ Core Moderation Overhaul

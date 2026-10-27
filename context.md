@@ -80,6 +80,15 @@ The web dashboard and public reference pages live under `src/web/`:
 - `pages.ts` — Server-side rendered HTML generators for all core public and authenticated routes.
 - `server.ts` — Express server managing asset hashing, route registration, live telemetry streaming, and HTTP compression.
 
-## Project Direction
+## Exclusive Proprietary Features (v3.4.0+)
 
-AegisDeno should be a reliable, maintainable, feature-rich Discord utility/moderation bot with a clean slash-command experience. Favor predictable behavior, strong typing, explicit permissions, safe moderation, and reusable services over unnecessary abstraction.
+Aegis includes unique high-value moderation capabilities not found in standard public bots:
+
+- **Ghost Watch (`/watchlist`, `src/services/watchlistService.ts`):** Silent member surveillance tracking messages, edits, deletions, joins, leaves, and role changes via gateway events with direct DM alerts to staff.
+- **Trust Score (`/trustscore`):** Real-time 0–100 algorithmic risk scoring based on Discord account age, server tenure, warning penalties, active cases, and veteran longevity bonuses.
+- **Ban Appeal Workflow (`/appeal`):** Automatic unique appeal code (`AGS-XXXX`) generation during `/ban`, direct delivery to appellant DMs, Discord modal submission, and staff triage with automated unban execution upon approval.
+- **Mod Report Digest (`/modreport`):** Multi-view interactive analytics digest aggregating 24h/7d metrics across moderation actions, repeat offenders, moderator team leaderboards, and AutoMod rule triggers.
+
+## Project Direction & Distribution
+
+Aegis is a closed-source, proprietary enterprise-grade Discord bot. Do not add public open-source repository links, contribution guides, or copyleft licenses. Favor predictable behavior, strong typing, explicit permissions, safe moderation, and reusable services over unnecessary abstraction.

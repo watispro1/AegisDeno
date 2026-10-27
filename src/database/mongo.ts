@@ -269,3 +269,68 @@ const StarboardEntrySchema = new mongoose.Schema({
 StarboardEntrySchema.index({ guildId: 1, sourceMessageId: 1 }, { unique: true });
 StarboardEntrySchema.index({ guildId: 1, createdAt: -1 });
 export const StarboardEntryModel = mongoose.model("StarboardEntry", StarboardEntrySchema);
+
+// ─── Ghost Watch (Watchlist) ──────────────────────────────────────────────────
+
+/**
+ * A watchlist entry places a member under silent staff surveillance.
+ * Any activity event (message, edit, delete, join, leave, role change) fires
+ * an instant DM to the moderator who placed the watch.
+ */
+const WatchlistEntrySchema = new mongoose.Schema({
+  guildId:      { type: String, required: true },
+  targetId:     { type: String, required: true },   // watched member
+  moderatorId:  { type: String, required: true },   // receives DM alerts
+  reason:       { type: String, default: null },
+  expiresAt:    { type: Date, default: null },       // null = indefinite
+  events:       { type: [String], default: ["message", "edit", "delete", "join", "leave", "roleChange"] },
+  alertCount:   { type: Number, default: 0 },        // how many alerts fired
+  createdAt:    { type: Date, default: Date.now },
+});
+WatchlistEntrySchema.index({ guildId: 1, targetId: 1, moderatorId: 1 }, { unique: true });
+WatchlistEntrySchema.index({ guildId: 1, targetId: 1 });
+export const WatchlistEntryModel = mongoose.model("WatchlistEntry", WatchlistEntrySchema);
+
+// ─── Ban Appeal Workflow ──────────────────────────────────────────────────────
+
+/**
+ * When a member is banned, Aegis generates a unique appeal code and persists
+ * the appeal record. Staff can approve/deny via the /appeal command.
+ */
+const BanAppealSchema = new mongoose.Schema({
+  appealCode:   { type: String, required: true, unique: true },  // e.g. "AGS-3F9X"
+  guildId:      { type: String, required: true },
+  userId:       { type: String, required: true },
+  moderatorId:  { type: String, required: true },               // who issued the ban
+  banReason:    { type: String, required: true },
+  appealText:   { type: String, default: null },                // submitted by the banned user
+  status:       { type: String, enum: ["pending", "approved", "denied", "expired"], default: "pending" },
+  reviewedBy:   { type: String, default: null },
+  reviewNote:   { type: String, default: null },
+  reviewedAt:   { type: Date, default: null },
+  createdAt:    { type: Date, default: Date.now },
+  expiresAt:    { type: Date, default: null },                  // optional appeal deadline
+});
+BanAppealSchema.index({ guildId: 1, status: 1, createdAt: -1 });
+BanAppealSchema.index({ guildId: 1, userId: 1 });
+export const BanAppealModel = mongoose.model("BanAppeal", BanAppealSchema);
+
+// ─── Automod Hit Log (for Mod Report analytics) ───────────────────────────────
+
+/**
+ * Each automod enforcement action is recorded here so /modreport can aggregate
+ * trend data: top triggered rules, busiest hours, most flagged users, etc.
+ */
+const AutomodHitSchema = new mongoose.Schema({
+  guildId:    { type: String, required: true },
+  userId:     { type: String, required: true },
+  channelId:  { type: String, required: true },
+  rule:       { type: String, required: true },   // "words" | "links" | "mentions" | "spam" | "caps"
+  action:     { type: String, required: true },   // "delete" | "timeout" | "warn"
+  content:    { type: String, default: null },    // truncated snippet (max 200 chars)
+  triggeredAt:{ type: Date, default: Date.now },
+});
+AutomodHitSchema.index({ guildId: 1, triggeredAt: -1 });
+AutomodHitSchema.index({ guildId: 1, userId: 1, triggeredAt: -1 });
+AutomodHitSchema.index({ guildId: 1, rule: 1, triggeredAt: -1 });
+export const AutomodHitModel = mongoose.model("AutomodHit", AutomodHitSchema);

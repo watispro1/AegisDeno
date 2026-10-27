@@ -193,7 +193,7 @@ export const command: Command = {
 
       await interaction.deferReply({ ephemeral: true });
 
-      const cases = await ModerationCaseModel.find({ guildId: interaction.guild.id }).sort({ createdAt: -1 });
+      const cases = await ModerationCaseModel.find({ guildId: interaction.guild.id }).sort({ createdAt: -1 }).lean();
       const jsonData = JSON.stringify(cases, null, 2);
       const buffer = Buffer.from(jsonData, "utf-8");
       const attachment = new AttachmentBuilder(buffer, { name: `moderation-export-${interaction.guild.id}.json` });

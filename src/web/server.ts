@@ -41,15 +41,19 @@ const ASSET_VERSION = createHash("sha256")
 const COMPRESSIBLE = /^(text\/|application\/(json|xml|manifest\+json|atom\+xml|rss\+xml)|image\/svg)/;
 
 function siteConfig(): SiteConfig {
-  const appId = process.env.DISCORD_APPLICATION_ID;
+  const appId = process.env.DISCORD_APPLICATION_ID?.trim();
   const permissions = botPermissionBitfield().toString();
-  const configuredInviteUrl = process.env.BOT_INVITE_URL;
+  const configuredInviteUrl = process.env.BOT_INVITE_URL?.trim();
   let inviteUrl = configuredInviteUrl || "#";
 
   if (appId) {
+    const baseUrl = configuredInviteUrl && /^https?:\/\//i.test(configuredInviteUrl)
+      ? configuredInviteUrl
+      : "https://discord.com/oauth2/authorize";
+
     let invite: URL;
     try {
-      invite = new URL(configuredInviteUrl || "https://discord.com/oauth2/authorize");
+      invite = new URL(baseUrl);
     } catch {
       invite = new URL("https://discord.com/oauth2/authorize");
     }
