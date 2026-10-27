@@ -81,9 +81,30 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - Eliminated simulated/fake chat animations and fabricated statistics (such as fake 90-day uptime history grids or synthetic sub-15ms claims).
   - Replaced home hero simulation with an interactive **Command & Response Inspector** showcasing real inputs, options, permissions, and Discord response embeds for Ghost Watch, Trust Score, Ban Appeals, and Mod Reports.
   - Upgraded the Status page with authentic cluster telemetry (live PID, Node/V8 runtime version, primary shard state, Knub plugin states, and machine-readable API endpoints).
+- **Interactive Security Workbench & Customization Lab:**
+  - Added interactive **Canvas Theme Customizer** supporting 5 themes: Midnight (Dark), Cyberpunk (Neon violet/pink), Emerald (Matrix green), Gold (Amber obsidian), and Daylight (Light), with synchronous persistence and zero theme flash.
+  - Implemented the **Aegis Interactive Lab** on the home page featuring 4 real-time interactive customization engines:
+    - **Live Algorithmic Trust Score Calculator:** Interactive sliders for account age, guild tenure, active warnings, and cases with dynamic 0–100 score gauge, visual progress bar, risk tier badge, and live Discord embed preview.
+    - **AutoMod Rule Builder & Message Sandbox:** Interactive rule toggles paired with a real-time message testing input and 5 preset test chips showing instant Shield verdicts (Allowed / Blocked) and automated penalty actions.
+    - **Ghost Watch Event Surveillance Simulator:** Interactive event matrix with simulated trigger buttons (Edit, Delete, Leave) dispatching live DM alert cards with before/after diff highlighting.
+    - **Ban Appeal Review Desk:** Interactive appellant statement modal with 1-click Approve (automated unban execution) and Deny triage actions.
 - **Enhanced Website Navigation:**
   - Added dedicated **Changelog** link directly to the primary top navigation bar across all desktop and mobile page layouts.
   - Streamlined header actions for faster loading and reduced DOM complexity.
+
+### 🛠️ Web Portal Bug Fixes, UI Polish & Performance Tuning
+- **CSS Syntax & Layout Repairs (`theme.ts`):**
+  - **Fixed `.docs-mobile-nav` Syntax Bug:** Resolved a missing closing brace that concatenated with the selector, breaking subsequent mobile navigation styling rules.
+  - **Fixed `.back-to-top` Visibility Bug:** Fixed an unclosed selector block where `.back-to-top.visible` was swallowed into the parent rule, restoring the scroll-triggered return-to-top button.
+  - **Feature Showcase Filter CSS:** Added explicit `.ft-showcase-card[hidden]` rule to ensure category filtering cleanly hides non-matching cards without layout shift.
+- **Client Script & Runtime Performance Optimizations (`client.ts`, `pages.ts`):**
+  - **Deduplicated Catalog Statistics:** Cached `catalogStats()` calculation in a single IIFE call on the home page instead of computing statistics twice across sections.
+  - **Snappier Command Search:** Tightened live command search debounce from 110ms to 80ms for faster, more responsive search feedback.
+  - **Removed Redundant Code:** Eliminated duplicate `escapeHtml()` function definition inside the command search closure in `client.ts`.
+  - **Standardized Visibility Attribute:** Switched feature category filter in `client.ts` to standard HTML `card.hidden = !visible` toggling instead of inline `style.display` modifications.
+- **Interactive UI & Component Styling Enhancements (`theme.ts`):**
+  - **Interactive Preview Tab Buttons:** Added hover and active (`aria-pressed="true"`) states for `.preview-tab-btn` featuring primary color highlights, subtle background tint, and glowing shadow accents.
+  - **Interactive Command Pills:** Implemented full interactive styles for `.cmd-pill` elements, including subtle translateY hover lift, active press scale feedback, primary border tint, and dedicated `.pill-copy` styling.
 
 ## [3.3.3] — 2026-10-23
 

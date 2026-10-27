@@ -6,21 +6,33 @@ export const clientScript = String.raw`
 
   /* ── Theme ─────────────────────────────────────────────────────── */
   var STORAGE_KEY = 'aegis-theme';
-  try {
-    var saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'dark' || saved === 'light') {
-      root.setAttribute('data-theme', saved);
-    } else if (saved) {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch (e) {}
+  var VALID_THEMES = ['dark', 'light', 'cyberpunk', 'emerald', 'gold'];
 
   function currentTheme() {
     var attr = root.getAttribute('data-theme');
-    if (attr) return attr;
+    if (attr && VALID_THEMES.indexOf(attr) !== -1) return attr;
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
       ? 'light'
       : 'dark';
+  }
+
+  function applyTheme(theme) {
+    if (VALID_THEMES.indexOf(theme) === -1) theme = 'dark';
+    root.setAttribute('data-theme', theme);
+    try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) {}
+    syncThemeButtons(theme);
+    syncToggle();
+    syncThemeDots(theme);
+  }
+
+  function syncThemeButtons(activeTheme) {
+    var btns = document.querySelectorAll('[data-set-theme]');
+    btns.forEach(function (b) {
+      var t = b.getAttribute('data-set-theme');
+      var isActive = t === activeTheme;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
   }
 
   function syncToggle() {
@@ -38,17 +50,31 @@ export const clientScript = String.raw`
     });
   }
 
+  try {
+    var saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && VALID_THEMES.indexOf(saved) !== -1) {
+      applyTheme(saved);
+    }
+  } catch (e) {}
+
   document.addEventListener('click', function (e) {
-    var btn = e.target.closest && e.target.closest('.theme-toggle');
-    if (!btn) return;
-    var next = currentTheme() === 'light' ? 'dark' : 'light';
-    root.setAttribute('data-theme', next);
-    try { localStorage.setItem(STORAGE_KEY, next); } catch (err) {}
-    syncToggle();
-    syncThemeDots(next);
+    var themeBtn = e.target.closest && e.target.closest('[data-set-theme]');
+    if (themeBtn) {
+      var chosen = themeBtn.getAttribute('data-set-theme');
+      if (chosen) applyTheme(chosen);
+      return;
+    }
+    var toggleBtn = e.target.closest && e.target.closest('.theme-toggle');
+    if (toggleBtn) {
+      var cur = currentTheme();
+      var next = cur === 'light' ? 'dark' : 'light';
+      applyTheme(next);
+      return;
+    }
   });
 
   syncToggle();
+  syncThemeButtons(currentTheme());
 
   /* ── Global page and command search ───────────────────────────── */
   var searchDialog = document.getElementById('site-search-dialog');
@@ -318,11 +344,6 @@ export const clientScript = String.raw`
         escapeHtml(nameEl.dataset.original.slice(i + query.length));
     }
 
-    function escapeHtml(s) {
-      return s.replace(/[&<>"']/g, function (ch) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
-      });
-    }
 
     function apply() {
       var query = search.value.trim().toLowerCase();
@@ -365,7 +386,7 @@ export const clientScript = String.raw`
       };
     }
 
-    search.addEventListener('input', debounce(apply, 110));
+    search.addEventListener('input', debounce(apply, 80));
     search.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
         search.value = '';
@@ -603,7 +624,7 @@ export const clientScript = String.raw`
         ftCards.forEach(function (card) {
           var cat = card.getAttribute('data-category');
           var visible = filter === 'all' || cat === filter;
-          card.style.display = visible ? '' : 'none';
+          card.hidden = !visible;
         });
       });
     });
@@ -729,5 +750,245 @@ export const clientScript = String.raw`
       observer.observe(h);
     });
   }
+
+  /* ── Interactive Customization Lab ──────────────────────────── */
+  // Tab Switching
+  document.addEventListener('click', function (e) {
+    var labTab = e.target.closest && e.target.closest('.lab-tab');
+    if (!labTab) return;
+    var targetId = labTab.getAttribute('data-lab-target');
+    if (!targetId) return;
+
+    var container = labTab.closest('.lab-card');
+    if (!container) return;
+
+    var tabs = container.querySelectorAll('.lab-tab');
+    tabs.forEach(function (t) {
+      var active = t === labTab;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+
+    var panels = container.querySelectorAll('.lab-panel');
+    panels.forEach(function (p) {
+      p.classList.toggle('active', p.id === targetId);
+    });
+  });
+
+  // 1. Trust Score Live Simulator
+  var tsAge = document.getElementById('ts-age-input');
+  var tsTenure = document.getElementById('ts-tenure-input');
+  var tsWarns = document.getElementById('ts-warns-input');
+  var tsCases = document.getElementById('ts-cases-input');
+  var tsVeteran = document.getElementById('ts-veteran-input');
+
+  function updateTrustScore() {
+    if (!tsAge) return;
+    var age = parseInt(tsAge.value, 10) || 0;
+    var tenure = parseInt(tsTenure ? tsTenure.value : '0', 10) || 0;
+    var warns = parseInt(tsWarns ? tsWarns.value : '0', 10) || 0;
+    var cases = parseInt(tsCases ? tsCases.value : '0', 10) || 0;
+    var veteran = tsVeteran && tsVeteran.checked;
+
+    var agePts = Math.min(25, Math.round((age / 180) * 25));
+    var tenurePts = Math.min(25, Math.round((tenure / 90) * 25));
+    var warnPenalty = Math.min(30, warns * 5);
+    var casePenalty = Math.min(20, cases * 4);
+    var veteranBonus = veteran ? 20 : 0;
+
+    var score = Math.max(0, Math.min(100, 30 + agePts + tenurePts - warnPenalty - casePenalty + veteranBonus));
+
+    var scoreDisplay = document.getElementById('ts-score-display');
+    var scoreBar = document.getElementById('ts-score-bar');
+    var tierBadge = document.getElementById('ts-tier-badge');
+    var tierDesc = document.getElementById('ts-tier-desc');
+
+    var ageVal = document.getElementById('ts-age-val');
+    var tenureVal = document.getElementById('ts-tenure-val');
+    var warnsVal = document.getElementById('ts-warns-val');
+    var casesVal = document.getElementById('ts-cases-val');
+
+    if (ageVal) ageVal.textContent = age + 'd (+' + agePts + ' pts)';
+    if (tenureVal) tenureVal.textContent = tenure + 'd (+' + tenurePts + ' pts)';
+    if (warnsVal) warnsVal.textContent = warns + ' warns (-' + warnPenalty + ' pts)';
+    if (casesVal) casesVal.textContent = cases + ' cases (-' + casePenalty + ' pts)';
+
+    if (scoreDisplay) scoreDisplay.textContent = score + '/100';
+    if (scoreBar) scoreBar.style.width = score + '%';
+
+    var tier = 'CRITICAL RISK';
+    var tierCls = 'danger';
+    var desc = 'High-risk account profile. Immediate moderation caution advised.';
+    if (score >= 80) {
+      tier = 'VERY HIGH TRUST';
+      tierCls = 'ok';
+      desc = 'Established trusted account with clean disciplinary history.';
+    } else if (score >= 60) {
+      tier = 'HIGH TRUST';
+      tierCls = 'ok';
+      desc = 'Regular server member in good standing.';
+    } else if (score >= 40) {
+      tier = 'MODERATE TRUST';
+      tierCls = 'warn';
+      desc = 'Average member account with minor infraction history.';
+    } else if (score >= 20) {
+      tier = 'LOW TRUST';
+      tierCls = 'danger';
+      desc = 'Elevated risk factors detected; close surveillance recommended.';
+    }
+
+    if (tierBadge) {
+      tierBadge.textContent = tier;
+      tierBadge.className = 'pill ' + tierCls;
+    }
+    if (tierDesc) tierDesc.textContent = desc;
+
+    var embedScore = document.getElementById('ts-embed-score');
+    var embedTier = document.getElementById('ts-embed-tier');
+    var embedMath = document.getElementById('ts-embed-math');
+    if (embedScore) embedScore.textContent = score + ' / 100';
+    if (embedTier) embedTier.textContent = tier;
+    if (embedMath) embedMath.textContent = '+' + agePts + ' Age | +' + tenurePts + ' Tenure | -' + warnPenalty + ' Warns | -' + casePenalty + ' Cases' + (veteran ? ' | +20 Veteran' : '');
+  }
+
+  [tsAge, tsTenure, tsWarns, tsCases, tsVeteran].forEach(function (el) {
+    if (!el) return;
+    el.addEventListener('input', updateTrustScore);
+    el.addEventListener('change', updateTrustScore);
+  });
+  updateTrustScore();
+
+  // 2. AutoMod Shield Sandbox
+  var amInput = document.getElementById('am-sandbox-input');
+  var amRuleInvite = document.getElementById('am-toggle-invite');
+  var amRuleCaps = document.getElementById('am-toggle-caps');
+  var amRuleMention = document.getElementById('am-toggle-mention');
+  var amRulePhish = document.getElementById('am-toggle-phish');
+
+  function evalAutoMod() {
+    if (!amInput) return;
+    var text = amInput.value || '';
+    var verdictBox = document.getElementById('am-verdict-box');
+    var verdictTitle = document.getElementById('am-verdict-title');
+    var verdictAction = document.getElementById('am-verdict-action');
+    var verdictRule = document.getElementById('am-verdict-rule');
+
+    if (!text.trim()) {
+      if (verdictBox) verdictBox.className = 'shield-verdict neutral';
+      if (verdictTitle) verdictTitle.textContent = 'AutoMod Shield Standing By';
+      if (verdictAction) verdictAction.textContent = 'Type a message or click a preset chip below to evaluate.';
+      if (verdictRule) verdictRule.textContent = 'Aegis regex rules ready.';
+      return;
+    }
+
+    // Invite check
+    var hasInvite = /discord(?:\.gg|\.com\/invite|\.me)\/[a-z0-9]+/i.test(text);
+    if (hasInvite && (!amRuleInvite || amRuleInvite.checked)) {
+      setAmVerdict('bad', 'VIOLATION DETECTED', 'Action: Message Deleted + 10m Timeout', 'Triggered: Anti-Invite Regex Shield');
+      return;
+    }
+
+    // Phishing check
+    var hasPhish = /(?:nitro|steam|gift|airdrop|claim).*(?:\.ru|\.gift|\.top|\.xyz|\.click)/i.test(text);
+    if (hasPhish && (!amRulePhish || amRulePhish.checked)) {
+      setAmVerdict('bad', 'MALICIOUS CONTENT BLOCKED', 'Action: Instant Ban + Staff Alert', 'Triggered: Phishing Link Heuristic Shield');
+      return;
+    }
+
+    // Mention check
+    var mentions = (text.match(/<@!?\d+>|@everyone|@here/g) || []).length;
+    if (mentions >= 3 && (!amRuleMention || amRuleMention.checked)) {
+      setAmVerdict('bad', 'MENTION SPAM BLOCKED', 'Action: Message Purged + Warning Issued', 'Triggered: Mention Flood Guard (≥3 mentions)');
+      return;
+    }
+
+    // Caps check
+    var letters = text.replace(/[^a-zA-Z]/g, '');
+    var uppers = text.replace(/[^A-Z]/g, '');
+    if (letters.length >= 8 && (uppers.length / letters.length) >= 0.7 && (!amRuleCaps || amRuleCaps.checked)) {
+      setAmVerdict('warn', 'EXCESSIVE CAPS DETECTED', 'Action: Auto-Warn Applied', 'Triggered: Caps Lock Threshold (>70%)');
+      return;
+    }
+
+    setAmVerdict('ok', 'MESSAGE ALLOWED', 'Action: Normal Dispatch', 'Content verified clean across all active shield rules.');
+  }
+
+  function setAmVerdict(cls, title, action, rule) {
+    var vBox = document.getElementById('am-verdict-box');
+    var vTitle = document.getElementById('am-verdict-title');
+    var vAction = document.getElementById('am-verdict-action');
+    var vRule = document.getElementById('am-verdict-rule');
+    if (vBox) vBox.className = 'shield-verdict ' + cls;
+    if (vTitle) vTitle.textContent = title;
+    if (vAction) vAction.textContent = action;
+    if (vRule) vRule.textContent = rule;
+  }
+
+  if (amInput) {
+    amInput.addEventListener('input', evalAutoMod);
+  }
+  [amRuleInvite, amRuleCaps, amRuleMention, amRulePhish].forEach(function (el) {
+    if (el) el.addEventListener('change', evalAutoMod);
+  });
+
+  // Preset chips
+  document.addEventListener('click', function (e) {
+    var chip = e.target.closest && e.target.closest('[data-am-preset]');
+    if (!chip || !amInput) return;
+    var sample = chip.getAttribute('data-am-preset') || '';
+    amInput.value = sample;
+    evalAutoMod();
+  });
+
+  // 3. Ghost Watch Event Triggers
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('[data-ghost-trigger]');
+    if (!btn) return;
+    var type = btn.getAttribute('data-ghost-trigger');
+    var card = document.getElementById('ghost-live-event-card');
+    var title = document.getElementById('ghost-live-event-title');
+    var body = document.getElementById('ghost-live-event-body');
+    var meta = document.getElementById('ghost-live-event-meta');
+    if (!card) return;
+
+    card.style.display = 'block';
+    if (type === 'edit') {
+      if (title) title.textContent = '🕵️ Ghost Watch Alert: Message Edited';
+      if (body) body.innerHTML = '<div style="margin-bottom:.3rem"><strong style="color:#f87171">- Before:</strong> "Hey everyone, check this link out"</div><div><strong style="color:#34d399">+ After:</strong> "Join discord.gg/shady-invite for free nitro!"</div>';
+      if (meta) meta.textContent = 'Target: @suspect_user (ID: 9481948102) • Channel: #general • In-Memory Dispatch: 3ms';
+    } else if (type === 'delete') {
+      if (title) title.textContent = '🕵️ Ghost Watch Alert: Message Deleted';
+      if (body) body.innerHTML = '<div><strong style="color:#f87171">Deleted Content:</strong> "Free gift steam-gift-nitro.xyz/claim"</div>';
+      if (meta) meta.textContent = 'Target: @suspect_user • Channel: #media • Delivered to Staff DMs';
+    } else if (type === 'leave') {
+      if (title) title.textContent = '🕵️ Ghost Watch Alert: Member Left Server';
+      if (body) body.innerHTML = '<div>Watched member left the guild. Watchlist record retained with prior infractions and notes.</div>';
+      if (meta) meta.textContent = 'Target: @suspect_user • Joined: 4 days ago • Prior Warnings: 2';
+    }
+  });
+
+  // 4. Ban Appeal Triage Desk
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('[data-appeal-action]');
+    if (!btn) return;
+    var action = btn.getAttribute('data-appeal-action');
+    var badge = document.getElementById('appeal-triage-badge');
+    var note = document.getElementById('appeal-triage-note');
+    if (!badge) return;
+
+    if (action === 'approve') {
+      badge.textContent = 'APPROVED';
+      badge.className = 'pill ok';
+      if (note) note.textContent = '✓ Appeal approved by Staff. Aegis automatically executed the unban from Discord and sent DM confirmation.';
+    } else if (action === 'deny') {
+      badge.textContent = 'DENIED';
+      badge.className = 'pill danger';
+      if (note) note.textContent = '✗ Appeal denied. Target member informed via Discord DM. Ban remains in effect.';
+    } else {
+      badge.textContent = 'PENDING REVIEW';
+      badge.className = 'pill warn';
+      if (note) note.textContent = 'Appeal statement submitted via modal. Waiting for staff decision.';
+    }
+  });
 })();
 `;

@@ -144,13 +144,23 @@ function homeHero(cfg: SiteConfig, stats: Stats, online: boolean): string {
         <span class="dot" aria-hidden="true"></span>
         ${st.label} &middot; Gateway ${stats.ping}ms &middot; v${escapeHtml(cfg.version)}
       </div>
-      <h1>Discord moderation and security.<br>Without web dashboard bloat.</h1>
+      <h1 class="hero-title">Discord moderation &amp; security.<br><span class="gradient-text">Engineered without compromise.</span></h1>
       <p class="lead">Aegis provides silent member surveillance, algorithmic trust scoring, automated ban appeal queues, and tamper-proof case logs. Configured natively through Discord slash commands and interactive modals where your moderators already work.</p>
       <div class="btn-row center hero-actions">
         <a class="btn lg" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
-        <a class="btn ghost lg" href="/features">Explore Features</a>
+        <a class="btn ghost lg" href="#interactive-lab">Interactive Lab</a>
         <a class="btn ghost lg" href="/commands">Browse all 50 commands</a>
       </div>
+
+      <div class="theme-picker-bar" role="group" aria-label="Customize interface theme">
+        <span class="theme-picker-label">Canvas Theme:</span>
+        <button class="theme-pill active" type="button" data-set-theme="dark" aria-pressed="true"><span class="theme-dot dark"></span>Midnight</button>
+        <button class="theme-pill" type="button" data-set-theme="cyberpunk" aria-pressed="false"><span class="theme-dot cyberpunk"></span>Cyberpunk</button>
+        <button class="theme-pill" type="button" data-set-theme="emerald" aria-pressed="false"><span class="theme-dot emerald"></span>Emerald</button>
+        <button class="theme-pill" type="button" data-set-theme="gold" aria-pressed="false"><span class="theme-dot gold"></span>Gold</button>
+        <button class="theme-pill" type="button" data-set-theme="light" aria-pressed="false"><span class="theme-dot light"></span>Daylight</button>
+      </div>
+
       <p class="hero-note">${stats.commands} slash commands &middot; MongoDB persistence &middot; Zero external dashboard login required</p>
 
       <div class="trust-strip" aria-label="Aegis core principles">
@@ -161,11 +171,13 @@ function homeHero(cfg: SiteConfig, stats: Stats, online: boolean): string {
       </div>
 
       <div class="stats">
-        ${statCard("Connected Servers", stats.guilds.toLocaleString(), 'data-live="guilds" data-count="' + stats.guilds + '"')}
-        ${statCard("Cached Members", stats.users.toLocaleString(), 'data-live="users" data-count="' + stats.users + '"')}
-        ${statCard("Slash Commands", String(catalogStats().commands), 'data-count="' + catalogStats().commands + '"')}
-        ${statCard("Gateway Latency", stats.ping + " ms", 'data-live="ping" data-suffix=" ms"')}
-        ${statCard("Process Uptime", fmtUptime(stats.uptime), 'data-uptime-from="' + stats.uptime + '"')}
+        ${(function() { const cs = catalogStats(); return [
+          statCard("Connected Servers", stats.guilds.toLocaleString(), 'data-live="guilds" data-count="' + stats.guilds + '"'),
+          statCard("Cached Members", stats.users.toLocaleString(), 'data-live="users" data-count="' + stats.users + '"'),
+          statCard("Slash Commands", String(cs.commands), 'data-count="' + cs.commands + '"'),
+          statCard("Gateway Latency", stats.ping + " ms", 'data-live="ping" data-suffix=" ms"'),
+          statCard("Process Uptime", fmtUptime(stats.uptime), 'data-uptime-from="' + stats.uptime + '"'),
+        ].join(''); })()}
       </div>
 
       <!-- Quick Command Copy Strip -->
@@ -323,6 +335,299 @@ function homeHero(cfg: SiteConfig, stats: Stats, online: boolean): string {
   </section>`;
 }
 
+function interactiveLabSuite(): string {
+  return `
+<!-- Interactive Customization Lab -->
+<section class="block" id="interactive-lab" style="padding-top:0">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Interactive Control Suite</span>
+      <h2>Aegis Simulation &amp; Customization Lab</h2>
+      <p>Configure parameters, test moderation algorithms, and watch live simulated Discord responses in real time.</p>
+    </div>
+
+    <div class="lab-card reveal">
+      <div class="lab-top-bar">
+        <div class="lab-title-group">
+          <div class="lab-icon-badge" aria-hidden="true">⚙️</div>
+          <div>
+            <strong style="font-size:0.95rem;display:block">Interactive Security Workbench</strong>
+            <span style="font-size:0.78rem;color:var(--muted)">Live client simulator &bull; instant reactive updates</span>
+          </div>
+        </div>
+        <div class="lab-nav" role="group" aria-label="Interactive Customizer Tabs">
+          <button class="lab-tab active" type="button" data-lab-target="lab-panel-trustscore" aria-pressed="true">🧮 Trust Score</button>
+          <button class="lab-tab" type="button" data-lab-target="lab-panel-automod" aria-pressed="false">🛡️ AutoMod Sandbox</button>
+          <button class="lab-tab" type="button" data-lab-target="lab-panel-ghostwatch" aria-pressed="false">🕵️ Ghost Watch</button>
+          <button class="lab-tab" type="button" data-lab-target="lab-panel-appeals" aria-pressed="false">📋 Ban Appeals</button>
+        </div>
+      </div>
+
+      <div class="lab-body">
+        <!-- Panel 1: Trust Score Calculator -->
+        <div class="lab-panel active" id="lab-panel-trustscore">
+          <div class="lab-grid">
+            <div class="control-box">
+              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.25rem">Member Risk Scoring Parameters</div>
+              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Adjust account parameters to see how Aegis algorithmically scores integrity and computes disciplinary risk.</p>
+              
+              <div class="control-item">
+                <div class="control-item-head">
+                  <span>Discord Account Age</span>
+                  <span class="control-val-pill" id="ts-age-val">120d (+17 pts)</span>
+                </div>
+                <input class="ui-slider" id="ts-age-input" type="range" min="1" max="365" value="120" aria-label="Account Age">
+                <span style="font-size:0.72rem;color:var(--faint)">Scales linearly up to +25 points across 180 days.</span>
+              </div>
+
+              <div class="control-item">
+                <div class="control-item-head">
+                  <span>Guild Server Tenure</span>
+                  <span class="control-val-pill" id="ts-tenure-val">45d (+13 pts)</span>
+                </div>
+                <input class="ui-slider" id="ts-tenure-input" type="range" min="1" max="180" value="45" aria-label="Guild Tenure">
+                <span style="font-size:0.72rem;color:var(--faint)">Scales linearly up to +25 points across 90 days.</span>
+              </div>
+
+              <div class="control-item">
+                <div class="control-item-head">
+                  <span>Active Warnings</span>
+                  <span class="control-val-pill" id="ts-warns-val">1 warns (-5 pts)</span>
+                </div>
+                <input class="ui-slider" id="ts-warns-input" type="range" min="0" max="10" value="1" aria-label="Active Warnings">
+                <span style="font-size:0.72rem;color:var(--faint)">Deducts -5 points per warning (capped at -30 pts).</span>
+              </div>
+
+              <div class="control-item">
+                <div class="control-item-head">
+                  <span>Prior Moderation Cases</span>
+                  <span class="control-val-pill" id="ts-cases-val">0 cases (0 pts)</span>
+                </div>
+                <input class="ui-slider" id="ts-cases-input" type="range" min="0" max="8" value="0" aria-label="Prior Cases">
+                <span style="font-size:0.72rem;color:var(--faint)">Deducts -4 points per case (capped at -20 pts).</span>
+              </div>
+
+              <label class="ui-toggle-label">
+                <div>
+                  <div style="font-weight:600;font-size:0.86rem">Veteran Member Bonus (+20 pts)</div>
+                  <div style="font-size:0.74rem;color:var(--muted)">Account &gt;1 year old and in server for 6+ months</div>
+                </div>
+                <input id="ts-veteran-input" type="checkbox">
+              </label>
+            </div>
+
+            <div>
+              <div class="score-radial-wrap">
+                <div>
+                  <div style="font-size:0.75rem;text-transform:uppercase;color:var(--faint);font-weight:700">Calculated Trust Score</div>
+                  <div class="score-big-num" id="ts-score-display">75/100</div>
+                </div>
+                <div style="flex:1">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:0.35rem">
+                    <span class="pill ok" id="ts-tier-badge">HIGH TRUST</span>
+                    <span style="font-size:0.78rem;color:var(--muted);font-family:var(--mono)">0 &ndash; 100 Scale</span>
+                  </div>
+                  <div class="score-progress-track">
+                    <div class="score-progress-fill" id="ts-score-bar" style="width:75%"></div>
+                  </div>
+                  <div style="font-size:0.75rem;color:var(--muted);margin-top:0.35rem" id="ts-tier-desc">Regular server member in good standing.</div>
+                </div>
+              </div>
+
+              <div class="discord-preview-card">
+                <div class="discord-preview-header">
+                  <div class="avatar bot" aria-hidden="true">A</div>
+                  <div>
+                    <span style="font-weight:700;font-size:0.88rem">Aegis</span> <span class="bot-tag">BOT</span>
+                    <span style="font-size:0.72rem;color:#949ba4;margin-left:0.5rem">Today at 1:42 PM</span>
+                  </div>
+                </div>
+                <div class="discord-preview-embed">
+                  <div style="font-weight:700;margin-bottom:0.5rem;font-size:0.95rem">Member Trust Profile &bull; @test_member</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.82rem;margin-bottom:0.5rem">
+                    <div><span style="color:#949ba4">Composite Score:</span> <strong id="ts-embed-score">75 / 100</strong></div>
+                    <div><span style="color:#949ba4">Tier Status:</span> <strong id="ts-embed-tier" style="color:#34d399">HIGH TRUST</strong></div>
+                  </div>
+                  <div style="background:#1e1f22;padding:0.5rem 0.65rem;border-radius:4px;font-family:var(--mono);font-size:0.75rem;color:#949ba4" id="ts-embed-math">
+                    +17 Age | +13 Tenure | -5 Warns | 0 Cases
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: AutoMod Sandbox -->
+        <div class="lab-panel" id="lab-panel-automod">
+          <div class="lab-grid">
+            <div class="control-box">
+              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.25rem">Active AutoMod Shields</div>
+              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.75rem">Toggle active rule heuristics and test message strings against real-time regex parsers.</p>
+
+              <label class="ui-toggle-label">
+                <div>
+                  <div style="font-weight:600;font-size:0.86rem">🛡️ Anti-Invite Regex Shield</div>
+                  <div style="font-size:0.74rem;color:var(--muted)">Blocks unauthorized discord.gg / discord.com invites</div>
+                </div>
+                <input id="am-toggle-invite" type="checkbox" checked>
+              </label>
+
+              <label class="ui-toggle-label">
+                <div>
+                  <div style="font-weight:600;font-size:0.86rem">🎣 Phishing Link Interceptor</div>
+                  <div style="font-size:0.74rem;color:var(--muted)">Heuristic detection of fake nitro and malicious domains</div>
+                </div>
+                <input id="am-toggle-phish" type="checkbox" checked>
+              </label>
+
+              <label class="ui-toggle-label">
+                <div>
+                  <div style="font-weight:600;font-size:0.86rem">🔤 Excessive Caps Lock Guard</div>
+                  <div style="font-size:0.74rem;color:var(--muted)">Blocks messages with &gt;70% uppercase characters</div>
+                </div>
+                <input id="am-toggle-caps" type="checkbox" checked>
+              </label>
+
+              <label class="ui-toggle-label">
+                <div>
+                  <div style="font-weight:600;font-size:0.86rem">📣 Mention Flood Shield</div>
+                  <div style="font-size:0.74rem;color:var(--muted)">Blocks mass user pings (&ge;3 mentions)</div>
+                </div>
+                <input id="am-toggle-mention" type="checkbox" checked>
+              </label>
+            </div>
+
+            <div>
+              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.5rem">Live Message Evaluation Sandbox</div>
+              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.75rem">Type a message below or click a preset test chip to trigger instant rule evaluation.</p>
+
+              <input id="am-sandbox-input" type="text" placeholder="Type a test message here..." style="width:100%;padding:0.75rem 1rem;border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--sans);font-size:0.9rem;outline:none">
+
+              <div class="preset-chip-row">
+                <button class="preset-chip" type="button" data-am-preset="Hey everyone, great game today in voice chat!">💬 Clean Message</button>
+                <button class="preset-chip" type="button" data-am-preset="Join our community discord.gg/aegis-shield for free access!">🔗 Invite Link</button>
+                <button class="preset-chip" type="button" data-am-preset="Claim free 3 months nitro steam-gift-nitro.xyz/claim now!">🎣 Phishing Link</button>
+                <button class="preset-chip" type="button" data-am-preset="PLEASE LOOK AT THIS IMPORTANT MESSAGE RIGHT NOW">📢 Caps Lock</button>
+                <button class="preset-chip" type="button" data-am-preset="@user1 @user2 @user3 @user4 wake up!">👥 Mass Mentions</button>
+              </div>
+
+              <div class="shield-verdict neutral" id="am-verdict-box">
+                <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.25rem" id="am-verdict-title">AutoMod Shield Standing By</div>
+                <div style="font-size:0.84rem;margin-bottom:0.4rem" id="am-verdict-action">Type a message or click a preset chip above to evaluate.</div>
+                <div style="font-size:0.75rem;opacity:0.8;font-family:var(--mono)" id="am-verdict-rule">Aegis regex rules ready.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Ghost Watch Simulator -->
+        <div class="lab-panel" id="lab-panel-ghostwatch">
+          <div class="lab-grid">
+            <div class="control-box">
+              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.25rem">Silent Member Surveillance Matrix</div>
+              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Target members are watched silently with in-memory O(1) cache lookups. Zero public bot alerts or chat footprint.</p>
+
+              <div style="padding:1rem;background:var(--surface);border-radius:var(--r-sm);border:1px solid var(--border)">
+                <div style="font-size:0.8rem;color:var(--faint);text-transform:uppercase;margin-bottom:0.35rem">Active Watch Profile</div>
+                <div style="display:flex;align-items:center;gap:0.5rem;font-weight:700">
+                  <span class="pill primary">TARGET</span> <span>@suspect_user (ID: 9481948102)</span>
+                </div>
+                <div style="font-size:0.78rem;color:var(--muted);margin-top:0.4rem">Expiration: 24 Hours &bull; Monitored by: Moderator Team</div>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem">
+                <div style="font-size:0.85rem;font-weight:600">Simulate Member Lifecycle Events:</div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                  <button class="btn sm" type="button" data-ghost-trigger="edit">⚡ Simulate Edit</button>
+                  <button class="btn sm" type="button" data-ghost-trigger="delete">🗑️ Simulate Delete</button>
+                  <button class="btn sm" type="button" data-ghost-trigger="leave">🚪 Simulate Leave</button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.5rem">Moderator DM Live Dispatch Feed</div>
+              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Aegis dispatches instant private alerts directly to staff DMs when watched members act.</p>
+
+              <div class="discord-preview-card" id="ghost-live-event-card">
+                <div class="discord-preview-header">
+                  <div class="avatar bot" aria-hidden="true">A</div>
+                  <div>
+                    <span style="font-weight:700;font-size:0.88rem">Aegis</span> <span class="bot-tag">BOT</span>
+                    <span style="font-size:0.72rem;color:#949ba4;margin-left:0.5rem">Private Direct Message</span>
+                  </div>
+                </div>
+                <div class="discord-preview-embed danger">
+                  <div style="font-weight:700;margin-bottom:0.4rem;font-size:0.95rem" id="ghost-live-event-title">🕵️ Ghost Watch Alert: Message Edited</div>
+                  <div style="font-size:0.85rem;margin-bottom:0.6rem;line-height:1.5" id="ghost-live-event-body">
+                    <div style="margin-bottom:.3rem"><strong style="color:#f87171">- Before:</strong> "Hey everyone, check this link out"</div>
+                    <div><strong style="color:#34d399">+ After:</strong> "Join discord.gg/shady-invite for free nitro!"</div>
+                  </div>
+                  <div style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)" id="ghost-live-event-meta">
+                    Target: @suspect_user (ID: 9481948102) &bull; Channel: #general &bull; In-Memory Dispatch: 3ms
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 4: Ban Appeals Desk -->
+        <div class="lab-panel" id="lab-panel-appeals">
+          <div class="lab-grid">
+            <div class="control-box">
+              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.25rem">Ban Appeal Tracking &amp; Triage Desk</div>
+              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">When a member is banned, Aegis sends an 8-character appeal code. Appellants submit their case via Discord modals for staff review.</p>
+
+              <div style="padding:1rem;background:var(--surface);border-radius:var(--r-sm);border:1px solid var(--border)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+                  <span style="font-size:0.75rem;color:var(--faint);font-family:var(--mono);text-transform:uppercase">Appeal Record: AGS-4K9D</span>
+                  <span class="pill warn" id="appeal-triage-badge">PENDING REVIEW</span>
+                </div>
+                <div style="font-size:0.88rem;margin-bottom:0.5rem"><strong>Appellant:</strong> BannedUser#0001 (ID: 7182948102)</div>
+                <div style="font-size:0.84rem;color:var(--muted);background:var(--surface-2);padding:0.75rem;border-radius:6px;line-height:1.5">
+                  &ldquo;My account was compromised during a token-logging phishing incident. I have since changed my passwords, enabled 2FA, and revoked all active sessions. I apologize for the spam messages sent from my account.&rdquo;
+                </div>
+              </div>
+
+              <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button class="btn sm" type="button" data-appeal-action="approve" style="background:#23a55a;border-color:#23a55a;color:#fff">✓ Approve &amp; Auto-Unban</button>
+                <button class="btn sm" type="button" data-appeal-action="deny" style="background:#f23f43;border-color:#f23f43;color:#fff">✗ Deny Appeal</button>
+                <button class="btn sm ghost" type="button" data-appeal-action="reset">🔄 Reset</button>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.5rem">Automated Execution Audit</div>
+              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Aegis carries out the decision automatically without requiring manual audit logging.</p>
+
+              <div class="discord-preview-card">
+                <div class="discord-preview-header">
+                  <div class="avatar bot" aria-hidden="true">A</div>
+                  <div>
+                    <span style="font-weight:700;font-size:0.88rem">Aegis</span> <span class="bot-tag">BOT</span>
+                    <span style="font-size:0.72rem;color:#949ba4;margin-left:0.5rem">Audit Log Channel</span>
+                  </div>
+                </div>
+                <div class="discord-preview-embed">
+                  <div style="font-weight:700;margin-bottom:0.4rem;font-size:0.95rem">Appeal Status Update &bull; AGS-4K9D</div>
+                  <div style="font-size:0.85rem;color:var(--text);margin-bottom:0.5rem;line-height:1.5" id="appeal-triage-note">
+                    Appeal statement submitted via modal. Waiting for staff decision.
+                  </div>
+                  <div style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)">
+                    Target: BannedUser#0001 &bull; Guild: Aegis Protected &bull; Dispatch Engine: Knub Mod Hub
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
 /* ── Home ──────────────────────────────────────────────────────────── */
 
 export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): string {
@@ -330,6 +635,8 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
 
   const body = `
 ${homeHero(cfg, stats, online)}
+
+${interactiveLabSuite()}
 
 <!-- 4 Core Pillars Bento Grid -->
 <section class="block" id="capabilities">
@@ -1862,6 +2169,9 @@ export const RELEASES: Release[] = [
       "[PERF] Mod Report Tab Caching: In-memory session embed caching providing instant (<5ms) tab switching and live on-demand re-querying.",
       "[WEB] High-Performance Solid Surfaces: Completely eliminated all -webkit-backdrop-filter and glassmorphism blurs for crisp, GPU-efficient 60fps rendering across all devices.",
       "[WEB] Navigation: Added direct Changelog link to the primary navigation bar across desktop and mobile layouts.",
+      "[FIXED] Web Portal CSS: Repaired unclosed rules for .docs-mobile-nav and .back-to-top (restoring scroll return button) and added .ft-showcase-card[hidden] selector.",
+      "[PERF] Web Portal Runtime: Deduplicated catalogStats() computation on home page, tightened command search debounce to 80ms, and removed duplicate escapeHtml closure.",
+      "[UI] Web Portal Polish: Added interactive hover/active states for preview tab buttons and command pills with tactile micro-interactions and copy pill styling.",
       "[SYSTEM] Proprietary Architecture: Fully closed-source distribution with private package licensing.",
     ],
   },

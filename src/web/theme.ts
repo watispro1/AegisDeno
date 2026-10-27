@@ -2188,7 +2188,9 @@ pre.block:focus-within .code-copy-btn {
   padding: 0.75rem 1rem;
   background: var(--glass);
   border: 1px solid var(--border);
-  border-radius: var(--r);.docs-mobile-label {
+  border-radius: var(--r);
+}
+.docs-mobile-label {
   display: block;
   font-size: 0.78rem;
   font-weight: 600;
@@ -2234,7 +2236,9 @@ pre.block:focus-within .code-copy-btn {
   visibility: hidden;
   transform: translateY(12px);
   transition: all 0.25s var(--ease);
-  box-shadow: var(--shadow-md);.back-to-top.visible {
+  box-shadow: var(--shadow-md);
+}
+.back-to-top.visible {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
@@ -2247,7 +2251,409 @@ pre.block:focus-within .code-copy-btn {
   box-shadow: 0 10px 20px -5px var(--primary-ring);
 }
 
-/* â”€â”€ Mobile and Tablet Responsiveness â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Preview Tab Buttons (hero command inspector) ────────────────────── */
+.preview-tab-btn {
+  padding: 0.38rem 0.85rem;
+  border-radius: 99px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+  white-space: nowrap;
+}
+.preview-tab-btn:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.preview-tab-btn[aria-pressed='true'] {
+  background: var(--primary);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 10px -3px var(--primary-ring);
+}
+
+/* ── Command copy pills ──────────────────────────────────────────────── */
+.cmd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+  user-select: none;
+  white-space: nowrap;
+}
+.cmd-pill:hover {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -4px var(--primary-ring);
+}
+.cmd-pill:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 0.07s;
+}
+.cmd-pill code {
+  font-family: var(--mono);
+  font-size: 0.82em;
+}
+.pill-copy {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  transition: color 0.18s;
+}
+.cmd-pill:hover .pill-copy {
+  color: var(--primary);
+}
+
+/* ── Feature filter cards layout-shift-free hide ─────────────────────── */
+.ft-showcase-card[hidden] {
+  display: none;
+}
+
+/* ── Interactive Theme Picker ───────────────────────────────── */
+.theme-picker-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  margin-top: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.theme-picker-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  padding: 0 0.4rem;
+}
+.theme-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 99px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+.theme-pill:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.theme-pill.active {
+  color: var(--text);
+  background: var(--bg);
+  border-color: var(--border-strong);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.theme-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
+}
+.theme-dot.dark { background: #5e6ad2; }
+.theme-dot.light { background: #e2e8f0; border: 1px solid #94a3b8; }
+.theme-dot.cyberpunk { background: #ec4899; box-shadow: 0 0 6px #ec4899; }
+.theme-dot.emerald { background: #10b981; box-shadow: 0 0 6px #10b981; }
+.theme-dot.gold { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+
+/* ── Interactive Customization Lab ──────────────────────────── */
+.lab-card {
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  box-shadow: 0 20px 50px -15px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+  overflow: hidden;
+  position: relative;
+  text-align: left;
+}
+.lab-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.4rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.lab-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.lab-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.lab-nav {
+  display: flex;
+  gap: 0.35rem;
+  background: var(--bg);
+  padding: 0.25rem;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.lab-tab {
+  padding: 0.38rem 0.9rem;
+  border-radius: 99px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+.lab-tab:hover {
+  color: var(--text);
+}
+.lab-tab.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 10px var(--primary-ring);
+}
+.lab-body {
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+.lab-panel {
+  display: none;
+}
+.lab-panel.active {
+  display: block;
+  animation: labFadeIn 0.25s var(--ease);
+}
+@keyframes labFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Interactive Lab Form Controls ──────────────────────────── */
+.lab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .lab-grid { grid-template-columns: 1fr; }
+}
+.control-box {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.control-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.control-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.control-val-pill {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--link);
+  border: 1px solid var(--border);
+}
+.ui-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  outline: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.ui-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid #fff;
+  box-shadow: 0 0 8px var(--primary);
+  cursor: pointer;
+  transition: transform 0.15s var(--ease);
+}
+.ui-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.ui-toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease);
+}
+.ui-toggle-label:hover {
+  border-color: var(--border-strong);
+}
+.ui-toggle-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* ── Live Preview Discord Cards in Lab ───────────────────────── */
+.discord-preview-card {
+  background: #2b2d31;
+  border-radius: 12px;
+  border: 1px solid #1e1f22;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  padding: 1.25rem;
+  color: #dbdee1;
+  font-size: 0.88rem;
+  text-align: left;
+}
+.discord-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+.discord-preview-embed {
+  background: #232428;
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+  padding: 1rem;
+}
+.discord-preview-embed.success { border-left-color: #23a55a; }
+.discord-preview-embed.warning { border-left-color: #f0b232; }
+.discord-preview-embed.danger { border-left-color: #f23f43; }
+
+.score-radial-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem;
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+.score-big-num {
+  font-family: var(--display);
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+.score-progress-track {
+  flex: 1;
+  height: 10px;
+  background: var(--surface-2);
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.score-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f87171, #fbbf24 45%, #34d399 85%);
+  transition: width 0.3s var(--ease);
+}
+
+.shield-verdict {
+  padding: 1rem 1.25rem;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  margin-top: 1rem;
+  transition: all 0.25s var(--ease);
+}
+.shield-verdict.ok {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #34d399;
+}
+.shield-verdict.bad {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #f87171;
+}
+.shield-verdict.warn {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: #fbbf24;
+}
+.shield-verdict.neutral {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.preset-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+.preset-chip {
+  padding: 0.25rem 0.65rem;
+  border-radius: 99px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+}
+.preset-chip:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ── Mobile and Tablet Responsiveness ───────────────────────── */
 @media (max-width: 992px) {
   .docs-layout {
     grid-template-columns: 200px 1fr;
