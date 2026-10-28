@@ -7,7 +7,7 @@ import {
   type CommandInfo,
   type OptionInfo,
 } from "./catalog";
-import { features, faqs, quickstart, type Feature } from "./content";
+import { features, faqs, quickstart } from "./content";
 
 export interface SiteConfig {
   inviteUrl: string;
@@ -95,23 +95,10 @@ function jsonLd(data: unknown): string {
   return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
 }
 
-/* ── Shared components ─────────────────────────────────────────────── */
+/* ── Shared bits ───────────────────────────────────────────────────── */
 
-function statCard(label: string, value: string, attr?: string): string {
-  return `<div class="stat">
-    <div class="stat-value"${attr ? ` ${attr}` : ""}>${value}</div>
-    <div class="stat-label">${label}</div>
-  </div>`;
-}
-
-function featureCard(f: Feature, compact = false): string {
-  return `<article class="card reveal">
-    <div class="card-icon" aria-hidden="true">${f.icon}</div>
-    <h3>${escapeHtml(f.title)}</h3>
-    <p>${escapeHtml(f.text)}</p>
-    ${compact ? "" : `<ul>${f.points.map(p => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`}
-    ${f.href ? `<a class="card-link" href="${f.href}">Learn more</a>` : ""}
-  </article>`;
+function breadcrumb(label: string): string {
+  return `<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep">/</span><span>${label}</span></nav>`;
 }
 
 function faqBlock(items: { q: string; a: string }[]): string {
@@ -123,688 +110,152 @@ function faqBlock(items: { q: string; a: string }[]): string {
   </div>`;
 }
 
-function ctaBox(cfg: SiteConfig, heading: string, sub: string): string {
-  return `<div class="cta-box">
-    <h2>${escapeHtml(heading)}</h2>
-    <p>${sub}</p>
-    <div class="btn-row center">
-      <a class="btn lg" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
-      ${cfg.supportUrl ? `<a class="btn ghost lg" href="${safeUrl(cfg.supportUrl)}">Join the support server</a>` : ""}
-      <a class="btn ghost lg" href="/docs">Read the docs</a>
+/** Closing line at the bottom of most pages: one button, no banner. */
+function endNote(cfg: SiteConfig, text: string): string {
+  return `<div class="end-note">
+    <p>${text}</p>
+    <div class="btn-row">
+      <a class="btn" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
+      ${cfg.supportUrl ? `<a class="btn ghost" href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">Support server</a>` : ""}
     </div>
   </div>`;
 }
 
-function homeHero(cfg: SiteConfig, stats: Stats, online: boolean): string {
-  const st = statusWord(stats.ping, online);
-
-  return `<section class="hero">
-    <div class="wrap">
-      <div class="badge ${st.cls === "ok" ? "" : "warn"}">
-        <span class="dot" aria-hidden="true"></span>
-        ${st.label} &middot; Gateway ${stats.ping}ms &middot; v${escapeHtml(cfg.version)}
-      </div>
-      <h1 class="hero-title">Discord moderation &amp; security.<br><span class="gradient-text">Engineered without compromise.</span></h1>
-      <p class="lead">Aegis provides silent member surveillance, algorithmic trust scoring, automated ban appeal queues, and tamper-proof case logs. Configured natively through Discord slash commands and interactive modals where your moderators already work.</p>
-      <div class="btn-row center hero-actions">
-        <a class="btn lg" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
-        <a class="btn ghost lg" href="#interactive-lab">Interactive Lab</a>
-        <a class="btn ghost lg" href="/commands">Browse all 50 commands</a>
-      </div>
-
-      <div class="theme-picker-bar" role="group" aria-label="Customize interface theme">
-        <span class="theme-picker-label">Canvas Theme:</span>
-        <button class="theme-pill active" type="button" data-set-theme="dark" aria-pressed="true"><span class="theme-dot dark"></span>Midnight</button>
-        <button class="theme-pill" type="button" data-set-theme="cyberpunk" aria-pressed="false"><span class="theme-dot cyberpunk"></span>Cyberpunk</button>
-        <button class="theme-pill" type="button" data-set-theme="emerald" aria-pressed="false"><span class="theme-dot emerald"></span>Emerald</button>
-        <button class="theme-pill" type="button" data-set-theme="gold" aria-pressed="false"><span class="theme-dot gold"></span>Gold</button>
-        <button class="theme-pill" type="button" data-set-theme="light" aria-pressed="false"><span class="theme-dot light"></span>Daylight</button>
-      </div>
-
-      <p class="hero-note">${stats.commands} slash commands &middot; MongoDB persistence &middot; Zero external dashboard login required</p>
-
-      <div class="trust-strip" aria-label="Aegis core principles">
-        <span>✓ 100% Native Discord Slash Commands</span>
-        <span>✓ Zero External Dashboard Login</span>
-        <span>✓ Strict Role Hierarchy Enforcement</span>
-        <span>✓ Per-Guild Data Isolation</span>
-      </div>
-
-      <div class="stats">
-        ${(function() { const cs = catalogStats(); return [
-          statCard("Connected Servers", stats.guilds.toLocaleString(), 'data-live="guilds" data-count="' + stats.guilds + '"'),
-          statCard("Cached Members", stats.users.toLocaleString(), 'data-live="users" data-count="' + stats.users + '"'),
-          statCard("Slash Commands", String(cs.commands), 'data-count="' + cs.commands + '"'),
-          statCard("Gateway Latency", stats.ping + " ms", 'data-live="ping" data-suffix=" ms"'),
-          statCard("Process Uptime", fmtUptime(stats.uptime), 'data-uptime-from="' + stats.uptime + '"'),
-        ].join(''); })()}
-      </div>
-
-      <!-- Quick Command Copy Strip -->
-      <div class="cmd-pill-row reveal" aria-label="Quick copy slash commands">
-        <button class="cmd-pill" type="button" data-cmd="/watchlist add target:@user duration:24h reason:&quot;Suspect invite spam&quot;" title="Click to copy command">
-          <code>/watchlist add</code> <span class="pill-copy">Copy</span>
-        </button>
-        <button class="cmd-pill" type="button" data-cmd="/trustscore user:@member ephemeral:True" title="Click to copy command">
-          <code>/trustscore</code> <span class="pill-copy">Copy</span>
-        </button>
-        <button class="cmd-pill" type="button" data-cmd="/appeal review code:AGS-A4F9 decision:Approve" title="Click to copy command">
-          <code>/appeal review</code> <span class="pill-copy">Copy</span>
-        </button>
-        <button class="cmd-pill" type="button" data-cmd="/modreport window:24h ephemeral:True" title="Click to copy command">
-          <code>/modreport</code> <span class="pill-copy">Copy</span>
-        </button>
-        <button class="cmd-pill" type="button" data-cmd="/timeout user:@member duration:1h reason:&quot;Repeated violations&quot;" title="Click to copy command">
-          <code>/timeout</code> <span class="pill-copy">Copy</span>
-        </button>
-        <button class="cmd-pill" type="button" data-cmd="/automod status" title="Click to copy command">
-          <code>/automod status</code> <span class="pill-copy">Copy</span>
-        </button>
-      </div>
-
-      <!-- Interactive Command & Response Inspector -->
-      <div class="hero-panel reveal">
-        <div class="window-bar" style="justify-content:space-between; flex-wrap:wrap; gap:0.5rem">
-          <div style="display:flex; align-items:center; gap:0.5rem">
-            <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-            <span class="window-title">aegis-command-inspector</span>
-          </div>
-          <div class="preview-tabs" role="group" aria-label="Interactive Command Inspector Tabs">
-            <button class="preview-tab-btn" type="button" data-tab="preview-watchlist" aria-pressed="true">🕵️ Ghost Watch</button>
-            <button class="preview-tab-btn" type="button" data-tab="preview-trustscore" aria-pressed="false">🧠 Trust Score</button>
-            <button class="preview-tab-btn" type="button" data-tab="preview-appeal" aria-pressed="false">📋 Ban Appeal</button>
-            <button class="preview-tab-btn" type="button" data-tab="preview-modreport" aria-pressed="false">📊 Mod Digest</button>
-          </div>
-        </div>
-
-        <!-- Panel 1: Ghost Watch -->
-        <div class="preview-panel active" id="preview-watchlist">
-          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.85rem">
-            <div>
-              <span style="color:var(--faint)">Command:</span> <code class="inline" style="color:var(--link)">/watchlist add target:@suspect duration:24h reason:&quot;Suspicious invite distribution&quot;</code>
-            </div>
-            <span class="pill primary" style="font-size:0.72rem">Requires Moderate Members</span>
-          </div>
-          <div class="chat" style="padding:1.25rem">
-            <div class="chat-row">
-              <div class="avatar bot" aria-hidden="true">A</div>
-              <div class="chat-body" style="width:100%">
-                <div class="chat-name">Aegis <span class="bot-tag">BOT</span> <span style="font-size:0.75rem;color:var(--faint);margin-left:0.5rem">Private Staff Dispatch</span></div>
-                <div class="embed" style="border-left-color:#8b5cf6;margin-top:0.5rem">
-                  <div class="embed-title" style="display:flex;justify-content:space-between;align-items:center">
-                    <span>🕵️ Ghost Watch Alert &bull; Message Edit Detected</span>
-                    <span class="pill warn" style="font-size:0.65rem">WATCHLIST ACTIVE</span>
-                  </div>
-                  <div class="embed-field"><span class="k">Monitored Target</span><span>@suspect (ID: 894012093418)</span></div>
-                  <div class="embed-field"><span class="k">Channel</span><span>#general-chat</span></div>
-                  <div class="embed-field"><span class="k">Original Content</span><span style="color:var(--muted)">Check out the public build announcement</span></div>
-                  <div class="embed-field"><span class="k">Modified Content</span><span style="color:var(--danger)">Join our private drop [discord.gg/malicious-link]</span></div>
-                  <div class="embed-field"><span class="k">Dispatch Route</span><span>Sent directly to moderator DMs (zero public chat indicator)</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 2: Trust Score -->
-        <div class="preview-panel" id="preview-trustscore">
-          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.85rem">
-            <div>
-              <span style="color:var(--faint)">Command:</span> <code class="inline" style="color:var(--link)">/trustscore user:@member ephemeral:True</code>
-            </div>
-            <span class="pill primary" style="font-size:0.72rem">Requires Moderate Members</span>
-          </div>
-          <div class="chat" style="padding:1.25rem">
-            <div class="chat-row">
-              <div class="avatar bot" aria-hidden="true">A</div>
-              <div class="chat-body" style="width:100%">
-                <div class="chat-name">Aegis <span class="bot-tag">BOT</span> <span style="font-size:0.75rem;color:var(--faint);margin-left:0.5rem">Ephemeral Response</span></div>
-                <div class="embed" style="border-left-color:#10b981;margin-top:0.5rem">
-                  <div class="embed-title" style="display:flex;justify-content:space-between;align-items:center">
-                    <span>🧠 Member Trust Score &bull; Evaluation</span>
-                    <span class="pill ok" style="font-size:0.65rem">TIER: HIGH TRUST (84/100)</span>
-                  </div>
-                  <div class="embed-field"><span class="k">Evaluated Member</span><span>@member (Account Age: 420 days &bull; Tenure: 180 days)</span></div>
-                  <div class="embed-field"><span class="k">Factor Breakdown</span><span>Account Age (+25) &bull; Server Tenure (+25) &bull; Veteran Bonus (+20) &bull; Warnings (-6)</span></div>
-                  <div class="embed-field"><span class="k">Infraction History</span><span>1 warning (Spamming) &bull; 0 formal mutes &bull; 0 bans</span></div>
-                  <div class="embed-field"><span class="k">Risk Recommendation</span><span>Safe for trusted roles and channel access.</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 3: Ban Appeal -->
-        <div class="preview-panel" id="preview-appeal">
-          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.85rem">
-            <div>
-              <span style="color:var(--faint)">Command:</span> <code class="inline" style="color:var(--link)">/appeal review code:AGS-A4F9 decision:Approve note:&quot;2FA secured&quot;</code>
-            </div>
-            <span class="pill danger" style="font-size:0.72rem">Requires Ban Members</span>
-          </div>
-          <div class="chat" style="padding:1.25rem">
-            <div class="chat-row">
-              <div class="avatar bot" aria-hidden="true">A</div>
-              <div class="chat-body" style="width:100%">
-                <div class="chat-name">Aegis <span class="bot-tag">BOT</span></div>
-                <div class="embed" style="border-left-color:#3b82f6;margin-top:0.5rem">
-                  <div class="embed-title" style="display:flex;justify-content:space-between;align-items:center">
-                    <span>📋 Ban Appeal Processed &bull; Case AGS-A4F9</span>
-                    <span class="pill ok" style="font-size:0.65rem">DECISION: APPROVED</span>
-                  </div>
-                  <div class="embed-field"><span class="k">Appellant</span><span>@reformed_user (ID: 41829482910)</span></div>
-                  <div class="embed-field"><span class="k">Original Ban Reason</span><span>Compromised account sending phishing tokens</span></div>
-                  <div class="embed-field"><span class="k">Appellant Statement</span><span>&quot;Account password changed and hardware 2FA enabled.&quot;</span></div>
-                  <div class="embed-field"><span class="k">Automated Action</span><span>Guild ban revoked immediately &bull; Confirmation DM sent with staff notes.</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 4: Mod Report -->
-        <div class="preview-panel" id="preview-modreport">
-          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.85rem">
-            <div>
-              <span style="color:var(--faint)">Command:</span> <code class="inline" style="color:var(--link)">/modreport window:24h ephemeral:True</code>
-            </div>
-            <span class="pill primary" style="font-size:0.72rem">Requires Moderate Members</span>
-          </div>
-          <div class="chat" style="padding:1.25rem">
-            <div class="chat-row">
-              <div class="avatar bot" aria-hidden="true">A</div>
-              <div class="chat-body" style="width:100%">
-                <div class="chat-name">Aegis <span class="bot-tag">BOT</span></div>
-                <div class="embed" style="border-left-color:#f59e0b;margin-top:0.5rem">
-                  <div class="embed-title" style="display:flex;justify-content:space-between;align-items:center">
-                    <span>📊 Moderation Digest &bull; Trailing 24 Hours</span>
-                    <span class="pill warn" style="font-size:0.65rem">4 TABS CACHED (&lt;5ms)</span>
-                  </div>
-                  <div class="embed-field"><span class="k">Active Warnings</span><span>12 formal warnings issued</span></div>
-                  <div class="embed-field"><span class="k">Timeouts &amp; Bans</span><span>5 timeouts (avg 2h) &bull; 2 bans executed</span></div>
-                  <div class="embed-field"><span class="k">AutoMod Interventions</span><span>28 messages deleted (19 invite links, 9 keyword matches)</span></div>
-                  <div class="embed-field"><span class="k">Staff Leaderboard</span><span>1. @Alex (8 actions) &bull; 2. @Sam (5 actions) &bull; 3. @Jordan (4 actions)</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>`;
+/**
+ * Discord's slash-command input, as it looks while you fill in options.
+ * `opts` are [name, value] pairs.
+ */
+function slashInput(name: string, opts: [string, string][]): string {
+  return `<div class="dc-input" aria-label="${escapeHtml(`/${name} ${opts.map(([k, v]) => `${k}:${v}`).join(" ")}`)}">
+      <span class="dc-cmd">/${escapeHtml(name)}</span>
+      ${opts.map(([k, v]) => `<span class="dc-opt"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span></span>`).join("\n      ")}
+    </div>`;
 }
 
-function interactiveLabSuite(): string {
-  return `
-<!-- Interactive Customization Lab -->
-<section class="block" id="interactive-lab" style="padding-top:0">
-  <div class="wrap">
-    <div class="section-head center reveal">
-      <span class="eyebrow">Interactive Control Suite</span>
-      <h2>Aegis Simulation &amp; Customization Lab</h2>
-      <p>Configure parameters, test moderation algorithms, and watch live simulated Discord responses in real time.</p>
-    </div>
-
-    <div class="lab-card reveal">
-      <div class="lab-top-bar">
-        <div class="lab-title-group">
-          <div class="lab-icon-badge" aria-hidden="true">⚙️</div>
-          <div>
-            <strong style="font-size:0.95rem;display:block">Interactive Security Workbench</strong>
-            <span style="font-size:0.78rem;color:var(--muted)">Live client simulator &bull; instant reactive updates</span>
-          </div>
-        </div>
-        <div class="lab-nav" role="group" aria-label="Interactive Customizer Tabs">
-          <button class="lab-tab active" type="button" data-lab-target="lab-panel-trustscore" aria-pressed="true">🧮 Trust Score</button>
-          <button class="lab-tab" type="button" data-lab-target="lab-panel-automod" aria-pressed="false">🛡️ AutoMod Sandbox</button>
-          <button class="lab-tab" type="button" data-lab-target="lab-panel-ghostwatch" aria-pressed="false">🕵️ Ghost Watch</button>
-          <button class="lab-tab" type="button" data-lab-target="lab-panel-appeals" aria-pressed="false">📋 Ban Appeals</button>
-        </div>
-      </div>
-
-      <div class="lab-body">
-        <!-- Panel 1: Trust Score Calculator -->
-        <div class="lab-panel active" id="lab-panel-trustscore">
-          <div class="lab-grid">
-            <div class="control-box">
-              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.25rem">Member Risk Scoring Parameters</div>
-              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Adjust account parameters to see how Aegis algorithmically scores integrity and computes disciplinary risk.</p>
-              
-              <div class="control-item">
-                <div class="control-item-head">
-                  <span>Discord Account Age</span>
-                  <span class="control-val-pill" id="ts-age-val">120d (+17 pts)</span>
-                </div>
-                <input class="ui-slider" id="ts-age-input" type="range" min="1" max="365" value="120" aria-label="Account Age">
-                <span style="font-size:0.72rem;color:var(--faint)">Scales linearly up to +25 points across 180 days.</span>
-              </div>
-
-              <div class="control-item">
-                <div class="control-item-head">
-                  <span>Guild Server Tenure</span>
-                  <span class="control-val-pill" id="ts-tenure-val">45d (+13 pts)</span>
-                </div>
-                <input class="ui-slider" id="ts-tenure-input" type="range" min="1" max="180" value="45" aria-label="Guild Tenure">
-                <span style="font-size:0.72rem;color:var(--faint)">Scales linearly up to +25 points across 90 days.</span>
-              </div>
-
-              <div class="control-item">
-                <div class="control-item-head">
-                  <span>Active Warnings</span>
-                  <span class="control-val-pill" id="ts-warns-val">1 warns (-5 pts)</span>
-                </div>
-                <input class="ui-slider" id="ts-warns-input" type="range" min="0" max="10" value="1" aria-label="Active Warnings">
-                <span style="font-size:0.72rem;color:var(--faint)">Deducts -5 points per warning (capped at -30 pts).</span>
-              </div>
-
-              <div class="control-item">
-                <div class="control-item-head">
-                  <span>Prior Moderation Cases</span>
-                  <span class="control-val-pill" id="ts-cases-val">0 cases (0 pts)</span>
-                </div>
-                <input class="ui-slider" id="ts-cases-input" type="range" min="0" max="8" value="0" aria-label="Prior Cases">
-                <span style="font-size:0.72rem;color:var(--faint)">Deducts -4 points per case (capped at -20 pts).</span>
-              </div>
-
-              <label class="ui-toggle-label">
-                <div>
-                  <div style="font-weight:600;font-size:0.86rem">Veteran Member Bonus (+20 pts)</div>
-                  <div style="font-size:0.74rem;color:var(--muted)">Account &gt;1 year old and in server for 6+ months</div>
-                </div>
-                <input id="ts-veteran-input" type="checkbox">
-              </label>
-            </div>
-
-            <div>
-              <div class="score-radial-wrap">
-                <div>
-                  <div style="font-size:0.75rem;text-transform:uppercase;color:var(--faint);font-weight:700">Calculated Trust Score</div>
-                  <div class="score-big-num" id="ts-score-display">75/100</div>
-                </div>
-                <div style="flex:1">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:0.35rem">
-                    <span class="pill ok" id="ts-tier-badge">HIGH TRUST</span>
-                    <span style="font-size:0.78rem;color:var(--muted);font-family:var(--mono)">0 &ndash; 100 Scale</span>
-                  </div>
-                  <div class="score-progress-track">
-                    <div class="score-progress-fill" id="ts-score-bar" style="width:75%"></div>
-                  </div>
-                  <div style="font-size:0.75rem;color:var(--muted);margin-top:0.35rem" id="ts-tier-desc">Regular server member in good standing.</div>
-                </div>
-              </div>
-
-              <div class="discord-preview-card">
-                <div class="discord-preview-header">
-                  <div class="avatar bot" aria-hidden="true">A</div>
-                  <div>
-                    <span style="font-weight:700;font-size:0.88rem">Aegis</span> <span class="bot-tag">BOT</span>
-                    <span style="font-size:0.72rem;color:#949ba4;margin-left:0.5rem">Today at 1:42 PM</span>
-                  </div>
-                </div>
-                <div class="discord-preview-embed">
-                  <div style="font-weight:700;margin-bottom:0.5rem;font-size:0.95rem">Member Trust Profile &bull; @test_member</div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.82rem;margin-bottom:0.5rem">
-                    <div><span style="color:#949ba4">Composite Score:</span> <strong id="ts-embed-score">75 / 100</strong></div>
-                    <div><span style="color:#949ba4">Tier Status:</span> <strong id="ts-embed-tier" style="color:#34d399">HIGH TRUST</strong></div>
-                  </div>
-                  <div style="background:#1e1f22;padding:0.5rem 0.65rem;border-radius:4px;font-family:var(--mono);font-size:0.75rem;color:#949ba4" id="ts-embed-math">
-                    +17 Age | +13 Tenure | -5 Warns | 0 Cases
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 2: AutoMod Sandbox -->
-        <div class="lab-panel" id="lab-panel-automod">
-          <div class="lab-grid">
-            <div class="control-box">
-              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.25rem">Active AutoMod Shields</div>
-              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.75rem">Toggle active rule heuristics and test message strings against real-time regex parsers.</p>
-
-              <label class="ui-toggle-label">
-                <div>
-                  <div style="font-weight:600;font-size:0.86rem">🛡️ Anti-Invite Regex Shield</div>
-                  <div style="font-size:0.74rem;color:var(--muted)">Blocks unauthorized discord.gg / discord.com invites</div>
-                </div>
-                <input id="am-toggle-invite" type="checkbox" checked>
-              </label>
-
-              <label class="ui-toggle-label">
-                <div>
-                  <div style="font-weight:600;font-size:0.86rem">🎣 Phishing Link Interceptor</div>
-                  <div style="font-size:0.74rem;color:var(--muted)">Heuristic detection of fake nitro and malicious domains</div>
-                </div>
-                <input id="am-toggle-phish" type="checkbox" checked>
-              </label>
-
-              <label class="ui-toggle-label">
-                <div>
-                  <div style="font-weight:600;font-size:0.86rem">🔤 Excessive Caps Lock Guard</div>
-                  <div style="font-size:0.74rem;color:var(--muted)">Blocks messages with &gt;70% uppercase characters</div>
-                </div>
-                <input id="am-toggle-caps" type="checkbox" checked>
-              </label>
-
-              <label class="ui-toggle-label">
-                <div>
-                  <div style="font-weight:600;font-size:0.86rem">📣 Mention Flood Shield</div>
-                  <div style="font-size:0.74rem;color:var(--muted)">Blocks mass user pings (&ge;3 mentions)</div>
-                </div>
-                <input id="am-toggle-mention" type="checkbox" checked>
-              </label>
-            </div>
-
-            <div>
-              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.5rem">Live Message Evaluation Sandbox</div>
-              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.75rem">Type a message below or click a preset test chip to trigger instant rule evaluation.</p>
-
-              <input id="am-sandbox-input" type="text" placeholder="Type a test message here..." style="width:100%;padding:0.75rem 1rem;border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--sans);font-size:0.9rem;outline:none">
-
-              <div class="preset-chip-row">
-                <button class="preset-chip" type="button" data-am-preset="Hey everyone, great game today in voice chat!">💬 Clean Message</button>
-                <button class="preset-chip" type="button" data-am-preset="Join our community discord.gg/aegis-shield for free access!">🔗 Invite Link</button>
-                <button class="preset-chip" type="button" data-am-preset="Claim free 3 months nitro steam-gift-nitro.xyz/claim now!">🎣 Phishing Link</button>
-                <button class="preset-chip" type="button" data-am-preset="PLEASE LOOK AT THIS IMPORTANT MESSAGE RIGHT NOW">📢 Caps Lock</button>
-                <button class="preset-chip" type="button" data-am-preset="@user1 @user2 @user3 @user4 wake up!">👥 Mass Mentions</button>
-              </div>
-
-              <div class="shield-verdict neutral" id="am-verdict-box">
-                <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.25rem" id="am-verdict-title">AutoMod Shield Standing By</div>
-                <div style="font-size:0.84rem;margin-bottom:0.4rem" id="am-verdict-action">Type a message or click a preset chip above to evaluate.</div>
-                <div style="font-size:0.75rem;opacity:0.8;font-family:var(--mono)" id="am-verdict-rule">Aegis regex rules ready.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 3: Ghost Watch Simulator -->
-        <div class="lab-panel" id="lab-panel-ghostwatch">
-          <div class="lab-grid">
-            <div class="control-box">
-              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.25rem">Silent Member Surveillance Matrix</div>
-              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Target members are watched silently with in-memory O(1) cache lookups. Zero public bot alerts or chat footprint.</p>
-
-              <div style="padding:1rem;background:var(--surface);border-radius:var(--r-sm);border:1px solid var(--border)">
-                <div style="font-size:0.8rem;color:var(--faint);text-transform:uppercase;margin-bottom:0.35rem">Active Watch Profile</div>
-                <div style="display:flex;align-items:center;gap:0.5rem;font-weight:700">
-                  <span class="pill primary">TARGET</span> <span>@suspect_user (ID: 9481948102)</span>
-                </div>
-                <div style="font-size:0.78rem;color:var(--muted);margin-top:0.4rem">Expiration: 24 Hours &bull; Monitored by: Moderator Team</div>
-              </div>
-
-              <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem">
-                <div style="font-size:0.85rem;font-weight:600">Simulate Member Lifecycle Events:</div>
-                <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-                  <button class="btn sm" type="button" data-ghost-trigger="edit">⚡ Simulate Edit</button>
-                  <button class="btn sm" type="button" data-ghost-trigger="delete">🗑️ Simulate Delete</button>
-                  <button class="btn sm" type="button" data-ghost-trigger="leave">🚪 Simulate Leave</button>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.5rem">Moderator DM Live Dispatch Feed</div>
-              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Aegis dispatches instant private alerts directly to staff DMs when watched members act.</p>
-
-              <div class="discord-preview-card" id="ghost-live-event-card">
-                <div class="discord-preview-header">
-                  <div class="avatar bot" aria-hidden="true">A</div>
-                  <div>
-                    <span style="font-weight:700;font-size:0.88rem">Aegis</span> <span class="bot-tag">BOT</span>
-                    <span style="font-size:0.72rem;color:#949ba4;margin-left:0.5rem">Private Direct Message</span>
-                  </div>
-                </div>
-                <div class="discord-preview-embed danger">
-                  <div style="font-weight:700;margin-bottom:0.4rem;font-size:0.95rem" id="ghost-live-event-title">🕵️ Ghost Watch Alert: Message Edited</div>
-                  <div style="font-size:0.85rem;margin-bottom:0.6rem;line-height:1.5" id="ghost-live-event-body">
-                    <div style="margin-bottom:.3rem"><strong style="color:#f87171">- Before:</strong> "Hey everyone, check this link out"</div>
-                    <div><strong style="color:#34d399">+ After:</strong> "Join discord.gg/shady-invite for free nitro!"</div>
-                  </div>
-                  <div style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)" id="ghost-live-event-meta">
-                    Target: @suspect_user (ID: 9481948102) &bull; Channel: #general &bull; In-Memory Dispatch: 3ms
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 4: Ban Appeals Desk -->
-        <div class="lab-panel" id="lab-panel-appeals">
-          <div class="lab-grid">
-            <div class="control-box">
-              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.25rem">Ban Appeal Tracking &amp; Triage Desk</div>
-              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">When a member is banned, Aegis sends an 8-character appeal code. Appellants submit their case via Discord modals for staff review.</p>
-
-              <div style="padding:1rem;background:var(--surface);border-radius:var(--r-sm);border:1px solid var(--border)">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-                  <span style="font-size:0.75rem;color:var(--faint);font-family:var(--mono);text-transform:uppercase">Appeal Record: AGS-4K9D</span>
-                  <span class="pill warn" id="appeal-triage-badge">PENDING REVIEW</span>
-                </div>
-                <div style="font-size:0.88rem;margin-bottom:0.5rem"><strong>Appellant:</strong> BannedUser#0001 (ID: 7182948102)</div>
-                <div style="font-size:0.84rem;color:var(--muted);background:var(--surface-2);padding:0.75rem;border-radius:6px;line-height:1.5">
-                  &ldquo;My account was compromised during a token-logging phishing incident. I have since changed my passwords, enabled 2FA, and revoked all active sessions. I apologize for the spam messages sent from my account.&rdquo;
-                </div>
-              </div>
-
-              <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-                <button class="btn sm" type="button" data-appeal-action="approve" style="background:#23a55a;border-color:#23a55a;color:#fff">✓ Approve &amp; Auto-Unban</button>
-                <button class="btn sm" type="button" data-appeal-action="deny" style="background:#f23f43;border-color:#f23f43;color:#fff">✗ Deny Appeal</button>
-                <button class="btn sm ghost" type="button" data-appeal-action="reset">🔄 Reset</button>
-              </div>
-            </div>
-
-            <div>
-              <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.5rem">Automated Execution Audit</div>
-              <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Aegis carries out the decision automatically without requiring manual audit logging.</p>
-
-              <div class="discord-preview-card">
-                <div class="discord-preview-header">
-                  <div class="avatar bot" aria-hidden="true">A</div>
-                  <div>
-                    <span style="font-weight:700;font-size:0.88rem">Aegis</span> <span class="bot-tag">BOT</span>
-                    <span style="font-size:0.72rem;color:#949ba4;margin-left:0.5rem">Audit Log Channel</span>
-                  </div>
-                </div>
-                <div class="discord-preview-embed">
-                  <div style="font-weight:700;margin-bottom:0.4rem;font-size:0.95rem">Appeal Status Update &bull; AGS-4K9D</div>
-                  <div style="font-size:0.85rem;color:var(--text);margin-bottom:0.5rem;line-height:1.5" id="appeal-triage-note">
-                    Appeal statement submitted via modal. Waiting for staff decision.
-                  </div>
-                  <div style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)">
-                    Target: BannedUser#0001 &bull; Guild: Aegis Protected &bull; Dispatch Engine: Knub Mod Hub
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>`;
+/** A shell-style block of commands. */
+function cmdBlock(lines: string): string {
+  return `<pre class="block"><code>${escapeHtml(lines)}</code></pre>`;
 }
 
 /* ── Home ──────────────────────────────────────────────────────────── */
 
 export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): string {
-  const topFaqs = faqs.slice(0, 4);
+  const st = statusWord(stats.ping, online);
+  const cs = catalogStats();
+
+  const refRows = features.map(f => {
+    return `<div class="ref-row">
+      <h3><a href="/features#${f.id}">${escapeHtml(f.title)}</a></h3>
+      <p>${escapeHtml(f.short)}</p>
+      <div class="ref-cmd"><code>${escapeHtml(f.start)}</code></div>
+    </div>`;
+  }).join("\n    ");
+
+  const steps = quickstart.map(s => `<li>
+        <div>
+          <h3>${escapeHtml(s.title)}</h3>
+          <p>${s.body}</p>
+          ${s.cmd ? cmdBlock(s.cmd) : ""}
+        </div>
+      </li>`).join("\n      ");
 
   const body = `
-${homeHero(cfg, stats, online)}
-
-${interactiveLabSuite()}
-
-<!-- 4 Core Pillars Bento Grid -->
-<section class="block" id="capabilities">
-  <div class="wrap">
-    <div class="section-head center reveal">
-      <span class="eyebrow">Exclusive Systems</span>
-      <h2>Advanced Security Built for Discord Teams</h2>
-      <p>Purpose-built tools designed to solve complex moderation challenges directly through native slash commands.</p>
+<div class="wrap">
+  <section class="hero" aria-labelledby="hero-title">
+    <div>
+      <div class="hero-meta">
+        <span><span class="dot${st.cls === "ok" ? "" : " danger"}" data-status-dot aria-hidden="true"></span><span data-status-state>${escapeHtml(st.label)}</span></span>
+        <span>gateway <span data-live="ping" data-suffix=" ms">${stats.ping} ms</span></span>
+        <span>v${escapeHtml(cfg.version)}</span>
+      </div>
+      <h1 id="hero-title">A moderation bot for Discord, run from slash commands.</h1>
+      <p class="lead">Aegis handles warnings, timeouts, bans and the case log behind them, plus automod, ban appeals, tickets, verification and logging. There is no dashboard to sign in to. You type a command in your server and it does the thing.</p>
+      <div class="btn-row">
+        <a class="btn" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
+        <a class="text-link" href="/commands">See all ${cs.commands} commands &rarr;</a>
+      </div>
     </div>
-    <div class="bento-grid">
-      <div class="bento-card reveal">
-        <div class="bento-icon">🕵️</div>
-        <h3>Ghost Watch Surveillance</h3>
-        <p>Monitor suspicious members silently without public chat disruption. Gateway events stream real-time lifecycle tracking directly to moderator DMs.</p>
-        <ul class="bento-points">
-          <li>Silent surveillance with zero member-facing indicators</li>
-          <li>Captures message edits, deletions, leaves, and role changes</li>
-          <li>In-memory O(1) active target cache eliminating 99.99% of DB reads</li>
-        </ul>
-        <div class="btn-row">
-          <a class="btn sm ghost" href="/features#watchlist">Explore Ghost Watch &rarr;</a>
+
+    <div class="hero-aside">
+      <div class="dc" role="img" aria-label="Example: a moderator runs /warn and Aegis replies with the warning details">
+        <div class="dc-bar"><span aria-hidden="true">#</span><b>mod-chat</b></div>
+        <div class="dc-body">
+          <div class="dc-msg">
+            <div class="dc-avatar bot" aria-hidden="true">A</div>
+            <div>
+              <div class="dc-used">@sam used <code>/warn</code></div>
+              <div class="dc-name">Aegis<span class="dc-tag">BOT</span><small>Today at 21:14</small></div>
+              <div class="dc-embed yellow">
+                <div class="dc-embed-title">Warning issued: medium severity</div>
+                <div class="dc-fields">
+                  <div class="dc-field"><b>User</b>@quickcash99</div>
+                  <div class="dc-field"><b>Moderator</b>sam</div>
+                  <div class="dc-field"><b>Total warnings</b>2 on record</div>
+                </div>
+                <div class="dc-field dc-reason"><b>Reason</b>Posting invite links in #general</div>
+              </div>
+            </div>
+          </div>
         </div>
+        ${slashInput("trustscore", [["user", "@quickcash99"]])}
       </div>
+      <p class="hero-caption">Simplified example. The names are made up; the fields match the real reply.</p>
+    </div>
+  </section>
+</div>
 
-      <div class="bento-card reveal">
-        <div class="bento-icon">🧠</div>
-        <h3>Algorithmic Trust Score</h3>
-        <p>Evaluate member risk instantly with a real-time 0–100 composite integrity score before granting sensitive roles or channel access.</p>
-        <ul class="bento-points">
-          <li>Factors account age, server tenure, and veteran longevity</li>
-          <li>Deducts points for active warnings and moderation cases</li>
-          <li>Parallelized database evaluation returning in under 15ms</li>
-        </ul>
-        <div class="btn-row">
-          <a class="btn sm ghost" href="/features#trustscore">Explore Trust Score &rarr;</a>
-        </div>
-      </div>
-
-      <div class="bento-card reveal">
-        <div class="bento-icon">📋</div>
-        <h3>Automated Ban Appeal Workflow</h3>
-        <p>Provide a structured appeal process entirely within Discord. Unique tracking codes and modal dialogs streamline staff review.</p>
-        <ul class="bento-points">
-          <li>Generates unique 8-character codes (AGS-XXXX) during /ban</li>
-          <li>Appellants submit written statements through Discord modals</li>
-          <li>Staff approval queue with 1-click automated unbanning</li>
-        </ul>
-        <div class="btn-row">
-          <a class="btn sm ghost" href="/features#appeal">Explore Ban Appeals &rarr;</a>
-        </div>
-      </div>
-
-      <div class="bento-card reveal">
-        <div class="bento-icon">📊</div>
-        <h3>Moderation Digest &amp; Analytics</h3>
-        <p>On-demand server safety reports across 24-hour and 7-day trailing windows with instant multi-tab embed switching.</p>
-        <ul class="bento-points">
-          <li>Overview KPIs, top repeat offenders, and staff activity</li>
-          <li>Rule-by-rule breakdown of AutoMod blocks and violations</li>
-          <li>Session-level embed caching with zero database latency</li>
-        </ul>
-        <div class="btn-row">
-          <a class="btn sm ghost" href="/features#modreport">Explore Mod Reports &rarr;</a>
-        </div>
-      </div>
+<section class="section" aria-labelledby="what-title">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 id="what-title">What it does</h2>
+      <p>Each line links to the details. The command on the right is where you would start.</p>
+    </div>
+    <div class="ref">
+    ${refRows}
     </div>
   </div>
 </section>
 
-<!-- Foundation Capabilities -->
-<section class="block tight">
-  <div class="wrap">
-    <div class="section-head center reveal">
-      <span class="eyebrow">Foundation Tools</span>
-      <h2>Core Moderation &amp; Community Stack</h2>
-      <p>Everything your staff needs to maintain order, handle tickets, and protect community text channels.</p>
+<section class="section" aria-labelledby="setup-title">
+  <div class="wrap two-col">
+    <div>
+      <div class="section-head">
+        <h2 id="setup-title">Setting it up</h2>
+        <p>About five minutes. The <a href="/docs">docs</a> cover the rest.</p>
+      </div>
+      <ol class="steps">
+      ${steps}
+      </ol>
     </div>
-    <div class="grid cols-3">
-      <div class="card reveal">
-        <div class="card-icon">⚡</div>
-        <h3>AutoMod Engine</h3>
-        <p>Real-time protection against unauthorized invite links, external phishing domains, mass mentions, and caps flooding with automated strike actions.</p>
+    <div>
+      <div class="section-head">
+        <h2>Good to know</h2>
       </div>
-      <div class="card reveal">
-        <div class="card-icon">🔨</div>
-        <h3>Discipline &amp; Case Logging</h3>
-        <p>Warn, timeout, kick, and ban with strict Discord role hierarchy checks. Every action produces a permanent case record in MongoDB.</p>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">🎫</div>
-        <h3>Support Ticket Desks</h3>
-        <p>1-click private channel creation with mutex locks to prevent spam, staff claiming, member invitations, and full transcript logging upon closure.</p>
-      </div>
+      <ul class="notes">
+        <li><strong>No Administrator.</strong> The invite asks only for the permissions its commands use. You can read the <a href="/docs#permissions">full list</a> before inviting.</li>
+        <li><strong>Role order matters.</strong> Discord will not let a bot act on someone whose top role is above its own. Drag the Aegis role above the roles it should moderate.</li>
+        <li><strong>Records expire.</strong> Warnings, cases and staff notes are deleted after a year.</li>
+        <li><strong>Per-server data.</strong> Nothing is shared between servers. See the <a href="/privacy">privacy policy</a>.</li>
+        <li><strong>Free.</strong> No paid tier, no locked features.</li>
+      </ul>
     </div>
   </div>
 </section>
 
-<!-- Getting Started: 3 Steps -->
-<section class="block tight">
+<section class="section" aria-labelledby="faq-title">
   <div class="wrap">
-    <div class="section-head center reveal">
-      <span class="eyebrow">Getting Started</span>
-      <h2>Three steps to a protected server</h2>
-      <p>Aegis declares permissions per command, so the invite screen only asks for what the bot actually needs to run. Server-wide settings use Manage Server rather than Administrator.</p>
+    <div class="section-head">
+      <h2 id="faq-title">Questions</h2>
     </div>
-    <div class="steps">
-      ${quickstart.map(s => `<div class="step reveal">
-        <h3>${escapeHtml(s.title)}</h3>
-        <p>${s.body}</p>
-      </div>`).join("\n      ")}
-    </div>
-  </div>
-</section>
-
-<!-- Architecture Highlights -->
-<section class="block tight">
-  <div class="wrap">
-    <div class="section-head center reveal">
-      <span class="eyebrow">Architecture &amp; Security</span>
-      <h2>Why Admins Trust Aegis</h2>
-      <p>Engineered from day one for zero bloat, verifiable security, and high reliability.</p>
-    </div>
-    <div class="grid cols-3">
-      <div class="card reveal">
-        <div class="card-icon">🔒</div>
-        <h3>No External Web Portal</h3>
-        <p>Manage everything in Discord using slash commands and buttons. Staff never need to log into an external website or authorize OAuth tokens.</p>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">⚡</div>
-        <h3>In-Memory Caching</h3>
-        <p>High-throughput in-memory caching for active watch targets and mod digests prevents redundant database round-trips on high-traffic servers.</p>
-      </div>
-      <div class="card reveal">
-        <div class="card-icon">📜</div>
-        <h3>Strict Least-Privilege</h3>
-        <p>Aegis only requests the specific permissions it needs. No blanket Administrator access required for server safety.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Frequently Asked Questions -->
-<section class="block tight">
-  <div class="wrap">
-    <div class="section-head center reveal">
-      <span class="eyebrow">Questions</span>
-      <h2>Frequently asked</h2>
-      <p>Quick answers to common questions about setting up and using Aegis.</p>
-    </div>
-    ${faqBlock(topFaqs)}
-  </div>
-</section>
-
-<!-- Call to action -->
-<section class="block">
-  <div class="wrap">
-    ${ctaBox(cfg, "Ready to get started?", "Add Aegis to your server and run <code class=\"inline\">/help</code> to see everything it can do.")}
-    <p style="text-align:center;margin-top:1.75rem;font-size:0.85rem;color:var(--faint)">
-      By adding Aegis to a server you accept the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>.
-    </p>
+    ${faqBlock(faqs)}
+    ${endNote(cfg, `By adding Aegis you accept the <a href="/terms">terms</a> and <a href="/privacy">privacy policy</a>.`)}
   </div>
 </section>`;
 
   return page(cfg, {
-    title: "Aegis — Discord Moderation & Automation Bot",
+    title: "Aegis: a Discord moderation bot",
     description:
-      "Aegis is a fast, modular Discord bot for moderation, auto moderation, audit logging, welcome messages, and automation. Configured with slash commands, no dashboard required.",
+      "Aegis is a Discord moderation bot: warnings, timeouts, bans and case logs, plus automod, ban appeals, tickets, verification and logging. Configured with slash commands.",
     path: "/",
     body,
     headExtra: jsonLd({
@@ -814,11 +265,11 @@ ${interactiveLabSuite()}
           "@type": "SoftwareApplication",
           name: "Aegis",
           applicationCategory: "SocialNetworkingApplication",
-          operatingSystem: "Cross-platform",
+          operatingSystem: "Discord",
           description:
-            "A fast, modular Discord bot for moderation, auto moderation, audit logging, welcome messages, and automation.",
+            "A Discord moderation bot: cases, automod, ban appeals, tickets, verification and logging, configured with slash commands.",
           softwareVersion: cfg.version,
-          url: process.env.SITE_URL || undefined,
+          url: process.env.SITE_URL || "/",
           offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
           featureList: features.map(f => f.title),
         },
@@ -836,481 +287,78 @@ ${interactiveLabSuite()}
 /* ── Features ──────────────────────────────────────────────────────── */
 
 export function renderFeatures(cfg: SiteConfig): string {
+  const toc = features.map(f => `<li><a href="#${f.id}">${escapeHtml(f.title)}</a></li>`).join("\n        ");
+
+  const sections = features.map(f => `<section class="feature" id="${f.id}" aria-labelledby="${f.id}-title">
+      <h2 id="${f.id}-title">${escapeHtml(f.title)}</h2>
+      <p>${escapeHtml(f.text)}</p>
+      <ul>
+        ${f.points.map(p => `<li>${escapeHtml(p)}</li>`).join("\n        ")}
+      </ul>
+      <div class="feature-cmds">
+        ${f.commands.map(([c, d]) => `<div><code>${escapeHtml(c)}</code><span>${escapeHtml(d)}</span></div>`).join("\n        ")}
+      </div>
+      ${f.docs ? `<p class="feature-links"><a href="/docs#${f.docs}">Setup notes in the docs</a></p>` : ""}
+    </section>`).join("\n\n    ");
+
   const body = `
 <div class="wrap">
-  <nav class="breadcrumbs" aria-label="Breadcrumb">
-    <a href="/">Home</a><span class="sep">/</span><span>Features</span>
-  </nav>
-  <div class="page-head center reveal">
-    <span class="eyebrow">Enterprise Modular Security</span>
-    <h1 style="font-size:clamp(2rem,5vw,3.2rem);letter-spacing:-0.03em">Engineered for Discord Moderation Teams</h1>
-    <p class="lead" style="max-width:760px;margin:0.75rem auto 1.75rem">
-      Purpose-built moderation, silent surveillance, algorithmic trust scoring, and ban appeal queues &mdash; powered by TypeScript plugins and native slash commands without external web login dependencies.
-    </p>
-    <div class="btn-row center">
-      <a class="btn primary" href="${safeUrl(cfg.inviteUrl)}">Add Aegis to Discord</a>
-      <a class="btn ghost" href="/commands">Explore All 50 Commands</a>
-      <a class="btn ghost" href="/docs">Read Documentation</a>
-    </div>
+  ${breadcrumb("Features")}
+  <div class="page-head">
+    <h1>Features</h1>
+    <p class="lead">What Aegis does, one area at a time, with the commands you would actually type. For every option on every command, see the <a href="/commands">command reference</a>.</p>
   </div>
 
-  <div class="ft-category-nav reveal" id="ft-nav" role="group" aria-label="Feature categories">
-    <button class="ft-cat-btn" type="button" data-filter="all" aria-pressed="true">All Systems</button>
-    <button class="ft-cat-btn" type="button" data-filter="security" aria-pressed="false">Surveillance &amp; Risk</button>
-    <button class="ft-cat-btn" type="button" data-filter="moderation" aria-pressed="false">Moderation &amp; Appeals</button>
-    <button class="ft-cat-btn" type="button" data-filter="automod" aria-pressed="false">AutoMod Shield</button>
-    <button class="ft-cat-btn" type="button" data-filter="tickets" aria-pressed="false">Support Tickets</button>
-    <button class="ft-cat-btn" type="button" data-filter="verification" aria-pressed="false">Entry Gate</button>
-  </div>
-</div>
+  <details class="toc-mobile">
+    <summary>Jump to a section</summary>
+    <ul>
+      ${toc}
+    </ul>
+  </details>
 
-<div class="wrap" id="ft-container">
-
-  <!-- Feature 1: Ghost Watch -->
-  <section class="ft-showcase-card reveal" data-category="security" id="watchlist">
+  <div class="split">
+    <aside class="toc" aria-label="Sections">
+      <p class="side-title">On this page</p>
+      <ul>
+        ${toc}
+      </ul>
+    </aside>
     <div>
-      <span class="ft-badge" style="margin-bottom:0.75rem">🕵️ Silent Surveillance</span>
-      <h2 style="font-size:clamp(1.5rem,2.8vw,2rem);margin:0.35rem 0 0.75rem">Ghost Watch Member Surveillance</h2>
-      <p style="color:var(--text-2);font-size:0.98rem;line-height:1.6;margin-bottom:1.25rem">
-        Monitor suspect accounts silently without public chat indicators or alerts. Intercept message creation, edits, deletions, leaves, and role changes, forwarding instant audit notifications directly to staff DMs.
-      </p>
-      <div style="display:grid;gap:0.75rem;margin-bottom:1.5rem">
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Silent Lifecycle Tracking:</strong> Monitors edits, deletions, joins, leaves, and role adjustments in real-time.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>In-Memory O(1) Set Caching:</strong> Fast in-memory target set eliminates redundant database queries across general traffic.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Direct Staff DM Alerts:</strong> Audit notices include original content, edited text, author ID, and channel context.</div>
-        </div>
-      </div>
-      <div class="btn-row">
-        <a class="btn sm ghost" href="/docs#watchlist">Watchlist Documentation &rarr;</a>
-        <a class="btn sm ghost" href="/commands#cmd-watchlist">Command Reference</a>
-      </div>
-    </div>
-    <div class="ft-mockup-frame">
-      <div class="ft-mockup-topbar">
-        <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)">Private DM Dispatch</span>
-        <span class="pill primary" style="font-size:0.65rem;padding:0.1rem 0.4rem">Watchlist</span>
-      </div>
-      <div class="ft-mockup-body">
-        <div class="discord-msg-head">
-          <div class="discord-avatar" style="background:#8b5cf6">A</div>
-          <div>
-            <div class="discord-author">Aegis <span class="discord-bot-tag">BOT</span></div>
-            <div class="discord-time">Today at 3:14 PM</div>
-          </div>
-        </div>
-        <div class="discord-embed-card" style="border-left-color:#8b5cf6">
-          <div class="discord-embed-title">🕵️ Ghost Watch Alert &bull; Message Edit</div>
-          <div class="discord-embed-desc">Monitored member edited a message in <code class="inline">#announcements</code>.</div>
-          <div class="discord-embed-fields">
-            <div>
-              <div class="discord-field-name">Target</div>
-              <div class="discord-field-val">@suspect (8940120934)</div>
-            </div>
-            <div>
-              <div class="discord-field-name">Expires In</div>
-              <div class="discord-field-val">22 hours remaining</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Feature 2: Algorithmic Trust Score -->
-  <section class="ft-showcase-card reveal" data-category="security" id="trustscore">
-    <div>
-      <span class="ft-badge" style="margin-bottom:0.75rem">🧠 Risk Evaluation</span>
-      <h2 style="font-size:clamp(1.5rem,2.8vw,2rem);margin:0.35rem 0 0.75rem">Algorithmic Trust Score</h2>
-      <p style="color:var(--text-2);font-size:0.98rem;line-height:1.6;margin-bottom:1.25rem">
-        Compute a 0–100 composite risk rating on demand for any server member to immediately evaluate account legitimacy before assigning trusted roles or granting access.
-      </p>
-      <div style="display:grid;gap:0.75rem;margin-bottom:1.5rem">
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Multi-Factor Evaluation:</strong> Factors Discord account age (+25), server tenure (+25), and veteran bonus (+20).</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Infraction Penalties:</strong> Deducts −5 points per active warning and −4 points per formal case record.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Confidential Privacy:</strong> Ephemeral output keeps member risk evaluations private from public chat.</div>
-        </div>
-      </div>
-      <div class="btn-row">
-        <a class="btn sm ghost" href="/docs#trustscore">Trust Score Guide &rarr;</a>
-        <a class="btn sm ghost" href="/commands#cmd-trustscore">Command Reference</a>
-      </div>
-    </div>
-    <div class="ft-mockup-frame">
-      <div class="ft-mockup-topbar">
-        <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)">Ephemeral Evaluation</span>
-        <span class="pill ok" style="font-size:0.65rem;padding:0.1rem 0.4rem">Tier: High</span>
-      </div>
-      <div class="ft-mockup-body">
-        <div class="discord-msg-head">
-          <div class="discord-avatar" style="background:#10b981">A</div>
-          <div>
-            <div class="discord-author">Aegis <span class="discord-bot-tag">BOT</span></div>
-            <div class="discord-time">Today at 1:22 PM</div>
-          </div>
-        </div>
-        <div class="discord-embed-card" style="border-left-color:#10b981">
-          <div class="discord-embed-title">🧠 Trust Score: 84 / 100 &bull; High Trust</div>
-          <div class="discord-embed-desc">Member exhibits established account longevity, long server tenure, and zero severe infractions.</div>
-          <div class="discord-embed-fields">
-            <div>
-              <div class="discord-field-name">Account Age</div>
-              <div class="discord-field-val">420 days (+25)</div>
-            </div>
-            <div>
-              <div class="discord-field-name">Server Tenure</div>
-              <div class="discord-field-val">180 days (+25)</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Feature 3: Ban Appeals -->
-  <section class="ft-showcase-card reveal" data-category="moderation" id="appeal">
-    <div>
-      <span class="ft-badge" style="margin-bottom:0.75rem">📋 In-Discord Appeals</span>
-      <h2 style="font-size:clamp(1.5rem,2.8vw,2rem);margin:0.35rem 0 0.75rem">Automated Ban Appeal Workflow</h2>
-      <p style="color:var(--text-2);font-size:0.98rem;line-height:1.6;margin-bottom:1.25rem">
-        Every ban generates a unique 8-character tracking code (AGS-XXXX) delivered to the user's DMs. Users submit written appeals via Discord modals, populating an actionable staff review queue with automated unbanning upon approval.
-      </p>
-      <div style="display:grid;gap:0.75rem;margin-bottom:1.5rem">
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Deterministic Tracking Codes:</strong> Automatically generates and associates tracking codes during /ban.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Native Modal Dialogs:</strong> Appellants submit their defense statements through Discord text inputs.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Automated Unban Execution:</strong> Approving an appeal immediately lifts the Discord guild ban.</div>
-        </div>
-      </div>
-      <div class="btn-row">
-        <a class="btn sm ghost" href="/docs#appeal">Appeal Documentation &rarr;</a>
-        <a class="btn sm ghost" href="/commands#cmd-appeal">Command Reference</a>
-      </div>
-    </div>
-    <div class="ft-mockup-frame">
-      <div class="ft-mockup-topbar">
-        <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)">Staff Appeal Queue</span>
-        <span class="pill warn" style="font-size:0.65rem;padding:0.1rem 0.4rem">Pending</span>
-      </div>
-      <div class="ft-mockup-body">
-        <div class="discord-msg-head">
-          <div class="discord-avatar" style="background:#3b82f6">A</div>
-          <div>
-            <div class="discord-author">Aegis <span class="discord-bot-tag">BOT</span></div>
-            <div class="discord-time">Today at 11:05 AM</div>
-          </div>
-        </div>
-        <div class="discord-embed-card" style="border-left-color:#3b82f6">
-          <div class="discord-embed-title">📋 Ban Appeal &bull; Code AGS-A4F9</div>
-          <div class="discord-embed-desc"><strong>Appellant:</strong> @reformed_user<br><strong>Statement:</strong> &quot;Account secured with hardware key; apologize for spam.&quot;</div>
-          <div class="discord-buttons-row">
-            <button class="d-btn success ft-demo-btn" type="button" data-demo-msg="Demo: Appeal AGS-A4F9 approved! Guild ban lifted.">Approve &amp; Unban</button>
-            <button class="d-btn danger ft-demo-btn" type="button" data-demo-msg="Demo: Appeal AGS-A4F9 denied.">Deny Appeal</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Feature 4: Moderation Analytics -->
-  <section class="ft-showcase-card reveal" data-category="moderation" id="modreport">
-    <div>
-      <span class="ft-badge" style="margin-bottom:0.75rem">📊 Staff Digest</span>
-      <h2 style="font-size:clamp(1.5rem,2.8vw,2rem);margin:0.35rem 0 0.75rem">Moderation Digest &amp; Analytics</h2>
-      <p style="color:var(--text-2);font-size:0.98rem;line-height:1.6;margin-bottom:1.25rem">
-        Review comprehensive safety summaries across 24-hour and 7-day sliding windows. An interactive 4-tab embed aggregates infraction KPIs, top repeat offenders, moderator activity, and AutoMod rule triggers.
-      </p>
-      <div style="display:grid;gap:0.75rem;margin-bottom:1.5rem">
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Sliding Analytics Windows:</strong> Switch between 24-hour daily snapshots and 7-day weekly trends.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Instant Tab Switching:</strong> Session-level in-memory caching provides instant transitions between views.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Staff Accountability:</strong> Track team case closures and individual moderator contributions.</div>
-        </div>
-      </div>
-      <div class="btn-row">
-        <a class="btn sm ghost" href="/docs#modreport">Mod Report Guide &rarr;</a>
-        <a class="btn sm ghost" href="/commands#cmd-modreport">Command Reference</a>
-      </div>
-    </div>
-    <div class="ft-mockup-frame">
-      <div class="ft-mockup-topbar">
-        <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)">#staff-digest</span>
-        <span class="pill warn" style="font-size:0.65rem;padding:0.1rem 0.4rem">24h Window</span>
-      </div>
-      <div class="ft-mockup-body">
-        <div class="discord-msg-head">
-          <div class="discord-avatar" style="background:#f59e0b">A</div>
-          <div>
-            <div class="discord-author">Aegis <span class="discord-bot-tag">BOT</span></div>
-            <div class="discord-time">Today at 8:00 AM</div>
-          </div>
-        </div>
-        <div class="discord-embed-card" style="border-left-color:#f59e0b">
-          <div class="discord-embed-title">📊 Moderation Overview &bull; Past 24 Hours</div>
-          <div class="discord-embed-desc">Active Warnings: 12 &bull; Timeouts: 5 &bull; Bans: 2 &bull; AutoMod Triggers: 28</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Feature 5: AutoMod -->
-  <section class="ft-showcase-card reveal" data-category="automod" id="automod">
-    <div>
-      <span class="ft-badge" style="margin-bottom:0.75rem">⚡ Automated Protection</span>
-      <h2 style="font-size:clamp(1.5rem,2.8vw,2rem);margin:0.35rem 0 0.75rem">AutoMod Shield Engine</h2>
-      <p style="color:var(--text-2);font-size:0.98rem;line-height:1.6;margin-bottom:1.25rem">
-        Shield chat 24/7 with rule-based regex filters, anti-phishing link interception, mass mention suppression, and excessive caps flooding detection with configurable strike actions.
-      </p>
-      <div style="display:grid;gap:0.75rem;margin-bottom:1.5rem">
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Invite &amp; Link Stripper:</strong> Intercepts unauthorized Discord links and unapproved domains.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Mention Spam Suppressor:</strong> Automatically isolates accounts that mass-ping members or roles.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Granular Exemptions:</strong> Whitelist staff roles and bot channels independently per rule.</div>
-        </div>
-      </div>
-      <div class="btn-row">
-        <a class="btn sm ghost" href="/docs#automod">AutoMod Rules &rarr;</a>
-        <a class="btn sm ghost" href="/commands#cmd-automod">Command Reference</a>
-      </div>
-    </div>
-    <div class="ft-mockup-frame">
-      <div class="ft-mockup-topbar">
-        <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)">#general-chat</span>
-        <span class="pill danger" style="font-size:0.65rem;padding:0.1rem 0.4rem">Action Purged</span>
-      </div>
-      <div class="ft-mockup-body">
-        <div class="discord-msg-head">
-          <div class="discord-avatar" style="background:#ef4444">A</div>
-          <div>
-            <div class="discord-author">Aegis <span class="discord-bot-tag">BOT</span></div>
-            <div class="discord-time">Today at 2:44 PM</div>
-          </div>
-        </div>
-        <div class="discord-embed-card" style="border-left-color:#ef4444">
-          <div class="discord-embed-title">⚠️ AutoMod Violation Detected</div>
-          <div class="discord-embed-desc">A message by <code class="inline">@spammer</code> was automatically deleted.<br><strong>Rule:</strong> Unauthorized Discord Invite Links<br><strong>Action:</strong> Message purged + 10-minute timeout applied.</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Feature 6: Support Tickets -->
-  <section class="ft-showcase-card reveal" data-category="tickets" id="tickets">
-    <div>
-      <span class="ft-badge" style="margin-bottom:0.75rem">🎫 Private Support</span>
-      <h2 style="font-size:clamp(1.5rem,2.8vw,2rem);margin:0.35rem 0 0.75rem">Support Ticket Desks</h2>
-      <p style="color:var(--text-2);font-size:0.98rem;line-height:1.6;margin-bottom:1.25rem">
-        Empower community members to open confidential support channels with staff at the press of a button. Aegis automates permission isolation, claiming, member additions, and complete transcript archiving.
-      </p>
-      <div style="display:grid;gap:0.75rem;margin-bottom:1.5rem">
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>1-Click Channel Provisioning:</strong> Private channels with isolated permission overwrites.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Concurrency Mutex Lock:</strong> Guards against duplicate ticket queues or rapid double-clicking.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Staff Claiming &amp; Transcripts:</strong> Claim tickets directly in-channel and export structured text logs upon closure.</div>
-        </div>
-      </div>
-      <div class="btn-row">
-        <a class="btn sm ghost" href="/docs#tickets">Ticket Documentation &rarr;</a>
-        <a class="btn sm ghost" href="/commands#cmd-ticket">Command Reference</a>
-      </div>
-    </div>
-    <div class="ft-mockup-frame">
-      <div class="ft-mockup-topbar">
-        <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)">#support-desk</span>
-        <span class="pill primary" style="font-size:0.65rem;padding:0.1rem 0.4rem">Embed Panel</span>
-      </div>
-      <div class="ft-mockup-body">
-        <div class="discord-msg-head">
-          <div class="discord-avatar" style="background:#5e6ad2">A</div>
-          <div>
-            <div class="discord-author">Aegis <span class="discord-bot-tag">BOT</span></div>
-            <div class="discord-time">Today at 3:12 PM</div>
-          </div>
-        </div>
-        <div class="discord-embed-card" style="border-left-color:#5e6ad2">
-          <div class="discord-embed-title">🎫 Community Support Center</div>
-          <div class="discord-embed-desc">Click below to open a private ticket channel. Only you and authorized staff can view the channel.</div>
-          <div class="discord-buttons-row">
-            <button class="d-btn primary ft-demo-btn" type="button" data-demo-msg="Demo: Created ticket channel #ticket-general!">🎫 Open Support Ticket</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Feature 7: Anti-Raid Gatekeeper -->
-  <section class="ft-showcase-card reveal" data-category="verification" id="verification">
-    <div>
-      <span class="ft-badge" style="margin-bottom:0.75rem">🛡️ Gatekeeper</span>
-      <h2 style="font-size:clamp(1.5rem,2.8vw,2rem);margin:0.35rem 0 0.75rem">Anti-Raid Verification Gate</h2>
-      <p style="color:var(--text-2);font-size:0.98rem;line-height:1.6;margin-bottom:1.25rem">
-        Shield your server from automated raid waves, self-bots, and spam accounts. New arrivals remain completely walled off from community channels until solving verification.
-      </p>
-      <div style="display:grid;gap:0.75rem;margin-bottom:1.5rem">
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>1-Click Button or CAPTCHA:</strong> Choose smooth onboarding or strict image challenges for new joins.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Atomic Role Granting:</strong> Automatically assigns verified roles with real-time audit logging.</div>
-        </div>
-        <div class="feature-row">
-          <div class="card-icon" style="color:var(--accent)" aria-hidden="true">✓</div>
-          <div><strong>Ephemeral Security Prompts:</strong> Keeps verification channels clean and free of message clutter.</div>
-        </div>
-      </div>
-      <div class="btn-row">
-        <a class="btn sm ghost" href="/docs#verification">Verification Manual &rarr;</a>
-        <a class="btn sm ghost" href="/commands#cmd-verify">Command Reference</a>
-      </div>
-    </div>
-    <div class="ft-mockup-frame">
-      <div class="ft-mockup-topbar">
-        <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span style="font-size:0.75rem;color:#949ba4;font-family:var(--mono)">#verification</span>
-        <span class="pill ok" style="font-size:0.65rem;padding:0.1rem 0.4rem">Gatekeeper</span>
-      </div>
-      <div class="ft-mockup-body">
-        <div class="discord-msg-head">
-          <div class="discord-avatar" style="background:#10b981">A</div>
-          <div>
-            <div class="discord-author">Aegis <span class="discord-bot-tag">BOT</span></div>
-            <div class="discord-time">Today at 1:04 PM</div>
-          </div>
-        </div>
-        <div class="discord-embed-card" style="border-left-color:#10b981">
-          <div class="discord-embed-title">🛡️ Server Entry Gate</div>
-          <div class="discord-embed-desc">Welcome to the server. Click below to verify your account and unlock community channels.</div>
-          <div class="discord-buttons-row">
-            <button class="d-btn success ft-demo-btn" type="button" data-demo-msg="Demo: Verification confirmed! Role @Member granted.">✅ Verify Account</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-</div>
-
-<!-- Architecture Comparison Table -->
-<section class="block">
-  <div class="wrap">
-    <div class="section-head center reveal">
-      <span class="eyebrow">Technical Architecture</span>
-      <h2>Aegis Architectural Model</h2>
-      <p>How Aegis handles moderation, surveillance, and performance differently from typical Discord bots.</p>
-    </div>
-    <div class="table-wrap reveal">
-      <table class="ft-compare-table">
-        <thead>
-          <tr>
-            <th>Architecture Characteristic</th>
-            <th class="highlight-col" style="color:var(--primary);font-size:0.92rem">⚡ Aegis (TypeScript + Knub Engine)</th>
-            <th>Typical Monolithic Discord Bots</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>Configuration &amp; Management</strong></td>
-            <td class="highlight-col"><strong>100% Native Slash Commands &amp; Modals</strong> &bull; Zero external web login or OAuth portal required</td>
-            <td class="faint">Requires external browser dashboard and OAuth login for basic settings</td>
-          </tr>
-          <tr>
-            <td><strong>Member Surveillance</strong></td>
-            <td class="highlight-col"><strong>Ghost Watch In-Memory Cache</strong> &bull; O(1) active target set eliminates redundant DB reads</td>
-            <td class="faint">No silent member surveillance or unindexed database queries</td>
-          </tr>
-          <tr>
-            <td><strong>Member Integrity Scoring</strong></td>
-            <td class="highlight-col"><strong>Algorithmic Trust Score</strong> &bull; 0–100 score factoring age, tenure, cases, and veteran bonus</td>
-            <td class="faint">Manual inspection of user profile and warning counts</td>
-          </tr>
-          <tr>
-            <td><strong>Ban Appeal Workflow</strong></td>
-            <td class="highlight-col"><strong>Integrated In-Discord Queue</strong> &bull; 8-char tracking code, modal forms, and 1-click unban</td>
-            <td class="faint">External Google forms, support tickets, or manual unbanning</td>
-          </tr>
-          <tr>
-            <td><strong>Security &amp; Permissions</strong></td>
-            <td class="highlight-col"><strong>Strict Least-Privilege Hierarchy</strong> &bull; Enforces Discord hierarchy before all actions</td>
-            <td class="faint">Demands broad Administrator permissions by default</td>
-          </tr>
-          <tr>
-            <td><strong>Auditability &amp; Persistence</strong></td>
-            <td class="highlight-col"><strong>Guild-Isolated MongoDB Data</strong> &bull; Plaintext and JSON transcripts exportable</td>
-            <td class="faint">Locked-in cloud databases without export tooling</td>
-          </tr>
-        </tbody>
-      </table>
+    ${sections}
+    ${endNote(cfg, "Want to try it on a test server first? That works too.")}
     </div>
   </div>
-</section>
-
-<section class="block">
-  <div class="wrap">
-    ${ctaBox(cfg, "Deploy Aegis to Your Server", "Add Aegis to your server to start managing with silent watchlists, algorithmic trust scoring, and automated appeals.")}
-  </div>
-</section>`;
+</div>`;
 
   return page(cfg, {
-    title: "Features & Architecture — Aegis Discord Bot",
+    title: "Features | Aegis",
     description:
-      "Enterprise support tickets, anti-raid verification gates, interactive role panels, moderation case logs, AutoMod shielding, and scheduled automation.",
+      "Moderation and cases, automod, trust score, ban appeals, watchlist, mod reports, logging, tickets, verification and community tools in the Aegis Discord bot.",
     path: "/features",
     body,
   });
 }
 
 /* ── Commands ──────────────────────────────────────────────────────── */
+
+function optHint(o: OptionInfo): string {
+  return `${o.name}:${o.type.toLowerCase()}`;
+}
+
+/** One usage line per subcommand (or one for the command), optional options in brackets. */
+function synopsis(cmd: CommandInfo): string {
+  const line = (prefix: string, opts: OptionInfo[]) =>
+    [
+      escapeHtml(prefix),
+      ...opts.map(o => (o.required ? escapeHtml(optHint(o)) : `<span class="opt">[${escapeHtml(optHint(o))}]</span>`)),
+    ].join(" ");
+
+  const lines = cmd.subcommands.length
+    ? cmd.subcommands.map(s => line(`/${cmd.name} ${s.path}`, s.options))
+    : [line(`/${cmd.name}`, cmd.options)];
+
+  return `<pre class="synopsis">${lines.join("\n")}</pre>`;
+}
 
 function optionsTable(cmd: CommandInfo): string {
   const all: OptionInfo[] = [
@@ -1320,7 +368,7 @@ function optionsTable(cmd: CommandInfo): string {
     ),
   ];
 
-  if (all.length === 0) return `<p class="faint">This command takes no options.</p>`;
+  if (all.length === 0) return `<p class="faint">No options.</p>`;
 
   return `<div class="table-wrap">
     <table class="opt-table">
@@ -1329,7 +377,7 @@ function optionsTable(cmd: CommandInfo): string {
         ${all.map(o => `<tr>
           <td><code>${escapeHtml(o.name)}</code></td>
           <td>${escapeHtml(o.type)}</td>
-          <td>${o.required ? `<span class="opt-req">required</span>` : `<span class="opt-opt">optional</span>`}</td>
+          <td>${o.required ? `<span class="opt-req">yes</span>` : `<span class="opt-opt">no</span>`}</td>
           <td>${escapeHtml(o.description)}${o.choices.length ? `<br><span class="faint">Choices: ${o.choices.map(escapeHtml).join(", ")}</span>` : ""}</td>
         </tr>`).join("\n        ")}
       </tbody>
@@ -1357,52 +405,45 @@ function commandCard(cmd: CommandInfo): string {
 
   const perms = [...new Set([...cmd.declaredPermissions, ...cmd.enforcedPermissions])];
   const anchor = `cmd-${cmd.name}`;
+  const name = escapeHtml(cmd.name);
 
-  return `<details class="cmd-card" id="${anchor}" data-cmd-card data-category="${escapeHtml(cmd.category)}" data-search="${escapeHtml(searchBlob)}">
+  return `<details class="cmd-card" id="${anchor}" data-category="${escapeHtml(cmd.category)}" data-search="${escapeHtml(searchBlob)}">
   <summary>
-    <a class="cmd-anchor" href="#${anchor}" aria-label="Permalink to /${escapeHtml(cmd.name)}">#</a>
-    <span class="cmd-slash" data-cmd-name>/${escapeHtml(cmd.name)}</span>
-    <span class="cmd-summary-text">
-      <span class="cmd-desc">${escapeHtml(cmd.description)}</span>
-    </span>
+    <a class="cmd-anchor" href="#${anchor}" aria-label="Link to /${name}">#</a>
+    <span class="cmd-slash" data-cmd-name>/${name}</span>
+    <span class="cmd-summary-text"><span class="cmd-desc">${escapeHtml(cmd.description)}</span></span>
     <span class="cmd-meta">
-      ${cmd.guildOnly ? `<span class="pill">server only</span>` : ""}
-      ${perms.length ? `<span class="pill warn">${perms.length} permission${perms.length === 1 ? "" : "s"}</span>` : `<span class="pill ok">no permissions</span>`}
-      ${cmd.subcommands.length ? `<span class="pill">${cmd.subcommands.length} sub</span>` : ""}
+      ${cmd.subcommands.length ? `<span class="tag">${cmd.subcommands.length} sub</span>` : ""}
+      ${perms.length ? `<span class="tag warn">${escapeHtml(perms[0])}${perms.length > 1 ? ` +${perms.length - 1}` : ""}</span>` : ""}
     </span>
     <span class="cmd-chevron" aria-hidden="true"></span>
   </summary>
   <div class="cmd-body">
+    <div>
+      <div class="cmd-section-title">Usage</div>
+      ${synopsis(cmd)}
+    </div>
     <div class="cmd-run">
-      <code class="inline">/${escapeHtml(cmd.name)}</code>
-      <button class="copy-btn" type="button" data-copy="/${escapeHtml(cmd.name)}" aria-label="Copy /${escapeHtml(cmd.name)} to clipboard">Copy</button>
+      <button class="copy-btn" type="button" data-copy="/${name}" aria-label="Copy /${name}">Copy /${name}</button>
       <a class="copy-btn" href="/api/commands/${encodeURIComponent(cmd.name)}">JSON</a>
     </div>
-
     ${cmd.subcommands.length ? `<div>
       <div class="cmd-section-title">Subcommands</div>
-      <div class="sub-list">
-        ${cmd.subcommands.map(s => `<div class="sub-item">
-          <code>/${escapeHtml(cmd.name)} ${escapeHtml(s.path)}</code>
-          <span class="sub-desc">${escapeHtml(s.description)}</span>
-          ${s.options.length ? `<span class="sub-opts faint">${s.options.length} option${s.options.length === 1 ? "" : "s"}</span>` : ""}
-        </div>`).join("\n        ")}
+      <div class="table-wrap">
+        <table>
+          <tbody>
+            ${cmd.subcommands.map(s => `<tr><td><code>/${name} ${escapeHtml(s.path)}</code></td><td>${escapeHtml(s.description)}</td></tr>`).join("\n            ")}
+          </tbody>
+        </table>
       </div>
     </div>` : ""}
-
     <div>
       <div class="cmd-section-title">Options</div>
       ${optionsTable(cmd)}
     </div>
-
     <div>
       <div class="cmd-section-title">Permissions</div>
-      ${perms.length
-        ? `<div class="cmd-meta">${perms.map(p => `<span class="pill warn">${escapeHtml(p)}</span>`).join("")}</div>`
-        : `<p class="faint">Anyone in the server can run this command.</p>`}
-      ${cmd.botPermissions.length
-        ? `<p class="faint" style="margin-top:0.5rem;font-size:0.83rem">Aegis needs ${cmd.botPermissions.map(escapeHtml).join(", ")} to run this.</p>`
-        : ""}
+      <p class="cmd-perms">${perms.length ? `Members need ${perms.map(p => `<strong>${escapeHtml(p)}</strong>`).join(", ")}.` : "Anyone in the server can run it."}${cmd.botPermissions.length ? ` Aegis needs ${cmd.botPermissions.map(escapeHtml).join(", ")}.` : ""}${cmd.guildOnly ? " Server only, not in DMs." : ""}</p>
     </div>
   </div>
 </details>`;
@@ -1413,68 +454,60 @@ export function renderCommands(cfg: SiteConfig): string {
   const s = catalogStats();
 
   const filterChips = [
-    `<button class="tab" type="button" data-cat="all" aria-pressed="true">All <span class="faint">${s.commands}</span></button>`,
+    `<button class="tab" type="button" data-cat="all" aria-pressed="true">All<span class="n">${s.commands}</span></button>`,
     ...cat.map(
-      g => `<button class="tab" type="button" data-cat="${escapeHtml(g.category)}" aria-pressed="false">${escapeHtml(g.icon)} ${escapeHtml(g.label)} <span class="faint">${g.commands.length}</span></button>`
+      g => `<button class="tab" type="button" data-cat="${escapeHtml(g.category)}" aria-pressed="false">${escapeHtml(g.label)}<span class="n">${g.commands.length}</span></button>`
     ),
-  ].join("\n        ");
+  ].join("\n    ");
 
-  const groups = cat.map(g => `<section class="cmd-group" data-cmd-group="${g.category}" id="${g.category}">
+  const groups = cat.map(g => `<section class="cmd-group" data-cmd-group="${escapeHtml(g.category)}" id="${escapeHtml(g.category)}" aria-labelledby="${escapeHtml(g.category)}-title">
   <div class="cmd-group-head">
-    <h2>${g.icon} ${escapeHtml(g.label)}</h2>
+    <h2 id="${escapeHtml(g.category)}-title">${escapeHtml(g.label)}</h2>
     <span class="blurb">${escapeHtml(g.blurb)}</span>
-    <span class="pill" style="margin-left:auto">${g.commands.length}</span>
+    <span class="n">${g.commands.length}</span>
   </div>
   ${g.commands.map(commandCard).join("\n  ")}
 </section>`).join("\n\n");
 
   const body = `
 <div class="wrap">
-  <nav class="breadcrumbs" aria-label="Breadcrumb">
-    <a href="/">Home</a><span class="sep">/</span><span>Commands</span>
-  </nav>
+  ${breadcrumb("Commands")}
   <div class="page-head">
-    <h1>Command reference</h1>
-    <p class="lead">All ${s.commands} commands, ${s.subcommands} subcommands, and ${s.options} options — generated directly from the command definitions, so this page cannot drift out of date.</p>
+    <h1>Commands</h1>
+    <p class="lead">${s.commands} commands, ${s.subcommands} subcommands, ${s.options} options. This page is generated from the command definitions at startup, so it matches what the bot registers. Open a command for its usage line, options and permissions.</p>
   </div>
-</div>
 
-<div class="wrap">
   <div class="cmd-toolbar">
     <div class="search">
       <span class="icon" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       </span>
       <label class="visually-hidden" for="cmd-search">Search commands</label>
-      <input id="cmd-search" type="search" placeholder="Search commands and subcommands…" autocomplete="off" spellcheck="false">
+      <input id="cmd-search" type="search" placeholder="Filter by name, option or permission" autocomplete="off" spellcheck="false">
       <span class="hint" aria-hidden="true"><kbd>/</kbd></span>
     </div>
     <span class="cmd-count" id="cmd-count" role="status">${s.commands} commands</span>
   </div>
 
-  <div class="tabs" id="cmd-filters" role="group" aria-label="Filter by category">
-        ${filterChips}
+  <div class="tabs" id="cmd-filter" role="group" aria-label="Filter by category">
+    ${filterChips}
   </div>
 
   <div id="cmd-empty" class="empty-state" hidden>
-    <strong>No matching commands</strong>
-    Try a different search term, or clear the category filter.
+    <strong>No commands match.</strong>
+    Try a shorter word, or set the filter back to All.
   </div>
 
   ${groups}
-</div>
 
-<section class="block">
-  <div class="wrap">
-    ${ctaBox(cfg, "Commands work better in Discord", "The Discord client handles autocomplete, permission hints, and required arguments natively. Press <code class=\"inline\">/</code> in any channel to see the live list.")}
-    <p class="feed-note">Follow releases automatically: <a href="/changelog.xml">Atom feed</a>.</p>
-  </div>
-</section>`;
+  <p class="faint">Each command is also available as JSON at <code class="inline">/api/commands/ban</code> (swap in any name), and the full list at <a href="/api/commands">/api/commands</a>. Release notes are in the <a href="/changelog.xml">Atom feed</a>.</p>
+  ${endNote(cfg, "In Discord, type <code class=\"inline\">/</code> to see the same list with autocomplete.")}
+</div>`;
 
   return page(cfg, {
-    title: "Commands — Aegis",
+    title: "Commands | Aegis",
     description:
-      "Full searchable reference for every Aegis slash command, including subcommands, options, and required permissions.",
+      "Searchable reference for every Aegis slash command: usage, subcommands, options and required permissions.",
     path: "/commands",
     body,
     headExtra: jsonLd({
@@ -1492,657 +525,414 @@ export function renderCommands(cfg: SiteConfig): string {
 /* ── Docs ──────────────────────────────────────────────────────────── */
 
 const DOC_SECTIONS = [
-  { id: "quickstart",    label: "Quickstart" },
-  { id: "tickets",      label: "Support Tickets" },
-  { id: "verification", label: "Verification & Anti-Raid" },
-  { id: "roles",        label: "Role Panels & Self-Roles" },
-  { id: "starboard",    label: "Starboard" },
-  { id: "suggestions",  label: "Suggestions & Voting" },
-  { id: "automod",      label: "Auto Moderation" },
-  { id: "logging",      label: "Audit Logging" },
-  { id: "welcome",      label: "Welcome Messages" },
-  { id: "automation",   label: "Automation & Schedules" },
-  { id: "configuration",label: "Configuration" },
-  { id: "permissions",  label: "Permissions Matrix" },
-  { id: "troubleshooting", label: "Troubleshooting & FAQs" },
-  { id: "changelog",    label: "Release Changelog" },
-  { id: "architecture", label: "Architecture & Security" },
+  { id: "quickstart", label: "Quickstart" },
+  { id: "moderation", label: "Moderation" },
+  { id: "automod", label: "Automod" },
+  { id: "trustscore", label: "Trust score" },
+  { id: "appeal", label: "Ban appeals" },
+  { id: "watchlist", label: "Watchlist" },
+  { id: "modreport", label: "Mod reports" },
+  { id: "logging", label: "Logging" },
+  { id: "tickets", label: "Tickets" },
+  { id: "verification", label: "Verification" },
+  { id: "community", label: "Community tools" },
+  { id: "automation", label: "Reminders" },
+  { id: "configuration", label: "Configuration" },
+  { id: "permissions", label: "Permissions" },
+  { id: "data", label: "Data and storage" },
 ];
+
+const PERMISSION_WHY: Record<string, string> = {
+  "Ban Members": "Banning and unbanning, and approving appeals.",
+  "Kick Members": "Removing a member without a ban.",
+  "Moderate Members": "Applying and lifting timeouts; most staff-only views.",
+  "Manage Messages": "Bulk deletes, automod deletes and panel messages.",
+  "Manage Channels": "Ticket channels, channel locks and slowmode.",
+  "Manage Roles": "Verification roles and role panels.",
+  "Manage Server": "Server-wide settings and automod rules.",
+  "Manage Nicknames": "Changing member nicknames.",
+};
 
 function permissionTable(): string {
   const rows = permissionMatrix();
 
   return `<div class="table-wrap">
     <table>
-      <thead><tr><th>Permission</th><th>Used by</th><th>Why</th></tr></thead>
+      <thead><tr><th>Permission</th><th>Commands</th><th>Why</th></tr></thead>
       <tbody>
         ${rows.map(r => `<tr>
           <td><strong>${escapeHtml(r.permission)}</strong></td>
           <td>${r.commands.map(c => `<code class="inline">${escapeHtml(c)}</code>`).join(" ")}</td>
-          <td>${PERMISSION_WHY[r.permission] ?? "Required to perform the action."}</td>
+          <td>${PERMISSION_WHY[r.permission] ?? "Needed to carry out the command."}</td>
         </tr>`).join("\n        ")}
       </tbody>
     </table>
   </div>`;
 }
 
-const PERMISSION_WHY: Record<string, string> = {
-  "Ban Members": "Removing members from the server entirely or lifting bans.",
-  "Kick Members": "Removing a member without a permanent ban.",
-  "Moderate Members": "Applying and lifting communication timeouts.",
-  "Manage Messages": "Bulk deleting messages and managing panel messages.",
-  "Manage Channels": "Creating ticket channels, locking channels, and setting slowmodes.",
-  "Manage Roles": "Assigning roles via verification and interactive role panels.",
-  "Manage Server": "Editing server-wide Aegis configuration and AutoMod rules.",
-};
-
 export function renderDocs(cfg: SiteConfig): string {
-  const s = catalogStats();
-  void s;
-
-  const side = DOC_SECTIONS.map(sec => {
-    const match = sectionCommandCount(sec.id);
-    return `<li><a href="#${sec.id}" class="docs-nav-anchor">${escapeHtml(sec.label)}${match ? ` <span class="faint">(${match})</span>` : ""}</a></li>`;
-  }).join("\n        ");
-
-  const mobileOptions = DOC_SECTIONS.map(sec => {
-    return `<option value="#${sec.id}">${escapeHtml(sec.label)}</option>`;
-  }).join("\n          ");
+  const toc = DOC_SECTIONS.map(sec => `<li><a href="#${sec.id}">${escapeHtml(sec.label)}</a></li>`).join("\n        ");
 
   const body = `
 <div class="wrap">
-  <nav class="breadcrumbs" aria-label="Breadcrumb">
-    <a href="/">Home</a><span class="sep">/</span><span>Docs</span>
-  </nav>
-  <div class="page-head docs-header">
-    <div class="docs-meta-badges">
-      <span class="pill ok">v${escapeHtml(cfg.version)} Manual</span>
-      <span class="pill faint">⏱️ 8 min read</span>
-      <span class="pill faint">Updated October 2026</span>
-    </div>
-    <h1 style="margin-top: 0.5rem;">Documentation &amp; <span class="gradient-text">User Manual</span></h1>
-    <p class="lead">Complete operational handbook for configuring Aegis, setting up ticket panels, anti-raid verification, interactive role panels, starboard showcases, AutoMod filters, and audit streams.</p>
-  </div>
-</div>
-
-<div class="wrap">
-  <!-- Mobile quick jump selector -->
-  <div class="docs-mobile-nav" aria-label="Mobile section navigation">
-    <label for="docs-section-select" class="docs-mobile-label">Jump to topic:</label>
-    <select id="docs-section-select" class="docs-mobile-select" onchange="if(this.value) window.location.hash = this.value;">
-      <option value="">Select documentation section...</option>
-      ${mobileOptions}
-    </select>
+  ${breadcrumb("Docs")}
+  <div class="page-head">
+    <h1>Docs</h1>
+    <p class="lead">How to set Aegis up and what each part expects. Commands are written the way you would type them in Discord. Exact options for every command are on the <a href="/commands">commands page</a>.</p>
   </div>
 
-  <div class="docs-layout">
-    <aside class="docs-side" aria-label="On this page">
-      <div class="side-title">On this page</div>
-      <ul class="docs-side-list">
-        ${side}
-      </ul>
-      <div class="side-divider"></div>
-      <div class="side-title">Reference</div>
+  <details class="toc-mobile">
+    <summary>Jump to a section</summary>
+    <ul>
+      ${toc}
+    </ul>
+  </details>
+
+  <div class="split">
+    <aside class="toc" aria-label="On this page">
+      <p class="side-title">On this page</p>
       <ul>
-        <li><a href="/commands">Command Catalog</a></li>
-        <li><a href="/features">Feature Architecture</a></li>
-        <li><a href="/changelog">Changelog &amp; Releases</a></li>
-        <li><a href="/status">Service Telemetry</a></li>
-        <li><a href="/troubleshooting">Troubleshooting Guide</a></li>
+        ${toc}
+      </ul>
+      <p class="side-title">Elsewhere</p>
+      <ul>
+        <li><a href="/commands">Commands</a></li>
+        <li><a href="/troubleshooting">Troubleshooting</a></li>
+        <li><a href="/changelog">Changelog</a></li>
       </ul>
     </aside>
 
-    <div class="prose docs-content">
-      <h2 id="quickstart">Quickstart Guide</h2>
-      <p>Aegis is ready to protect and manage your server right out of the box. Follow these steps to set up core moderation, ticket systems, and security gates.</p>
+    <article class="prose">
+      <h2 id="quickstart">Quickstart</h2>
       <ol>
-        <li><strong>Invite Aegis to your server.</strong> Click the invite link above and select your server. Aegis registers all slash commands instantly upon joining.</li>
-        <li><strong>Configure audit logging.</strong> Run <code class="inline">/logging channel #mod-logs</code> to record member joins, message deletions, and moderation actions.</li>
-        <li><strong>Set up support tickets.</strong> Run <code class="inline">/ticket setup channel:#support staff_role:@Staff</code> to post an interactive ticket panel.</li>
-        <li><strong>Enable anti-raid verification.</strong> Run <code class="inline">/verify setup channel:#verify verified_role:@Verified</code> to screen new members.</li>
-        <li><strong>Configure AutoMod.</strong> Enable keyword and link protection using <code class="inline">/automod words toggle enabled:true</code> and <code class="inline">/automod links toggle enabled:true</code>.</li>
+        <li>Invite Aegis with the <a href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a> link. Commands register when it joins.</li>
+        <li>In <strong>Server Settings &rarr; Roles</strong>, drag the Aegis role above the roles it should moderate.</li>
+        <li>Pick a log channel, then turn on the automod filters you want.</li>
+        <li>Run diagnostics. It lists missing permissions and role-order problems.</li>
       </ol>
-      <div class="callout info">
-        <span class="callout-icon" aria-hidden="true">i</span>
-        <div>Slash commands register automatically with Discord. If global commands do not appear immediately in your client, restart Discord or run <code class="inline">/help</code> to force client cache refresh.</div>
-      </div>
-      <div class="callout info">
-        <span class="callout-icon" aria-hidden="true">✓</span>
-        <div><strong>Recommended first step:</strong> run <code class="inline">/diagnostics</code> after setup. It checks Aegis permissions, configured channels, welcome-role hierarchy, and AutoMod readiness in one report.</div>
-      </div>
+      ${cmdBlock(`/logging channel channel:#mod-log
+/automod links toggle enabled:true
+/automod words toggle enabled:true
+/diagnostics`)}
+      <div class="callout"><p>If commands do not show up, restart your Discord client. If they still do not, the bot was probably invited without the <code>applications.commands</code> scope; invite it again with the link above.</p></div>
 
-      <h2 id="tickets">Support Ticket System</h2>
-      <p>Aegis features a private support ticket system powered by Discord buttons and permission overwrites. Moderators can manage tickets, claim responsibility, and export TXT chat transcripts.</p>
-      <h3>Ticket Commands</h3>
-      <pre class="block"><code>/ticket setup channel:#support staff_role:@SupportTeam title:"🎫 Support Center"
-/ticket close reason:"Issue resolved"
+      <h2 id="moderation">Moderation</h2>
+      <p>Warn, timeout, kick and ban each check that both you and Aegis rank above the target, ask for confirmation, and create a case. Add <code>silent:true</code> to skip the DM to the member.</p>
+      ${cmdBlock(`/warn user:@member reason:Spamming severity:Low
+/timeout user:@member duration:1 hour reason:Arguing with staff
+/kick user:@member reason:Alt account
+/ban user:@member reason:Raid account delete_messages:1
+/unban user_id:123456789012345678`)}
+      <h3>Cases and history</h3>
+      ${cmdBlock(`/case view case_id:142
+/case user user:@member
+/case edit case_id:142 reason:Updated reason
+/infractions user:@member
+/note add user:@member`)}
+      <h3>Escalation</h3>
+      <p>Escalation rules act automatically when a member reaches a warning count. Timeout durations are in minutes.</p>
+      ${cmdBlock(`/escalation add warnings:3 action:Timeout duration:60
+/escalation add warnings:5 action:Ban
+/escalation toggle enabled:true`)}
+      <h3>Channels</h3>
+      ${cmdBlock(`/purge amount:50 filter:Bot messages only
+/lock channel channel:#general duration_minutes:15
+/lock unlock channel:#general
+/slowmode custom seconds:10`)}
+
+      <h2 id="automod">Automod</h2>
+      <p>Five filters: blocked words, links, mentions, spam rate and caps. Each one is toggled separately and has its own action (delete, warn or timeout). Exempt your staff roles before turning filters on.</p>
+      ${cmdBlock(`/automod status
+/automod exempt addrole role:@Staff
+/automod words add word:free nitro
+/automod words action action:Delete and warn
+/automod mentions limit count:5
+/automod spam limit max:6 window:5
+/automod caps limit percent:70`)}
+
+      <h2 id="trustscore">Trust score</h2>
+      <p><code>/trustscore user:@member</code> returns a score from 0 to 100 and shows how it was reached. Only you see the reply unless you set <code>ephemeral:false</code>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Part</th><th>Points</th><th>How</th></tr></thead>
+          <tbody>
+            <tr><td>Account age</td><td>0 to 25</td><td>Scales up to two years old.</td></tr>
+            <tr><td>Time in server</td><td>0 to 25</td><td>Scales up to one year.</td></tr>
+            <tr><td>Long-tenure bonus</td><td>0, 6, 12 or 20</td><td>At 180 days, one year and two years in the server.</td></tr>
+            <tr><td>Warnings</td><td>0 to &minus;30</td><td>&minus;5 each.</td></tr>
+            <tr><td>Cases</td><td>0 to &minus;20</td><td>&minus;4 each.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The total is clamped to 0&ndash;100. 80 and up is <em>trusted</em>, 60 <em>established</em>, 40 <em>caution</em>, 20 <em>elevated risk</em>, below 20 <em>high risk</em>.</p>
+
+      <h2 id="appeal">Ban appeals</h2>
+      <p>Every ban that can DM the member sends them a code like <code>AGS-K7X2</code> with instructions. Since they are no longer in your server, they run the submit command from any other server Aegis is in; the DM tells them this.</p>
+      ${cmdBlock(`/appeal submit code:AGS-K7X2
+/appeal list status:Pending
+/appeal view code:AGS-K7X2
+/appeal review code:AGS-K7X2 decision:Approve note:Account secured`)}
+      <p>Approving lifts the ban and DMs the member. Reviewing needs Ban Members; submitting does not.</p>
+
+      <h2 id="watchlist">Watchlist</h2>
+      <p>Adds a member to a private watch. You get DMs for the events you picked; nothing is posted in the server.</p>
+      ${cmdBlock(`/watchlist add user:@member duration:7 Days events:All Events reason:Alt of a banned user
+/watchlist list
+/watchlist info user:@member
+/watchlist remove user:@member`)}
+
+      <h2 id="modreport">Mod reports</h2>
+      ${cmdBlock(`/modreport period:Last 24 Hours
+/modreport period:Last 7 Days ephemeral:false
+/modstats period:Last 30 days`)}
+      <p>The report has four views (overview, top offenders, staff, automod) behind buttons on the reply.</p>
+
+      <h2 id="logging">Logging</h2>
+      ${cmdBlock(`/logging channel channel:#mod-log
+/logging status
+/logging test
+/logging toggle enabled:false`)}
+      <p>Logs are posted to your channel and not stored anywhere else.</p>
+
+      <h2 id="tickets">Tickets</h2>
+      ${cmdBlock(`/ticket setup channel:#support staff_role:@Staff
 /ticket claim
-/ticket add user:@Member
-/ticket remove user:@Member
-/ticket transcript</code></pre>
-      <h3>Single Open Ticket Rule &amp; Duplicate Safeguards</h3>
-      <p>Aegis limits members to one active open ticket at a time to prevent support queue spam. Rapid double-clicks on button panels are guarded by a concurrency mutex, and re-running <code class="inline">/ticket setup</code> automatically purges old panel embeds from the target channel.</p>
+/ticket add user:@member
+/ticket transcript
+/ticket close reason:Solved`)}
+      <p>Members can have one open ticket at a time. Aegis needs Manage Channels in the category where tickets are created.</p>
 
-      <h2 id="verification">Verification &amp; Anti-Raid System</h2>
-      <p>Protect your server against self-bots, raid waves, and spam accounts by requiring new arrivals to pass a verification gate before seeing server channels.</p>
-      <pre class="block"><code>/verify setup channel:#verify verified_role:@Member type:button
+      <h2 id="verification">Verification</h2>
+      ${cmdBlock(`/verify setup channel:#verify verified_role:@Member type:One-Click Button
 /verify info
-/verify user target:@Member
-/verify disable</code></pre>
-      <p>Choose between <strong>1-Click Button</strong> mode for seamless onboarding or <strong>CAPTCHA Verification</strong> mode for enhanced security.</p>
+/verify user target:@member
+/verify disable`)}
+      <p>Set your other channels so that only the verified role can see them. The Aegis role has to sit above the verified role to grant it.</p>
 
-      <h2 id="roles">Role Panels &amp; Self-Roles</h2>
-      <p>Deploy self-assignable role panels with interactive buttons. Members click a role button to toggle roles on or off instantly with zero reaction emoji lag.</p>
-      <pre class="block"><code>/rolepanel create channel:#roles role1:@Announcements role2:@Events role3:@Updates
-/rolepanel list
-/rolepanel delete id:&lt;panel-id&gt;</code></pre>
-      <p>Deleting a role panel record with <code class="inline">/rolepanel delete</code> automatically removes the physical panel message from your Discord channel.</p>
-
-      <h2 id="starboard">Starboard System</h2>
-      <p>The Starboard plugin turns memorable community messages into a server hall-of-fame. Whenever a message receives enough reactions of your designated emoji, Aegis automatically captures the content, author information, channel context, and attached media, posting a golden embed to your starboard channel.</p>
-      
-      <div class="callout tip">
-        <span class="callout-icon" aria-hidden="true">★</span>
-        <div><strong>Live Star Counter:</strong> As community members add or remove reactions over time, Aegis dynamically updates the star counter on the starboard embed without creating duplicate posts.</div>
-      </div>
-
-      <h3>Starboard Commands</h3>
-      <pre class="block"><code>/starboard setup channel:#starboard
+      <h2 id="community">Community tools</h2>
+      <h3>Starboard</h3>
+      ${cmdBlock(`/starboard setup channel:#starboard
 /starboard threshold count:5
 /starboard emoji emoji:⭐
-/starboard selfstar allow:false
-/starboard ignore action:add channel:#staff-chat
-/starboard ignore action:add role:@Bots
-/starboard config
-/starboard list limit:10
-/starboard toggle enabled:true</code></pre>
+/starboard selfstar allowed:false
+/starboard ignore action:add channel:#staff`)}
+      <h3>Giveaways and polls</h3>
+      ${cmdBlock(`/giveaway start prize:Nitro duration:24h winners:1
+/giveaway reroll message_id:123456789012345678
+/poll question:Next game night? option1:Friday option2:Saturday anonymous:true`)}
+      <h3>Suggestions, welcome messages, role panels</h3>
+      ${cmdBlock(`/suggest setup channel:#suggestions
+/suggest approve id:12 reason:Doing it
+/welcome channel channel:#welcome
+/welcome message
+/rolepanel create channel:#roles role1:@Events role2:@Updates`)}
+      <p><code>/welcome message</code> opens a form. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{server}</code>, <code>{member_count}</code>.</p>
 
-      <h3>Subcommand Reference</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Subcommand</th><th>Description</th><th>Default / Notes</th></tr></thead>
-          <tbody>
-            <tr><td><code class="inline">/starboard setup</code></td><td>Designates the public showcase channel where star posts appear.</td><td>Required before starboard activates.</td></tr>
-            <tr><td><code class="inline">/starboard threshold</code></td><td>Number of unique reactions required to reach the starboard.</td><td>Default: <code>3</code> (Range: 1–50)</td></tr>
-            <tr><td><code class="inline">/starboard emoji</code></td><td>Custom or standard Unicode emoji used as the star trigger.</td><td>Default: <code>⭐</code></td></tr>
-            <tr><td><code class="inline">/starboard selfstar</code></td><td>Whether authors can star their own messages towards the threshold.</td><td>Default: <code>false</code> (discourages self-boosting)</td></tr>
-            <tr><td><code class="inline">/starboard ignore</code></td><td>Add or remove specific channels or roles from being starred.</td><td>Channels &amp; roles supported.</td></tr>
-            <tr><td><code class="inline">/starboard config</code></td><td>Displays an interactive status embed of all starboard settings.</td><td>Shows channel, threshold, emoji, self-star, &amp; ignores.</td></tr>
-            <tr><td><code class="inline">/starboard list</code></td><td>Lists the top starred entries in the server with direct jump links.</td><td>Optional limit: 1–25 (Default: 10)</td></tr>
-            <tr><td><code class="inline">/starboard toggle</code></td><td>Quickly pause or resume starboard operations without losing settings.</td><td>Enabled / Disabled state.</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>High-Performance Persistence &amp; Concurrency</h3>
-      <p>Starboard records are tracked in MongoDB with unique compound indexes on <code class="inline">(guildId, originalMessageId)</code>. This guarantees that rapid reaction bursts or bot restarts never cause duplicate starboard messages, and partial reaction events are hydrated directly from Discord's API when uncached.</p>
-
-      <h2 id="suggestions">Suggestions &amp; Community Feedback</h2>
-      <p>Collect community ideas with interactive upvote and downvote buttons. Staff members can approve, reject, or mark suggestions as under consideration.</p>
-      <pre class="block"><code>/suggest setup channel:#suggestions
-/suggest submit
-/suggest approve id:&lt;id&gt; reason:"Great idea!"
-/suggest deny id:&lt;id&gt; reason:"Not feasible"
-/suggest consider id:&lt;id&gt; reason:"Under review"</code></pre>
-      <p><code class="inline">/suggest submit</code> opens a guided form. Voting remains available while a suggestion is pending or under consideration, then locks when staff approves or denies it.</p>
-
-      <h2 id="automod">Auto Moderation</h2>
-      <p>AutoMod scans messages in real time to enforce community guidelines before moderators need to intervene.</p>
-      <pre class="block"><code>/automod status
-/automod words toggle enabled:true
-/automod words add word:"free nitro"
-/automod words action action:warn
-/automod links toggle enabled:true
-/automod mentions toggle enabled:true limit:5</code></pre>
-
-      <h2 id="logging">Audit Logging</h2>
-      <p>Stream member joins, message deletions, and moderation actions directly to a staff audit log channel in your server.</p>
-      <pre class="block"><code>/logging channel #mod-logs
-/logging status
-/logging toggle enabled:false</code></pre>
-
-      <h2 id="welcome">Welcome Messages</h2>
-      <p>Greet new members with customized join messages and placeholders.</p>
-      <pre class="block"><code>/welcome channel #general
-/welcome message text:"Welcome {user} to **{server}**! You are member #{member_count}."
-/welcome toggle enabled:true</code></pre>
-      <ul>
-        <li><code class="inline">{user}</code> — pings the member</li>
-        <li><code class="inline">{username}</code> — plain username without ping</li>
-        <li><code class="inline">{server}</code> — server name</li>
-        <li><code class="inline">{member_count}</code> — total server member count</li>
-      </ul>
-
-      <h2 id="automation">Automation &amp; Scheduled Tasks</h2>
-      <p>Set reminders and recurring channel posts that survive bot restarts. Time durations use compact syntax: <code class="inline">30s</code>, <code class="inline">10m</code>, <code class="inline">2h</code>, or <code class="inline">1d</code>.</p>
-      <pre class="block"><code>/automation remind in:2h message:"Staff sync meeting"
-/automation message in:1d channel:#announcements message:"Event starting soon!"
+      <h2 id="automation">Reminders and schedules</h2>
+      ${cmdBlock(`/remindme reminder:Review appeals duration:2h
+/automation message in:1d channel:#announcements message:Event starts in an hour
+/automation repeat interval:7d channel:#general message:Weekly thread is up
 /automation list
-/automation cancel id:&lt;task-id&gt;</code></pre>
+/automation cancel id:abc123`)}
+      <p>Durations use <code>30s</code>, <code>10m</code>, <code>2h</code>, <code>1d</code>. Scheduled tasks are restored after a restart.</p>
 
-      <h2 id="configuration">Server Configuration</h2>
-      <p>View and manage server-wide settings from dedicated configuration sections.</p>
-      <pre class="block"><code>/config view
-/config logging channel:#mod-logs
-/config welcome channel:#welcome
-/config suggestions channel:#suggestions
-/config language code:en</code></pre>
+      <h2 id="configuration">Configuration</h2>
+      ${cmdBlock(`/config view
+/config logging channel:#mod-log enabled:true
+/config welcome channel:#welcome enabled:true
+/preset view
+/plugins list`)}
+      <p>Presets apply a bundle of automod and escalation settings in one go. Run <code>/preset view</code> to see what each one changes before applying it.</p>
 
-      <h2 id="permissions">Permissions Matrix</h2>
-      <p>Aegis enforces strict role hierarchy checks and re-verifies user and bot permissions at execution time.</p>
+      <h2 id="permissions">Permissions</h2>
+      <p>Who can run what. Discord hides commands from members without the permission; Aegis checks again when the command runs, and checks its own permissions too.</p>
       ${permissionTable()}
 
-      <h2 id="troubleshooting">Troubleshooting &amp; FAQs</h2>
-      <p>Quickly diagnose and resolve common setup, permissions, and moderation issues. Start with <code class="inline">/diagnostics</code> in your server to run an automated health check on bot permissions and channel routing.</p>
-
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Issue / Symptom</th><th>Likely Cause</th><th>Recommended Solution</th></tr></thead>
-          <tbody>
-            <tr>
-              <td><strong>"Missing Permissions" on Ban / Timeout</strong></td>
-              <td>Target member has a role equal to or above Aegis&#39; highest role.</td>
-              <td>In Server Settings &rarr; Roles, drag Aegis&#39; integration role above the roles of members and moderators it needs to manage.</td>
-            </tr>
-            <tr>
-              <td><strong>Slash commands not showing up in Discord</strong></td>
-              <td>Discord global registration propagation delay (up to 1 hour).</td>
-              <td>Run <code class="inline">/sync guild_only:true</code> for instant guild-scoped command updates, or reinvite the bot with the <code class="inline">applications.commands</code> OAuth2 scope.</td>
-            </tr>
-            <tr>
-              <td><strong>AutoMod blocking staff or testing accounts</strong></td>
-              <td>No exempt roles or exempt channels configured.</td>
-              <td>Run <code class="inline">/automod exempt role:@Staff</code> or configure an exempt channel via <code class="inline">/automod exempt channel:#staff-logs</code>.</td>
-            </tr>
-            <tr>
-              <td><strong>Buttons not responding or showing "Interaction failed"</strong></td>
-              <td>Temporary Discord gateway latency or collector timeout.</td>
-              <td>Interactive panels expire after their designated safety window (default 30–60s for confirmations). Re-run the command to generate a fresh panel.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h2 id="changelog">Release Changelog &amp; Highlights</h2>
-      <p>Recent major updates and stability patches for Aegis:</p>
-      <ul>
-        <li><strong>v3.4.0</strong> — Proprietary platform transition, Ghost Watch silent surveillance, Algorithmic Trust Score, automated Ban Appeal workflow, and Mod Report digest.</li>
-        <li><strong>v3.3.3</strong> — Core moderation overhaul with infraction presets and quick-escalation buttons, lean architecture, and standardized AutoMod rules.</li>
-        <li><strong>v3.3.2</strong> — Modular Starboard plugin suite, streamlined command architecture, and mobile documentation enhancements.</li>
-        <li><strong>v3.3.1</strong> — Apple VisionOS-inspired Liquid Glass 2.0 design system with dynamic toggle, hardened emergency server lockdown (<code class="inline">/lock</code>), and dynamic timeout duration calculator.</li>
-      </ul>
-
-      <h2 id="architecture">Architecture &amp; Data Security</h2>
-      <p>All configuration, ticket records, and AutoMod rules are isolated by guild ID. Aegis never shares data between servers and writes audit logs directly to your Discord channels.</p>
-    </div>
+      <h2 id="data">Data and storage</h2>
+      <p>Settings, cases, warnings, tickets and appeals are stored in MongoDB, keyed by server ID. Warnings, cases and staff notes expire after one year. Audit logs live only in your log channel. The <a href="/privacy">privacy policy</a> has the full list.</p>
+    </article>
   </div>
 </div>`;
 
   return page(cfg, {
-    title: "Documentation — Aegis Discord Bot",
+    title: "Docs | Aegis",
     description:
-      "Comprehensive documentation for Aegis Discord Bot: tickets, verification, role panels, starboard, AutoMod, audit logging, and commands.",
+      "Setup and configuration for the Aegis Discord bot: moderation, automod, trust score, ban appeals, watchlist, logging, tickets, verification and permissions.",
     path: "/docs",
     body,
   });
 }
 
+/* ── Troubleshooting ───────────────────────────────────────────────── */
+
+const ISSUES: { group: string; id: string; items: { q: string; a: string }[] }[] = [
+  {
+    group: "Permissions and role order",
+    id: "cat-hierarchy",
+    items: [
+      {
+        q: "Ban, timeout or role changes fail with “Missing Permissions”",
+        a: `<p>Almost always role order. Discord does not let a bot act on a member whose highest role is equal to or above the bot's.</p>
+        <ol>
+          <li>Open <strong>Server Settings &rarr; Roles</strong>.</li>
+          <li>Drag the Aegis role above every role it should moderate or assign.</li>
+          <li>Check that the moderator running the command also outranks the target.</li>
+          <li>Run <code>/diagnostics</code> to confirm.</li>
+        </ol>`,
+      },
+      {
+        q: "“Interaction failed” when pressing a button",
+        a: `<p>Discord gives a bot three seconds to answer a button press. Confirmation buttons also expire after a short window.</p>
+        <ol>
+          <li>Run the command again to get fresh buttons.</li>
+          <li>Check the <a href="/status">status page</a> for high latency.</li>
+          <li>For old ticket or verification panels, run the setup command again to replace them.</li>
+        </ol>`,
+      },
+    ],
+  },
+  {
+    group: "Commands",
+    id: "cat-commands",
+    items: [
+      {
+        q: "Slash commands do not appear",
+        a: `<ol>
+          <li>Restart Discord (<kbd>Ctrl</kbd> + <kbd>R</kbd> on desktop).</li>
+          <li>Re-invite Aegis with the <a href="/">Add to Discord</a> link; the <code>applications.commands</code> scope must be ticked.</li>
+          <li>Check <strong>Server Settings &rarr; Integrations &rarr; Aegis</strong> for channel or role restrictions.</li>
+        </ol>`,
+      },
+      {
+        q: "Commands show up twice",
+        a: `<p>Only relevant if you host your own copy: commands were registered both globally and for a test server. Set <code>DISCORD_CLEAR_GUILD_IDS</code> to the server ID, start the bot once, then remove the variable.</p>`,
+      },
+    ],
+  },
+  {
+    group: "Automod",
+    id: "cat-automod",
+    items: [
+      {
+        q: "Automod is not deleting messages",
+        a: `<ol>
+          <li>Aegis needs <strong>Manage Messages</strong> and <strong>Read Message History</strong> in that channel.</li>
+          <li>Run <code>/automod status</code> and check the filter is on.</li>
+          <li>Check the author's roles and the channel against the exemptions in the same output.</li>
+        </ol>`,
+      },
+      {
+        q: "Automod keeps catching staff",
+        a: `<p>Exempt the staff role, or the channel:</p><p><code>/automod exempt addrole role:@Staff</code><br><code>/automod exempt addchannel channel:#staff</code></p>`,
+      },
+    ],
+  },
+  {
+    group: "Tickets and verification",
+    id: "cat-tickets",
+    items: [
+      {
+        q: "Tickets will not open",
+        a: `<ol>
+          <li>Aegis needs <strong>Manage Channels</strong> and <strong>Manage Roles</strong> in the ticket category.</li>
+          <li>Discord caps a server at 500 channels; check you are under it.</li>
+          <li>The member may already have an open ticket.</li>
+        </ol>`,
+      },
+      {
+        q: "Verification does not give the role",
+        a: `<p>The Aegis role must be above the verified role, and Aegis needs <strong>Manage Roles</strong>. Run <code>/verify info</code> to see the current setup.</p>`,
+      },
+    ],
+  },
+  {
+    group: "Reminders and welcome messages",
+    id: "cat-automation",
+    items: [
+      {
+        q: "Welcome messages or reminders do not arrive",
+        a: `<ol>
+          <li>Check the channel still exists with <code>/welcome status</code> or <code>/automation list</code>.</li>
+          <li>Run <code>/welcome preview</code> to test delivery.</li>
+          <li>Self-hosting: enable the Server Members and Message Content intents in the Discord Developer Portal.</li>
+        </ol>`,
+      },
+    ],
+  },
+  {
+    group: "Self-hosting",
+    id: "cat-hosting",
+    items: [
+      {
+        q: "The bot crashes on start with MongoServerSelectionError",
+        a: `<ol>
+          <li>In MongoDB Atlas, allow your host's IP under <strong>Network Access</strong>. Hosts with changing IPs (Fly.io and similar) need <code>0.0.0.0/0</code>.</li>
+          <li>URL-encode special characters such as <code>@</code>, <code>#</code> and <code>/</code> in the password.</li>
+          <li>Check the connection string starts with <code>mongodb+srv://</code>.</li>
+        </ol>`,
+      },
+    ],
+  },
+];
+
 export function renderTroubleshooting(cfg: SiteConfig): string {
+  const groups = ISSUES.map(g => `<section class="issue-group" aria-labelledby="${g.id}">
+      <h2 id="${g.id}">${escapeHtml(g.group)}</h2>
+      ${g.items.map(i => `<details class="issue">
+        <summary>${escapeHtml(i.q)}</summary>
+        <div class="issue-body">${i.a}</div>
+      </details>`).join("\n      ")}
+    </section>`).join("\n\n    ");
+
   const body = `
 <div class="wrap">
-  <nav class="breadcrumbs" aria-label="Breadcrumb">
-    <a href="/">Home</a><span class="sep">/</span><span>Help &amp; Troubleshooting</span>
-  </nav>
-  <div class="page-head" style="text-align:center">
-    <span class="eyebrow">Interactive Diagnostics &amp; Support</span>
-    <h1 style="margin-top:.4rem">Help &amp; <span class="gradient-text">Troubleshooting</span></h1>
-    <p class="lead" style="max-width:680px;margin:.75rem auto 0">Instant diagnoses and step-by-step resolution guides for Discord permissions, role hierarchy conflicts, AutoMod filters, support tickets, and bot hosting.</p>
+  ${breadcrumb("Troubleshooting")}
+  <div class="page-head">
+    <h1>Troubleshooting</h1>
+    <p class="lead">Start with <code class="inline">/diagnostics</code> in your server. It checks permissions, configured channels and role order, and usually names the problem.</p>
   </div>
 
-  <div class="help-spotlight">
-    <span class="help-spotlight-icon" aria-hidden="true">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <h2>Role order, the usual culprit</h2>
+  <p class="muted">Discord only lets a role act on roles below it. That applies to bots even with every permission ticked.</p>
+  <div class="hierarchy">
+    <div class="bad">
+      <span class="hierarchy-label">Does not work</span>
+      <ol><li>Owner</li><li>Moderator</li><li><strong>Aegis</strong> (cannot touch moderators)</li><li>Member</li></ol>
+    </div>
+    <div class="good">
+      <span class="hierarchy-label">Works</span>
+      <ol><li>Owner</li><li><strong>Aegis</strong></li><li>Moderator</li><li>Member</li></ol>
+    </div>
+  </div>
+
+  <div class="search help-search">
+    <span class="icon" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     </span>
-    <input type="search" id="help-search" class="help-spotlight-input" placeholder="Search problems (e.g. Missing Permissions, AutoMod, ticket claim, slash sync)..." autocomplete="off" spellcheck="false" aria-label="Search help topics">
+    <label class="visually-hidden" for="help-search">Filter problems</label>
+    <input id="help-search" type="search" placeholder="Filter: permissions, automod, tickets…" autocomplete="off" spellcheck="false">
   </div>
-</div>
 
-<section class="block tight" style="padding-top:0">
-  <div class="wrap">
-    <div class="help-category-grid">
-      <a class="help-cat-card" href="#cat-hierarchy">
-        <div class="help-cat-icon">🛡️</div>
-        <div>
-          <strong style="font-size:1.05rem;display:block">Role Hierarchy</strong>
-          <span style="font-size:.84rem;color:var(--muted)">"Missing Permissions", role position order, bypass limits</span>
-        </div>
-      </a>
-      <a class="help-cat-card" href="#cat-commands">
-        <div class="help-cat-icon">⚡</div>
-        <div>
-          <strong style="font-size:1.05rem;display:block">Commands &amp; Sync</strong>
-          <span style="font-size:.84rem;color:var(--muted)">Missing slash commands, duplicate entries, guild sync</span>
-        </div>
-      </a>
-      <a class="help-cat-card" href="#cat-automod">
-        <div class="help-cat-icon">⚖️</div>
-        <div>
-          <strong style="font-size:1.05rem;display:block">AutoMod &amp; Shield</strong>
-          <span style="font-size:.84rem;color:var(--muted)">Blocked words, invite link leaks, exemptions, mention spam</span>
-        </div>
-      </a>
-      <a class="help-cat-card" href="#cat-tickets">
-        <div class="help-cat-icon">🎫</div>
-        <div>
-          <strong style="font-size:1.05rem;display:block">Tickets &amp; Roles</strong>
-          <span style="font-size:.84rem;color:var(--muted)">Channel overwrites, transcripts, button panels, auto-roles</span>
-        </div>
-      </a>
-      <a class="help-cat-card" href="#cat-automation">
-        <div class="help-cat-icon">⏰</div>
-        <div>
-          <strong style="font-size:1.05rem;display:block">Cron &amp; Tasks</strong>
-          <span style="font-size:.84rem;color:var(--muted)">Reminders, giveaways, schedule triggers across reboots</span>
-        </div>
-      </a>
-      <a class="help-cat-card" href="#cat-hosting">
-        <div class="help-cat-icon">🚀</div>
-        <div>
-          <strong style="font-size:1.05rem;display:block">Hosting &amp; DB</strong>
-          <span style="font-size:.84rem;color:var(--muted)">MongoDB Atlas IP access, Fly.io restarts, gateway ping</span>
-        </div>
-      </a>
-    </div>
-
-    <!-- Hierarchy Visualizer Card -->
-    <div class="card" style="padding:1.75rem 2rem;margin-bottom:2.75rem;border-left:4px solid var(--accent)">
-      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem">
-        <span class="pill ok" style="font-weight:700">Crucial Discord Rule</span>
-        <h2 style="font-size:1.3rem;margin:0">Discord Role Hierarchy Explained</h2>
-      </div>
-      <p style="color:var(--muted);font-size:.95rem;line-height:1.6;margin-bottom:1.25rem">
-        Over 75% of "Missing Permissions" errors occur because Aegis's highest role is positioned lower than the member or role it is attempting to moderate or assign. Discord enforces this rule strictly, even if Aegis has Administrator privileges.
-      </p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;background:var(--surface-2);padding:1.25rem;border-radius:var(--r-lg);border:1px solid var(--border)">
-        <div style="border-left:3px solid #ff4d4f;padding-left:1rem">
-          <div style="font-weight:700;color:#ff4d4f;font-size:.85rem;text-transform:uppercase">❌ Problematic Setup</div>
-          <div style="margin-top:.4rem;font-size:.85rem;color:var(--text-2);line-height:1.5">
-            1. Server Owner<br>
-            2. Moderator Role<br>
-            3. <strong>Aegis Bot Role</strong> (Cannot moderate #1 or #2!)<br>
-            4. Member Role
-          </div>
-        </div>
-        <div style="border-left:3px solid var(--accent);padding-left:1rem">
-          <div style="font-weight:700;color:var(--accent);font-size:.85rem;text-transform:uppercase">✅ Correct Setup</div>
-          <div style="margin-top:.4rem;font-size:.85rem;color:var(--text-2);line-height:1.5">
-            1. Server Owner<br>
-            2. <strong>Aegis Bot Role</strong> (Can moderate all roles below!)<br>
-            3. Moderator Role<br>
-            4. Member Role
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Quick Diagnostic Commands -->
-    <div style="margin-bottom:2.75rem">
-      <div class="side-title" style="margin-bottom:.75rem">1-Click Diagnostic Commands (Click to copy)</div>
-      <div style="display:flex;flex-wrap:wrap;gap:.6rem">
-        <button type="button" class="help-command-pill" data-copy="/diagnostics">
-          <span>/diagnostics</span>
-          <span style="font-size:.72rem;color:var(--faint)">Full server check</span>
-        </button>
-        <button type="button" class="help-command-pill" data-copy="/config view">
-          <span>/config view</span>
-          <span style="font-size:.72rem;color:var(--faint)">Active config</span>
-        </button>
-        <button type="button" class="help-command-pill" data-copy="/automod status">
-          <span>/automod status</span>
-          <span style="font-size:.72rem;color:var(--faint)">Shield rules</span>
-        </button>
-        <button type="button" class="help-command-pill" data-copy="/plugins list">
-          <span>/plugins list</span>
-          <span style="font-size:.72rem;color:var(--faint)">Knub plugins</span>
-        </button>
-        <button type="button" class="help-command-pill" data-copy="/ticket setup">
-          <span>/ticket setup</span>
-          <span style="font-size:.72rem;color:var(--faint)">Ticket desk</span>
-        </button>
-        <button type="button" class="help-command-pill" data-copy="/purge 50">
-          <span>/purge 50</span>
-          <span style="font-size:.72rem;color:var(--faint)">Purge messages</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Issue Accordions -->
-    <div id="help-issue-list">
-      <h2 id="cat-hierarchy" style="font-size:1.35rem;margin:2rem 0 1rem;display:flex;align-items:center;gap:.5rem">
-        <span>🛡️</span> Permissions &amp; Role Hierarchy
-      </h2>
-
-      <details class="help-issue-card" open>
-        <summary class="help-issue-summary">
-          <span>Ban, timeout, or role grant fails with "Missing Permissions"</span>
-          <span class="pill danger" style="font-size:.7rem">Most Common</span>
-        </summary>
-        <div class="help-issue-content">
-          <p style="margin:.75rem 0 .5rem;color:var(--text-2);font-size:.92rem"><strong>Root Cause:</strong> Aegis's role in Discord is ranked equal to or lower than the target member, or Aegis lacks the required permission in the target channel.</p>
-          <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
-            <li>Open <strong>Server Settings &rarr; Roles</strong> in your Discord desktop client.</li>
-            <li>Drag the <strong>Aegis</strong> role as close to the top as possible, directly beneath Server Admins.</li>
-            <li>Confirm the moderator invoking the slash command also holds a role higher than the target member.</li>
-            <li>Run <code class="inline">/diagnostics</code> to confirm that all required permissions are detected with green checkmarks.</li>
-          </ol>
-        </div>
-      </details>
-
-      <details class="help-issue-card">
-        <summary class="help-issue-summary">
-          <span>"Interaction Failed" or button click timeout</span>
-          <span class="pill warn" style="font-size:.7rem">Gateway</span>
-        </summary>
-        <div class="help-issue-content">
-          <p style="margin:.75rem 0 .5rem;color:var(--text-2);font-size:.92rem"><strong>Root Cause:</strong> Discord requires interaction acknowledgments within 3,000 milliseconds. If the bot is under heavy load or disconnected from the gateway, the callback will time out.</p>
-          <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
-            <li>Visit the <a href="/status" style="color:var(--link)">Status Page</a> to verify gateway latency and connection health.</li>
-            <li>Check if the bot process is restarting or encountering memory pressure in host logs.</li>
-            <li>If the button belongs to an older setup panel that was recreated, recreate the panel with <code class="inline">/ticket setup</code> to refresh component custom IDs.</li>
-          </ol>
-        </div>
-      </details>
-
-      <h2 id="cat-commands" style="font-size:1.35rem;margin:2.5rem 0 1rem;display:flex;align-items:center;gap:.5rem">
-        <span>⚡</span> Commands &amp; Slash Registration
-      </h2>
-
-      <details class="help-issue-card">
-        <summary class="help-issue-summary">
-          <span>Slash commands do not appear in the Discord input menu</span>
-          <span class="pill primary" style="font-size:.7rem">Setup</span>
-        </summary>
-        <div class="help-issue-content">
-          <p style="margin:.75rem 0 .5rem;color:var(--text-2);font-size:.92rem"><strong>Root Cause:</strong> The bot was invited without the <code class="inline">applications.commands</code> OAuth scope, or global commands have not yet completed their hourly propagation cycle.</p>
-          <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
-            <li>Re-authorize the bot using the official <a href="/" style="color:var(--link)">Invite Link</a>, ensuring the <strong>applications.commands</strong> checkbox remains enabled.</li>
-            <li>For instant command testing during server staging, configure <code class="inline">DISCORD_TEST_GUILD_ID</code> in your environment variables for zero-latency registration.</li>
-            <li>Restart Discord with <kbd>Ctrl+R</kbd> (or <kbd>Cmd+R</kbd> on macOS) to force client slash schema re-fetching.</li>
-          </ol>
-        </div>
-      </details>
-
-      <details class="help-issue-card">
-        <summary class="help-issue-summary">
-          <span>Duplicate commands or ghost slash entries in the list</span>
-          <span class="pill faint" style="font-size:.7rem">Registration</span>
-        </summary>
-        <div class="help-issue-content">
-          <p style="margin:.75rem 0 .5rem;color:var(--text-2);font-size:.92rem"><strong>Root Cause:</strong> Commands were registered both globally and at the guild level in earlier versions.</p>
-          <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
-            <li>Set <code class="inline">DISCORD_CLEAR_GUILD_IDS="guild_id_here"</code> in your <code class="inline">.env</code> file.</li>
-            <li>Boot the bot once to purge legacy guild command registries.</li>
-            <li>Remove the flag to allow standard global command synchronization.</li>
-          </ol>
-        </div>
-      </details>
-
-      <h2 id="cat-automod" style="font-size:1.35rem;margin:2.5rem 0 1rem;display:flex;align-items:center;gap:.5rem">
-        <span>⚖️</span> AutoMod &amp; Raid Protection
-      </h2>
-
-      <details class="help-issue-card">
-        <summary class="help-issue-summary">
-          <span>AutoMod is not deleting messages containing blocked words or invite links</span>
-          <span class="pill ok" style="font-size:.7rem">AutoMod</span>
-        </summary>
-        <div class="help-issue-content">
-          <p style="margin:.75rem 0 .5rem;color:var(--text-2);font-size:.92rem"><strong>Root Cause:</strong> Aegis requires channel permissions to delete messages, or the author has an exempt role/channel.</p>
-          <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
-            <li>Confirm Aegis has <strong>Manage Messages</strong> and <strong>Read Message History</strong> in that channel.</li>
-            <li>Run <code class="inline">/automod status</code> to confirm that the specific filter (invites, profanity, spam) is toggled on.</li>
-            <li>Run <code class="inline">/automod status</code> to verify the author does not hold an exempted moderator role or post in an exempt channel.</li>
-          </ol>
-        </div>
-      </details>
-
-      <h2 id="cat-tickets" style="font-size:1.35rem;margin:2.5rem 0 1rem;display:flex;align-items:center;gap:.5rem">
-        <span>🎫</span> Support Tickets &amp; Interactive Panels
-      </h2>
-
-      <details class="help-issue-card">
-        <summary class="help-issue-summary">
-          <span>Tickets cannot be opened or channel permission errors occur</span>
-          <span class="pill primary" style="font-size:.7rem">Tickets</span>
-        </summary>
-        <div class="help-issue-content">
-          <p style="margin:.75rem 0 .5rem;color:var(--text-2);font-size:.92rem"><strong>Root Cause:</strong> Aegis lacks <strong>Manage Channels</strong> in the parent category or the server has reached Discord's 500-channel ceiling.</p>
-          <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
-            <li>Verify Aegis has <strong>Manage Channels</strong> permissions in the server roles.</li>
-            <li>Ensure the target category grants Aegis <strong>Manage Channels</strong> and <strong>Manage Roles/Permissions</strong>.</li>
-            <li>Verify the server total channel count is below Discord's limit of 500 channels.</li>
-          </ol>
-        </div>
-      </details>
-
-      <h2 id="cat-automation" style="font-size:1.35rem;margin:2.5rem 0 1rem;display:flex;align-items:center;gap:.5rem">
-        <span>⏰</span> Cron, Reminders &amp; Welcome Flows
-      </h2>
-
-      <details class="help-issue-card">
-        <summary class="help-issue-summary">
-          <span>Reminders, scheduled posts, or welcome messages fail to fire</span>
-          <span class="pill warn" style="font-size:.7rem">Automation</span>
-        </summary>
-        <div class="help-issue-content">
-          <p style="margin:.75rem 0 .5rem;color:var(--text-2);font-size:.92rem"><strong>Root Cause:</strong> The welcome channel was deleted, or the Server Members Gateway Intent is disabled in the Discord Developer Portal.</p>
-          <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
-            <li>Open the <a href="https://discord.com/developers/applications" target="_blank" rel="noopener" style="color:var(--link)">Discord Developer Portal</a>.</li>
-            <li>Select your Bot application &rarr; <strong>Bot</strong> tab &rarr; Enable <strong>Server Members Intent</strong> and <strong>Message Content Intent</strong>.</li>
-            <li>Run <code class="inline">/welcome preview</code> to verify channel delivery and auto-role assignment.</li>
-          </ol>
-        </div>
-      </details>
-
-      <h2 id="cat-hosting" style="font-size:1.35rem;margin:2.5rem 0 1rem;display:flex;align-items:center;gap:.5rem">
-        <span>🚀</span> Hosting, Database &amp; Deployment
-      </h2>
-
-      <details class="help-issue-card">
-        <summary class="help-issue-summary">
-          <span>Bot crashes on boot or logs MongoServerSelectionError</span>
-          <span class="pill danger" style="font-size:.7rem">Database</span>
-        </summary>
-        <div class="help-issue-content">
-          <p style="margin:.75rem 0 .5rem;color:var(--text-2);font-size:.92rem"><strong>Root Cause:</strong> MongoDB Atlas IP Access List blocks your hosting environment (Fly.io, Railway, VPS), or credentials contain unescaped characters.</p>
-          <ol style="margin:0 0 1rem 1.25rem;color:var(--muted);font-size:.9rem;line-height:1.6">
-            <li>In MongoDB Atlas, go to <strong>Network Access</strong> &rarr; Add IP Address &rarr; Select <strong>Allow Access From Anywhere</strong> (<code class="inline">0.0.0.0/0</code>) for dynamic cloud providers like Fly.io.</li>
-            <li>Ensure the MongoDB password does not contain unencoded special characters like <code class="inline">#</code>, <code class="inline">@</code>, or <code class="inline">/</code>.</li>
-            <li>Verify your connection string begins with <code class="inline">mongodb+srv://</code> and targets the primary cluster.</li>
-          </ol>
-        </div>
-      </details>
-    </div>
-
-    <div style="margin-top:3rem">
-      ${ctaBox(cfg, "Still need assistance?", "Join our Discord support community or run /diagnostics directly in your guild for an instant automated inspection.")}
-    </div>
+  <div id="help-issue-list">
+    ${groups}
   </div>
-</section>
+  <div id="help-empty" class="empty-state" hidden>
+    <strong>Nothing matches.</strong>
+    Ask in the support server and include the output of /diagnostics.
+  </div>
 
-<script>
-(function() {
-  const search = document.getElementById('help-search');
-  const issues = document.querySelectorAll('.help-issue-card');
-  const catHeaders = document.querySelectorAll('#help-issue-list h2');
-
-  if (search) {
-    search.addEventListener('input', function() {
-      const q = search.value.toLowerCase().trim();
-      issues.forEach(function(card) {
-        const text = card.textContent.toLowerCase();
-        const match = !q || text.includes(q);
-        card.style.display = match ? '' : 'none';
-        if (q && match) card.setAttribute('open', '');
-      });
-      catHeaders.forEach(function(h) {
-        let sibling = h.nextElementSibling;
-        let hasVisible = false;
-        while (sibling && sibling.tagName === 'DETAILS') {
-          if (sibling.style.display !== 'none') hasVisible = true;
-          sibling = sibling.nextElementSibling;
-        }
-        h.style.display = (!q || hasVisible) ? '' : 'none';
-      });
-    });
-  }
-
-  document.querySelectorAll('[data-copy]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      const text = btn.getAttribute('data-copy');
-      if (text && navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(function() {
-          const original = btn.innerHTML;
-          btn.innerHTML = '<span>Copied!</span><span style="font-size:.72rem;color:var(--accent)">✓</span>';
-          setTimeout(function() { btn.innerHTML = original; }, 1800);
-        });
-      }
-    });
-  });
-})();
-</script>`;
+  ${endNote(cfg, "Still stuck? The support server is the fastest way to reach a person.")}
+</div>`;
 
   return page(cfg, {
-    title: "Help & Troubleshooting — Aegis Discord Bot",
-    description: "Instant solutions and diagnostics for Aegis Discord bot permissions, role hierarchy, slash commands, AutoMod, tickets, and hosting.",
+    title: "Troubleshooting | Aegis",
+    description: "Fixes for common Aegis problems: missing permissions, role order, missing slash commands, automod, tickets and self-hosting.",
     path: "/troubleshooting",
     body,
   });
 }
 
-/** Map a docs section to the commands that cover it, for the sidebar. */
-function sectionCommandCount(section: string): number {
-  const mapping: Record<string, string[]> = {
-    configuration: ["config"],
-    automod: ["automod"],
-    logging: ["logging"],
-    welcome: ["welcome"],
-    automation: ["automation"],
-    tickets: ["ticket"],
-    verification: ["verify"],
-    roles: ["rolepanel"],
-    starboard: ["starboard"],
-    suggestions: ["suggest"],
-    permissions: [],
-    troubleshooting: [],
-    changelog: [],
-    architecture: [],
-    quickstart: ["help", "config"],
-  };
-  const names = mapping[section] ?? [];
-  if (names.length === 0) return 0;
-  return buildCatalog().filter(c => names.includes(c.name)).length;
-}
+/* ── Changelog ─────────────────────────────────────────────────────── */
 
 export interface Release {
   version: string;
@@ -2156,8 +946,8 @@ export const RELEASES: Release[] = [
   {
     version: "3.4.0",
     date: "2026-10-26",
-    tag: "Proprietary Platform & Unique Moderation Suite",
-    summary: "Transitions Aegis to an enterprise proprietary platform with 4 exclusive moderation systems: Ghost Watch, Algorithmic Trust Score, Ban Appeal Workflow, and Moderation Analytics Digest, with high-performance in-memory caching.",
+    tag: "Watchlist, trust score, ban appeals, mod reports",
+    summary: "Four new moderation tools: /watchlist, /trustscore, /appeal and /modreport. Aegis also became closed source in this release.",
     highlights: [
       "[NEW] Ghost Watch (/watchlist): Silent member surveillance tracking messages, edits, deletes, joins, leaves, and role changes via gateway events with direct DM alerts to staff.",
       "[PERF] Ghost Watch High-Throughput Engine: In-memory O(1) active target Set rejection bypassing 99.99% of database queries on high-traffic servers.",
@@ -2419,282 +1209,80 @@ export const KNUB_RELEASES: Release[] = [
   },
 ];
 
+
 function renderHighlightItem(h: string): string {
-  const match = h.match(/^\[(NEW|ENHANCED|SECURITY|WEB|FIX|FIXED|HARDENED|QOL|BETA)\]\s*(.*)$/);
-  if (!match) return `<li>${escapeHtml(h)}</li>`;
+  const match = h.match(/^\[([A-Z]+)\]\s*(.*)$/);
+  if (!match) return `<li><span class="kind">note</span><span>${escapeHtml(h)}</span></li>`;
 
-  const tag = match[1];
-  const content = match[2];
-  const tagClass =
-    tag === "NEW" ? "primary" :
-    tag === "ENHANCED" || tag === "QOL" ? "ok" :
-    tag === "SECURITY" || tag === "HARDENED" ? "danger" :
-    tag === "WEB" || tag === "BETA" ? "warn" : "faint";
+  const tag = match[1].toLowerCase();
+  const kindClass =
+    tag === "new" ? "new" :
+    tag === "fix" || tag === "fixed" ? "fix" :
+    tag === "security" || tag === "hardened" ? "security" : "";
+  const label = tag === "fixed" ? "fix" : tag;
 
-  return `<li style="list-style:none; margin-bottom: 0.55rem; display:flex; gap:0.6rem; align-items:flex-start;">
-    <span class="pill ${tagClass}" style="font-size:0.65rem; padding: 0.12rem 0.45rem; text-transform:uppercase; font-weight:700; flex-shrink:0; margin-top:0.15rem;">${tag}</span>
-    <span style="font-size:0.94rem; color:var(--text-2);">${escapeHtml(content)}</span>
-  </li>`;
+  return `<li><span class="kind${kindClass ? ` ${kindClass}` : ""}">${escapeHtml(label)}</span><span>${escapeHtml(match[2])}</span></li>`;
+}
+
+function fmtDate(iso: string): string {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function releaseBlock(r: Release, idPrefix: string, label: string): string {
+  const id = `${idPrefix}${r.version}`;
+  return `<article class="release" id="${escapeHtml(id)}">
+      <div class="release-meta">
+        <a href="#${escapeHtml(id)}">${escapeHtml(label)}${escapeHtml(r.version)}</a>
+        <time datetime="${r.date}">${fmtDate(r.date)}</time>
+      </div>
+      <div>
+        ${r.tag ? `<h3>${escapeHtml(r.tag)}</h3>` : `<h3>${escapeHtml(label)}${escapeHtml(r.version)}</h3>`}
+        ${r.summary ? `<p class="release-summary">${escapeHtml(r.summary)}</p>` : ""}
+        <ul class="changes">
+          ${r.highlights.map(renderHighlightItem).join("\n          ")}
+        </ul>
+      </div>
+    </article>`;
 }
 
 export function renderChangelog(cfg: SiteConfig): string {
-  const totalReleases = RELEASES.length + KNUB_RELEASES.length;
-  const latestBot = RELEASES[0];
-  const latestKnub = KNUB_RELEASES[0];
-  const earliestDate = RELEASES[RELEASES.length - 1].date;
-
-  const botVersionPills = RELEASES.map(r =>
-    `<a class="cl-ver-pill" href="#v${escapeHtml(r.version)}" data-version="${escapeHtml(r.version)}" data-track="bot">` +
-    `<span class="cl-ver-num">v${escapeHtml(r.version)}</span>` +
-    `<span class="cl-ver-date">${new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></a>`
-  ).join("\n");
-
-  const knubVersionPills = KNUB_RELEASES.map(r =>
-    `<a class="cl-ver-pill knub" href="#knub-v${escapeHtml(r.version)}" data-version="${escapeHtml(r.version)}" data-track="knub">` +
-    `<span class="cl-ver-num">v${escapeHtml(r.version)}</span>` +
-    `<span class="cl-ver-date">${new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></a>`
-  ).join("\n");
-
-  const buildMarkdown = (r: Release, prefix = "Aegis"): string => {
-    const lines = [`## ${prefix} v${r.version} (${r.date})`];
-    if (r.tag) lines.push(`*${r.tag}*`);
-    if (r.summary) lines.push(`\n${r.summary}\n`);
-    for (const h of r.highlights) {
-      lines.push(`- ${h}`);
-    }
-    return lines.join("\n");
-  };
-
-  const botCards = RELEASES.map(r => {
-    const md = escapeHtml(buildMarkdown(r, "Aegis"));
-    return `<article class="cl-card reveal" id="v${escapeHtml(r.version)}" data-track="bot" data-search="${escapeHtml([r.version, r.tag ?? "", r.summary ?? "", ...r.highlights].join(" ").toLowerCase())}">` +
-      `<div class="cl-card-header"><div class="cl-card-meta"><div class="cl-card-version">` +
-      `<span class="cl-version-badge">v${escapeHtml(r.version)}</span>` +
-      (r.tag ? `<span class="pill primary cl-tag-pill">${escapeHtml(r.tag)}</span>` : "") +
-      `</div><time class="cl-date" datetime="${r.date}">` +
-      `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>` +
-      `${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}` +
-      `</time></div>` +
-      `<div style="display:flex;align-items:center;gap:.6rem">` +
-      `<button type="button" class="cl-copy-md-btn" data-copy-md="${md}" title="Copy release notes as Markdown">` +
-      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>` +
-      `<span>Copy MD</span></button>` +
-      `<a class="cl-permalink" href="#v${escapeHtml(r.version)}" aria-label="Permalink to v${escapeHtml(r.version)}">#</a>` +
-      `</div></div>` +
-      (r.summary ? `<p class="cl-summary">${escapeHtml(r.summary)}</p>` : "") +
-      `<ul class="cl-highlights">${r.highlights.map(h => renderHighlightItem(h)).join("")}</ul></article>`;
-  }).join("\n");
-
-  const knubCards = KNUB_RELEASES.map(r => {
-    const md = escapeHtml(buildMarkdown(r, "Knub Framework"));
-    return `<article class="cl-card cl-card--knub reveal" id="knub-v${escapeHtml(r.version)}" data-track="knub" data-search="${escapeHtml([r.version, r.tag ?? "", r.summary ?? "", ...r.highlights].join(" ").toLowerCase())}">` +
-      `<div class="cl-card-header"><div class="cl-card-meta"><div class="cl-card-version">` +
-      `<span class="cl-version-badge cl-version-badge--knub">Knub v${escapeHtml(r.version)}</span>` +
-      (r.tag ? `<span class="pill warn cl-tag-pill">${escapeHtml(r.tag)}</span>` : "") +
-      `</div><time class="cl-date" datetime="${r.date}">` +
-      `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>` +
-      `${new Date(r.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}` +
-      `</time></div>` +
-      `<div style="display:flex;align-items:center;gap:.6rem">` +
-      `<button type="button" class="cl-copy-md-btn" data-copy-md="${md}" title="Copy release notes as Markdown">` +
-      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>` +
-      `<span>Copy MD</span></button>` +
-      `<a class="cl-permalink" href="#knub-v${escapeHtml(r.version)}" aria-label="Permalink to Knub v${escapeHtml(r.version)}">#</a>` +
-      `</div></div>` +
-      (r.summary ? `<p class="cl-summary">${escapeHtml(r.summary)}</p>` : "") +
-      `<ul class="cl-highlights">${r.highlights.map(h => renderHighlightItem(h)).join("")}</ul></article>`;
-  }).join("\n");
+  const botToc = RELEASES.map(r => `<li><a href="#v${escapeHtml(r.version)}">${escapeHtml(r.version)}</a></li>`).join("\n        ");
+  const knubToc = KNUB_RELEASES.map(r => `<li><a href="#knub-v${escapeHtml(r.version)}">Knub ${escapeHtml(r.version)}</a></li>`).join("\n        ");
 
   const body = `
-<div class="wrap cl-hero">
-  <nav class="breadcrumbs" aria-label="Breadcrumb">
-    <a href="/">Home</a><span class="sep">/</span><span>Changelog</span>
-  </nav>
-  <span class="eyebrow">Product &amp; Architecture Releases</span>
-  <h1 style="margin-top:.35rem">Changelog &amp; Release History</h1>
-  <p class="lead" style="max-width:620px;margin:.6rem auto 0">Chronological release history and engineering changelogs for the Aegis Discord bot and the Knub modular TypeScript framework.</p>
+<div class="wrap">
+  ${breadcrumb("Changelog")}
+  <div class="page-head">
+    <h1>Changelog</h1>
+    <p class="lead">Every release of the bot, newest first, followed by the Knub plugin framework it runs on. Subscribe with the <a href="/changelog.xml">Atom feed</a>.</p>
+  </div>
 
-  <div class="cl-hero-stats">
-    <div class="cl-stat-box">
-      <div class="cl-stat-num">${totalReleases}</div>
-      <div class="cl-stat-label">Total Releases</div>
-    </div>
-    <div class="cl-stat-box">
-      <div class="cl-stat-num">v${escapeHtml(latestBot.version)}</div>
-      <div class="cl-stat-label">Latest Bot</div>
-    </div>
-    <div class="cl-stat-box">
-      <div class="cl-stat-num">v${escapeHtml(latestKnub.version)}</div>
-      <div class="cl-stat-label">Latest Knub</div>
-    </div>
-    <div class="cl-stat-box">
-      <div class="cl-stat-num">${new Date(earliestDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</div>
-      <div class="cl-stat-label">Tracking Since</div>
+  <div class="split">
+    <aside class="toc" aria-label="Releases">
+      <p class="side-title">Bot</p>
+      <ul>
+        ${botToc}
+      </ul>
+      <p class="side-title">Knub</p>
+      <ul>
+        ${knubToc}
+      </ul>
+    </aside>
+    <div>
+      <div class="track-head" id="bot"><h2>Aegis</h2><span>${RELEASES.length} releases</span></div>
+      ${RELEASES.map(r => releaseBlock(r, "v", "v")).join("\n      ")}
+
+      <div class="track-head" id="knub"><h2>Knub framework</h2><span>${KNUB_RELEASES.length} releases</span></div>
+      ${KNUB_RELEASES.map(r => releaseBlock(r, "knub-v", "Knub ")).join("\n      ")}
+
+      ${endNote(cfg, `Currently on v${escapeHtml(cfg.version)}.`)}
     </div>
   </div>
-</div>
-
-<section class="block" style="padding-top:0">
-  <div class="wrap">
-    <div class="cl-feed-bar">
-      <span style="color:var(--text-2);font-weight:500">Subscribe to release notifications via your preferred RSS/Atom reader.</span>
-      <a href="/changelog.xml" class="btn sm" style="gap:.45rem">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg>
-        <span>Atom Feed</span>
-      </a>
-    </div>
-
-    <div class="cl-filter-bar">
-      <div class="search">
-        <span class="icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
-        <label class="visually-hidden" for="cl-search">Search releases</label>
-        <input id="cl-search" type="search" placeholder="Search releases, features, bug fixes\u2026" autocomplete="off" spellcheck="false">
-      </div>
-      <div class="cl-filter-tabs" role="group" aria-label="Filter releases">
-        <button class="cl-tab" type="button" data-filter="all" aria-pressed="true">All <span class="cl-tab-count">${totalReleases}</span></button>
-        <button class="cl-tab" type="button" data-filter="bot" aria-pressed="false">\uD83E\uDD16 Bot <span class="cl-tab-count">${RELEASES.length}</span></button>
-        <button class="cl-tab" type="button" data-filter="knub" aria-pressed="false">\uD83E\uDDE9 Knub <span class="cl-tab-count">${KNUB_RELEASES.length}</span></button>
-      </div>
-    </div>
-
-    <div class="cl-layout">
-      <aside class="cl-sidebar" aria-label="Release navigation">
-        <div class="cl-sidebar-section" id="cl-sb-bot">
-          <div class="cl-sidebar-title">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="8" r="5"/><path d="M9 17H6a3 3 0 0 0-3 3M15 17h3a3 3 0 0 1 3 3"/></svg>
-            Bot Releases
-          </div>
-          ${botVersionPills}
-        </div>
-        <div class="cl-sidebar-divider"></div>
-        <div class="cl-sidebar-section" id="cl-sb-knub">
-          <div class="cl-sidebar-title">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-            Knub Framework
-          </div>
-          ${knubVersionPills}
-        </div>
-        <div class="cl-sidebar-divider"></div>
-        <div class="cl-sidebar-section">
-          <a href="/changelog.xml" class="cl-ver-pill" style="border-left:none;font-size:.8rem;color:var(--faint);gap:.35rem">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg>
-            Atom Feed
-          </a>
-        </div>
-      </aside>
-
-      <div class="cl-main">
-        <div id="cl-empty" class="cl-empty" hidden>
-          <strong>No matching releases found</strong>
-          Try a different search term or switch back to the All releases tab.
-        </div>
-
-        <div id="cl-section-bot">
-          <div class="cl-section-header">
-            <span class="cl-section-badge cl-section-badge--bot">\uD83E\uDD16 Bot Application</span>
-            <span class="cl-section-count">${RELEASES.length} release${RELEASES.length !== 1 ? "s" : ""}</span>
-          </div>
-          ${botCards}
-        </div>
-
-        <div id="cl-section-knub" style="margin-top:2rem">
-          <div class="cl-section-header">
-            <span class="cl-section-badge cl-section-badge--knub">\uD83E\uDDE9 Knub Framework</span>
-            <span class="cl-section-count">${KNUB_RELEASES.length} release${KNUB_RELEASES.length !== 1 ? "s" : ""}</span>
-          </div>
-          ${knubCards}
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="block">
-  <div class="wrap">
-    ${ctaBox(cfg, "Deploy Aegis to Your Server", "Add Aegis to your Discord server or explore the command reference to start configuring.")}
-  </div>
-</section>
-
-<script>
-(function(){
-  const tabs=document.querySelectorAll('.cl-tab');
-  const cards=document.querySelectorAll('.cl-card');
-  const searchInput=document.getElementById('cl-search');
-  const emptyState=document.getElementById('cl-empty');
-  const sbBot=document.getElementById('cl-sb-bot');
-  const sbKnub=document.getElementById('cl-sb-knub');
-  const secBot=document.getElementById('cl-section-bot');
-  const secKnub=document.getElementById('cl-section-knub');
-  let activeFilter='all';
-  let searchTerm='';
-
-  function applyFilters(){
-    let anyVisible=false;
-    if(activeFilter==='all'){secBot.hidden=false;secKnub.hidden=false;sbBot.style.display='';sbKnub.style.display='';}
-    else if(activeFilter==='bot'){secBot.hidden=false;secKnub.hidden=true;sbBot.style.display='';sbKnub.style.display='none';}
-    else{secBot.hidden=true;secKnub.hidden=false;sbBot.style.display='none';sbKnub.style.display='';}
-    cards.forEach(function(card){
-      const track=card.dataset.track;
-      const inTrack=activeFilter==='all'||activeFilter===track;
-      const inSearch=!searchTerm||(card.dataset.search||'').includes(searchTerm);
-      const visible=inTrack&&inSearch;
-      card.hidden=!visible;
-      if(visible)anyVisible=true;
-    });
-    emptyState.hidden=anyVisible;
-  }
-
-  tabs.forEach(function(tab){
-    tab.addEventListener('click',function(){
-      tabs.forEach(function(t){t.setAttribute('aria-pressed','false');});
-      tab.setAttribute('aria-pressed','true');
-      activeFilter=tab.dataset.filter;
-      applyFilters();
-    });
-  });
-
-  if(searchInput){
-    searchInput.addEventListener('input',function(){
-      searchTerm=searchInput.value.toLowerCase().trim();
-      applyFilters();
-    });
-  }
-
-  document.querySelectorAll('[data-copy-md]').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      const text=btn.getAttribute('data-copy-md');
-      if(text&&navigator.clipboard){
-        navigator.clipboard.writeText(text).then(function(){
-          const label=btn.querySelector('span');
-          if(label){
-            const old=label.textContent;
-            label.textContent='Copied!';
-            setTimeout(function(){label.textContent=old;},1800);
-          }
-        });
-      }
-    });
-  });
-
-  if('IntersectionObserver' in window){
-    const observer=new IntersectionObserver(function(entries){
-      entries.forEach(function(entry){
-        if(entry.isIntersecting){
-          const id=entry.target.id;
-          document.querySelectorAll('.cl-ver-pill').forEach(function(p){p.classList.remove('active');});
-          const link=document.querySelector('.cl-ver-pill[href="#'+id+'"]');
-          if(link)link.classList.add('active');
-        }
-      });
-    },{rootMargin:'-20% 0px -70% 0px'});
-    document.querySelectorAll('.cl-card').forEach(function(card){observer.observe(card);});
-  }
-})();
-</script>`;
+</div>`;
 
   return page(cfg, {
-    title: "Changelog \u2014 Aegis Discord Bot",
-    description: "Release history and detailed feature changelog for the Aegis Discord bot and the Knub modular TypeScript framework.",
+    title: "Changelog | Aegis",
+    description: "Release history for the Aegis Discord bot and the Knub plugin framework.",
     path: "/changelog",
     body,
     headExtra: jsonLd({
@@ -2718,309 +1306,84 @@ export function renderChangelog(cfg: SiteConfig): string {
 export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, startedAt: number): string {
   const st = statusWord(stats.ping, online);
   const good = st.cls === "ok";
-  const pingBar = Math.min(100, Math.round((stats.ping / 500) * 100));
-  const pingClass = good ? "" : st.cls === "danger" ? "bad" : "warn";
   const startedDate = new Date(startedAt);
-  const startedISO  = startedDate.toISOString();
-  const startedFmt  = startedDate.toLocaleString("en-US", {
+  const startedISO = startedDate.toISOString();
+  const startedFmt = startedDate.toLocaleString("en-US", {
     month: "short", day: "numeric", year: "numeric",
-    hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+    hour: "2-digit", minute: "2-digit", timeZone: "UTC", timeZoneName: "short",
   });
+
+  const tier = (min: number, max: number) => online && stats.ping > 0 && stats.ping >= min && stats.ping < max;
+  const tiers: [string, string, boolean][] = [
+    ["Operational", "under 150 ms", tier(0, 150)],
+    ["Degraded", "150 to 350 ms", tier(150, 350)],
+    ["Unstable", "350 ms or more", tier(350, Infinity)],
+    ["Connecting", "no heartbeat yet", online && stats.ping === 0],
+    ["Offline", "not connected to Discord", !online],
+  ];
 
   const body = `
 <div class="wrap">
-  <nav class="breadcrumbs" aria-label="Breadcrumb">
-    <a href="/">Home</a><span class="sep">/</span><span>Service Status</span>
-  </nav>
-  <div class="page-head" style="text-align:center">
-    <span class="eyebrow">Real-Time Cluster Telemetry</span>
-    <h1 style="margin-top:.4rem">System Status &amp; Telemetry</h1>
-    <p class="lead" style="max-width:640px;margin:.65rem auto 0">Live telemetry, gateway round-trip latency, subsystem operational states, and machine-readable health probes across the Aegis cluster.</p>
+  ${breadcrumb("Status")}
+  <div class="page-head">
+    <h1>Status</h1>
+    <p class="lead">Read live from the running bot when the page loads, then every 30 seconds.</p>
   </div>
-</div>
 
-<section class="block tight" style="padding-top:0">
-  <div class="wrap">
-
-    <!-- Status Hero Card -->
-    <div class="status-hero-card ${good ? "" : "bad"}" data-status-banner>
-      <div class="status-hero-left">
-        <div class="status-orb-container" aria-hidden="true">
-          <div class="status-orb-ring"></div>
-          <div class="status-orb-core" data-status-dot></div>
-        </div>
-        <div>
-          <h2 data-status-title style="font-size:1.6rem;margin:0 0 .3rem">${good ? "All Systems Operational" : escapeHtml(st.label)}</h2>
-          <p data-status-description style="color:var(--muted);margin:0;font-size:.95rem">${good
-            ? "Aegis cluster is connected to Discord gateway and processing events normally."
-            : "Aegis may be experiencing degraded latency or gateway reconnections."}</p>
-          <div style="display:flex;align-items:center;gap:.5rem;margin-top:.6rem">
-            <span style="font-size:.84rem;color:var(--faint)">Gateway ping:</span>
-            <strong style="color:var(--text);font-family:var(--mono)" data-live="ping" data-suffix=" ms">${stats.ping} ms</strong>
-            <div class="status-ping-waveform" aria-hidden="true">
-              <span></span><span></span><span></span><span></span><span></span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
-        <button class="btn sm" type="button" data-status-refresh-btn aria-label="Refresh status metrics" style="gap:.45rem">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
-          <span>Refresh</span>
-        </button>
-        <span class="pill ${good ? "ok" : "danger"}" data-status-label style="font-weight:700">${escapeHtml(st.label)}</span>
-        <span class="pill primary" style="font-size:0.75rem;font-family:var(--mono)">v${escapeHtml(cfg.version)}</span>
-      </div>
-    </div>
-
-    <!-- Authentic Runtime Environment Matrix -->
-    <div class="card" style="padding:1.5rem 1.75rem;margin-bottom:2.75rem;border-color:var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:1.25rem;border-bottom:1px solid var(--border);padding-bottom:1rem">
-        <div>
-          <div style="font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:.5rem">
-            <span>Cluster Runtime Specifications</span>
-            <span class="pill ok" style="font-size:.7rem">Active Process</span>
-          </div>
-          <div class="faint" style="font-size:0.8rem;margin-top:.2rem">Deterministic environment parameters &bull; zero fabricated metrics</div>
-        </div>
-        <div style="font-family:var(--mono);font-size:.82rem;color:var(--muted)">PID: ${process.pid} &bull; Node ${process.version}</div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem">
-        <div>
-          <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin-bottom:.25rem">Gateway Shard</div>
-          <div style="font-weight:600;font-size:.95rem;font-family:var(--mono)">Shard 0 (Primary)</div>
-          <div style="font-size:.78rem;color:var(--muted);margin-top:.15rem">WebSocket state: ${online ? "READY" : "DISCONNECTED"}</div>
-        </div>
-        <div>
-          <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin-bottom:.25rem">Process Boot Time</div>
-          <div style="font-weight:600;font-size:.95rem;font-family:var(--mono)"><time datetime="${startedISO}">${escapeHtml(startedFmt)}</time></div>
-          <div style="font-size:.78rem;color:var(--muted);margin-top:.15rem">Uptime: <span data-uptime-from="${stats.uptime}">${fmtUptime(stats.uptime)}</span></div>
-        </div>
-        <div>
-          <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin-bottom:.25rem">Architecture &amp; OS</div>
-          <div style="font-weight:600;font-size:.95rem;font-family:var(--mono)">${process.platform}-${process.arch}</div>
-          <div style="font-size:.78rem;color:var(--muted);margin-top:.15rem">V8 engine execution tier</div>
-        </div>
-        <div>
-          <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin-bottom:.25rem">Framework Stack</div>
-          <div style="font-weight:600;font-size:.95rem;font-family:var(--mono)">Discord.js v14 &bull; Knub v1.1</div>
-          <div style="font-size:.78rem;color:var(--muted);margin-top:.15rem">9 modular isolation plugins</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Live Telemetry Metric Grid -->
-    <div class="status-section-head" style="margin-bottom:1rem">
-      <span class="status-section-title">Live Telemetry Metrics</span>
-    </div>
-    <div class="metric-grid" style="margin-bottom:2.75rem">
-      <div class="metric">
-        <div class="label">Gateway latency</div>
-        <div class="value ${good ? "good" : "warn"}" data-live="ping" data-suffix=" ms">${stats.ping} ms</div>
-        <div class="sub">Round trip to Discord WebSocket</div>
-      </div>
-      <div class="metric">
-        <div class="label">System Uptime</div>
-        <div class="value" data-uptime-from="${stats.uptime}">${fmtUptime(stats.uptime)}</div>
-        <div class="sub">Continuous process runtime</div>
-      </div>
-      <div class="metric">
-        <div class="label">Connected Guilds</div>
-        <div class="value" data-live="guilds">${stats.guilds.toLocaleString()}</div>
-        <div class="sub">Active Discord servers</div>
-      </div>
-      <div class="metric">
-        <div class="label">Cached Users</div>
-        <div class="value" data-live="users">${stats.users.toLocaleString()}</div>
-        <div class="sub">Members in client guild cache</div>
-      </div>
-      <div class="metric">
-        <div class="label">Command Catalog</div>
-        <div class="value" data-live="commands">${stats.commands}</div>
-        <div class="sub">Registered application commands</div>
-      </div>
-      <div class="metric">
-        <div class="label">Knub Modular Plugins</div>
-        <div class="value" data-live="plugins">9</div>
-        <div class="sub">Domain plugins with TTL cache</div>
-      </div>
-    </div>
-
-    <!-- Subsystems Grid -->
-    <div class="status-section-head" style="margin-bottom:1rem">
-      <span class="status-section-title">Core Subsystems Health</span>
-    </div>
-    <div class="subsystem-grid">
-      <div class="subsystem-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <strong style="font-size:1.05rem;display:block">Discord Gateway</strong>
-            <span style="font-size:.84rem;color:var(--muted)">WebSocket shard connection &amp; dispatch</span>
-          </div>
-          <span class="pill ${good ? "ok" : "warn"}">${good ? "Operational" : escapeHtml(st.label)}</span>
-        </div>
-        <div class="component-row" style="margin:0;padding:0;background:transparent;border:none">
-          <span class="bar ${pingClass}"><i style="width:${100 - pingBar}%"></i></span>
-        </div>
-        <div style="font-size:.78rem;color:var(--faint);display:flex;justify-content:space-between">
-          <span>Heartbeat ACK: healthy</span>
-          <span>${stats.ping}ms ping</span>
-        </div>
-      </div>
-
-      <div class="subsystem-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <strong style="font-size:1.05rem;display:block">Knub Plugin Core</strong>
-            <span style="font-size:.84rem;color:var(--muted)">v1.1.0 engine with 30s sliding TTL</span>
-          </div>
-          <span class="pill ok">Operational</span>
-        </div>
-        <div class="component-row" style="margin:0;padding:0;background:transparent;border:none">
-          <span class="bar"><i style="width:100%"></i></span>
-        </div>
-        <div style="font-size:.78rem;color:var(--faint);display:flex;justify-content:space-between">
-          <span>9 active domain plugins</span>
-          <span>Zero memory leaks</span>
-        </div>
-      </div>
-
-      <div class="subsystem-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <strong style="font-size:1.05rem;display:block">Command Dispatcher</strong>
-            <span style="font-size:.84rem;color:var(--muted)">Pre-filter guards &amp; cooldown hooks</span>
-          </div>
-          <span class="pill ${stats.commands > 0 ? "ok" : "danger"}">${stats.commands > 0 ? "Operational" : "Failed"}</span>
-        </div>
-        <div class="component-row" style="margin:0;padding:0;background:transparent;border:none">
-          <span class="bar"><i style="width:${stats.commands > 0 ? 100 : 0}%"></i></span>
-        </div>
-        <div style="font-size:.78rem;color:var(--faint);display:flex;justify-content:space-between">
-          <span>${stats.commands} slash commands</span>
-          <span>Sync OK</span>
-        </div>
-      </div>
-
-      <div class="subsystem-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <strong style="font-size:1.05rem;display:block">Ghost Watch Set Cache</strong>
-            <span style="font-size:.84rem;color:var(--muted)">In-memory O(1) guild surveillance set</span>
-          </div>
-          <span class="pill ok">Operational</span>
-        </div>
-        <div class="component-row" style="margin:0;padding:0;background:transparent;border:none">
-          <span class="bar"><i style="width:100%"></i></span>
-        </div>
-        <div style="font-size:.78rem;color:var(--faint);display:flex;justify-content:space-between">
-          <span>Zero DB latency on join/leave</span>
-          <span>Staff DM alerts</span>
-        </div>
-      </div>
-
-      <div class="subsystem-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <strong style="font-size:1.05rem;display:block">MongoDB Datastore</strong>
-            <span style="font-size:.84rem;color:var(--muted)">Persistent cases, configs, and appeals</span>
-          </div>
-          <span class="pill ok">Operational</span>
-        </div>
-        <div class="component-row" style="margin:0;padding:0;background:transparent;border:none">
-          <span class="bar"><i style="width:100%"></i></span>
-        </div>
-        <div style="font-size:.78rem;color:var(--faint);display:flex;justify-content:space-between">
-          <span>Mongoose pool active</span>
-          <span>Indexed collections</span>
-        </div>
-      </div>
-
-      <div class="subsystem-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <strong style="font-size:1.05rem;display:block">Public Web Portal</strong>
-            <span style="font-size:.84rem;color:var(--muted)">Express server &amp; dynamic routing</span>
-          </div>
-          <span class="pill ok">Operational</span>
-        </div>
-        <div class="component-row" style="margin:0;padding:0;background:transparent;border:none">
-          <span class="bar"><i style="width:100%"></i></span>
-        </div>
-        <div style="font-size:.78rem;color:var(--faint);display:flex;justify-content:space-between">
-          <span>Gzip compression</span>
-          <span>Strict CSP enabled</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Latency Tiers -->
-    <div class="status-section-head" style="margin-bottom:1rem">
-      <span class="status-section-title">Latency Status Tiers</span>
-    </div>
-    <div class="sla-tier-grid" style="margin-bottom:2.75rem">
-      <div class="sla-tier ${stats.ping < 100 && online ? "active" : ""}">
-        <span class="sla-dot ok"></span>
-        <div><div class="sla-label">Optimal</div><div class="sla-range">&lt; 100 ms</div></div>
-      </div>
-      <div class="sla-tier ${stats.ping >= 100 && stats.ping < 200 && online ? "active" : ""}">
-        <span class="sla-dot ok"></span>
-        <div><div class="sla-label">Normal</div><div class="sla-range">100 &ndash; 200 ms</div></div>
-      </div>
-      <div class="sla-tier ${stats.ping >= 200 && stats.ping < 350 && online ? "active" : ""}">
-        <span class="sla-dot warn"></span>
-        <div><div class="sla-label">Elevated</div><div class="sla-range">200 &ndash; 350 ms</div></div>
-      </div>
-      <div class="sla-tier ${stats.ping >= 350 && online ? "active" : ""}">
-        <span class="sla-dot bad"></span>
-        <div><div class="sla-label">Degraded</div><div class="sla-range">&gt; 350 ms</div></div>
-      </div>
-      <div class="sla-tier ${!online ? "active" : ""}">
-        <span class="sla-dot bad"></span>
-        <div><div class="sla-label">Offline</div><div class="sla-range">No connection</div></div>
-      </div>
-    </div>
-
-    <!-- Machine-Readable Endpoints -->
-    <div class="status-section-head" style="margin-bottom:1rem">
-      <span class="status-section-title">Machine-Readable Health Endpoints</span>
-    </div>
-    <div class="endpoint-list" style="margin-bottom:2.75rem">
-      <a class="endpoint-item card" href="/health">
-        <code class="inline">/health</code>
-        <span class="faint">JSON &mdash; live cluster status, version, uptime, guild count, and gateway ping</span>
-      </a>
-      <a class="endpoint-item card" href="/api/stats">
-        <code class="inline">/api/stats</code>
-        <span class="faint">JSON &mdash; extended metrics including heap memory, subcommand count, Node version</span>
-      </a>
-      <a class="endpoint-item card" href="/api/plugins">
-        <code class="inline">/api/plugins</code>
-        <span class="faint">JSON &mdash; registered Knub framework plugins, event listeners, and interaction handlers</span>
-      </a>
-      <a class="endpoint-item card" href="/api/commands">
-        <code class="inline">/api/commands</code>
-        <span class="faint">JSON &mdash; full command catalog with options, subcommands, and permission bitfields</span>
-      </a>
-      <a class="endpoint-item card" href="/changelog.xml">
-        <code class="inline">/changelog.xml</code>
-        <span class="faint">Atom feed &mdash; subscribe for release updates in your RSS reader</span>
-      </a>
-    </div>
-
-    <div class="callout info">
-      <span class="callout-icon" aria-hidden="true">i</span>
-      <div>The Discord gateway and command registries are probed dynamically on every request. This dashboard automatically refreshes every 30 seconds via background telemetry polling.</div>
-    </div>
-
-    <p class="faint" style="margin-top:1.5rem">Process started <time datetime="${startedISO}">${escapeHtml(startedFmt)}</time>. <span data-status-refreshed>Live values refresh every 30 seconds.</span></p>
+  <div class="status-line${good ? "" : " bad"}" data-status-banner>
+    <span class="dot${good ? "" : " danger"}" data-status-dot aria-hidden="true"></span>
+    <h2 data-status-title>${good ? "Everything is running" : escapeHtml(st.label)}</h2>
+    <p data-status-description>${good
+      ? "Connected to Discord and answering commands."
+      : "Commands may be slow or failing. Numbers below are live."}</p>
+    <button class="btn ghost sm" type="button" data-status-refresh-btn>Check again</button>
   </div>
-</section>`;
+
+  <h2>Numbers</h2>
+  <div class="table-wrap">
+    <table class="metrics">
+      <tbody>
+        <tr><td>State</td><td data-status-state>${escapeHtml(st.label)}</td><td class="faint">Derived from gateway latency</td></tr>
+        <tr><td>Gateway latency</td><td class="${good ? "good" : "warn"}" data-live="ping" data-suffix=" ms">${stats.ping} ms</td><td class="faint">Discord WebSocket heartbeat round trip</td></tr>
+        <tr><td>Uptime</td><td data-uptime-from="${stats.uptime}">${fmtUptime(stats.uptime)}</td><td class="faint">Since <time datetime="${startedISO}">${escapeHtml(startedFmt)}</time></td></tr>
+        <tr><td>Servers</td><td data-live="guilds">${stats.guilds.toLocaleString()}</td><td class="faint">Servers the bot is in right now</td></tr>
+        <tr><td>Cached members</td><td data-live="users">${stats.users.toLocaleString()}</td><td class="faint">Sum of member counts across those servers</td></tr>
+        <tr><td>Commands</td><td data-live="commands">${stats.commands}</td><td class="faint">Registered slash commands</td></tr>
+        <tr><td>Version</td><td>v${escapeHtml(cfg.version)}</td><td class="faint"><a href="/changelog">Changelog</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>What the states mean</h2>
+  <div class="table-wrap">
+    <table class="metrics">
+      <thead><tr><th>State</th><th>Gateway latency</th></tr></thead>
+      <tbody>
+        ${tiers.map(([name, range, current]) => `<tr${current ? ` class="current"` : ""}><td>${name}${current ? ` <span class="tag">now</span>` : ""}</td><td>${range}</td></tr>`).join("\n        ")}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Endpoints</h2>
+  <p class="muted">For your own monitoring. All return JSON except the feed.</p>
+  <div class="table-wrap">
+    <table class="endpoints">
+      <tbody>
+        <tr><td><a href="/health"><code class="inline">/health</code></a></td><td>Up or down, version, uptime, server count, latency. Good for uptime checks.</td></tr>
+        <tr><td><a href="/api/stats"><code class="inline">/api/stats</code></a></td><td>The numbers on this page.</td></tr>
+        <tr><td><a href="/api/commands"><code class="inline">/api/commands</code></a></td><td>The command catalog with options and permissions.</td></tr>
+        <tr><td><a href="/api/plugins"><code class="inline">/api/plugins</code></a></td><td>Registered Knub plugins.</td></tr>
+        <tr><td><a href="/changelog.xml"><code class="inline">/changelog.xml</code></a></td><td>Atom feed of releases.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="faint"><span data-status-refreshed>Values refresh every 30 seconds while this tab is open.</span></p>
+</div>`;
 
   return page(cfg, {
-    title: "Status — Aegis",
-    description: "Live service status, gateway latency, uptime, and system health metrics for the Aegis Discord bot.",
+    title: "Status | Aegis",
+    description: "Live status for the Aegis Discord bot: gateway latency, uptime and health endpoints.",
     path: "/status",
     body,
   });
@@ -3038,17 +1401,15 @@ export function renderTerms(cfg: SiteConfig): string {
 
   const body = `
 <div class="wrap">
-  <nav class="breadcrumbs" aria-label="Breadcrumb">
-    <a href="/">Home</a><span class="sep">/</span><span>Terms of Service</span>
-  </nav>
+  ${breadcrumb("Terms")}
   <div class="page-head">
     <h1>Terms of Service</h1>
     <p class="lead">These terms govern your use of the Aegis Discord bot and this website. By adding Aegis to a server or using this site, you agree to them.</p>
-    <p class="faint" style="margin-top:0.75rem">Effective date: ${EFFECTIVE_DATE}</p>
+    <p class="faint">Effective ${EFFECTIVE_DATE}.</p>
   </div>
 </div>
 
-<section class="block tight">
+<section>
   <div class="wrap">
     <div class="legal">
       <h2 id="acceptance">1. Acceptance of terms</h2>
@@ -3116,7 +1477,7 @@ export function renderTerms(cfg: SiteConfig): string {
 </section>`;
 
   return page(cfg, {
-    title: "Terms of Service — Aegis",
+    title: "Terms of Service | Aegis",
     description: "Terms governing use of the Aegis Discord bot and this website.",
     path: "/terms",
     body,
@@ -3130,17 +1491,15 @@ export function renderPrivacy(cfg: SiteConfig): string {
 
   const body = `
 <div class="wrap">
-  <nav class="breadcrumbs" aria-label="Breadcrumb">
-    <a href="/">Home</a><span class="sep">/</span><span>Privacy Policy</span>
-  </nav>
+  ${breadcrumb("Privacy")}
   <div class="page-head">
     <h1>Privacy Policy</h1>
     <p class="lead">What Aegis collects, why it collects it, and what it never does with it.</p>
-    <p class="faint" style="margin-top:0.75rem">Effective date: ${EFFECTIVE_DATE}</p>
+    <p class="faint">Effective ${EFFECTIVE_DATE}.</p>
   </div>
 </div>
 
-<section class="block tight">
+<section>
   <div class="wrap">
     <div class="legal">
       <h2 id="summary">1. Summary</h2>
@@ -3237,7 +1596,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
 </section>`;
 
   return page(cfg, {
-    title: "Privacy Policy — Aegis",
+    title: "Privacy Policy | Aegis",
     description: "What data the Aegis Discord bot collects, how it is used, and how it is retained.",
     path: "/privacy",
     body,
@@ -3246,22 +1605,25 @@ export function renderPrivacy(cfg: SiteConfig): string {
 
 /* ── 404 ───────────────────────────────────────────────────────────── */
 
+/* ── 404 ───────────────────────────────────────────────────────────── */
+
 export function renderNotFound(cfg: SiteConfig): string {
   const body = `
 <div class="wrap">
-  <div class="page-head" style="text-align:center;padding:clamp(3rem,8vw,6rem) 0 3rem">
-    <h1>404</h1>
-    <p class="lead" style="margin-inline:auto">That page does not exist. Try the homepage, or look through the command reference.</p>
-    <div class="btn-row center" style="margin-top:2rem">
-      <a class="btn" href="/">Back to home</a>
-      <a class="btn ghost" href="/commands">Command reference</a>
-      <a class="btn ghost" href="/docs">Documentation</a>
-    </div>
+  <div class="page-head">
+    <p class="eyebrow">404</p>
+    <h1>Nothing here.</h1>
+    <p class="lead">The page may have moved. Try one of these:</p>
   </div>
+  <ul class="notes">
+    <li><a href="/commands">Commands</a>: every slash command and its options</li>
+    <li><a href="/docs">Docs</a>: setup and configuration</li>
+    <li><a href="/">Home</a></li>
+  </ul>
 </div>`;
 
   return page(cfg, {
-    title: "Page not found — Aegis",
+    title: "Page not found | Aegis",
     description: "The requested page could not be found.",
     path: "/404",
     body,
@@ -3270,7 +1632,7 @@ export function renderNotFound(cfg: SiteConfig): string {
   });
 }
 
-/* ── Redirect / Legacy Stubs ────────────────────────────────────────── */
+/* ── Legacy routes ─────────────────────────────────────────────────── */
 
 export function renderDashboard(cfg: SiteConfig, _stats?: Stats, _online?: boolean): string {
   return renderFeatures(cfg);

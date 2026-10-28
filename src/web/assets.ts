@@ -1,58 +1,21 @@
 export const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#5865F2"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
-    </linearGradient>
-  </defs>
-  <rect width="32" height="32" rx="8" fill="url(#g)"/>
-  <path d="M16 6.5 24.5 10v6.2c0 5.1-3.5 8.6-8.5 9.8-5-1.2-8.5-4.7-8.5-9.8V10L16 6.5Z" fill="#fff" fill-opacity="0.16"/>
-  <path d="M16 6.5 24.5 10v6.2c0 5.1-3.5 8.6-8.5 9.8-5-1.2-8.5-4.7-8.5-9.8V10L16 6.5Z" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/>
-  <text x="16" y="21.4" font-family="Outfit, Inter, sans-serif" font-size="12" font-weight="800" text-anchor="middle" fill="#fff">A</text>
+  <rect width="32" height="32" rx="4" fill="#1b1b19"/>
+  <path d="M16 6 24 9.2v6.3c0 4.9-3.3 8.3-8 9.5-4.7-1.2-8-4.6-8-9.5V9.2L16 6Z" fill="none" stroke="#5ec2a6" stroke-width="2" stroke-linejoin="round"/>
 </svg>`;
 
 export const ogImageSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#09090b"/>
-      <stop offset="100%" stop-color="#14142b"/>
-    </linearGradient>
-    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#5865F2"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.15" r="0.7">
-      <stop offset="0%" stop-color="#5865F2" stop-opacity="0.35"/>
-      <stop offset="100%" stop-color="#5865F2" stop-opacity="0"/>
-    </radialGradient>
-    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
-      <path d="M48 0H0v48" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>
-    </pattern>
-  </defs>
-
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <rect width="1200" height="630" fill="url(#grid)"/>
-  <rect width="1200" height="630" fill="url(#glow)"/>
-
-  <g transform="translate(96 92)">
-    <rect width="64" height="64" rx="18" fill="url(#brand)"/>
-    <text x="32" y="44" font-family="Outfit, Inter, sans-serif" font-size="34" font-weight="800" text-anchor="middle" fill="#fff">A</text>
-    <text x="84" y="46" font-family="Outfit, Inter, sans-serif" font-size="34" font-weight="700" fill="#f6f7fb">Aegis</text>
+  <rect width="1200" height="630" fill="#fbfaf8"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#17695a"/>
+  <g transform="translate(96 110)">
+    <rect width="56" height="56" rx="6" fill="#1b1b19"/>
+    <path d="M28 12 42 17.6v11c0 8.6-5.8 14.6-14 16.7-8.2-2.1-14-8.1-14-16.7v-11L28 12Z" fill="none" stroke="#5ec2a6" stroke-width="3" stroke-linejoin="round"/>
+    <text x="80" y="40" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="34" font-weight="600" fill="#1b1b19">Aegis</text>
   </g>
-
-  <text x="96" y="288" font-family="Outfit, Inter, sans-serif" font-size="72" font-weight="800" fill="#f6f7fb">Moderation that keeps up</text>
-  <text x="96" y="366" font-family="Outfit, Inter, sans-serif" font-size="72" font-weight="800" fill="#a5b4fc">with your community.</text>
-
-  <text x="96" y="428" font-family="Inter, sans-serif" font-size="27" fill="#98a1b8">Moderation &#183; Auto moderation &#183; Audit logging &#183; Automation</text>
-
-  <g transform="translate(96 486)">
-    <rect width="248" height="56" rx="12" fill="#5865F2"/>
-    <text x="124" y="36" font-family="Inter, sans-serif" font-size="21" font-weight="600" text-anchor="middle" fill="#ffffff">Add to Discord</text>
-    <text x="278" y="36" font-family="JetBrains Mono, monospace" font-size="21" fill="#6b7488">/help</text>
-  </g>
-
-  <g transform="translate(1000 500)">
-    <circle cx="0" cy="0" r="7" fill="#4ade80"/>
+  <text x="96" y="300" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="64" font-weight="600" fill="#1b1b19">A moderation bot for Discord.</text>
+  <text x="96" y="366" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="30" fill="#5d5c57">Cases, automod, appeals, tickets, logging. Set up with slash commands.</text>
+  <g transform="translate(96 450)">
+    <rect width="620" height="64" rx="6" fill="#313338"/>
+    <text x="24" y="41" font-family="IBM Plex Mono, Menlo, monospace" font-size="26" fill="#f2f3f5">/warn <tspan fill="#949ba4">user:</tspan>@spammer <tspan fill="#949ba4">reason:</tspan>invites</text>
   </g>
 </svg>`;
 
@@ -61,12 +24,12 @@ export const manifest = JSON.stringify(
     name: "Aegis — Discord Moderation Bot",
     short_name: "Aegis",
     description:
-      "A fast, modular Discord bot for moderation, auto moderation, logging, and community management.",
+      "A Discord moderation bot: cases, automod, appeals, tickets and logging, set up with slash commands.",
     start_url: "/",
     display: "standalone",
-    background_color: "#09090b",
-    theme_color: "#09090b",
-icons: [
+    background_color: "#fbfaf8",
+    theme_color: "#fbfaf8",
+    icons: [
       { src: "/assets/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
     ],
   },
@@ -74,5 +37,5 @@ icons: [
   2
 );
 
-export const themeInitScript = `(function(){var r=document.documentElement;r.classList.add("js");var t=null;try{t=localStorage.getItem("aegis-theme");}catch(e){}var valid={"light":1,"dark":1,"cyberpunk":1,"emerald":1,"gold":1};if(!valid[t]){t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";}r.setAttribute("data-theme",t);})();`;
+export const themeInitScript = `(function(){var r=document.documentElement;r.classList.add("js");var t=null;try{t=localStorage.getItem("aegis-theme");}catch(e){}r.setAttribute("data-theme",t==="dark"?"dark":"light");})();`;
 

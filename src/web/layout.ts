@@ -88,9 +88,8 @@ export function layout(o: LayoutOptions): string {
 <meta name="description" content="${description}">
 ${o.omitCanonical ? "" : `<link rel="canonical" href="${canonical}">`}
 ${o.noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="robots" content="index, follow">'}
-<meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#fbfbfd" media="(prefers-color-scheme: light)">
-<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#fbfaf8">
+<meta name="color-scheme" content="light dark">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Aegis">
@@ -110,7 +109,7 @@ ${ogImage ? `<meta name="twitter:image" content="${esc(ogImage)}">` : ""}
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/assets/site.css${v}">
 <script src="/assets/theme-init.js${v}"></script>
 ${o.headExtra || ""}
@@ -132,8 +131,9 @@ ${o.headExtra || ""}
       <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme">
         ${sunIcon}${moonIcon}
       </button>
-      <button class="icon-btn site-search-trigger" type="button" aria-label="Search the Aegis website and commands" aria-haspopup="dialog" aria-controls="site-search-dialog" title="Search (Ctrl K)">
+      <button class="icon-btn site-search-trigger" type="button" aria-label="Search pages and commands (Ctrl K)" aria-haspopup="dialog" aria-controls="site-search-dialog" title="Search (Ctrl K)">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <kbd>Ctrl K</kbd>
       </button>
       <a class="btn sm" href="${inviteUrl}">Add to Discord</a>
       <button class="icon-btn nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
@@ -152,10 +152,10 @@ ${o.headExtra || ""}
     </div>
     <div class="site-search-input-wrap">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-      <input id="site-search-input" type="search" autocomplete="off" placeholder="Search pages and slash commands…" aria-describedby="site-search-help">
+      <input id="site-search-input" type="search" autocomplete="off" placeholder="ban, automod, tickets…" aria-describedby="site-search-help">
       <kbd>Esc</kbd>
     </div>
-    <p class="site-search-help" id="site-search-help">Type at least two characters. Press Enter to open the first result.</p>
+    <p class="site-search-help" id="site-search-help">Two characters or more. Enter opens the first result.</p>
     <div class="site-search-results" id="site-search-results" role="listbox" aria-live="polite"></div>
   </section>
 </div>
@@ -174,10 +174,10 @@ ${o.body}
           <span class="brand-mark" aria-hidden="true">A</span>
           <span>Aegis</span>
         </a>
-        <p>A fast, modular Discord bot for moderation, auto moderation, logging, and community management.</p>
+        <p>A Discord moderation bot. Slash commands, no dashboard. Version ${esc(o.version)}.</p>
       </div>
       <div class="footer-col">
-        <h4>Product</h4>
+        <h4>Site</h4>
         <ul>
           <li><a href="/features">Features</a></li>
           <li><a href="/commands">Commands</a></li>
@@ -187,11 +187,11 @@ ${o.body}
         </ul>
       </div>
       <div class="footer-col">
-        <h4>Documentation</h4>
+        <h4>Docs</h4>
         <ul>
-          <li><a href="/docs">Getting started</a></li>
+          <li><a href="/docs#quickstart">Quickstart</a></li>
           <li><a href="/docs#configuration">Configuration</a></li>
-          <li><a href="/docs#automod">Auto moderation</a></li>
+          <li><a href="/docs#automod">Automod</a></li>
           <li><a href="/docs#logging">Logging</a></li>
           <li><a href="/docs#permissions">Permissions</a></li>
           <li><a href="/troubleshooting">Troubleshooting</a></li>
@@ -200,8 +200,8 @@ ${o.body}
       <div class="footer-col">
         <h4>Legal</h4>
         <ul>
-          <li><a href="/terms">Terms of Service</a></li>
-          <li><a href="/privacy">Privacy Policy</a></li>
+          <li><a href="/terms">Terms</a></li>
+          <li><a href="/privacy">Privacy</a></li>
           ${o.supportUrl ? `<li><a href="${supportUrl}" rel="noopener noreferrer">Support server</a></li>` : ""}
         </ul>
       </div>

@@ -1,7 +1,7 @@
 {
   "name": "aegisdeno",
   "version": "3.4.0",
-  "description": "Aegis - Elite Discord Moderation & Server Protection",
+  "description": "Aegis - Discord moderation bot",
   "main": "dist/main.js",
   "private": true,
   "scripts": {
