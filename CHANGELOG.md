@@ -7,6 +7,20 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Reliability
+- `/lock channel duration_minutes:` auto-unlocks and `/remindme` reminders are now stored in MongoDB through the existing scheduler and restored on startup, so a restart or deploy no longer leaves a channel locked or drops a reminder. Overdue auto-unlocks are always applied on boot, however late.
+- Timers longer than Node's ~24.8-day limit are re-armed in chunks. `/remindme` now accepts up to 365 days (was 24).
+- `/remindme` is now `/remindme set`, with new `/remindme list` and `/remindme cancel` (ID autocomplete). Up to 25 pending reminders per user.
+- `/automation list` and `/automation cancel` only show their own reminder and scheduled-message tasks.
+
+### Code quality
+- Replaced the deprecated `ephemeral: true` reply option with `flags: MessageFlags.Ephemeral` everywhere.
+- Added an `isSendableChannel()` type guard and removed the obvious `as any` channel casts; the giveaway scheduler now takes a typed `Client`.
+- Removed the leftover `fix.js` codemod and stopped tracking `server.md` (already in `.gitignore`).
+- Added unit tests (`node:test` via `tsx`) for duration parsing, timer chunking, trust score maths, escalation thresholds and the role hierarchy rule; `npm test` runs them first.
+- Added GitHub Actions CI (`.github/workflows/ci.yml`): `npm ci`, typecheck and tests on Node 22 for every push and pull request.
+- README intro rewritten in plain language and notes that the project is Node.js despite the AegisDeno name.
+
 ### Website
 - Redesigned every page of the public site (home, features, commands, docs, troubleshooting, changelog, status, privacy, terms, 404) with a plainer, docs-first look: light theme by default with an optional dark theme, one teal accent, IBM Plex Sans and Plex Mono, thin borders, small corners. Removed gradients, glow, emoji headings, icon tiles, the theme picker and the interactive "lab" demo.
 - Feature copy rewritten to be short and match the code. Trust score docs now describe the real formula (account age maxes at two years, server tenure at one year, tenure bonus of 6/12/20 points).
