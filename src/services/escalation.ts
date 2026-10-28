@@ -22,6 +22,15 @@ export function findEscalationThreshold(
 }
 
 /**
+ * Earliest creation time a warning may have and still count toward
+ * escalation, or null when warnings never expire.
+ */
+export function warningExpiryCutoff(warnExpiryDays: number | null | undefined, nowMs: number = Date.now()): Date | null {
+  if (!warnExpiryDays || warnExpiryDays < 1) return null;
+  return new Date(nowMs - warnExpiryDays * 86_400_000);
+}
+
+/**
  * After a warning is issued, check if any escalation thresholds are hit and
  * automatically apply the configured action (timeout / kick / ban).
  */
@@ -37,7 +46,12 @@ export async function checkEscalation(
       return { triggered: false };
     }
 
-    const totalWarnings = await getTotalWarningCount(guildId, userId);
+    // Only active warnings count: revoked ones never do, expired ones not once an expiry is set.
+    const totalWarnings = await getTotalWarningCount(
+      guildId,
+      userId,
+      warningExpiryCutoff(config.escalation.warnExpiryDays),
+    );
 
     const threshold = findEscalationThreshold(config.escalation.thresholds, totalWarnings);
 
@@ -53,7 +67,8 @@ export async function checkEscalation(
       // User may have left the guild
     }
 
-    const reason = `Automated escalation: reached ${totalWarnings} warning(s).`;
+    const expiryNote = config.escalation.warnExpiryDays ? ` in the last ${config.escalation.warnExpiryDays} day(s)` : "";
+    const reason = `Automated escalation: reached ${totalWarnings} active warning(s)${expiryNote}.`;
 
     if (threshold.action === "timeout" && member) {
       const durationMs = (threshold.durationMinutes ?? 60) * 60 * 1000;

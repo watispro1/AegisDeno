@@ -1,7 +1,7 @@
 import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
-import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
+import { MAX_WARN_EXPIRY_DAYS, getGuildConfig, updateGuildConfig } from "../../services/configuration";
 
 const ACTION_LABELS: Record<string, string> = { timeout: "Timeout", kick: "Kick", ban: "Ban" };
 
@@ -42,6 +42,12 @@ export const command: Command = {
     .addSubcommand(sub =>
       sub.setName("clear").setDescription("Remove all escalation thresholds.")
     )
+    .addSubcommand(sub =>
+      sub.setName("expiry").setDescription("Set how long warnings count toward thresholds.")
+        .addIntegerOption(opt =>
+          opt.setName("days").setDescription("Warnings older than this stop counting (0 = never expire)").setRequired(true).setMinValue(0).setMaxValue(MAX_WARN_EXPIRY_DAYS)
+        )
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   guildOnly: true,
@@ -69,6 +75,7 @@ export const command: Command = {
           .setTitle("⚡ Escalation Configuration")
           .addFields(
             { name: "Status", value: escalation.enabled ? "✅ Enabled" : "❌ Disabled", inline: true },
+            { name: "Warning expiry", value: escalation.warnExpiryDays ? `${escalation.warnExpiryDays} day(s)` : "Never", inline: true },
             { name: "Thresholds", value: lines.join("\n"), inline: false },
           );
         await interaction.editReply({ embeds: [embed] });
@@ -112,6 +119,18 @@ export const command: Command = {
         }
         await updateGuildConfig(guildId, { escalation: { ...escalation, thresholds: filtered } } as any);
         await interaction.editReply(`✅ Removed threshold at **${atWarnings}** warnings.`);
+        return;
+      }
+
+      if (sub === "expiry") {
+        const days = interaction.options.getInteger("days", true);
+        const warnExpiryDays = days > 0 ? days : null;
+        await updateGuildConfig(guildId, { escalation: { ...escalation, warnExpiryDays } });
+        await interaction.editReply(
+          warnExpiryDays
+            ? `✅ Warnings now stop counting toward escalation after **${warnExpiryDays} day(s)**. They stay on record until removed.`
+            : "✅ Warnings no longer expire for escalation; every active warning counts.",
+        );
         return;
       }
 

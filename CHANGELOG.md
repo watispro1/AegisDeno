@@ -7,6 +7,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Moderation
+- `/warn`, `/timeout`, `/ban`: the `reason` option now autocompletes presets (Spam, NSFW, Harassment, Advertising, Raiding, Other) and still accepts any text, with its casing kept. A new optional `proof` attachment is stored with the warning or case and shown in `/case view`.
+- `/warn`, `/timeout`, `/ban`: an Undo button stays on the confirmation for 5 minutes. Only staff with the matching permission (Moderate Members, or Ban Members for bans) can press it. Undo lifts the timeout or ban, or revokes the warning, and marks the case **revoked** instead of deleting it. Revoked warnings no longer count toward totals, escalation or the trust score. This replaces the 60-second Remove Timeout and Revoke Ban buttons, and Undo Warning no longer deletes the warning.
+- `/purge`: `keyword` now narrows any filter, and `user` combines with every filter. Links also match `discord.gg/` and `www.`. The command looks back through up to 1,000 messages, deletes up to 500 in batches of 100, leaves pinned messages alone, and reports how many it deleted and how many were skipped for being older than Discord's 14-day bulk-delete limit.
+- `/case user`: Prev/Next buttons page through up to 100 cases, 5 per page, and revoked cases and cases with proof are marked. `/case edit` also works on warning IDs and logs the old and new reason.
+- `/escalation expiry days:` sets how many days a warning counts toward thresholds (0 means warnings never expire). `/escalation status` shows the setting.
+- `/trustscore`: adds message activity, worth up to 10 points for message count (at 10, 50, 250 and 1,000 messages) plus 5 for being active in the last 7 days (2 for the last 30). The reply opens with a "Why" list, biggest factor first. Only active warnings, and timeout, kick or ban cases that were not undone, count against the score.
+- Message activity is tracked per member as a count and a last-active time, with no message content stored. Counts are kept in memory and written to MongoDB in one batch every 30 seconds, so the bot no longer reads and writes the database on every message.
+- `/lock category` locks every channel in a category, and `/lock unlock category:` reverses it. Timed unlocks still use the persistent scheduler, one task per channel. `/lock channel` and `/lock category` take an optional `message` to post in each locked channel.
+- `/watchlist add`: a new "First Message of the Day + Voice Joins" events choice, and an optional `alert_channel` that also posts alerts to a staff channel, with mentions turned off and one post per event.
+
 ### Reliability
 - `/lock channel duration_minutes:` auto-unlocks and `/remindme` reminders are now stored in MongoDB through the existing scheduler and restored on startup, so a restart or deploy no longer leaves a channel locked or drops a reminder. Overdue auto-unlocks are always applied on boot, however late.
 - Timers longer than Node's ~24.8-day limit are re-armed in chunks. `/remindme` now accepts up to 365 days (was 24).
