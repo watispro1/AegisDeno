@@ -11,11 +11,12 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { addWarning, getWarningsForUser, removeWarning } from "../../services/warnings";
+import { addWarning, getWarningsForUser, revokeWarning } from "../../services/warnings";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
 import { checkEscalation } from "../../services/escalation";
-import { handleReasonAutocomplete } from "../../utils/moderationPresets";
+import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
+import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
 
 const SEVERITY_CONFIG: Record<string, { color: number; label: string; emoji: string }> = {
   low:    { color: 0xFEE75C, label: "Low",    emoji: "🟡" },
@@ -44,7 +45,7 @@ export const command: Command = {
         )
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for warning (preset or custom)").setAutocomplete(true).setRequired(false).setMaxLength(512)
+      opt.setName("reason").setDescription("Reason: pick a preset or type your own").setAutocomplete(true).setRequired(false).setMaxLength(512)
     )
     .addAttachmentOption(opt =>
       opt.setName("proof").setDescription("Optional screenshot or proof attachment").setRequired(false)
@@ -68,6 +69,8 @@ export const command: Command = {
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ModerateMembers],
 
+  autocomplete: handleReasonAutocomplete,
+
   execute: async (interaction: ChatInputCommandInteraction) => {
     const target       = interaction.options.getUser("user", true);
     const preset       = interaction.options.getString("preset");
@@ -84,7 +87,7 @@ export const command: Command = {
       });
     }
 
-    const reason = preset && customReason ? `[${preset}] ${customReason}` : (preset || customReason!);
+    const reason = combineReason(preset, customReason) ?? "No reason provided.";
 
     if (target.id === interaction.user.id) {
       return interaction.reply({ content: "❌ You cannot warn yourself.", flags: MessageFlags.Ephemeral });
@@ -108,7 +111,9 @@ export const command: Command = {
 
     await interaction.deferReply();
     try {
-      const warning = await addWarning(guildId, target.id, interaction.user.id, reason);
+      const warning = await addWarning(guildId, target.id, interaction.user.id, reason, proof?.url ?? null);
+      const warnId = String(warning._id);
+      const issuedAt = Date.now();
       const warnings = await getWarningsForUser(guildId, target.id);
       const totalWarnings = warnings.length;
       const sev = SEVERITY_CONFIG[severity] ?? SEVERITY_CONFIG.low;
@@ -123,8 +128,9 @@ export const command: Command = {
           { name: "⚖️ Severity",       value: `${sev.emoji} ${sev.label}`, inline: true },
           { name: "🛡️ Moderator",     value: `${interaction.user.tag}`, inline: true },
           { name: "📊 Total Warnings", value: `**${totalWarnings}** warning(s) on record`, inline: true },
+          ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
         )
-        .setFooter({ text: `Warning ID: ${String((warning as any)._id)}` })
+        .setFooter({ text: `Warning ID: ${warnId}` })
         .setTimestamp();
 
       const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -133,11 +139,7 @@ export const command: Command = {
           .setLabel("Warning History")
           .setStyle(ButtonStyle.Secondary)
           .setEmoji("📜"),
-        new ButtonBuilder()
-          .setCustomId(`warn_undo_${String((warning as any)._id)}`)
-          .setLabel("Undo Warning")
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji("↩️"),
+        buildUndoButton(`warn_undo_${warnId}`),
         new ButtonBuilder()
           .setCustomId(`warn_timeout_${target.id}`)
           .setLabel("Timeout (10m)")
@@ -164,11 +166,14 @@ export const command: Command = {
 
       const collector = sent.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        time: 60_000,
-        filter: (i) => i.memberPermissions?.has(PermissionFlagsBits.ModerateMembers) === true,
+        time: UNDO_WINDOW_MS,
       });
 
       collector.on("collect", async (i) => {
+        if (!canPressUndo("warn", i.memberPermissions)) {
+          await i.reply({ content: "❌ Only moderators can use these buttons.", flags: MessageFlags.Ephemeral });
+          return;
+        }
         if (i.customId.startsWith("warn_hist_")) {
           const userWarns = await getWarningsForUser(guildId, target.id);
           if (userWarns.length === 0) {
@@ -181,20 +186,28 @@ export const command: Command = {
             await i.reply({ content: `📜 **Warning History for <@${target.id}> (${userWarns.length}):**\n${historyText}`, flags: MessageFlags.Ephemeral });
           }
         } else if (i.customId.startsWith("warn_undo_")) {
-          const warnId = i.customId.replace("warn_undo_", "");
+          if (!isUndoWindowOpen(issuedAt, Date.now())) {
+            await i.reply({ content: "⏱️ The 5-minute undo window has passed. Use `/clearwarnings` or `/infractions` instead.", flags: MessageFlags.Ephemeral });
+            return;
+          }
           const hierarchyOk = await isRoleHierarchyValid(interaction.client, guildId, i.user.id, target.id);
           if (!hierarchyOk) {
             await i.reply({ content: "❌ You cannot modify warnings for this user due to role hierarchy.", flags: MessageFlags.Ephemeral });
             return;
           }
-          const removed = await removeWarning(guildId, warnId);
-          if (removed) {
-            await i.reply({ content: `↩️ Warning \`${warnId}\` has been removed. Undone by <@${i.user.id}>.` });
-            // Disable the undo button after use
-            buttons.components[1].setDisabled(true).setLabel("Warn Undone");
+          const revoked = await revokeWarning(guildId, warnId, i.user.id);
+          if (revoked) {
+            await i.reply({ content: `↩️ Warning \`${warnId}\` was revoked by <@${i.user.id}>. It no longer counts toward totals or escalation.` });
+            buttons.components[1] = buildUndoButton(`warn_undo_${warnId}`, "done");
+            embed.setTitle(`↩️ Warning Revoked — ${sev.label} Severity`).setColor(0x95A5A6);
             await interaction.editReply({ embeds: [embed], components: [buttons] }).catch(() => null);
+            await sendGuildLog(interaction.client, guildId, {
+              title: "↩️ Warning Revoked",
+              color: 0x95A5A6,
+              description: `**User:** ${target.tag} (<@${target.id}>)\n**Warning ID:** \`${warnId}\`\n**Original reason:** ${reason}\n**Revoked by:** ${i.user.tag}`,
+            });
           } else {
-            await i.reply({ content: "❌ Could not find that warning — it may have already been removed.", flags: MessageFlags.Ephemeral });
+            await i.reply({ content: "❌ Could not find that warning — it may have already been revoked.", flags: MessageFlags.Ephemeral });
           }
         } else if (i.customId.startsWith("warn_timeout_")) {
           const hierarchyOk = await isRoleHierarchyValid(interaction.client, guildId, i.user.id, target.id);
@@ -221,7 +234,7 @@ export const command: Command = {
       await sendGuildLog(interaction.client, guildId, {
         title: `${sev.emoji} Warning Issued — ${sev.label}`,
         color: sev.color,
-        description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Severity:** ${sev.label}\n**Moderator:** ${interaction.user.tag}\n**Total Warnings:** ${totalWarnings}`,
+        description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Severity:** ${sev.label}\n**Moderator:** ${interaction.user.tag}\n**Total Warnings:** ${totalWarnings}${proof ? `\n**Proof:** ${proof.url}` : ""}`,
       });
 
       // Check escalation thresholds

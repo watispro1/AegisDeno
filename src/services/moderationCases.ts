@@ -21,6 +21,8 @@ export interface ModerationCase {
   action: ModerationAction;
   reason: string;
   details: string | null;
+  proofUrl?: string | null;
+  revoked?: boolean;
   createdAt: Date;
 }
 
@@ -31,11 +33,31 @@ export async function addModerationCase(input: {
   action: ModerationAction;
   reason: string;
   details?: string;
-}): Promise<void> {
+  proofUrl?: string | null;
+}): Promise<string | null> {
   try {
-    await ModerationCaseModel.create(input);
+    const doc = await ModerationCaseModel.create(input);
+    return String(doc._id);
   } catch (error) {
     logger.error(`Failed to record ${input.action} case for user ${input.userId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Mark a case revoked after its action was reversed (Undo button). The case is
+ * kept for the paper trail. Returns false if missing or already revoked.
+ */
+export async function revokeModerationCase(guildId: string, caseId: string, revokedBy: string): Promise<boolean> {
+  try {
+    const result = await ModerationCaseModel.findOneAndUpdate(
+      { _id: caseId, guildId, revoked: { $ne: true } },
+      { $set: { revoked: true, revokedBy, revokedAt: new Date() } },
+    );
+    return result !== null;
+  } catch (error) {
+    logger.error(`Failed to revoke case ${caseId} in guild ${guildId}:`, error);
+    return false;
   }
 }
 
@@ -86,6 +108,8 @@ export async function getModerationCases(
     action: "warn",
     reason: warning.reason,
     details: null,
+    proofUrl: warning.proofUrl ?? null,
+    revoked: warning.revoked === true,
     createdAt: warning.createdAt,
   }));
 

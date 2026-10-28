@@ -55,8 +55,15 @@ const WarningSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   moderatorId: { type: String, required: true },
   reason: { type: String, required: true },
+  proofUrl: { type: String, default: null },
+  // Set by the /warn Undo button. Revoked warnings are kept for the record but
+  // no longer count toward totals, escalation or the trust score.
+  revoked: { type: Boolean, default: false },
+  revokedBy: { type: String, default: null },
+  revokedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
+WarningSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 WarningSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const WarningModel = mongoose.model("Warning", WarningSchema);
 
@@ -68,6 +75,10 @@ const ModerationCaseSchema = new mongoose.Schema({
   reason: { type: String, required: true },
   details: { type: String, default: null },
   proofUrl: { type: String, default: null },
+  // Set when the action is reversed with the Undo button on /timeout or /ban.
+  revoked: { type: Boolean, default: false },
+  revokedBy: { type: String, default: null },
+  revokedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 ModerationCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
