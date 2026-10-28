@@ -16,7 +16,7 @@ test("brand-new account with no tenure scores 0 and is High Risk", () => {
 test("veteran clean member hits the 70-point maximum (25 + 25 + 20)", () => {
   const p = calculateTrustProfile({ accountCreatedAt: ago(1000), joinedAt: ago(800), warnings: 0, cases: 0, now: NOW });
   assert.deepEqual(p.breakdown, {
-    accountAge: 25, serverTenure: 25, warningPenalty: -0, casePenalty: -0, bonus: 20, total: 70,
+    accountAge: 25, serverTenure: 25, warningPenalty: -0, casePenalty: -0, bonus: 20, activity: 0, total: 70,
   });
   assert.equal(p.tier, "🔵 Established");
 });
