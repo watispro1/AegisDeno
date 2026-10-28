@@ -740,8 +740,6 @@ export function renderDocs(cfg: SiteConfig): string {
 /rolepanel create channel:#roles role1:@Events role2:@Updates
 /rolepanel create channel:#colors role1:@Red role2:@Blue style:Dropdown menu exclusive:true required_role:@Member`)}
       <p>Role panels use buttons or a dropdown menu. With <code>exclusive:true</code> a member can hold only one role from the panel, and <code>required_role</code> limits the panel to members who already have that role.</p>
-      <p><code>/welcome message</code> opens a form. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{server}</code>, <code>{member_count}</code>.</p>
-/rolepanel create channel:#roles role1:@Events role2:@Updates`)}
       <p>Suggestion posts have Approve, Deny and Consider buttons for staff with Manage Server. Each asks for an optional reason, and the author gets a DM when the status changes.</p>
       <p><code>/welcome message</code> opens a form and <code>/welcome preview</code> shows the result. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{server}</code>, <code>{count}</code> (<code>{member_count}</code> also works).</p>
 

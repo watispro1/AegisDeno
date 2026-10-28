@@ -9,6 +9,7 @@ const OVERDUE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
  * - channel_unlock: `/lock channel duration_minutes` auto-unlock (payload is JSON)
  * - ticket_autoclose: ticket inactivity check (payload is JSON, see ticketTranscript.ts)
  * - verify_kick: kick a member still unverified after the configured delay (payload is JSON)
+ * - poll_close: timed `/poll` auto-close (payload is JSON `{ messageId }`)
  */
 export type TaskType =
   | "reminder"
@@ -16,13 +17,11 @@ export type TaskType =
   | "personal_reminder"
   | "channel_unlock"
   | "ticket_autoclose"
-  | "verify_kick";
+  | "verify_kick"
+  | "poll_close";
 
 /** Restored on boot however overdue: each re-checks current state before acting. */
-const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick"];
- * - poll_close: timed `/poll` auto-close (payload is JSON `{ messageId }`)
- */
-export type TaskType = "reminder" | "scheduled" | "personal_reminder" | "channel_unlock" | "poll_close";
+const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick", "poll_close"];
 
 /** Task types managed through `/automation list|cancel`. */
 export const AUTOMATION_TASK_TYPES: readonly TaskType[] = ["reminder", "scheduled"];
@@ -161,15 +160,11 @@ export async function deleteTask(guildId: string, id: string): Promise<boolean> 
 
 export async function getAllPendingTasks(): Promise<ScheduledTask[]> {
   const cutoff = new Date(Date.now() - OVERDUE_RESTORE_WINDOW_MS);
-  // Auto-unlocks are always restored, however overdue: a channel must never stay
-  // locked forever just because the bot was down for more than a day. Ticket
-  // inactivity checks and verification kicks re-check state, so they are too.
-  const docs = await TaskModel.find({
-    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: [...ALWAYS_RESTORE_TYPES] } }],
   // Auto-unlocks and poll closes are always restored, however overdue: a channel
   // must never stay locked (or a poll open) forever because the bot was down a day.
+  // Ticket inactivity checks and verification kicks re-check state, so they are too.
   const docs = await TaskModel.find({
-    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: ["channel_unlock", "poll_close"] } }],
+    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: [...ALWAYS_RESTORE_TYPES] } }],
   })
     .select("guildId channelId creatorId type payload executeAt intervalMs createdAt")
     .sort({ executeAt: 1 })
