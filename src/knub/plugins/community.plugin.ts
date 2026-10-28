@@ -1,5 +1,5 @@
 import { definePlugin } from "../definePlugin";
-import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, MessageFlags } from "discord.js";
+import { EmbedBuilder, MessageFlags } from "discord.js";
 
 export interface CommunityPluginConfig {
   maxGiveawayDurationDays: number;
@@ -16,7 +16,7 @@ export const CommunityPlugin = definePlugin<CommunityPluginConfig>({
   },
   customIdHandlers: [
     {
-      pattern: /^giveaway_(?:enter|entrants)$/,
+      pattern: /^giveaway_(?:enter|entrants|reroll)$/,
       async handler(interaction) {
         if (!interaction.isButton()) return;
         const { handleGiveawayButton } = await import("../../commands/community/giveaway");
@@ -24,11 +24,26 @@ export const CommunityPlugin = definePlugin<CommunityPluginConfig>({
       },
     },
     {
+      pattern: /^poll_(?:vote_\d+|end|results)$/,
+      async handler(interaction) {
+        if (!interaction.isButton()) return;
+        const { handlePollButton } = await import("../../services/polls");
+        await handlePollButton(interaction);
+      },
+    },
+    {
       pattern: /^suggest_/,
       async handler(interaction) {
         if (!interaction.isButton()) return;
         const [, action, id] = interaction.customId.split("_");
-        if (!id || !interaction.guildId || !["up", "down", "info"].includes(action)) return;
+        if (!id || !interaction.guildId) return;
+
+        if (action === "approve" || action === "deny" || action === "consider") {
+          const { handleSuggestionReviewButton } = await import("../../commands/community/suggest");
+          await handleSuggestionReviewButton(interaction, action, id);
+          return;
+        }
+        if (!["up", "down", "info"].includes(action)) return;
 
         if (action === "info") {
           const { getSuggestion } = await import("../../services/suggestions");
@@ -38,7 +53,7 @@ export const CommunityPlugin = definePlugin<CommunityPluginConfig>({
             return;
           }
           await interaction.reply({
-            content: `**Suggestion details**\nStatus: **${suggestion.status}**\n👍 ${suggestion.upvotes.length} · 👎 ${suggestion.downvotes.length}\n\n${suggestion.content}`,
+            content: `**Suggestion details**\nStatus: **${suggestion.status}**\n👍 ${suggestion.upvotes.length} · 👎 ${suggestion.downvotes.length}${suggestion.reviewReason ? `\nStaff note: ${suggestion.reviewReason}` : ""}\n\n${suggestion.content}`,
             flags: MessageFlags.Ephemeral,
           }).catch(() => null);
           return;
@@ -54,29 +69,18 @@ export const CommunityPlugin = definePlugin<CommunityPluginConfig>({
         const oldEmbed = msg.embeds[0];
         if (!oldEmbed) return;
 
-        const newEmbed = EmbedBuilder.from(oldEmbed)
-          .spliceFields(1, 1, { name: "Votes", value: `👍 ${suggestion.upvotes.length} | 👎 ${suggestion.downvotes.length}`, inline: true });
-
-        const row = new ActionRowBuilder<ButtonBuilder>()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId(`suggest_up_${suggestion.id}`)
-              .setLabel(`Upvote (${suggestion.upvotes.length})`)
-              .setStyle(3)
-              .setEmoji("👍"),
-            new ButtonBuilder()
-              .setCustomId(`suggest_down_${suggestion.id}`)
-              .setLabel(`Downvote (${suggestion.downvotes.length})`)
-              .setStyle(4)
-              .setEmoji("👎"),
-            new ButtonBuilder()
-              .setCustomId(`suggest_info_${suggestion.id}`)
-              .setLabel("Details")
-              .setStyle(2)
-              .setEmoji("ℹ️"),
-          );
-
-        await msg.edit({ embeds: [newEmbed], components: [row] }).catch(() => null);
+        const { buildSuggestionComponents, suggestionVotesField } = await import("../../commands/community/suggest");
+        const newEmbed = EmbedBuilder.from(oldEmbed).spliceFields(1, 1, suggestionVotesField(suggestion));
+        await msg.edit({ embeds: [newEmbed], components: buildSuggestionComponents(suggestion) }).catch(() => null);
+      },
+    },
+    {
+      // Optional-reason modal opened by the Approve / Deny / Consider buttons.
+      pattern: /^suggestreview_(?:approve|deny|consider)_/,
+      async handler(interaction) {
+        if (!interaction.isModalSubmit()) return;
+        const { handleSuggestionReviewModal } = await import("../../commands/community/suggest");
+        await handleSuggestionReviewModal(interaction);
       },
     },
   ],

@@ -7,6 +7,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Community
+- `/giveaway start` takes `booster_multiplier` (1–10): server boosters get that many entries. Ended giveaways show a **Reroll** button for the host and anyone with Manage Server, and rerolls (button or `/giveaway reroll`) now skip people who already won.
+- `/poll` is now stored in MongoDB: buttons keep working after a restart, and timed polls close through the existing scheduler (overdue closes are applied on boot), freeze the poll and post a results message with a tie-aware winner and, unless anonymous, who voted for what. The poll creator can also end their own poll. `/poll` is now server-only and is posted as a normal channel message.
+- `/suggest` posts have **Approve**, **Deny** and **Consider** buttons for staff with Manage Server. Each opens an optional reason form, updates the status and colour, and DMs the author (closed DMs are ignored). The slash subcommands now DM the author too, and two moderators can no longer both finalise the same suggestion.
+- Starboard: the author's own star no longer counts toward the threshold or the shown total when self-starring is off; the first non-spoiler image is shown, other files are listed as links, and embed-only messages (bot posts, link previews) keep their text and image. An already-posted entry's count is kept in sync when stars are removed.
+- `/welcome`: new `{count}` placeholder (`{member_count}` still works); variables are filled in a single pass so names containing `{server}` are not re-expanded.
+- Unit tests for the weighted draw, poll tallies, suggestion review rules, starboard media selection and welcome templates.
 ### Moderation
 - `/warn`, `/timeout`, `/ban`: the `reason` option now autocompletes presets (Spam, NSFW, Harassment, Advertising, Raiding, Other) and still accepts any text, with its casing kept. A new optional `proof` attachment is stored with the warning or case and shown in `/case view`.
 - `/warn`, `/timeout`, `/ban`: an Undo button stays on the confirmation for 5 minutes. Only staff with the matching permission (Moderate Members, or Ban Members for bans) can press it. Undo lifts the timeout or ban, or revokes the warning, and marks the case **revoked** instead of deleting it. Revoked warnings no longer count toward totals, escalation or the trust score. This replaces the 60-second Remove Timeout and Revoke Ban buttons, and Undo Warning no longer deletes the warning.

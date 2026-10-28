@@ -111,6 +111,14 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       return;
     }
 
+    if (task.type === "poll_close") {
+      // Lazy import: polls.ts imports this module to arm its timers.
+      const { closePollFromTask } = await import("./polls");
+      await closePollFromTask(client, task);
+      retryCount.delete(taskId);
+      return;
+    }
+
     const channel = await client.channels.fetch(task.channelId).catch(() => null);
 
     if (!channel) {

@@ -17,7 +17,7 @@ import { isSendableChannel } from "../../utils/channels";
 import { sendGuildLog } from "../../services/logging";
 import { GiveawayModel } from "../../database/mongo";
 import { MAX_TIMEOUT_MS } from "../../services/timedActions";
-import { randomInt } from "node:crypto";
+import { pickWeightedWinners } from "../../services/communityLogic";
 
 const giveawayTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -39,14 +39,32 @@ function fmtDuration(seconds: number): string {
   return `${Math.floor(seconds / 86400)}d`;
 }
 
-async function pickWinners(entrants: string[], count: number): Promise<string[]> {
-  const shuffled = [...new Set(entrants)];
-  // Fisher-Yates avoids the biased `sort(() => Math.random() - .5)` pattern.
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = randomInt(i + 1);
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled.slice(0, Math.min(count, shuffled.length));
+interface DrawableGiveaway {
+  entrants?: string[] | null;
+  boosterEntrants?: string[] | null;
+  boosterMultiplier?: number | null;
+  winners?: string[] | null;
+  previousWinners?: string[] | null;
+}
+
+/** Draw winners, giving boosters their bonus tickets. `excludePast` is used on reroll. */
+function drawWinners(giveaway: DrawableGiveaway, count: number, excludePast = false): string[] {
+  return pickWeightedWinners(giveaway.entrants ?? [], count, {
+    boosterIds: giveaway.boosterEntrants ?? [],
+    multiplier: giveaway.boosterMultiplier ?? 1,
+    exclude: excludePast ? [...(giveaway.winners ?? []), ...(giveaway.previousWinners ?? [])] : [],
+  });
+}
+
+function rerollRow(disabled = false): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("giveaway_reroll")
+      .setLabel("Reroll")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("🔄")
+      .setDisabled(disabled),
+  );
 }
 
 function scheduleGiveawayEnd(client: Client, guildId: string, messageId: string, endsAt: Date): void {
@@ -80,6 +98,30 @@ export async function initGiveawayScheduler(client: Client): Promise<void> {
 export async function handleGiveawayButton(interaction: ButtonInteraction): Promise<void> {
   if (!interaction.guildId || !interaction.guild) return;
 
+  if (interaction.customId === "giveaway_reroll") {
+    const ended = await GiveawayModel.findOne({
+      guildId: interaction.guildId,
+      messageId: interaction.message.id,
+      ended: true,
+    }).lean();
+    if (!ended) {
+      await interaction.reply({ content: "❌ This giveaway is still running or no longer exists.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const canReroll = interaction.user.id === ended.hostId
+      || interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
+    if (!canReroll) {
+      await interaction.reply({ content: "❌ Only the host or a moderator with **Manage Server** can reroll.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const result = await rerollGiveaway(interaction.client, interaction.guildId, interaction.message.id, null, interaction.user.tag);
+    await interaction.editReply(result.ok
+      ? `✅ Rerolled! New winners: ${result.winners!.map(w => `<@${w}>`).join(", ") || "No eligible entrants left."}`
+      : `❌ ${result.error}`);
+    return;
+  }
+
   const giveaway = await GiveawayModel.findOne({
     guildId: interaction.guildId,
     messageId: interaction.message.id,
@@ -101,17 +143,25 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
 
   if (interaction.customId !== "giveaway_enter") return;
 
-  if (giveaway.requiredRoleId) {
-    const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-    if (!member?.roles.cache.has(giveaway.requiredRoleId)) {
-      await interaction.reply({ content: "❌ You do not have the required role for this giveaway.", flags: MessageFlags.Ephemeral });
-      return;
-    }
+  const multiplier = giveaway.boosterMultiplier ?? 1;
+  const needMember = Boolean(giveaway.requiredRoleId) || multiplier > 1;
+  const member = needMember
+    ? await interaction.guild.members.fetch(interaction.user.id).catch(() => null)
+    : null;
+
+  if (giveaway.requiredRoleId && !member?.roles.cache.has(giveaway.requiredRoleId)) {
+    await interaction.reply({ content: "❌ You do not have the required role for this giveaway.", flags: MessageFlags.Ephemeral });
+    return;
   }
 
+  const isBooster = multiplier > 1 && Boolean(member?.premiumSince);
   const updated = await GiveawayModel.findOneAndUpdate(
     { guildId: interaction.guildId, messageId: interaction.message.id, ended: false },
-    { $addToSet: { entrants: interaction.user.id } },
+    {
+      $addToSet: isBooster
+        ? { entrants: interaction.user.id, boosterEntrants: interaction.user.id }
+        : { entrants: interaction.user.id },
+    },
     { new: true },
   ).lean();
   if (!updated) {
@@ -123,7 +173,9 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
   await interaction.reply({
     content: alreadyEntered
       ? "ℹ️ You are already entered in this giveaway."
-      : "✅ You are entered! Good luck!",
+      : isBooster
+        ? `✅ You are entered with **${multiplier}×** entries as a server booster! Good luck!`
+        : "✅ You are entered! Good luck!",
     flags: MessageFlags.Ephemeral,
   });
 
@@ -165,6 +217,9 @@ export const command: Command = {
         )
         .addStringOption(opt =>
           opt.setName("description").setDescription("Extra description or instructions").setMaxLength(1024).setRequired(false)
+        )
+        .addIntegerOption(opt =>
+          opt.setName("booster_multiplier").setDescription("Entries each server booster gets (default 1 = no bonus)").setMinValue(1).setMaxValue(10).setRequired(false)
         )
     )
     .addSubcommand(sub =>
@@ -209,6 +264,7 @@ export const command: Command = {
       const reqRole     = interaction.options.getRole("required_role");
       const description = interaction.options.getString("description") ?? null;
       const targetChan  = interaction.options.getChannel("channel") ?? interaction.channel;
+      const boosterMult = interaction.options.getInteger("booster_multiplier") ?? 1;
 
       const durationSec = parseDuration(durationRaw);
       if (!durationSec || durationSec < 10) {
@@ -233,7 +289,9 @@ export const command: Command = {
         .setDescription(
           `${description ? `${description}\n\n` : ""}` +
           `Click **🎉 Enter Giveaway** below to participate!\n\n` +
-          `${reqRole ? `> ⚠️ **Required Role:** <@&${reqRole.id}>\n\n` : ""}` +
+          `${reqRole ? `> ⚠️ **Required Role:** <@&${reqRole.id}>\n` : ""}` +
+          `${boosterMult > 1 ? `> 🚀 **Server boosters** get **${boosterMult}×** entries\n` : ""}` +
+          `${reqRole || boosterMult > 1 ? "\n" : ""}` +
           `**Ends:** <t:${endsTs}:R> (<t:${endsTs}:f>)`
         )
         .addFields(
@@ -269,6 +327,7 @@ export const command: Command = {
         description,
         winnerCount,
         requiredRoleId: reqRole?.id ?? null,
+        boosterMultiplier: boosterMult,
         hostId: interaction.user.id,
         entrants: [],
         endsAt,
@@ -280,7 +339,7 @@ export const command: Command = {
       await sendGuildLog(interaction.client, guildId, {
         title: "🎉 Giveaway Started",
         color: 0xF1C40F,
-        description: `**Prize:** ${prize}\n**Duration:** ${fmtDuration(durationSec)}\n**Winners:** ${winnerCount}\n**Host:** ${interaction.user.tag}\n**Channel:** <#${targetChan.id}>`,
+        description: `**Prize:** ${prize}\n**Duration:** ${fmtDuration(durationSec)}\n**Winners:** ${winnerCount}\n${boosterMult > 1 ? `**Booster bonus:** ${boosterMult}×\n` : ""}**Host:** ${interaction.user.tag}\n**Channel:** <#${targetChan.id}>`,
       });
 
       // Auto-end after duration
@@ -308,47 +367,12 @@ export const command: Command = {
       const rerollCount = interaction.options.getInteger("winners") ?? null;
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const giveaway = await GiveawayModel.findOne({ guildId, messageId, ended: true }).lean();
-      if (!giveaway) {
-        await interaction.editReply("❌ No completed giveaway found with that message ID.");
+      const result = await rerollGiveaway(interaction.client, guildId, messageId, rerollCount, interaction.user.tag);
+      if (!result.ok) {
+        await interaction.editReply(`❌ ${result.error}`);
         return;
       }
-
-      const count = rerollCount ?? giveaway.winnerCount ?? 1;
-      const winners = await pickWinners(giveaway.entrants ?? [], count);
-
-      const channel = (interaction.client.channels.cache.get(giveaway.channelId)
-        ?? await interaction.client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;
-      if (channel) {
-        const winnerMentions = winners.length > 0
-          ? winners.map(w => `<@${w}>`).join(", ")
-          : "No eligible entrants.";
-        await channel.send({
-          content: `🎉 **Giveaway Rerolled!**\n\n🏆 New winner${winners.length !== 1 ? "s" : ""}: ${winnerMentions}\n\nPrize: **${giveaway.prize}**`,
-        });
-      }
-
-      // DM new winners
-      for (const winnerId of winners) {
-        const winner = interaction.client.users.cache.get(winnerId) ?? await interaction.client.users.fetch(winnerId).catch(() => null);
-        if (winner) {
-          await winner.send({
-            embeds: [new EmbedBuilder()
-              .setColor(0xF1C40F)
-              .setTitle("🎉 You've been rerolled as a Giveaway Winner!")
-              .addFields({ name: "🏆 Prize", value: giveaway.prize })
-              .setTimestamp()],
-          }).catch(() => null);
-        }
-      }
-
-      await sendGuildLog(interaction.client, guildId, {
-        title: "🔄 Giveaway Rerolled",
-        color: 0xF1C40F,
-        description: `**Prize:** ${giveaway.prize}\n**New Winners:** ${winners.map(w => `<@${w}>`).join(", ") || "None"}\n**Rerolled by:** ${interaction.user.tag}`,
-      });
-
-      await interaction.editReply(`✅ Rerolled! New winners: ${winners.map(w => `<@${w}>`).join(", ") || "No entrants to reroll."}`);
+      await interaction.editReply(`✅ Rerolled! New winners: ${result.winners!.map(w => `<@${w}>`).join(", ") || "No eligible entrants left."}`);
       return;
     }
 
@@ -387,7 +411,7 @@ async function endGiveaway(
   ).lean();
   if (!giveaway) return { ok: false, error: "No active giveaway found with that message ID." };
 
-  const winners = await pickWinners(giveaway.entrants ?? [], giveaway.winnerCount ?? 1);
+  const winners = drawWinners(giveaway, giveaway.winnerCount ?? 1);
 
   await GiveawayModel.updateOne({ guildId, messageId }, { $set: { winners } });
 
@@ -409,13 +433,13 @@ async function endGiveaway(
         { name: "🏆 Prize", value: giveaway.prize, inline: true },
         { name: "👤 Host",  value: `<@${giveaway.hostId}>`, inline: true },
       )
-      .setFooter({ text: "Use /giveaway reroll to pick new winners" })
+      .setFooter({ text: "The host or a moderator can press Reroll to pick new winners" })
       .setTimestamp();
 
     try {
       const msg = await channel.messages.fetch(messageId).catch(() => null);
       if (msg) {
-        await msg.edit({ embeds: [endedEmbed], components: [] });
+        await msg.edit({ embeds: [endedEmbed], components: [rerollRow()] });
       }
       await channel.send({
         content: `🎉 **Giveaway Ended!** Congratulations to ${winnerMentions}!\n\nPrize: **${giveaway.prize}**`,
@@ -442,6 +466,63 @@ async function endGiveaway(
       }
     }
   }
+
+  return { ok: true, winners };
+}
+
+// ─── Shared reroll logic ──────────────────────────────────────────────────────
+
+/**
+ * Pick new winners for an ended giveaway, skipping everyone who already won it.
+ * Used by `/giveaway reroll` and the Reroll button.
+ */
+export async function rerollGiveaway(
+  client: Client,
+  guildId: string,
+  messageId: string,
+  count: number | null,
+  rerolledBy: string,
+): Promise<{ ok: boolean; winners?: string[]; error?: string }> {
+  const giveaway = await GiveawayModel.findOne({ guildId, messageId, ended: true }).lean();
+  if (!giveaway) return { ok: false, error: "No completed giveaway found with that message ID." };
+
+  const winners = drawWinners(giveaway, count ?? giveaway.winnerCount ?? 1, true);
+  if (winners.length === 0) {
+    return { ok: false, error: "Every entrant has already won this giveaway; there is nobody new to draw." };
+  }
+
+  await GiveawayModel.updateOne(
+    { guildId, messageId },
+    { $set: { winners }, $addToSet: { previousWinners: { $each: giveaway.winners ?? [] } } },
+  );
+
+  const channel = (client.channels.cache.get(giveaway.channelId)
+    ?? await client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;
+  if (channel) {
+    const winnerMentions = winners.map(w => `<@${w}>`).join(", ");
+    await channel.send({
+      content: `🎉 **Giveaway Rerolled!**\n\n🏆 New winner${winners.length !== 1 ? "s" : ""}: ${winnerMentions}\n\nPrize: **${giveaway.prize}**`,
+    }).catch(err => logger.warn("Could not post giveaway reroll message", err));
+  }
+
+  for (const winnerId of winners) {
+    const winner = client.users.cache.get(winnerId) ?? await client.users.fetch(winnerId).catch(() => null);
+    if (winner) {
+      await winner.send({
+        embeds: [new EmbedBuilder()
+          .setColor(0xF1C40F)
+          .setTitle("🎉 You've been rerolled as a Giveaway Winner!")
+          .addFields({ name: "🏆 Prize", value: giveaway.prize })
+          .setTimestamp()],
+      }).catch(() => null);
+    }
+  }
+
+  await sendGuildLog(client, guildId, {
+    title: "🔄 Giveaway Rerolled",
+    color: 0xF1C40F,
+    description: `**Prize:** ${giveaway.prize}\n**New Winners:** ${winners.map(w => `<@${w}>`).join(", ")}\n**Rerolled by:** ${rerolledBy}`,
+  });
 
   return { ok: true, winners };
 }

@@ -143,6 +143,9 @@ const SuggestionSchema = new mongoose.Schema({
   status: { type: String, default: "pending" },
   upvotes: { type: [String], default: [] },
   downvotes: { type: [String], default: [] },
+  reviewedBy: { type: String, default: null },
+  reviewReason: { type: String, default: null },
+  reviewedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 export const SuggestionModel = mongoose.model("Suggestion", SuggestionSchema);
@@ -240,6 +243,11 @@ const GiveawaySchema = new mongoose.Schema({
   hostId:        { type: String, required: true },
   entrants:      { type: [String], default: [] },
   winners:       { type: [String], default: [] },
+  // Everyone who has won this giveaway before a reroll, so rerolls pick new people.
+  previousWinners: { type: [String], default: [] },
+  // Server boosters get `boosterMultiplier` tickets; boosting is checked when they enter.
+  boosterMultiplier: { type: Number, default: 1, min: 1, max: 10 },
+  boosterEntrants: { type: [String], default: [] },
   endsAt:        { type: Date, required: true },
   endedAt:       { type: Date, default: null },
   ended:         { type: Boolean, default: false },
@@ -247,6 +255,31 @@ const GiveawaySchema = new mongoose.Schema({
 });
 GiveawaySchema.index({ guildId: 1, ended: 1, endsAt: 1 });
 export const GiveawayModel = mongoose.model("Giveaway", GiveawaySchema);
+
+/**
+ * A /poll. Votes live here (not in memory) so buttons keep working and timed
+ * polls still close after a restart. `votes` maps user ID → picked option indices.
+ */
+const PollSchema = new mongoose.Schema({
+  guildId:      { type: String, required: true },
+  channelId:    { type: String, required: true },
+  messageId:    { type: String, required: true, unique: true },
+  creatorId:    { type: String, required: true },
+  creatorTag:   { type: String, default: "" },
+  question:     { type: String, required: true, maxlength: 300 },
+  options:      { type: [String], required: true },
+  multiselect:  { type: Boolean, default: false },
+  anonymous:    { type: Boolean, default: false },
+  imageUrl:     { type: String, default: null },
+  votes:        { type: mongoose.Schema.Types.Mixed, default: {} },
+  endsAt:       { type: Date, default: null },
+  closeTaskId:  { type: String, default: null },
+  ended:        { type: Boolean, default: false },
+  endedAt:      { type: Date, default: null },
+  createdAt:    { type: Date, default: Date.now },
+}, { minimize: false });
+PollSchema.index({ guildId: 1, ended: 1 });
+export const PollModel = mongoose.model("Poll", PollSchema);
 
 
 const PluginConfigSchema = new mongoose.Schema({

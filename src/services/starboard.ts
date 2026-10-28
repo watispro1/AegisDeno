@@ -18,6 +18,7 @@ import {
   StarboardConfigModel,
   StarboardEntryModel,
 } from "../database/mongo";
+import { effectiveStarCount, pickStarboardMedia } from "./communityLogic";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -123,16 +124,43 @@ export function buildStarboardEmbed(
       name: author.tag,
       iconURL: author.displayAvatarURL({ size: 64 }),
     })
-    .setDescription(message.content || null)
     .setTimestamp(message.createdAt)
     .setFooter({ text: `#${"name" in channel ? channel.name : "unknown"}  ·  ID: ${message.id}` });
 
-  // Attach the first image attachment or embed image, if any
-  const attachment = message.attachments.find((a) =>
-    /\.(png|jpg|jpeg|gif|webp)$/i.test(a.name ?? ""),
+  // Pick the image to show (first non-spoiler image attachment, else an embed
+  // image/thumbnail), list other files as links, and fall back to the source
+  // embed's text when the message itself has none (bot posts, link previews).
+  const media = pickStarboardMedia(
+    message.content,
+    [...message.attachments.values()].map((a) => ({
+      url: a.url,
+      name: a.name,
+      contentType: a.contentType,
+      spoiler: a.spoiler,
+    })),
+    message.embeds.map((e) => ({
+      title: e.title,
+      description: e.description,
+      url: e.url,
+      imageUrl: e.image?.url ?? null,
+      thumbnailUrl: e.thumbnail?.url ?? null,
+    })),
   );
-  if (attachment) embed.setImage(attachment.url);
-  else if (message.embeds[0]?.image?.url) embed.setImage(message.embeds[0].image.url);
+
+  const text = (message.content || media.fallbackText || "").slice(0, 4096);
+  if (text) embed.setDescription(text);
+  if (media.imageUrl) embed.setImage(media.imageUrl);
+  if (media.extraFiles.length) {
+    const links: string[] = [];
+    let used = 0;
+    for (const f of media.extraFiles) {
+      const line = `[${f.name.replace(/[[\]]/g, "")}](${f.url})`;
+      if (used + line.length + 1 > 1000) { links.push(`…and ${media.extraFiles.length - links.length} more`); break; }
+      links.push(line);
+      used += line.length + 1;
+    }
+    embed.addFields({ name: "📎 Attachments", value: links.join("\n"), inline: false });
+  }
 
   const content = `${emoji} **${starCount}** — <#${message.channelId}> [Jump to message](${message.url})`;
 
@@ -161,24 +189,22 @@ export async function handleStarReaction(
   const reaction = message.reactions.cache.find(
     (r) => r.emoji.name === config.emoji || r.emoji.toString() === config.emoji,
   );
-  const count = reaction ? reaction.count : 0;
+  const rawCount = reaction ? reaction.count : 0;
 
-  // Ignore self-stars if not allowed
+  // The author's own star never counts (toward the threshold or the shown
+  // total) unless self-starring is enabled.
+  let authorReacted = false;
   if (!config.selfStar && reaction) {
-    const reactors = await reaction.users.fetch();
-    const selfStarred = reactors.has(message.author.id);
-    const effectiveCount = selfStarred ? count - 1 : count;
-    if (effectiveCount < config.threshold) {
-      return;
-    }
-  } else if (count < config.threshold) {
-    return;
+    const reactors = await reaction.users.fetch().catch(() => null);
+    authorReacted = Boolean(reactors?.has(message.author.id));
   }
+  const count = effectiveStarCount(rawCount, authorReacted, config.selfStar);
 
   const existing = await getStarboardEntry(guildId, message.id);
+  if (!existing && count < config.threshold) return;
 
   if (existing) {
-    // Update the count on the already-posted embed
+    // Keep an already-posted entry's count accurate, even if it drops below the threshold.
     const starboardMsg = await starboardChannel.messages
       .fetch(existing.starboardMessageId)
       .catch(() => null);

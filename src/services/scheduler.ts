@@ -7,8 +7,9 @@ const OVERDUE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
  * - reminder / scheduled: `/automation` channel posts (payload is the message text)
  * - personal_reminder: `/remindme` DM reminders (payload is JSON, see timedActions.ts)
  * - channel_unlock: `/lock channel duration_minutes` auto-unlock (payload is JSON)
+ * - poll_close: timed `/poll` auto-close (payload is JSON `{ messageId }`)
  */
-export type TaskType = "reminder" | "scheduled" | "personal_reminder" | "channel_unlock";
+export type TaskType = "reminder" | "scheduled" | "personal_reminder" | "channel_unlock" | "poll_close";
 
 /** Task types managed through `/automation list|cancel`. */
 export const AUTOMATION_TASK_TYPES: readonly TaskType[] = ["reminder", "scheduled"];
@@ -135,10 +136,10 @@ export async function deleteTask(guildId: string, id: string): Promise<boolean> 
 
 export async function getAllPendingTasks(): Promise<ScheduledTask[]> {
   const cutoff = new Date(Date.now() - OVERDUE_RESTORE_WINDOW_MS);
-  // Auto-unlocks are always restored, however overdue: a channel must never stay
-  // locked forever just because the bot was down for more than a day.
+  // Auto-unlocks and poll closes are always restored, however overdue: a channel
+  // must never stay locked (or a poll open) forever because the bot was down a day.
   const docs = await TaskModel.find({
-    $or: [{ executeAt: { $gte: cutoff } }, { type: "channel_unlock" }],
+    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: ["channel_unlock", "poll_close"] } }],
   })
     .select("guildId channelId creatorId type payload executeAt intervalMs createdAt")
     .sort({ executeAt: 1 })
