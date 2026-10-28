@@ -15,11 +15,12 @@ import {
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { createRolePanel, getRolePanels, deleteRolePanel } from "../../services/rolePanelService";
+import { normalizePanelStyle } from "../../services/rolePanelLogic";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("rolepanel")
-    .setDescription("Interactive button-based reaction role panels.")
+    .setDescription("Self-assign role panels with buttons or a dropdown menu.")
     .setDMPermission(false)
     .addSubcommand(sub =>
       sub
@@ -29,6 +30,22 @@ export const command: Command = {
         .addRoleOption(opt => opt.setName("role1").setDescription("First role").setRequired(true))
         .addRoleOption(opt => opt.setName("role2").setDescription("Second role (optional)").setRequired(false))
         .addRoleOption(opt => opt.setName("role3").setDescription("Third role (optional)").setRequired(false))
+        .addStringOption(opt =>
+          opt
+            .setName("style")
+            .setDescription("How members pick roles (default: buttons)")
+            .setRequired(false)
+            .addChoices(
+              { name: "Buttons", value: "button" },
+              { name: "Dropdown menu", value: "dropdown" },
+            )
+        )
+        .addBooleanOption(opt =>
+          opt.setName("exclusive").setDescription("Members can hold only one role from this panel (default: off)").setRequired(false)
+        )
+        .addRoleOption(opt =>
+          opt.setName("required_role").setDescription("Only members with this role can use the panel (optional)").setRequired(false)
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -60,6 +77,19 @@ export const command: Command = {
       const role1 = interaction.options.getRole("role1", true);
       const role2 = interaction.options.getRole("role2");
       const role3 = interaction.options.getRole("role3");
+      const style = normalizePanelStyle(interaction.options.getString("style"));
+      const exclusive = interaction.options.getBoolean("exclusive") ?? false;
+      const requiredRole = interaction.options.getRole("required_role");
+
+      const picked = [role1, role2, role3].filter((r): r is NonNullable<typeof r> => Boolean(r));
+      if (new Set(picked.map(r => r.id)).size !== picked.length) {
+        await interaction.reply({ content: "❌ Each role can only appear once on a panel.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+      if (requiredRole && picked.some(r => r.id === requiredRole.id)) {
+        await interaction.reply({ content: "❌ The required role cannot also be one of the panel's roles.", flags: MessageFlags.Ephemeral });
+        return;
+      }
 
       const modal = new ModalBuilder()
         .setCustomId("rolepanel_create_modal")
@@ -154,7 +184,22 @@ export const command: Command = {
         rolesInput.push({ roleId: role3.id, label: label3 });
       }
 
-      const panel = await createRolePanel(interaction.guild, channel, title, description, rolesInput);
+      // Respect the roles plugin's per-guild max-roles setting.
+      const { knubManager } = await import("../../knub/KnubManager");
+      const rolesCfg = await knubManager
+        .getGuildPluginConfig<{ maxRolesPerPanel?: number }>(interaction.guild.id, "roles")
+        .catch(() => ({ maxRolesPerPanel: 25 }));
+      const maxRoles = Math.max(1, Number(rolesCfg.maxRolesPerPanel) || 25);
+      if (rolesInput.length > maxRoles) {
+        await modalResponse.editReply(`❌ This server allows at most ${maxRoles} role(s) per panel.`);
+        return;
+      }
+
+      const panel = await createRolePanel(interaction.guild, channel, title, description, rolesInput, {
+        style,
+        mode: exclusive ? "exclusive" : "multi",
+        requiredRoleId: requiredRole?.id ?? null,
+      });
 
       if (panel) {
         await modalResponse.editReply({
@@ -166,6 +211,9 @@ export const command: Command = {
               .addFields(
                 { name: "🆔 Panel ID", value: `\`${panel.id}\``, inline: true },
                 { name: "🔘 Roles", value: `${rolesInput.length}`, inline: true },
+                { name: "🎛️ Style", value: style === "dropdown" ? "Dropdown" : "Buttons", inline: true },
+                { name: "☝️ Pick only one", value: exclusive ? "Yes" : "No", inline: true },
+                { name: "🔒 Required role", value: requiredRole ? `<@&${requiredRole.id}>` : "None", inline: true },
               )
               .setTimestamp()
           ]
@@ -195,7 +243,14 @@ export const command: Command = {
         .setColor(0x9B59B6)
         .setDescription(
           panels
-            .map(p => `**ID:** \`${p.id}\`\n> **Title:** ${p.title}\n> **Location:** <#${p.channelId}>\n> **Roles:** ${p.roles.map(r => `<@&${r.roleId}>`).join(", ")}`)
+            .map(p => {
+              const extras = [
+                p.panelStyle === "dropdown" ? "Dropdown" : "Buttons",
+                p.mode === "exclusive" ? "pick one" : null,
+                p.requiredRoleId ? `requires <@&${p.requiredRoleId}>` : null,
+              ].filter(Boolean).join(" · ");
+              return `**ID:** \`${p.id}\`\n> **Title:** ${p.title}\n> **Location:** <#${p.channelId}>\n> **Roles:** ${p.roles.map(r => `<@&${r.roleId}>`).join(", ")}\n> **Style:** ${extras}`;
+            })
             .join("\n\n")
         )
         .setFooter({ text: `Total Panels: ${panels.length}` })

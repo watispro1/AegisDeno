@@ -23,24 +23,35 @@ export const RolesPlugin = definePlugin<RolesPluginConfig>({
         if (!match) return;
         const [, panelId, roleId] = match;
 
-        const { toggleRoleFromPanel } = await import("../../services/rolePanelService");
+        const { applyRolePanelPick, describePanelChange } = await import("../../services/rolePanelService");
         const member = await interaction.guild.members.fetch(interaction.user.id);
 
         try {
-          const res = await toggleRoleFromPanel(
-            interaction.guild,
-            member,
-            roleId,
-            panelId,
-            interaction.message.id,
-          );
-          await interaction.editReply({
-            content: res.added
-              ? `✅ Granted role **${res.roleName}**.`
-              : `🗑️ Removed role **${res.roleName}**.`,
-          });
+          const res = await applyRolePanelPick(interaction.guild, member, panelId, interaction.message.id, [roleId]);
+          await interaction.editReply({ content: describePanelChange(res) });
         } catch (err: any) {
           await interaction.editReply({ content: `❌ ${err.message || "Failed to update role."}` });
+        }
+      },
+    },
+    {
+      // Dropdown panels: `rolepanelsel_<panelId>`; the selected values are role IDs.
+      pattern: /^rolepanelsel_(.+)$/,
+      async handler(interaction, match) {
+        if (!interaction.isStringSelectMenu() || !interaction.guild || !interaction.member) return;
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        const panelId = match?.[1];
+        if (!panelId) return;
+
+        const { applyRolePanelPick, describePanelChange } = await import("../../services/rolePanelService");
+        const member = await interaction.guild.members.fetch(interaction.user.id);
+
+        try {
+          const res = await applyRolePanelPick(interaction.guild, member, panelId, interaction.message.id, interaction.values);
+          await interaction.editReply({ content: describePanelChange(res) });
+        } catch (err: any) {
+          await interaction.editReply({ content: `❌ ${err.message || "Failed to update roles."}` });
         }
       },
     },
