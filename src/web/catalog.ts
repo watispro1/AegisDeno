@@ -8,6 +8,8 @@ export interface OptionInfo {
   required: boolean;
   type: string;
   choices: string[];
+  /** Discord suggests values while typing (the option has an autocomplete handler). */
+  autocomplete: boolean;
   min?: number;
   max?: number;
 }
@@ -124,7 +126,7 @@ function parseOptions(rawOptions: readonly APIApplicationCommandOption[] | undef
 
 function toOptionInfo(opt: APIApplicationCommandOption): OptionInfo {
   const type = typeOf(opt);
-  const raw = opt as Partial<Record<"min_value" | "max_value", unknown>> & {
+  const raw = opt as Partial<Record<"min_value" | "max_value" | "autocomplete", unknown>> & {
     choices?: Array<{ name?: string } | string>;
   };
 
@@ -140,6 +142,7 @@ function toOptionInfo(opt: APIApplicationCommandOption): OptionInfo {
     required: requiredOf(opt),
     type: TYPE_HINT[type] ?? OPTION_TYPES[type] ?? "Any",
     choices,
+    autocomplete: raw.autocomplete === true,
   };
 
   if (typeof raw.min_value === "number") info.min = raw.min_value;

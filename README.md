@@ -1,140 +1,149 @@
 # Aegis
 
-[![Version](https://img.shields.io/badge/version-3.4.0-blue.svg)](https://aegisdeno.fly.dev)
-[![Discord.js](https://img.shields.io/badge/discord.js-v14.27-5865F2.svg)](https://discord.js.org/)
-[![TypeScript](https://img.shields.io/badge/typescript-v5.0-3178C6.svg)](https://www.typescriptlang.org/)
-[![MongoDB](https://img.shields.io/badge/mongodb-v9.0-47A248.svg)](https://www.mongodb.com/)
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](#license)
+Aegis is a moderation bot for Discord, run from slash commands. It handles
+warnings, timeouts, bans and the case log behind them, plus automod, ban
+appeals, tickets, verification, logging, a staff watchlist and per-member trust
+scores.
 
-Aegis is a moderation bot for Discord, run from slash commands. It handles warnings, timeouts, bans and the case log behind them, plus automod, ban appeals, tickets, verification, logging, a staff watchlist and per-member trust scores.
+- Website and command reference: https://aegisdeno.fly.dev
+- Changelog: [CHANGELOG.md](./CHANGELOG.md) (also at https://aegisdeno.fly.dev/changelog)
+- Current version: 3.5.0
 
-> **Note:** despite the repository name, Aegis is a **Node.js** app (TypeScript, discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
+Despite the repository name, Aegis is a **Node.js** app (TypeScript,
+discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
 
----
+## What it does
 
-## ✨ Standout Features
+Every command, option and permission is listed on the
+[commands page](https://aegisdeno.fly.dev/commands), which is generated from the
+command definitions in `src/commands`. In short:
 
-### 🕵️ Ghost Watch (unique)
-Silently monitor any server member without alerting them. `/watchlist add @user` places a member on your staff watchlist — any message, edit, delete, join, leave, or role change fires an instant private DM to the requesting moderator. Pinpoint users before problems escalate.
+**Moderation.** `/warn`, `/timeout`, `/kick`, `/ban` and `/unban` check role
+hierarchy, ask for confirmation and write a numbered case. The `reason` option
+suggests presets but takes any text, and `proof` attaches a screenshot to the
+case. `/warn`, `/timeout` and `/ban` show an Undo button for five minutes; undo
+reverses the action and marks the case revoked. Also `/purge` (filters for
+bots, humans, links, images, embeds, a user or a keyword, with a preview),
+`/lock` (a channel, a category or the whole server, optionally timed),
+`/slowmode`, `/nickname`, `/note`, `/case`, `/infractions` and `/modhistory`.
+`/escalation` turns a number of warnings into a timeout, kick or ban, and can
+ignore warnings older than a set number of days.
 
-### 🧠 Trust Score System (unique)
-Every member gets a live **Trust Score (0–100)** calculated from account age, server tenure, warning history, and message behaviour. `/trustscore @user` shows a colour-coded risk profile with a breakdown drill-down. Configure auto-actions when a score drops below a threshold.
+**Automod.** Blocked words, links, mass mentions, message rate and caps, each
+with its own action (delete, delete and warn, delete and timeout), plus role and
+channel exemptions.
 
-### 📋 Ban Appeal Workflow (unique)
-When a user is banned, Aegis automatically DMs them a unique **appeal code** and instructions. Staff review pending appeals with `/appeal list` and approve/deny with `/appeal review`. Full audit trail — no more DMs-to-mods chaos.
+**Trust score.** `/trustscore` gives a 0 to 100 number from account age (up to
+25), time in the server (up to 25), a long-tenure bonus (up to 20), active
+warnings (−5 each, down to −30), timeouts, kicks and bans that were not undone
+(−4 each, down to −20), and message activity (up to 15: points at 10, 50, 250
+and 1,000 messages, plus a bonus for posting in the last week or month). Only a
+message count and a last-active time are stored, never message content. The
+score is informational: nothing happens automatically when it is low.
 
-### 📰 Mod Report (unique)
-`/modreport` generates an interactive daily or weekly moderation digest: top offenders by infraction count, most active moderators, flagged keyword trends from automod hits, new-member risk events, and a 7-day infraction bar chart — all inside a Discord embed carousel.
+**Ban appeals.** `/ban` DMs the member a code like `AGS-K7X2`. They file an
+appeal with `/appeal submit` from any server Aegis shares with them; staff
+review it with `/appeal list|view|review`, and approving it unbans them.
 
----
+**Watchlist.** `/watchlist add` quietly watches a member and DMs the moderator
+when they post, edit or delete a message, join or leave, have their roles
+changed or join voice, depending on the events picked. Alerts can also go to a
+staff channel. The member is not told.
 
-## Core Feature Set
+**Mod reports.** `/modreport` shows the last 24 hours or 7 days in four views:
+overview, top offenders, moderator activity and automod hits. `/modstats` and
+`/activitysummary` give simpler counts.
 
-### Web Portal & Design System
+**Everything else.** Logging to a channel (`/logging`), tickets with claim,
+inactivity auto-close and HTML transcripts (`/ticket`), button or math-captcha
+verification with optional auto-kick (`/verify`), role panels as buttons or a
+dropdown (`/rolepanel`), auto-responders, a starboard, giveaways with booster
+bonus entries, button polls that close on a timer, suggestions with
+Approve/Deny/Consider, welcome messages, personal reminders that can repeat
+(`/remindme`) and scheduled channel posts (`/automation`). Timed actions are
+stored in MongoDB and restored after a restart.
 
-The public site (`src/web/`) is server-rendered from TypeScript strings and served by Express. The design is intentionally plain and docs-first:
+## Running it yourself
 
-- **Look**: one warm off-white background (light by default, dark via the header toggle, saved in `localStorage`), one teal accent, IBM Plex Sans for text and IBM Plex Mono for anything you would type into Discord. Thin borders instead of shadows, corners of 6px or less, no gradients, blur or scroll animations.
-- **Content**: commands are shown as real Discord slash commands (`/warn user:@member reason:...`) instead of icon tiles. The home page lists each feature with the command you would start with; `/features` and `/docs` give setup steps with copy-pasteable examples.
-- **Command reference**: `/commands` is generated from the command definitions at startup, with a usage line, options table and permissions per command, a `/` shortcut to filter, category filters and `#cmd-<name>` deep links.
-- **Search**: `Ctrl+K` (or `Cmd+K`) searches pages and every slash command.
-- **Pages**: home, features, commands, docs, troubleshooting, changelog, status, privacy, terms and a 404. Health and data endpoints: `/health`, `/api/stats`, `/api/commands`, `/api/plugins`, `/changelog.xml`.
-- **Files**: `theme.ts` (stylesheet), `layout.ts` (shell, nav, footer, search dialog), `pages.ts` (page bodies), `content.ts` (feature and FAQ copy), `client.ts` (progressive-enhancement JS, no dependencies), `assets.ts` (favicon, OG image, manifest).
-- **Checks**: `npm run typecheck`, `npm test` (unit tests in `tests/` via `node:test`, then build plus `scripts/smoke-web.ts`; both also run in GitHub Actions CI), `npx tsx scripts/audit-site.ts` (links, ids, unstyled classes, dead CSS) and `npx tsx scripts/preview-site.ts` (static build into `dist/site`).
+The source is public so it can be read and reviewed, but it is **not open
+source** (see [Licence](#licence)). Ask the author before running your own copy.
+With permission, you need:
 
-### Moderation & Security
-
-- **Core Commands**: Enhanced `/warn` (rule presets, history, undo, quick-timeout), `/timeout` (presets, +1h extend, remove, case history), `/ban` (presets, account age audit, instant revoke, auto-appeal DM), `/purge` (filter, preview, progress bar, case audit), `/kick`, `/unban`, `/lock`, `/note`, `/slowmode`, `/nickname`.
-- **Staff Analytics**: `/modstats` interactive staff activity metrics + `/modreport` weekly digest.
-- **Warning Escalation**: Automated punishments when warning thresholds are reached (`/escalation`).
-- **Case Tracking**: Complete case suite (`/case view`, `/case user`, `/case edit`, `/case delete`, `/case export`) with action icons and timestamps.
-- **Moderation Presets**: Apply security presets (`casual`, `community`, `gaming`, `strict`) via `/preset apply`.
-
-### Automod & Anti-Raid
-
-- **Content Filtering**: Banned words filter, link filter, mass-mention protection, caps/character-flood detection, and chat rate-limiting (`/automod`).
-- **Exemptions**: Safe-list trusted roles and channels (`/automod exempt`).
-- **Verification**: Interactive 1-click button or CAPTCHA verification panels (`/verify setup`) with exception-safe error handling.
-
-### Support Tickets & Roles
-
-- **Support Tickets**: Interactive ticket panels with private channel creation and staff permissions (`/ticket setup`, `/ticket close`).
-- **Role Panels**: Self-assignable button role panels (`/rolepanel create`).
-- **Auto-Responders**: Automated bot replies with rich variables via `/autoresponder`.
-
-### Community Tools
-
-- **Starboard Plugin**: Configurable server hall-of-fame system powered by the Knub framework (`/starboard`).
-- **Suggestions System**: Interactive suggestion boards with live voting and staff approval workflows (`/suggest`).
-- **Native Polls**: Discord native poll integration with multi-select and duration timers (`/poll`).
-- **Scheduled Tasks**: One-off reminders and recurring announcements (`/automation`).
-
----
-
-## Setup & Running Locally
-
-### Prerequisites
-
-- **Node.js** v20.0.0 or higher
-- **MongoDB** connection URI (MongoDB Atlas or local instance)
-
-### Installation
+- Node.js 20 or newer (CI and the Docker image use Node 22)
+- A MongoDB database (Atlas or local)
+- A Discord application with a bot user. Under **Bot** in the Developer Portal,
+  turn on the Server Members, Message Content and Presence intents; the bot
+  requests all three.
 
 ```bash
-git clone <private-repo-url>
+git clone https://github.com/watispro1/AegisDeno.git
 cd AegisDeno
-npm install
+npm ci
 cp .env.example .env
 ```
 
-### Configuration
+Fill in `.env`. The required values are `DISCORD_TOKEN`,
+`DISCORD_APPLICATION_ID` and `MONGO_URI`. Useful extras:
 
-Fill out `.env` with your bot credentials:
+| Variable | What it does |
+| --- | --- |
+| `DISCORD_TEST_GUILD_ID` | Register commands to one server only (instant, for testing). Leave empty for global commands. |
+| `DISCORD_OWNER_ID` | Your user ID, for the developer commands. |
+| `SITE_URL` | Public origin of the website, used for canonical URLs, Open Graph tags and the sitemap. |
+| `PORT` | Website port. Defaults to 3000. |
+| `BOT_INVITE_URL`, `SUPPORT_SERVER_URL` | Links shown on the website. |
+| `TOPGG_TOKEN`, `TOPGG_WEBHOOK_AUTH` | Optional Top.gg integration. The webhook stays off until the auth value is set. |
 
-```env
-DISCORD_TOKEN="your_bot_token"
-DISCORD_APPLICATION_ID="your_discord_app_id"
-MONGO_URI="mongodb+srv://user:password@cluster.mongodb.net/aegis"
-SITE_URL="http://localhost:3000"
-PORT=3000
-```
-
-### Running
+Then:
 
 ```bash
-# Typecheck
-npm run typecheck
-
-# Start in development mode
-npm run dev
-
-# Production build and run
-npm run build
-npm start
+npm run dev                 # run from source with tsx
+npm run build && npm start  # compiled
 ```
 
----
+Slash commands are registered every time the bot starts. The website is served
+by the same process.
 
-## Deployment (Fly.io)
+### Deploying to Fly.io
+
+`fly.toml` and the `Dockerfile` are set up for Fly.io. Pushes to `main` deploy
+automatically from GitHub Actions once the checks pass (this needs a
+`FLY_API_TOKEN` repository secret). To deploy by hand:
 
 ```bash
 fly secrets set DISCORD_TOKEN="..." DISCORD_APPLICATION_ID="..." MONGO_URI="..." SITE_URL="https://your-app.fly.dev"
 fly deploy
 ```
 
----
+[`DEPLOYMENT.md`](./DEPLOYMENT.md), [`OPERATIONAL.md`](./OPERATIONAL.md) and
+[`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) have more detail.
 
-## Documentation
+## Development
 
-- [`DEPLOYMENT.md`](./DEPLOYMENT.md) — Production deployment & Fly.io guide.
-- [`OPERATIONAL.md`](./OPERATIONAL.md) — Maintenance and server administration guide.
-- [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) — Troubleshooting guide for database, Discord tokens, and slash commands.
-- [`server.md`](./server.md) — Official Aegis Support Server blueprint & channel permissions architecture.
+```bash
+npm run typecheck              # tsc --noEmit
+npm test                       # unit tests, build, then a smoke test of every web route
+npx tsx scripts/audit-site.ts  # links, ids, heading count, unstyled classes, dead CSS
+npm run preview:site           # static copy of the site in dist/site
+```
 
----
+CI runs `npm ci`, the typecheck and `npm test` on Node 22 for every push and
+pull request.
 
-## License
+The website lives in `src/web/`: pages are TypeScript template strings rendered
+by Express, with no framework and no build step for the front end.
 
-**Proprietary — All Rights Reserved.**
+- `pages.ts`: page bodies. `layout.ts`: the shared shell, nav and footer.
+- `content.ts`: feature and FAQ copy. Every claim there should trace back to a
+  command in `src/commands`.
+- `catalog.ts`: builds the command reference from the registered command
+  definitions, so `/commands` cannot drift from the bot.
+- `changelog.ts`: parses `CHANGELOG.md` for `/changelog` and `/changelog.xml`.
+- `theme.ts` (stylesheet), `client.ts` (small progressive-enhancement script),
+  `assets.ts` (favicon, social image, manifest).
 
-This software is not open source. Unauthorized copying, modification, distribution, or use of this software, in whole or in part, is strictly prohibited without explicit written permission from the author.
+## Licence
+
+Proprietary, all rights reserved (`"license": "UNLICENSED"` in `package.json`).
+You may read the code here, but copying, modifying, redistributing or running it
+requires written permission from the author.

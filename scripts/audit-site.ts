@@ -106,6 +106,16 @@ async function main() {
       if (!/application\/ld\+json/.test(html)) fail(`${path}: inline <script> without src`);
     }
 
+    /* Heading levels must not skip (h2 straight to h4 and so on). */
+    let prevLevel = 0;
+    for (const m of html.matchAll(/<h([1-6])[\s>]/g)) {
+      const level = Number(m[1]);
+      if (prevLevel && level > prevLevel + 1) fail(`${path}: heading jumps from h${prevLevel} to h${level}`);
+      prevLevel = level;
+    }
+
+    if (/fonts\.(googleapis|gstatic)\.com/.test(html)) fail(`${path}: loads third-party web fonts`);
+
     for (const bad of ["undefined", "NaN", "${", "&amp;amp;"]) {
       if (html.includes(bad)) fail(`${path}: contains "${bad}"`);
     }

@@ -43,6 +43,7 @@ const ROUTES: [string, number][] = [
   ["/assets/theme-init.js", 200],
   ["/assets/favicon.svg", 200],
   ["/assets/og.svg", 200],
+  ["/assets/og.png", 200],
   ["/manifest.webmanifest", 200],
   ["/robots.txt", 200],
   ["/sitemap.xml", 200],
@@ -177,6 +178,30 @@ async function main() {
   const sitemap = await (await fetch(origin + "/sitemap.xml")).text();
   check("sitemap has lastmod", sitemap.includes("<lastmod>"));
   check("home has JSON-LD", (await (await fetch(origin + "/")).text()).includes("application/ld+json"));
+
+  console.log("\nChangelog");
+  const { VERSION } = await import("../src/version");
+  const { getChangelog, getReleases } = await import("../src/web/changelog");
+  const releases = getReleases();
+  check("CHANGELOG.md parsed", releases.length > 5, `${releases.length} releases`);
+  check("newest release matches src/version.ts", releases[0]?.version === VERSION, `${releases[0]?.version} vs ${VERSION}`);
+  check("every release has sections", releases.every(r => r.sections.length > 0 && r.sections.every(sec => sec.items.length > 0)));
+  check("releases are newest first", releases.every((r, i) => i === 0 || (r.date ?? "") <= (releases[i - 1].date ?? "")));
+  const changelogHtml = await (await fetch(origin + "/changelog")).text();
+  check("/changelog shows every version", getChangelog().releases.every(r => changelogHtml.includes(`id="${r.id}"`)));
+  check("/changelog shows Unreleased", changelogHtml.includes('id="unreleased"'));
+  check("/changelog renders inline code", changelogHtml.includes('<code class="inline">/remindme set</code>'));
+  check("/changelog has no raw markdown", !/\]\(|\*\*|^- /m.test(changelogHtml.replace(/<pre[\s\S]*?<\/pre>/g, "")));
+  check("atom has one entry per release", (feed.match(/<entry>/g) ?? []).length === releases.length);
+
+  console.log("\nSocial image and fonts");
+  const png = await fetch(origin + "/assets/og.png");
+  const pngBytes = new Uint8Array(await png.arrayBuffer());
+  check("og.png is a PNG", png.headers.get("content-type") === "image/png" && pngBytes[1] === 0x50 && pngBytes[2] === 0x4e);
+  check("pages point og:image at the PNG", homeHtml.includes('og:image" content="') && homeHtml.includes("/assets/og.png"));
+  check("no third-party font requests", !homeHtml.includes("fonts.googleapis.com") && !csp.includes("googleapis"));
+  const docsHtml = await (await fetch(origin + "/docs")).text();
+  check("docs has self-hosting section", docsHtml.includes('id="self-hosting"'));
 
   console.log("\nContent integrity");
   const markupRoutes = ROUTES.filter(

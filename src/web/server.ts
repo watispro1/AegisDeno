@@ -5,7 +5,7 @@ import { Client } from "discord.js";
 import { logger } from "../utils/logger";
 import { styles } from "./theme";
 import { clientScript } from "./client";
-import { faviconSvg, ogImageSvg, manifest, themeInitScript } from "./assets";
+import { faviconSvg, ogImageSvg, ogImagePng, manifest, themeInitScript } from "./assets";
 import { botPermissionBitfield, buildCatalog, catalogStats, getCommand } from "./catalog";
 import {
   renderHome,
@@ -18,10 +18,10 @@ import {
   renderTerms,
   renderPrivacy,
   renderNotFound,
-  RELEASES,
   SiteConfig,
   Stats,
 } from "./pages";
+import { atomFeed } from "./changelog";
 import { commands } from "../commands/loader";
 import { VERSION } from "../version";
 import { knubManager } from "../knub";
@@ -118,8 +118,8 @@ function applySecurityHeaders(res: Response): void {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self'",
       "img-src 'self' data:",
       "script-src 'self'",
       "connect-src 'self'",
@@ -212,7 +212,7 @@ export function startWebServer(client: Client) {
   const online = (): boolean => Boolean(client?.isReady?.());
   const isOnline = (): boolean => online();
 
-  const asset = (res: Response, type: string, body: string, maxAge = 3600) => {
+  const asset = (res: Response, type: string, body: string | Buffer, maxAge = 3600) => {
     res.setHeader("Cache-Control", `public, max-age=${maxAge}, immutable`);
     res.type(type).send(body);
   };
@@ -222,6 +222,7 @@ export function startWebServer(client: Client) {
   app.get("/assets/theme-init.js", (_req, res) => asset(res, "text/javascript", themeInitScript, 31536000));
   app.get("/assets/favicon.svg", (_req, res) => asset(res, "image/svg+xml", faviconSvg, 31536000));
   app.get("/assets/og.svg", (_req, res) => asset(res, "image/svg+xml", ogImageSvg, 31536000));
+  app.get("/assets/og.png", (_req, res) => asset(res, "image/png", ogImagePng, 31536000));
   app.get("/manifest.webmanifest", (_req, res) => asset(res, "application/manifest+json", manifest, 3600));
 
   app.get("/health", (_req, res) => {
@@ -355,36 +356,8 @@ export function startWebServer(client: Client) {
   });
 
   app.get("/changelog.xml", (_req, res) => {
-    const base = origin || "";
-    const updated = RELEASES[0]?.date ?? new Date(STARTED_AT).toISOString().slice(0, 10);
-    const entries = RELEASES.map(r => {
-      const link = `${base}/changelog#${r.version}`;
-      const content = r.highlights.map(h => `<li>${xmlEscape(h)}</li>`).join("");
-      return `  <entry>
-    <title>Aegis ${xmlEscape(r.version)}</title>
-    <id>${xmlEscape(link)}</id>
-    <link rel="alternate" type="text/html" href="${xmlEscape(link)}"/>
-    <updated>${xmlEscape(r.date)}T00:00:00Z</updated>
-    <content type="html"><![CDATA[<ul>${content}</ul>]]></content>
-  </entry>`;
-    }).join("\n");
-
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res
-      .type("application/atom+xml")
-      .send(
-        `<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <title>Aegis changelog</title>
-  <subtitle>Release history for the Aegis Discord bot</subtitle>
-  <id>${xmlEscape(base + "/changelog.xml")}</id>
-  <link rel="self" type="application/atom+xml" href="${xmlEscape(base + "/changelog.xml")}"/>
-  <link rel="alternate" type="text/html" href="${xmlEscape(base + "/changelog")}"/>
-  <updated>${xmlEscape(updated)}T00:00:00Z</updated>
-${entries}
-</feed>
-`
-      );
+    res.type("application/atom+xml").send(atomFeed(origin || ""));
   });
 
   app.get("/command", (_req, res) => res.redirect(302, "/commands"));

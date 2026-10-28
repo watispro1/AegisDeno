@@ -29,7 +29,7 @@ export const features: Feature[] = [
       "Reason suggestions on /warn, /timeout and /ban (Spam, NSFW, Harassment, Advertising, Raiding, Other), or type your own.",
       "Attach a screenshot with proof: and it is stored with the case.",
       "An Undo button on /warn, /timeout and /ban for five minutes; undoing reverses the action and marks the case revoked.",
-      "Timeouts from 60 seconds up to Discord's 7-day limit; /removetimeout lifts one early.",
+      "Timeouts from 60 seconds to one week; /removetimeout lifts one early.",
       "/purge deletes up to 500 messages with filters for bots, humans, links, images, a user or text, skips pinned messages and anything over Discord's 14-day limit, and shows a preview first.",
       "/lock for a channel or a whole category, with an optional message and timed unlock; /slowmode for when a channel gets out of hand.",
       "/case view, /case user (with Prev/Next pages), /case edit and /case export (capped at 5,000 records) for the paper trail.",
