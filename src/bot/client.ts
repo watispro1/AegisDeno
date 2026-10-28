@@ -21,7 +21,7 @@ import { sendGuildLog } from "../services/logging";
 import { processAutomod, processAutomodEdit } from "../services/automodExecution";
 import { processAutoResponders } from "../services/autoResponderService";
 import { getGuildConfig } from "../services/configuration";
-import { getVerificationConfig } from "../services/verificationService";
+import { scheduleUnverifiedKick } from "../services/verificationService";
 import { knubManager } from "../knub";
 import { registerDefaultPlugins } from "../knub/plugins";
 import {
@@ -278,24 +278,10 @@ export function setupEvents(client: Client): void {
       }
     }
 
-    const vConfig = await getVerificationConfig(member.guild.id);
-    if (vConfig?.enabled && vConfig.kickUnverifiedMinutes > 0) {
-      setTimeout(async () => {
-        try {
-          const freshMember = await member.guild.members.fetch(member.id).catch(() => null);
-          if (freshMember && !freshMember.roles.cache.has(vConfig.verifiedRoleId)) {
-            await freshMember.kick(`Unverified after ${vConfig.kickUnverifiedMinutes} minutes`).catch(() => null);
-            await sendGuildLog(client, member.guild.id, {
-              title: "👢 Member Kicked (Verification Timeout)",
-              color: 0xE74C3C,
-              description: `${userTag} (<@${member.id}>) was kicked for failing to verify within ${vConfig.kickUnverifiedMinutes} minutes.`,
-            }, "modActions");
-          }
-        } catch (kickErr) {
-          logger.warn(`Verification auto-kick failed for ${member.id} in ${member.guild.id}:`, kickErr);
-        }
-      }, vConfig.kickUnverifiedMinutes * 60 * 1000).unref?.();
-    }
+    // Unverified auto-kick is persisted through the scheduler so it survives restarts.
+    await scheduleUnverifiedKick(client, member).catch(err =>
+      logger.warn(`Failed to schedule verification auto-kick for ${member.id} in ${member.guild.id}:`, err),
+    );
   });
 
   // ─── Member Update (role changes for Ghost Watch) ─────────────────────────

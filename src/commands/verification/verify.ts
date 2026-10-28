@@ -14,7 +14,8 @@ import {
   MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
-import { setupVerification, getVerificationConfig } from "../../services/verificationService";
+import { setupVerification, getVerificationConfig, setKickUnverifiedMinutes } from "../../services/verificationService";
+import { MAX_KICK_UNVERIFIED_MINUTES } from "../../services/verificationLogic";
 import { VerificationModel } from "../../database/mongo";
 
 export const command: Command = {
@@ -37,6 +38,27 @@ export const command: Command = {
               { name: "One-Click Button", value: "button" },
               { name: "CAPTCHA Verification", value: "captcha" }
             )
+        )
+        .addIntegerOption(opt =>
+          opt
+            .setName("kick_unverified_minutes")
+            .setDescription("Kick members who have not verified after this many minutes (0 = off, default)")
+            .setMinValue(0)
+            .setMaxValue(MAX_KICK_UNVERIFIED_MINUTES)
+            .setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("autokick")
+        .setDescription("Kick members who stay unverified for too long (0 turns it off).")
+        .addIntegerOption(opt =>
+          opt
+            .setName("minutes")
+            .setDescription("Minutes after joining before an unverified member is kicked (0 = off)")
+            .setMinValue(0)
+            .setMaxValue(MAX_KICK_UNVERIFIED_MINUTES)
+            .setRequired(true)
         )
     )
     .addSubcommand(sub =>
@@ -75,6 +97,7 @@ export const command: Command = {
       const channel = interaction.options.getChannel("channel", true) as TextChannel;
       const role = interaction.options.getRole("verified_role", true);
       const type = (interaction.options.getString("type") || "button") as "button" | "captcha";
+      const kickOption = interaction.options.getInteger("kick_unverified_minutes");
 
       const modal = new ModalBuilder()
         .setCustomId("verify_setup_modal")
@@ -114,7 +137,9 @@ export const command: Command = {
       const title = modalResponse.fields.getTextInputValue("verify_title") || undefined;
       const description = modalResponse.fields.getTextInputValue("verify_desc") || undefined;
 
-      const result = await setupVerification(interaction.guild, channel, role.id, type, title, description);
+      // Keep the current auto-kick setting when re-running setup without the option.
+      const kickMinutes = kickOption ?? (await getVerificationConfig(guildId))?.kickUnverifiedMinutes ?? 0;
+      const result = await setupVerification(interaction.guild, channel, role.id, type, title, description, kickMinutes);
 
       if (result) {
         await modalResponse.editReply({
@@ -126,6 +151,7 @@ export const command: Command = {
               .addFields(
                 { name: "🛡️ Role", value: `<@&${role.id}>`, inline: true },
                 { name: "⚙️ Type", value: type.toUpperCase(), inline: true },
+                { name: "👢 Auto-kick", value: result.kickUnverifiedMinutes > 0 ? `After ${result.kickUnverifiedMinutes} min` : "Off", inline: true },
               )
               .setTimestamp(),
           ],
@@ -159,6 +185,7 @@ export const command: Command = {
           { name: "🛡️ Verified Role", value: `<@&${cfg.verifiedRoleId}>`, inline: true },
           { name: "📌 Channel",       value: cfg.channelId ? `<#${cfg.channelId}>` : "Not set", inline: true },
           { name: "📨 Message ID",    value: cfg.messageId ? `\`${cfg.messageId}\`` : "Not set", inline: true },
+          { name: "👢 Auto-kick",     value: cfg.kickUnverifiedMinutes > 0 ? `Unverified after ${cfg.kickUnverifiedMinutes} min` : "Off", inline: true },
         );
         return embed;
       };
@@ -319,6 +346,24 @@ export const command: Command = {
 
       await modalResponse.editReply({ embeds: [resultEmbed] });
       return;
+    }
+
+    // ── AUTO-KICK ────────────────────────────────────────────────────────────────
+    if (subcommand === "autokick") {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.KickMembers)) {
+        return interaction.reply({ content: "❌ You need `Kick Members` to change the unverified auto-kick.", flags: MessageFlags.Ephemeral });
+      }
+      const minutes = interaction.options.getInteger("minutes", true);
+      const ok = await setKickUnverifiedMinutes(guildId, minutes);
+      if (!ok) {
+        return interaction.reply({ content: "❌ Verification is not set up yet. Run `/verify setup` first.", flags: MessageFlags.Ephemeral });
+      }
+      return interaction.reply({
+        content: minutes > 0
+          ? `✅ Members who join from now on will be kicked if they have not verified within **${minutes}** minute(s). Make sure my role is above theirs and I have Kick Members.`
+          : "✅ Unverified auto-kick is now **off**. Pending kicks are skipped.",
+        flags: MessageFlags.Ephemeral,
+      });
     }
 
     // ── DISABLE ──────────────────────────────────────────────────────────────────
