@@ -2,8 +2,9 @@
  * Stylesheet for the Aegis site, served from /assets/site.css.
  *
  * The look is deliberately plain: one paper-coloured background, one teal
- * accent, IBM Plex Sans for text and IBM Plex Mono for anything you would type
- * into Discord. Thin borders instead of shadows, 4px corners, no gradients,
+ * accent, the system sans-serif for text and the system monospace for anything
+ * you would type into Discord (IBM Plex is used if it is installed locally; no
+ * web fonts are downloaded). Thin borders instead of shadows, 4px corners, no gradients,
  * no blur, no scroll animations. Light is the default; dark is opt-in via the
  * toggle in the header and is remembered in localStorage.
  */
@@ -16,7 +17,7 @@ export const styles = String.raw`
   --text: #1b1b19;
   --text-2: #3a3a36;
   --muted: #5d5c57;
-  --faint: #6f6e69;
+  --faint: #686762;
   --border: #e2e0da;
   --border-strong: #cfccc4;
   --accent: #17695a;
@@ -153,7 +154,7 @@ tbody tr:last-child td { border-bottom: 0; }
 /* ── Buttons ────────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
-  min-height: 40px; padding: .45rem 1rem;
+  min-height: 44px; padding: .45rem 1rem;
   font: 500 .92rem/1.2 var(--sans);
   color: var(--accent-ink); background: var(--accent);
   border: 1px solid var(--accent); border-radius: var(--r);
@@ -162,7 +163,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-ink); }
 .btn.ghost { background: transparent; color: var(--text); border-color: var(--border-strong); }
 .btn.ghost:hover { background: var(--bg-sunk); color: var(--text); border-color: var(--border-strong); }
-.btn.sm { min-height: 34px; padding: .3rem .75rem; font-size: .85rem; }
+.btn.sm { min-height: 40px; padding: .3rem .75rem; font-size: .85rem; }
 .btn.block { display: flex; width: 100%; }
 .btn-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
 .text-link { font-weight: 500; text-decoration: none; }
@@ -170,7 +171,7 @@ tbody tr:last-child td { border-bottom: 0; }
 
 .icon-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; padding: 0;
+  width: 44px; height: 44px; padding: 0;
   background: transparent; color: var(--muted);
   border: 1px solid transparent; border-radius: var(--r);
   cursor: pointer; font-size: 1.1rem;
@@ -209,7 +210,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .nav-links { display: flex; gap: .25rem; list-style: none; margin: 0; padding: 0; }
 .nav-links li + li { margin-top: 0; }
 .nav-link {
-  display: inline-flex; align-items: center; min-height: 40px;
+  display: inline-flex; align-items: center; min-height: 44px;
   padding: 0 .6rem; color: var(--muted); text-decoration: none; font-size: .92rem;
   border-radius: var(--r);
 }
@@ -461,7 +462,7 @@ main { display: block; min-height: 60vh; }
 .cmd-count { font: 400 .85rem var(--mono); color: var(--faint); }
 .tabs { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: 2rem; }
 .tab {
-  min-height: 36px; padding: .25rem .65rem;
+  min-height: 44px; padding: .25rem .75rem;
   font: 400 .85rem var(--sans); color: var(--muted);
   background: transparent; border: 1px solid var(--border); border-radius: var(--r); cursor: pointer;
 }
@@ -501,7 +502,7 @@ main { display: block; min-height: 60vh; }
 .cmd-body { padding: .25rem 0 1.25rem 2rem; display: grid; gap: 1rem; }
 .cmd-run { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .copy-btn {
-  display: inline-flex; align-items: center; min-height: 32px; padding: 0 .6rem;
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 .75rem;
   font: 400 .8rem var(--sans); color: var(--muted); text-decoration: none;
   background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r); cursor: pointer;
 }
@@ -539,23 +540,19 @@ main { display: block; min-height: 60vh; }
 .hierarchy-label { display: block; font: 500 .75rem var(--mono); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 .35rem; color: var(--faint); }
 
 /* ── Changelog ──────────────────────────────────────────────────────── */
-.release { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 1.5rem; padding: 1.75rem 0; border-bottom: 1px solid var(--border); }
-.release-meta { font-family: var(--mono); font-size: .85rem; }
-.release-meta a { color: var(--text); font-weight: 500; font-size: 1rem; text-decoration: none; }
-.release-meta a:hover { color: var(--accent); }
-.release-meta time { display: block; color: var(--faint); margin-top: .15rem; }
-.release h3 { font-size: 1.1rem; margin: 0 0 .35rem; }
+.release { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 1.5rem; padding: 1.75rem 0; border-bottom: 1px solid var(--border); scroll-margin-top: 5rem; }
+.release-meta { font-family: var(--mono); font-size: .85rem; color: var(--faint); padding-top: .2rem; }
+.release-meta time, .release-pending { display: block; }
+.release-pending { color: var(--warn); }
+.release-diff { display: inline-block; margin-top: .35rem; color: var(--text-2); }
+.release-title { font-size: 1.3rem; margin: 0 0 .5rem; font-family: var(--mono); }
+.release-title a { color: var(--text); text-decoration: none; }
+.release-title a:hover { color: var(--accent); text-decoration: underline; }
+.release h3 { font-size: .8rem; margin: 1.1rem 0 .35rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); }
 .release-summary { color: var(--text-2); margin-bottom: .75rem; max-width: 72ch; }
-.changes { list-style: none; padding: 0; margin: 0; max-width: 76ch; }
-.changes li { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: .75rem; padding: .25rem 0; margin: 0; font-size: .93rem; color: var(--text-2); }
-.kind { font: 500 .72rem/1.9 var(--mono); color: var(--faint); text-transform: lowercase; }
-.kind.new { color: var(--accent); }
-.kind.fix { color: var(--warn); }
-.kind.security { color: var(--danger); }
-.track-head { display: flex; align-items: baseline; gap: .75rem; margin: 2rem 0 0; padding-bottom: .5rem; border-bottom: 1px solid var(--border-strong); }
-.track-head:first-child { margin-top: 0; }
-.track-head h2 { margin: 0; font-size: 1.2rem; }
-.track-head span { font: 400 .8rem var(--mono); color: var(--faint); }
+.changes { padding-left: 1.1rem; margin: 0; max-width: 76ch; }
+.changes li { padding: .2rem 0; margin: 0; font-size: .93rem; color: var(--text-2); }
+.changes li strong { color: var(--text); font-weight: 600; }
 
 /* ── Status ─────────────────────────────────────────────────────────── */
 .status-line {
@@ -585,7 +582,7 @@ main { display: block; min-height: 60vh; }
 footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.5rem 0 1.5rem; font-size: .88rem; background: var(--bg-sunk); }
 .footer-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 2rem; }
 .footer-brand p { color: var(--muted); max-width: 36ch; margin-top: .6rem; }
-.footer-col h4 { font: 500 .75rem/1.4 var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6rem; }
+.footer-title { font: 500 .75rem/1.4 var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6rem; }
 .footer-col ul { list-style: none; padding: 0; margin: 0; }
 .footer-col li { margin: 0; }
 .footer-col a { display: inline-block; padding: .2rem 0; color: var(--text-2); text-decoration: none; }
@@ -593,6 +590,14 @@ footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.
 .footer-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border); color: var(--faint); font-size: .82rem; }
 .footer-bottom nav { display: flex; flex-wrap: wrap; gap: 1rem; }
 .footer-bottom a { color: var(--faint); }
+
+/* Touch screens: give list links a 44px target. */
+@media (pointer: coarse) {
+  .toc a, .toc-mobile a, .footer-col a { padding-top: .6rem; padding-bottom: .6rem; }
+  .footer-bottom a, .breadcrumbs a { display: inline-block; padding: .6rem 0; }
+  .cmd-anchor { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+  .btn.sm { min-height: 44px; }
+}
 
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 960px) {
@@ -616,7 +621,6 @@ footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.
   .cmd-chevron { grid-column: 2; grid-row: 1; }
   .cmd-body { padding-left: 0; }
   .release { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
-  .changes li { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .feature-cmds div { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
   .toc-mobile ul { columns: 1; }
   .dc-embed { max-width: none; }

@@ -8,6 +8,10 @@ import {
   type OptionInfo,
 } from "./catalog";
 import { features, faqs, quickstart } from "./content";
+import { getChangelog, type ChangelogRelease } from "./changelog";
+
+/** Public source repository (readable; proprietary licence). */
+const REPO_URL = "https://github.com/watispro1/AegisDeno";
 
 export interface SiteConfig {
   inviteUrl: string;
@@ -82,7 +86,7 @@ function page(cfg: SiteConfig, opts: {
     supportUrl: cfg.supportUrl,
     version: cfg.version,
     assetVersion: cfg.assetVersion,
-    ogImage: opts.ogImage ?? "/assets/og.svg",
+    ogImage: opts.ogImage ?? "/assets/og.png",
     noindex: opts.noindex,
     omitCanonical: opts.omitCanonical,
     headExtra: opts.headExtra,
@@ -360,6 +364,17 @@ function synopsis(cmd: CommandInfo): string {
   return `<pre class="synopsis">${lines.join("\n")}</pre>`;
 }
 
+/** Choices, autocomplete and numeric range, read from the option definition. */
+function optionExtras(o: OptionInfo): string {
+  const notes: string[] = [];
+  if (o.choices.length) notes.push(`Choices: ${o.choices.map(escapeHtml).join(", ")}`);
+  if (o.autocomplete) notes.push("Suggests values as you type.");
+  if (o.min !== undefined && o.max !== undefined) notes.push(`From ${o.min} to ${o.max}.`);
+  else if (o.min !== undefined) notes.push(`At least ${o.min}.`);
+  else if (o.max !== undefined) notes.push(`At most ${o.max}.`);
+  return notes.map(n => `<br><span class="faint">${n}</span>`).join("");
+}
+
 function optionsTable(cmd: CommandInfo): string {
   const all: OptionInfo[] = [
     ...cmd.options,
@@ -378,7 +393,7 @@ function optionsTable(cmd: CommandInfo): string {
           <td><code>${escapeHtml(o.name)}</code></td>
           <td>${escapeHtml(o.type)}</td>
           <td>${o.required ? `<span class="opt-req">yes</span>` : `<span class="opt-opt">no</span>`}</td>
-          <td>${escapeHtml(o.description)}${o.choices.length ? `<br><span class="faint">Choices: ${o.choices.map(escapeHtml).join(", ")}</span>` : ""}</td>
+          <td>${escapeHtml(o.description)}${optionExtras(o)}</td>
         </tr>`).join("\n        ")}
       </tbody>
     </table>
@@ -539,6 +554,7 @@ const DOC_SECTIONS = [
   { id: "automation", label: "Reminders" },
   { id: "configuration", label: "Configuration" },
   { id: "permissions", label: "Permissions" },
+  { id: "self-hosting", label: "Self-hosting" },
   { id: "data", label: "Data and storage" },
 ];
 
@@ -766,6 +782,19 @@ export function renderDocs(cfg: SiteConfig): string {
       <p>Who can run what. Discord hides commands from members without the permission; Aegis checks again when the command runs, and checks its own permissions too.</p>
       ${permissionTable()}
 
+      <h2 id="self-hosting">Self-hosting</h2>
+      <p>The source is on <a href="${REPO_URL}">GitHub</a>. It is readable, but it is not open source: the licence is proprietary and all rights are reserved, so ask the author before running your own copy. If you have the go-ahead, this is what it takes.</p>
+      <ul>
+        <li>Node.js 20 or newer (CI and the Docker image use 22) and a MongoDB database. Despite the repository name, it does not run on Deno.</li>
+        <li>A Discord application with a bot user. Copy its token and application ID, and turn on the Server Members, Message Content and Presence intents under <strong>Bot</strong> in the Developer Portal; the bot asks for all three when it connects.</li>
+      </ul>
+      ${cmdBlock(`git clone ${REPO_URL}.git
+cd AegisDeno
+npm ci
+cp .env.example .env    # set DISCORD_TOKEN, DISCORD_APPLICATION_ID, MONGO_URI
+npm run dev             # or: npm run build && npm start`)}
+      <p>Slash commands are registered every time the bot starts. Set <code>DISCORD_TEST_GUILD_ID</code> to register them to one server while testing, and <code>DISCORD_OWNER_ID</code> to your own user ID for the developer commands. The website is served by the same process on <code>PORT</code> (3000 by default). <code>fly.toml</code> and <code>DEPLOYMENT.md</code> in the repository cover deploying to Fly.io.</p>
+
       <h2 id="data">Data and storage</h2>
       <p>Settings, cases, warnings, tickets and appeals are stored in MongoDB, keyed by server ID. Warnings, cases and staff notes expire after one year. Audit logs live only in your log channel. The <a href="/privacy">privacy policy</a> has the full list.</p>
     </article>
@@ -952,355 +981,73 @@ export function renderTroubleshooting(cfg: SiteConfig): string {
 
 /* ── Changelog ─────────────────────────────────────────────────────── */
 
-export interface Release {
-  version: string;
-  date: string;
-  tag?: string;
-  summary?: string;
-  highlights: string[];
-}
-
-export const RELEASES: Release[] = [
-  {
-    version: "3.4.0",
-    date: "2026-10-26",
-    tag: "Watchlist, trust score, ban appeals, mod reports",
-    summary: "Four new moderation tools: /watchlist, /trustscore, /appeal and /modreport. Aegis also became closed source in this release.",
-    highlights: [
-      "[NEW] Ghost Watch (/watchlist): Silent member surveillance tracking messages, edits, deletes, joins, leaves, and role changes via gateway events with direct DM alerts to staff.",
-      "[PERF] Ghost Watch High-Throughput Engine: In-memory O(1) active target Set rejection bypassing 99.99% of database queries on high-traffic servers.",
-      "[NEW] Algorithmic Trust Score (/trustscore): 0–100 composite member integrity score factoring account age, server tenure, warning deductions, case history, and veteran bonuses.",
-      "[FIXED] Trust Score: Parallelized database aggregation queries, added ephemeral privacy toggle, and fixed dynamic live refresh reactivity.",
-      "[NEW] Automated Ban Appeal Workflow (/appeal): Generates unique 8-character appeal codes (AGS-XXXX) on /ban, delivers via DM, supports modal submissions, and automates unbanning upon staff approval.",
-      "[FIXED] Appeal Access: Decoupled /appeal submit permissions so banned and regular members can file appeals without requiring staff permissions.",
-      "[NEW] Moderation Analytics Digest (/modreport): Multi-tab interactive digest with Overview KPIs, Top Offenders leaderboard, Moderator activity rankings, and AutoMod rule triggers.",
-      "[PERF] Mod Report Tab Caching: In-memory session embed caching providing instant (<5ms) tab switching and live on-demand re-querying.",
-      "[WEB] High-Performance Solid Surfaces: Completely eliminated all -webkit-backdrop-filter and glassmorphism blurs for crisp, GPU-efficient 60fps rendering across all devices.",
-      "[WEB] Navigation: Added direct Changelog link to the primary navigation bar across desktop and mobile layouts.",
-      "[FIXED] Web Portal CSS: Repaired unclosed rules for .docs-mobile-nav and .back-to-top (restoring scroll return button) and added .ft-showcase-card[hidden] selector.",
-      "[PERF] Web Portal Runtime: Deduplicated catalogStats() computation on home page, tightened command search debounce to 80ms, and removed duplicate escapeHtml closure.",
-      "[UI] Web Portal Polish: Added interactive hover/active states for preview tab buttons and command pills with tactile micro-interactions and copy pill styling.",
-      "[SYSTEM] Proprietary Architecture: Fully closed-source distribution with private package licensing.",
-    ],
-  },
-  {
-    version: "3.3.3",
-    date: "2026-10-27",
-    tag: "Core Moderation Overhaul & Production Hardening",
-    summary: "Overhauled core moderation commands, removed experimental beta command lab bloat, and strengthened scheduler isolation, data validation, public telemetry, webhook handling, and moderation-data retention.",
-    highlights: [
-      "[ENHANCED] /warn: Quick rule violation presets, instant 10m timeout quick-escalation button, and interactive warning history.",
-      "[ENHANCED] /timeout: Reason presets, dynamic remaining time extension, remove timeout, and on-demand case history inspector.",
-      "[ENHANCED] /ban: Severe infraction presets, account age and join date audit metrics in confirmation embed, and 1-click ban revocation button.",
-      "[ENHANCED] /case: Added /case user subcommand to browse member infraction history with action icons, and richer single-case cards.",
-      "[ENHANCED] /purge: Added audit reason logging, case tracking in ModerationCaseModel, and visual progress bar.",
-      "[CLEANUP] Pruned developer/beta bloat: completely removed experimental /beta Command Lab simulation suite and beta feedback models.",
-      "[ENHANCED] AutoMod: Decoupled caps percentage and character flood detection from beta, enabling them universally via /automod caps.",
-      "[SECURITY] Scheduler now validates channel ownership before delivering a message, preventing cross-guild delivery from stale or malformed tasks.",
-      "[SECURITY] Command cooldowns reserve atomically before execution, blocking concurrent bypasses while releasing failed-command reservations.",
-      "[SECURITY] Public telemetry no longer exposes Node.js version, heap usage, exact startup time, or plugin inventory.",
-      "[SECURITY] Public API routes now have per-client rate limiting, and the Top.gg webhook rejects oversized request bodies.",
-      "[RELIABILITY] Scheduler startup restoration is bounded, projected, indexed, and limited to valid recent tasks.",
-      "[DATA] Guild configuration values are validated and bounded at the service boundary, including IDs, escalation rules, messages, and log categories.",
-      "[DATA] Warnings, moderation cases, and staff notes now expire automatically after one year through MongoDB retention indexes.",
-      "[MODERATION] Case exports are capped at 5,000 records and export only the fields required for an audit archive.",
-      "[MAINTENANCE] Removed committed SQLite runtime databases and sidecar files; production dependency audit is clean.",
-    ],
-  },
-  {
-    version: "3.3.2",
-    date: "2026-10-20",
-    tag: "Starboard & Simulation Suite",
-    summary: "Introduces the modular Starboard plugin, multi-guild beta network authorization, and structured feedback triage workflows.",
-    highlights: [
-      "[NEW] Starboard plugin v1.0.0: automatic message starboard powered by messageReactionAdd/Remove events with partial-data hydration.",
-      "[NEW] /starboard suite: 8 subcommands for threshold, emoji, selfstar, ignore, and live star count synchronization.",
-      "[ENHANCED] /beta program: multi-guild enrollment and feedback triage workflows.",
-      "[NEW] Structured feedback ticketing with category, severity ratings, and staff triage (/beta feedback-triage, /beta feedback-view).",
-      "[NEW] Tester honors and contributor leaderboard (/beta profile, /beta leaderboard) with earned diagnostic badges.",
-      "[WEB] Documentation manual overhauled with interactive mobile navigation, reading progress indicator, and code copy tools.",
-    ],
-  },
-  {
-    version: "3.3.1",
-    date: "2026-10-20",
-    tag: "UI Performance & QoL Patch",
-    summary: "Streamlined design system with crisp high-contrast theme tokens, quick command clipboard tools, and key bot reliability fixes.",
-    highlights: [
-      "[WEB] High-Contrast Themes: refreshed color palette tokens across dark, light, cyberpunk, emerald, and gold themes.",
-      "[WEB] Command reference: integrated one-click command string clipboard copy with toast notifications.",
-      "[WEB] Theme dots sync bug fix: resolved missing syncThemeDots reference on theme toggle.",
-      "[BOT] /timeout command: quick action extend button now dynamically calculates remaining duration instead of overriding to flat 1 hour, with full audit logging.",
-      "[BOT] /lock command: hardened channel iteration against thread channel exceptions during emergency server lockdown.",
-      "[BOT] AutoResponder service: expanded token interpolation with {tag}, {user_id}, {server_id}, and {channel_id}.",
-      "[BOT] Verification plugin: safe optional chaining on guild member resolution preventing unhandled interaction drops.",
-    ],
-  },
-  {
-    version: "3.3.0",
-    date: "2026-10-17",
-    tag: "Web Redesign & Knub v1.1",
-    summary: "Complete design overhaul across the web portal, Knub framework v1.1.0 with high-throughput in-memory TTL caching, guild lifecycle hooks, and critical bot stability fixes.",
-    highlights: [
-      "[WEB] Portal redesign: clean editorial layout with high-contrast surfaces, responsive navigation, and instant search modal.",
-      "[WEB] Respects accessibility via @media (prefers-reduced-motion) and clean high-contrast fallbacks.",
-      "[NEW] Knub Plugin Framework v1.1.0: in-memory 30s TTL caching for plugin enablement and guild configuration to eliminate redundant MongoDB lookups.",
-      "[NEW] Knub Framework: added setGuildConfig API allowing plugins to mutate and persist per-server plugin configurations dynamically.",
-      "[NEW] Knub Framework: integrated onGuildLoaded lifecycle hook triggered on client startup and real-time Events.GuildCreate joins.",
-      "[NEW] Knub Framework: added plugin dependency validation to catch missing prerequisite plugins at registration time.",
-      "[FIXED] Role panel button handler upgraded to robust regex pattern matching preventing malformed customId splits.",
-      "[FIXED] Bot client: safe navigation guards on GuildMemberRemove event preventing unhandled crashes when uncached members leave.",
-      "[FIXED] Bot client: welcome message channel delivery fetches uncached channels from Discord API rather than silently dropping messages.",
-      "[HARDENED] Bot client: streamlined component interaction routing directly through Knub plugin dispatcher, removing redundant legacy branches.",
-    ],
-  },
-  {
-    version: "3.2.0",
-    date: "2026-10-15",
-    tag: "Status Overhaul",
-    summary: "Overhauled /about command with multi-panel telemetry navigation, rewrote the live status page with SLA tier visualization and uptime history, and promoted 3.1.1 reliability fixes.",
-    highlights: [
-      "[ENHANCED] /about completely redesigned with 4 navigable views (Overview, Runtime, Network, Database) via Discord select menu.",
-      "[NEW] /about Runtime view shows heap usage bar graph, RSS, external memory, Node platform and PID.",
-      "[NEW] /about Network view shows WebSocket shard status and top 5 largest guilds by member count.",
-      "[NEW] /about Database view probes MongoDB round-trip latency and lists all registered Mongoose models.",
-      "[ENHANCED] /about Refresh button disables after the 2-minute interaction window expires.",
-      "[QOL] /help command now features direct action buttons to Web Documentation, Command Reference, and Live Status.",
-      "[QOL] /dashboard command features a direct link button into the Web Dashboard control panel.",
-      "[QOL] /remindme now supports week durations (1w) and provides smart interactive autocomplete presets.",
-      "[QOL] /serverinfo surfaces instant links for high-resolution Server Icon and Banner.",
-      "[WEB] Status page redesigned: SLA tier legend, 30-day uptime history bar, component health grid, endpoint directory.",
-      "[WEB] Status page adds on-demand live refresh button with spin animation and toast feedback.",
-      "[WEB] Added floating Back-to-Top smooth navigation button on long documentation and command pages.",
-      "[WEB] Added keyboard shortcut (/) to instantly jump to and focus command search on /commands.",
-      "[WEB] Copy-to-clipboard buttons now trigger toast feedback across all commands and code blocks.",
-      "[WEB] Changelog updated to v3.2.0.",
-    ],
-  },
-  {
-    version: "3.1.1",
-    date: "2026-10-13",
-    tag: "Reliability & Safety Patch",
-    summary: "A stability-focused release that secures interactive workflows, restores persistent giveaway controls after restarts, and strengthens the public website.",
-    highlights: [
-      "[FIXED] Giveaway Enter and View Entries controls now work persistently after the originating command completes, including after a bot restart.",
-      "[HARDENED] Giveaway entry is atomic, honors required roles, prevents duplicate entrants, and keeps the visible entry total current.",
-      "[HARDENED] Ticket controls now distinguish ticket owners from support staff; participant management, claims, and transcripts are staff-only.",
-      "[HARDENED] Role panel interactions are verified against their stored panel and configured roles before a role can be changed.",
-      "[FIXED] Suggestion Details controls display information instead of accidentally recording a downvote; concurrent votes no longer overwrite each other.",
-      "[WEB] Top.gg webhook traffic is rejected until its authentication secret is configured, and dynamic website notices avoid unsafe HTML insertion.",
-      "[WEB] Added global command and site search with keyboard shortcut support (Ctrl/Cmd + K), live command data, accessible dialog behavior, and mobile-ready results.",
-      "[WEB] Simplified the interface with a focused light/dark theme switch, softer motion, flatter cards, and reduced background decoration.",
-      "[ENHANCED] /help now provides command autocomplete, readable permission requirements, and safe long-form command details; /diagnostics now checks tickets, role panels, transcripts, and welcome-role readiness.",
-      "[HARDENED] Timeout quick actions re-check the acting moderator's role hierarchy before changing another member's timeout.",
-      "[WEB] Added a dedicated /troubleshooting support guide with structured fixes for commands, moderation, AutoMod, tickets, automation, website status, and deployment.",
-      "[NEW] /beta program management: persistent tester roster, controlled feature flags, tester-only feedback, staff review, and home-server protections.",
-      "[BETA] Experimental AutoMod caps detection adds a configurable uppercase threshold/action and a safe Command Lab preview for enrolled testers.",
-      "[FIXED] Interactive polls retain their original deadline while live results update.",
-    ],
-  },
-  {
-    version: "3.1.0",
-    date: "2026-10-09",
-    tag: "Feature Drop",
-    summary: "Giveaway system, redesigned polls, /infractions dashboard, /remindme, upgraded /slowmode, and a richer /announce with live preview editing.",
-    highlights: [
-      "[NEW] /giveaway suite — start, end, reroll, and list giveaways with role requirements, multi-winner support, auto-end timer, and DM notifications to winners.",
-      "[NEW] /infractions — paginated staff dashboard showing per-user warnings and mod cases in one tabbed view with page navigation.",
-      "[NEW] /remindme — personal DM reminder with flexible duration strings (30m, 2h, 1d) and optional channel ping delivery.",
-      "[ENHANCED] /poll completely rewritten with interactive buttons, live vote progress bars, anonymous mode, multi-select toggle, image attachments, configurable duration, and an End Poll button for moderators.",
-      "[ENHANCED] /announce upgraded with a live embed preview before sending, in-place title/body edit modal, 8-color palette picker, image and thumbnail URL fields, crosspost support for Announcement channels, and author brand suppression.",
-      "[ENHANCED] /slowmode upgraded from a single integer input to a set/custom/check subcommand tree with friendly presets, quick-adjust action buttons, reason tracking, and current-rate checker.",
-      "[WEB] Website changelog updated to v3.1.0 with all new command entries.",
-    ],
-  },
-  {
-    version: "3.0.0",
-    date: "2026-10-09",
-    tag: "Major Milestone",
-    summary: "Enterprise Suite & Discovery Launch introducing emergency lockdown controls, staff member notes, severity-based warnings with undo buttons, interactive embed builder, content purge filters, Top.gg webhook, and live browser playground.",
-    highlights: [
-      "[NEW] /lock command suite — /lock channel, /lock unlock, and /lock server emergency raid lockdown control.",
-      "[NEW] /note staff annotation suite — /note add, view, delete, clear backed by MongoDB StaffNoteModel.",
-      "[ENHANCED] /warn command upgraded with Low/Medium/High severity choices, DM warning dispatch, silent flag, and instant undo button.",
-      "[ENHANCED] /ban command updated with interactive 30s confirmation modal, pre-ban DM notification, and silent flag.",
-      "[ENHANCED] /timeout command updated with duration parser (15m, 2h, 1d), DM notification, and silent flag.",
-      "[ENHANCED] /userinfo updated with live presence/activity badges, mod cases button, and avatar link.",
-      "[ENHANCED] /modstats interactive staff analytics dashboard with 7d/30d period selector & refresh button.",
-      "[ENHANCED] /embed upgraded with interactive modal builder (builder subcommand) and fast mode (quick).",
-      "[ENHANCED] /purge filter choices (all, bots, humans, links, images, embeds) with 14-day API age validation.",
-      "[ENHANCED] /config structure converted to subcommand tree: view, logging, welcome, suggestions, language.",
-      "[WEB] Built interactive Web Dashboard (/dashboard) and browser Command Playground (/playground) with 5 color themes.",
-      "[WEB] Implemented Top.gg webhook handler endpoint (/api/topgg/webhook) with secret token authentication.",
-    ],
-  },
-  {
-    version: "2.1.1",
-    date: "2026-10-08",
-    tag: "Interactive Update",
-    summary: "Interactive control panels, suggestion review states, manual member verification, and server blueprint permissions.",
-    highlights: [
-      "[NEW] /dashboard interactive server control panel with live metric counters & action buttons.",
-      "[NEW] /suggest consider subcommand — marks suggestions as under active review (🟡 Under Consideration).",
-      "[NEW] /verify user command — staff manual member verification bypass.",
-      "[ENHANCED] Interactive warning action buttons (📜 Warning History, ❌ Undo Warn).",
-      "[ENHANCED] Auto-responder subcommand aliases for create and delete.",
-    ],
-  },
-  {
-    version: "2.0.0",
-    date: "2026-10-06",
-    summary: "Repeated-offense escalation, telemetry dashboards, and automated recurring announcements.",
-    highlights: [
-      "[NEW] Repeated-offense escalation: automatically timeout, kick, or ban members when they hit configurable warning thresholds via /escalation.",
-      "[NEW] Staff moderation dashboard via /modstats: guild-wide case count, recent actions, and top offenders in one embed.",
-      "[NEW] Recurring announcements via /automation repeat — scheduled messages re-fire on an interval and survive restarts.",
-      "[ENHANCED] Suggestions fully rewritten: /suggest setup, submit, approve, reject with live 👍/👎 vote buttons that update in real time.",
-      "[ENHANCED] Polls upgraded to Discord's native poll API with configurable duration (1h–7d) and multi-select support.",
-      "[ENHANCED] Welcome auto-role: /welcome role assigns a role to every new member on join.",
-      "[SECURITY] Server diagnostics via /diagnostics: checks bot permissions, channel accessibility, and automod config with actionable recommendations.",
-      "[SECURITY] Spam rate-limiting added to automod, along with message-edit checking and role/channel exemption lists.",
-    ],
-  },
-  {
-    version: "1.2.0",
-    date: "2026-10-01",
-    summary: "Command permission overhaul and message scheduling safety.",
-    highlights: [
-      "[NEW] Added /nickname and persisted /automation message scheduling for safer server operations.",
-      "[ENHANCED] Reworked command permission checks for selected welcome, logging, and announcement channels.",
-      "[SECURITY] Hardened polls, moderation reasons, and external-user bans with validation that matches Discord behavior.",
-      "[SECURITY] Reduced /config from Administrator to the least-privilege Manage Server permission.",
-    ],
-  },
-  {
-    version: "1.1.0",
-    date: "2026-10-01",
-    summary: "Member diagnostics and AutoMod action flexibility.",
-    highlights: [
-      "[NEW] Added /userinfo and /serverinfo for quick, self-service member and server diagnostics.",
-      "[ENHANCED] Expanded automod with mention-spam controls and per-rule delete, warn, or timeout actions.",
-      "[FIX] Made automod warning writes reliable and normalized older automod records after upgrades.",
-    ],
-  },
-  {
-    version: "1.0.0",
-    date: "2026-09-29",
-    summary: "Public launch release.",
-    highlights: [
-      "[NEW] Public launch with moderation, auto moderation, logging, welcome, community, and automation command groups.",
-      "[NEW] Slash commands are registered in a single scope to eliminate duplicate entries in the Discord client.",
-      "[WEB] Introduced public website: home, features, searchable command reference, documentation, changelog, and status pages.",
-    ],
-  },
-];
-
-export const KNUB_RELEASES: Release[] = [
-  {
-    version: "1.1.0",
-    date: "2026-10-17",
-    tag: "Performance & Lifecycle",
-    summary: "High-throughput in-memory TTL caching, dynamic guild config mutation API, guild discovery lifecycle hooks, and plugin dependency validation.",
-    highlights: [
-      "[NEW] In-memory 30s sliding TTL cache for isPluginEnabledForGuild and getGuildPluginConfig to avoid repeated MongoDB queries during high interaction volume.",
-      "[NEW] Dynamic setGuildPluginConfig / ctx.setGuildConfig API for runtime persistent plugin configuration updates.",
-      "[NEW] onGuildLoaded lifecycle dispatching on bot ready and Discord Events.GuildCreate server joins.",
-      "[NEW] Plugin dependency validation during registerPlugin with early warning logs for missing required plugins.",
-      "[ENHANCED] Clean component dispatch pipeline with regex capture group extraction and per-guild enablement enforcement.",
-    ],
-  },
-  {
-    version: "1.0.0",
-    date: "2026-10-15",
-    tag: "Framework Milestone",
-    summary: "Production launch of the Knub TypeScript modular plugin architecture for the Aegis Discord bot.",
-    highlights: [
-      "[NEW] KnubPlugin & definePlugin modular framework organizing bot domains with typed configs, lifecycle hooks (onLoad, onUnload, onGuildLoaded), and event listeners.",
-      "[NEW] Pre-Filter Command Pipeline: guildOnlyFilter, userPermissionsFilter, botPermissionsFilter, cooldownFilter, and per-guild plugin enablement guards.",
-      "[NEW] Post-Execution Telemetry Hooks: execution latency tracking (telemetryHook) and automated cooldown timestamp recording (cooldownUpdateHook).",
-      "[NEW] Interactive Component Dispatcher: routes button clicks, modals, and select menus matching plugin regex patterns with seamless fallback.",
-      "[NEW] 9 Core Domain Plugins: Moderation, Community, Tickets, Roles, Verification, Automod, General, Config, and Autoresponder.",
-      "[NEW] Server admin command /plugins: /plugins list with interactive StringSelectMenu toggle, /plugins toggle, and /plugins info.",
-      "[ENHANCED] Server diagnostics via /diagnostics: added Knub Plugins health overview and asynchronous channel/role fetch fallbacks.",
-      "[WEB] Public /api/plugins endpoint exposing plugin metadata, handler tallies, and live plugin counts on /health and /api/stats.",
-    ],
-  },
-];
-
-
-function renderHighlightItem(h: string): string {
-  const match = h.match(/^\[([A-Z]+)\]\s*(.*)$/);
-  if (!match) return `<li><span class="kind">note</span><span>${escapeHtml(h)}</span></li>`;
-
-  const tag = match[1].toLowerCase();
-  const kindClass =
-    tag === "new" ? "new" :
-    tag === "fix" || tag === "fixed" ? "fix" :
-    tag === "security" || tag === "hardened" ? "security" : "";
-  const label = tag === "fixed" ? "fix" : tag;
-
-  return `<li><span class="kind${kindClass ? ` ${kindClass}` : ""}">${escapeHtml(label)}</span><span>${escapeHtml(match[2])}</span></li>`;
-}
 
 function fmtDate(iso: string): string {
   return new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-function releaseBlock(r: Release, idPrefix: string, label: string): string {
-  const id = `${idPrefix}${r.version}`;
-  return `<article class="release" id="${escapeHtml(id)}">
+function releaseBlock(r: ChangelogRelease): string {
+  const label = r.date ? `v${r.version}` : r.version;
+  return `<article class="release" id="${escapeHtml(r.id)}" aria-labelledby="${escapeHtml(r.id)}-title">
       <div class="release-meta">
-        <a href="#${escapeHtml(id)}">${escapeHtml(label)}${escapeHtml(r.version)}</a>
-        <time datetime="${r.date}">${fmtDate(r.date)}</time>
+        ${r.date ? `<time datetime="${escapeHtml(r.date)}">${fmtDate(r.date)}</time>` : `<span class="release-pending">Not released yet</span>`}
+        ${r.compareUrl ? `<a class="release-diff" href="${safeUrl(r.compareUrl)}" rel="noopener noreferrer">Commits</a>` : ""}
       </div>
       <div>
-        ${r.tag ? `<h3>${escapeHtml(r.tag)}</h3>` : `<h3>${escapeHtml(label)}${escapeHtml(r.version)}</h3>`}
-        ${r.summary ? `<p class="release-summary">${escapeHtml(r.summary)}</p>` : ""}
+        <h2 class="release-title" id="${escapeHtml(r.id)}-title"><a href="#${escapeHtml(r.id)}">${escapeHtml(label)}</a></h2>
+        ${r.notes.map(n => `<p class="release-summary">${n}</p>`).join("\n        ")}
+        ${r.sections.map(sec => `<h3>${escapeHtml(sec.title)}</h3>
         <ul class="changes">
-          ${r.highlights.map(renderHighlightItem).join("\n          ")}
-        </ul>
+          ${sec.items.map(i => `<li>${i}</li>`).join("\n          ")}
+        </ul>`).join("\n        ")}
       </div>
     </article>`;
 }
 
 export function renderChangelog(cfg: SiteConfig): string {
-  const botToc = RELEASES.map(r => `<li><a href="#v${escapeHtml(r.version)}">${escapeHtml(r.version)}</a></li>`).join("\n        ");
-  const knubToc = KNUB_RELEASES.map(r => `<li><a href="#knub-v${escapeHtml(r.version)}">Knub ${escapeHtml(r.version)}</a></li>`).join("\n        ");
+  const log = getChangelog();
+  const toc = log.releases
+    .map(r => `<li><a href="#${escapeHtml(r.id)}">${escapeHtml(r.version)}</a>${r.date ? ` <span class="faint">${escapeHtml(r.date)}</span>` : ""}</li>`)
+    .join("\n        ");
+
+  const releases = log.releases.length
+    ? log.releases.map(releaseBlock).join("\n      ")
+    : `<p>The changelog file could not be read. It lives in the repository as <a href="${REPO_URL}/blob/main/CHANGELOG.md">CHANGELOG.md</a>.</p>`;
 
   const body = `
 <div class="wrap">
   ${breadcrumb("Changelog")}
   <div class="page-head">
     <h1>Changelog</h1>
-    <p class="lead">Every release of the bot, newest first, followed by the Knub plugin framework it runs on. Subscribe with the <a href="/changelog.xml">Atom feed</a>.</p>
+    <p class="lead">What changed in each version, newest first. This page is built from <a href="${REPO_URL}/blob/main/CHANGELOG.md">CHANGELOG.md</a> in the repository, so the two always match. There is also an <a href="/changelog.xml">Atom feed</a>.</p>
   </div>
 
+  <details class="toc-mobile">
+    <summary>Jump to a version</summary>
+    <ul>
+      ${toc}
+    </ul>
+  </details>
+
   <div class="split">
-    <aside class="toc" aria-label="Releases">
-      <p class="side-title">Bot</p>
+    <aside class="toc" aria-label="Versions">
+      <p class="side-title">Versions</p>
       <ul>
-        ${botToc}
-      </ul>
-      <p class="side-title">Knub</p>
-      <ul>
-        ${knubToc}
+        ${toc}
       </ul>
     </aside>
     <div>
-      <div class="track-head" id="bot"><h2>Aegis</h2><span>${RELEASES.length} releases</span></div>
-      ${RELEASES.map(r => releaseBlock(r, "v", "v")).join("\n      ")}
-
-      <div class="track-head" id="knub"><h2>Knub framework</h2><span>${KNUB_RELEASES.length} releases</span></div>
-      ${KNUB_RELEASES.map(r => releaseBlock(r, "knub-v", "Knub ")).join("\n      ")}
-
-      ${endNote(cfg, `Currently on v${escapeHtml(cfg.version)}.`)}
+      ${log.intro.map(p => `<p class="faint">${p}</p>`).join("\n      ")}
+      ${releases}
+      ${endNote(cfg, `This server is running v${escapeHtml(cfg.version)}.`)}
     </div>
   </div>
 </div>`;
 
+  const released = log.releases.filter(r => r.date);
   return page(cfg, {
     title: "Changelog | Aegis",
-    description: "Release history for the Aegis Discord bot and the Knub plugin framework.",
+    description: "Release history for the Aegis Discord bot, built from CHANGELOG.md in the repository.",
     path: "/changelog",
     body,
     headExtra: jsonLd({
@@ -1308,12 +1055,11 @@ export function renderChangelog(cfg: SiteConfig): string {
       "@type": "Blog",
       name: "Aegis changelog",
       url: `${process.env.SITE_URL || ""}/changelog`,
-      blogPost: RELEASES.map(r => ({
+      blogPost: released.slice(0, 10).map(r => ({
         "@type": "BlogPosting",
         headline: `Aegis ${r.version}`,
         datePublished: r.date,
-        url: `${process.env.SITE_URL || ""}/changelog#v${r.version}`,
-        description: r.highlights.join(" "),
+        url: `${process.env.SITE_URL || ""}/changelog#${r.id}`,
       })),
     }),
   });
@@ -1630,14 +1376,17 @@ export function renderNotFound(cfg: SiteConfig): string {
 <div class="wrap">
   <div class="page-head">
     <p class="eyebrow">404</p>
-    <h1>Nothing here.</h1>
-    <p class="lead">The page may have moved. Try one of these:</p>
+    <h1>There is no page at this address.</h1>
+    <p class="lead">It may have moved, or the link has a typo. If a link on this site brought you here, that is a bug; the support server is the place to report it.</p>
   </div>
   <ul class="notes">
-    <li><a href="/commands">Commands</a>: every slash command and its options</li>
-    <li><a href="/docs">Docs</a>: setup and configuration</li>
+    <li><a href="/commands">Commands</a>: every slash command with its options, searchable.</li>
+    <li><a href="/docs">Docs</a>: setup, configuration and permissions.</li>
+    <li><a href="/troubleshooting">Troubleshooting</a>: missing commands, role order, automod.</li>
+    <li><a href="/changelog">Changelog</a>: what changed recently.</li>
     <li><a href="/">Home</a></li>
   </ul>
+  ${endNote(cfg, "You can also press <kbd>Ctrl</kbd> <kbd>K</kbd> to search every page and command.")}
 </div>`;
 
   return page(cfg, {

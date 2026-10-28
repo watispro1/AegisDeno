@@ -96,7 +96,10 @@ ${o.noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="ro
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
 <meta property="og:url" content="${canonical}">
-${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">` : ""}
+${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Aegis: a moderation bot for Discord">` : ""}
 <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${description}">
@@ -107,9 +110,6 @@ ${ogImage ? `<meta name="twitter:image" content="${esc(ogImage)}">` : ""}
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="alternate" type="application/atom+xml" title="Aegis changelog" href="/changelog.xml">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/assets/site.css${v}">
 <script src="/assets/theme-init.js${v}"></script>
 ${o.headExtra || ""}
@@ -177,7 +177,7 @@ ${o.body}
         <p>A Discord moderation bot. Slash commands, no dashboard. Version ${esc(o.version)}.</p>
       </div>
       <div class="footer-col">
-        <h4>Site</h4>
+        <h2 class="footer-title">Site</h2>
         <ul>
           <li><a href="/features">Features</a></li>
           <li><a href="/commands">Commands</a></li>
@@ -187,7 +187,7 @@ ${o.body}
         </ul>
       </div>
       <div class="footer-col">
-        <h4>Docs</h4>
+        <h2 class="footer-title">Docs</h2>
         <ul>
           <li><a href="/docs#quickstart">Quickstart</a></li>
           <li><a href="/docs#configuration">Configuration</a></li>
@@ -198,10 +198,11 @@ ${o.body}
         </ul>
       </div>
       <div class="footer-col">
-        <h4>Legal</h4>
+        <h2 class="footer-title">Legal</h2>
         <ul>
           <li><a href="/terms">Terms</a></li>
           <li><a href="/privacy">Privacy</a></li>
+          <li><a href="https://github.com/watispro1/AegisDeno" rel="noopener noreferrer">Source on GitHub</a></li>
           ${o.supportUrl ? `<li><a href="${supportUrl}" rel="noopener noreferrer">Support server</a></li>` : ""}
         </ul>
       </div>
