@@ -13,9 +13,18 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
+import { createTask, deleteTask, getTasksForChannel } from "../../services/scheduler";
+import { scheduleTask, cancelTask } from "../../services/schedulerRunner";
+import { encodeChannelUnlock } from "../../services/timedActions";
 
-// Track timed unlocks in memory (per channel)
-const timedUnlocks = new Map<string, ReturnType<typeof setTimeout>>();
+/** Cancel and remove every pending persisted auto-unlock for a channel. */
+async function clearPendingUnlocks(guildId: string, channelId: string): Promise<void> {
+  const pending = await getTasksForChannel(guildId, channelId, "channel_unlock");
+  for (const task of pending) {
+    cancelTask(task.id!);
+    await deleteTask(guildId, task.id!);
+  }
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -91,7 +100,8 @@ export const command: Command = {
 
       const overwrite = targetChannel.permissionOverwrites.cache.get(guild.roles.everyone.id);
       const isLocked = overwrite?.deny.has(PermissionFlagsBits.SendMessages) ?? false;
-      const hasPendingUnlock = timedUnlocks.has(targetChannel.id);
+      const pendingUnlocks = await getTasksForChannel(guildId, targetChannel.id, "channel_unlock").catch(() => []);
+      const hasPendingUnlock = pendingUnlocks.length > 0;
 
       const embed = new EmbedBuilder()
         .setColor(isLocked ? 0xED4245 : 0x57F287)
@@ -227,38 +237,28 @@ export const command: Command = {
       await targetChannel.permissionOverwrites.edit(guild.roles.everyone, overwrite);
 
       // Cancel any existing timed unlock for this channel
-      const existingTimer = timedUnlocks.get(targetChannel.id);
-      if (existingTimer) {
-        clearTimeout(existingTimer);
-        timedUnlocks.delete(targetChannel.id);
-      }
+      await clearPendingUnlocks(guildId, targetChannel.id);
 
       let autoUnlockText = "None";
       if (isLocking && durationMinutes > 0) {
         const unlockAt = new Date(Date.now() + durationMinutes * 60_000);
         autoUnlockText = `<t:${Math.floor(unlockAt.getTime() / 1000)}:R>`;
 
-        const timer = setTimeout(async () => {
-          timedUnlocks.delete(targetChannel.id);
-          await targetChannel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: null }).catch(() => null);
-          await sendGuildLog(interaction.client, guildId, {
-            title: "🔓 Auto-Unlock",
-            color: 0x57F287,
-            description: `**Channel:** <#${targetChannel.id}> was automatically unlocked after ${durationMinutes} minute(s).\n**Original Moderator:** ${interaction.user.tag}`,
-          });
-          // Send a public message in the unlocked channel
-          await targetChannel.send({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0x57F287)
-                .setTitle("🔓 Channel Unlocked")
-                .setDescription(`This channel has been automatically unlocked after a ${durationMinutes}-minute lockdown.`)
-                .setTimestamp(),
-            ],
-          }).catch(() => null);
-        }, durationMinutes * 60_000);
-
-        timedUnlocks.set(targetChannel.id, timer);
+        // Persisted so a restart or deploy can't leave the channel locked forever.
+        try {
+          const task = await createTask(
+            guildId,
+            targetChannel.id,
+            interaction.user.id,
+            "channel_unlock",
+            encodeChannelUnlock({ moderatorTag: interaction.user.tag, durationMinutes }),
+            unlockAt,
+          );
+          scheduleTask(interaction.client, task);
+        } catch (err) {
+          logger.error(`Failed to schedule auto-unlock for channel ${targetChannel.id} in guild ${guildId}`, err);
+          autoUnlockText = "⚠️ Could not be scheduled — use /lock unlock";
+        }
       }
 
       const embed = new EmbedBuilder()

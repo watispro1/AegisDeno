@@ -729,12 +729,14 @@ export function renderDocs(cfg: SiteConfig): string {
       <p><code>/welcome message</code> opens a form. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{server}</code>, <code>{member_count}</code>.</p>
 
       <h2 id="automation">Reminders and schedules</h2>
-      ${cmdBlock(`/remindme reminder:Review appeals duration:2h
+      ${cmdBlock(`/remindme set reminder:Review appeals duration:2h
+/remindme list
+/remindme cancel id:abc123
 /automation message in:1d channel:#announcements message:Event starts in an hour
 /automation repeat interval:7d channel:#general message:Weekly thread is up
 /automation list
 /automation cancel id:abc123`)}
-      <p>Durations use <code>30s</code>, <code>10m</code>, <code>2h</code>, <code>1d</code>. Scheduled tasks are restored after a restart.</p>
+      <p>Durations use <code>30s</code>, <code>10m</code>, <code>2h</code>, <code>1d</code> (<code>/remindme</code> also takes <code>1w</code> and goes up to a year). Reminders, scheduled tasks and <code>/lock</code> auto-unlocks are restored after a restart.</p>
 
       <h2 id="configuration">Configuration</h2>
       ${cmdBlock(`/config view
