@@ -13,7 +13,9 @@ import {
 import { Command } from "../../types/discord";
 import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
-import { addModerationCase } from "../../services/moderationCases";
+import { addModerationCase, revokeModerationCase } from "../../services/moderationCases";
+import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
+import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
 import { BanAppealModel } from "../../database/mongo";
 import { generateAppealCode } from "./appeal";
 
@@ -38,7 +40,7 @@ export const command: Command = {
         )
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Custom reason for the ban").setMaxLength(512).setRequired(false)
+      opt.setName("reason").setDescription("Reason: pick a preset or type your own").setAutocomplete(true).setMaxLength(512).setRequired(false)
     )
     .addIntegerOption(opt =>
       opt
@@ -51,11 +53,16 @@ export const command: Command = {
     .addBooleanOption(opt =>
       opt.setName("silent").setDescription("Skip DM notification to the banned user").setRequired(false)
     )
+    .addAttachmentOption(opt =>
+      opt.setName("proof").setDescription("Optional screenshot or proof, stored with the case").setRequired(false)
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.BanMembers],
   botPermissions: [PermissionFlagsBits.BanMembers],
+
+  autocomplete: handleReasonAutocomplete,
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const target       = interaction.options.getUser("user", true);
@@ -63,6 +70,7 @@ export const command: Command = {
     const customReason = interaction.options.getString("reason");
     const deleteDays   = interaction.options.getInteger("delete_messages") ?? 0;
     const silent       = interaction.options.getBoolean("silent") ?? false;
+    const proof        = interaction.options.getAttachment("proof");
     const guildId      = interaction.guildId!;
 
     if (!preset && !customReason) {
@@ -72,7 +80,7 @@ export const command: Command = {
       });
     }
 
-    const reason = preset && customReason ? `[${preset}] ${customReason}` : (preset || customReason!);
+    const reason = combineReason(preset, customReason) ?? "No reason provided.";
 
     if (target.id === interaction.user.id) {
       return interaction.reply({ content: "❌ You cannot ban yourself.", flags: MessageFlags.Ephemeral });
@@ -114,6 +122,7 @@ export const command: Command = {
         { name: "📥 Joined Server",  value: joinedServer, inline: true },
         { name: "🗑️ Msg Deletion",   value: `${deleteDays} day(s)`, inline: true },
         { name: "🔕 Silent",         value: silent ? "Yes" : "No", inline: true },
+        ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
       )
       .setFooter({ text: "This confirmation expires in 30 seconds." })
       .setTimestamp();
@@ -172,13 +181,15 @@ export const command: Command = {
           deleteMessageSeconds: deleteDays * 86400,
         });
 
-        await addModerationCase({
+        const bannedAt = Date.now();
+        const caseId = await addModerationCase({
           guildId,
           userId: target.id,
           moderatorId: interaction.user.id,
           action: "ban",
           reason,
           details: `Deleted messages: ${deleteDays} day(s)`,
+          proofUrl: proof?.url ?? null,
         });
 
         // Auto-generate ban appeal record & DM the user their appeal code
@@ -228,15 +239,13 @@ export const command: Command = {
             { name: "🗑️ Msg Deletion",  value: `${deleteDays} day(s)`, inline: true },
             { name: "🔕 DM Sent",       value: (!silent && member) ? "✅ Yes" : "❌ No / Silent", inline: true },
             ...(appealCode ? [{ name: "📋 Appeal Code", value: `\`${appealCode}\` — DM sent with instructions`, inline: false }] : []),
+            ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
           )
+          .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)
           .setTimestamp();
 
         const postBanRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`ban_revoke_${target.id}`)
-            .setLabel("Revoke Ban (Unban)")
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji("↩️"),
+          buildUndoButton(`ban_undo_${target.id}`),
         );
 
         const banMsg = await i.editReply({ content: null, embeds: [resultEmbed], components: [postBanRow] }).catch(() => null);
@@ -244,38 +253,54 @@ export const command: Command = {
         await sendGuildLog(interaction.client, guildId, {
           title: "🔨 Member Banned",
           color: 0xED4245,
-          description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}\n**Msg Deletion:** ${deleteDays}d`,
+          description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}\n**Msg Deletion:** ${deleteDays}d${proof ? `\n**Proof:** ${proof.url}` : ""}`,
         });
 
         if (banMsg) {
           const postCollector = banMsg.createMessageComponentCollector({
             componentType: ComponentType.Button,
-            time: 60_000,
-            filter: (bi) => bi.memberPermissions?.has(PermissionFlagsBits.BanMembers) === true,
+            time: UNDO_WINDOW_MS,
           });
 
           postCollector.on("collect", async (bi) => {
-            if (bi.customId === `ban_revoke_${target.id}`) {
-              await guild.members.unban(target.id, `Ban revoked by ${bi.user.tag}`).catch(() => null);
-              await addModerationCase({
-                guildId,
-                userId: target.id,
-                moderatorId: bi.user.id,
-                action: "unban",
-                reason: `Ban revoked via quick-action by ${bi.user.tag}`,
-              });
-              await sendGuildLog(interaction.client, guildId, {
-                title: "↩️ Ban Revoked",
-                color: 0x57F287,
-                description: `**User:** ${target.tag} (<@${target.id}>)\n**Unbanned by:** ${bi.user.tag}`,
-              });
-              postCollector.stop();
-              await bi.reply({ content: `✅ Ban for **${target.tag}** was revoked by <@${bi.user.id}>.` });
-              await i.editReply({ components: [] }).catch(() => null);
+            if (bi.customId !== `ban_undo_${target.id}`) return;
+            if (!canPressUndo("ban", bi.memberPermissions)) {
+              await bi.reply({ content: "❌ You need `Ban Members` to undo a ban.", flags: MessageFlags.Ephemeral });
+              return;
             }
+            if (!isUndoWindowOpen(bannedAt, Date.now())) {
+              await bi.reply({ content: "⏱️ The 5-minute undo window has passed. Use `/unban` instead.", flags: MessageFlags.Ephemeral });
+              return;
+            }
+            await bi.deferUpdate();
+            try {
+              await guild.members.unban(target.id, `Ban undone by ${bi.user.tag}`);
+            } catch (undoErr) {
+              logger.warn(`Undo ban failed for ${target.id} in ${guildId}`, undoErr);
+              await bi.followUp({ content: "❌ Could not lift the ban. It may already have been removed.", flags: MessageFlags.Ephemeral });
+              return;
+            }
+            const revoked = caseId ? await revokeModerationCase(guildId, caseId, bi.user.id) : false;
+            if (appealCode) {
+              await BanAppealModel.updateOne(
+                { appealCode, guildId, status: "pending" },
+                { $set: { status: "expired", reviewedBy: bi.user.id, reviewNote: "Ban undone by staff", reviewedAt: new Date() } },
+              ).catch(() => null);
+            }
+            await sendGuildLog(interaction.client, guildId, {
+              title: "↩️ Ban Undone",
+              color: 0x57F287,
+              description: `**User:** ${target.tag} (<@${target.id}>)\n**Undone by:** ${bi.user.tag}${caseId ? `\n**Case:** \`${caseId}\`${revoked ? " (marked revoked)" : ""}` : ""}`,
+            });
+            postCollector.stop("undone");
+            await bi.editReply({
+              embeds: [resultEmbed.setColor(0x57F287).setTitle("↩️ Ban Undone")],
+              components: [new ActionRowBuilder<ButtonBuilder>().addComponents(buildUndoButton(`ban_undo_${target.id}`, "done"))],
+            }).catch(() => null);
           });
 
-          postCollector.on("end", async () => {
+          postCollector.on("end", async (_c, endReason) => {
+            if (endReason === "undone") return;
             await i.editReply({ components: [] }).catch(() => null);
           });
         }

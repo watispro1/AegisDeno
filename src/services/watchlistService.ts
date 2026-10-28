@@ -7,8 +7,44 @@
  */
 
 import { Client, EmbedBuilder, GuildMember, Message, PartialGuildMember, VoiceState } from "discord.js";
+import { isSendableChannel } from "../utils/channels";
 import { WatchlistEntryModel } from "../database/mongo";
 import { logger } from "../utils/logger";
+
+// ─── Event presets (pure) ─────────────────────────────────────────────────────
+
+export type WatchEvent =
+  | "message" | "edit" | "delete" | "join" | "leave" | "roleChange" | "voice" | "firstMessage";
+
+/** `/watchlist add events:` choices mapped to the events they alert on. */
+export const WATCH_EVENT_PRESETS: Record<string, WatchEvent[]> = {
+  all:           ["message", "edit", "delete", "join", "leave", "roleChange", "voice", "firstMessage"],
+  messages:      ["message", "edit", "delete"],
+  presence:      ["join", "leave", "voice"],
+  roles:         ["roleChange"],
+  voice:         ["voice"],
+  first_message: ["firstMessage"],
+  daily:         ["firstMessage", "voice"],
+};
+
+export function resolveWatchEvents(preset: string | null | undefined): WatchEvent[] {
+  return [...(WATCH_EVENT_PRESETS[preset ?? "all"] ?? WATCH_EVENT_PRESETS.all)];
+}
+
+/**
+ * Which alert (if any) a new message should raise for a watch. A first message
+ * of the day is labelled as such whenever the watch cares about messages.
+ */
+export function messageAlertKind(events: readonly string[], isFirstOfDay: boolean): "firstMessage" | "message" | null {
+  if (isFirstOfDay && (events.includes("firstMessage") || events.includes("message"))) return "firstMessage";
+  if (events.includes("message")) return "message";
+  return null;
+}
+
+/** Older entries stored "presence"/"all" literally; treat them as voice watchers too. */
+export function watchesVoice(events: readonly string[]): boolean {
+  return events.includes("voice") || events.includes("presence") || events.includes("all");
+}
 
 // ─── Fast In-Memory Watch Cache ───────────────────────────────────────────────
 
@@ -16,6 +52,7 @@ interface CachedWatch {
   moderatorId: string;
   events: string[];
   expiresAt: Date | null;
+  alertChannelId?: string | null;
 }
 
 const activeWatchKeys = new Set<string>(); // key: `${guildId}:${targetId}`
@@ -27,15 +64,16 @@ export function updateWatchCache(
   moderatorId: string,
   events: string[],
   expiresAt: Date | null,
+  alertChannelId: string | null = null,
 ): void {
   const key = `${guildId}:${targetId}`;
   activeWatchKeys.add(key);
   const list = watchCache.get(key) ?? [];
   const idx = list.findIndex(w => w.moderatorId === moderatorId);
   if (idx >= 0) {
-    list[idx] = { moderatorId, events, expiresAt };
+    list[idx] = { moderatorId, events, expiresAt, alertChannelId };
   } else {
-    list.push({ moderatorId, events, expiresAt });
+    list.push({ moderatorId, events, expiresAt, alertChannelId });
   }
   watchCache.set(key, list);
 }
@@ -62,7 +100,7 @@ export async function syncActiveWatches(): Promise<void> {
     const now = new Date();
     const entries = await WatchlistEntryModel.find({
       $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
-    }).select("guildId targetId moderatorId events expiresAt").lean();
+    }).select("guildId targetId moderatorId events expiresAt alertChannelId").lean();
 
     activeWatchKeys.clear();
     watchCache.clear();
@@ -75,6 +113,7 @@ export async function syncActiveWatches(): Promise<void> {
         moderatorId: entry.moderatorId,
         events: entry.events,
         expiresAt: entry.expiresAt ?? null,
+        alertChannelId: entry.alertChannelId ?? null,
       });
       watchCache.set(key, list);
     }
@@ -96,16 +135,34 @@ setTimeout(() => {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
+/**
+ * DM the watching moderator and, if the watch has one, post to its staff alert
+ * channel. `postedChannels` de-duplicates channel posts when several
+ * moderators watching the same member share a channel.
+ */
 async function sendWatchAlert(
   client: Client,
-  moderatorId: string,
-  embed: EmbedBuilder
+  watch: CachedWatch,
+  embed: EmbedBuilder,
+  postedChannels?: Set<string>,
 ): Promise<void> {
   try {
-    const mod = client.users.cache.get(moderatorId) ?? await client.users.fetch(moderatorId);
+    const mod = client.users.cache.get(watch.moderatorId) ?? await client.users.fetch(watch.moderatorId);
     await mod.send({ embeds: [embed] });
   } catch {
     // DMs closed or user not found — silently skip
+  }
+
+  const channelId = watch.alertChannelId;
+  if (!channelId || postedChannels?.has(channelId)) return;
+  postedChannels?.add(channelId);
+  try {
+    const channel = client.channels.cache.get(channelId) ?? await client.channels.fetch(channelId);
+    if (isSendableChannel(channel)) {
+      await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+    }
+  } catch {
+    // Channel deleted or no access — skip
   }
 }
 
@@ -146,6 +203,7 @@ async function incrementAlertCount(guildId: string, targetId: string, moderatorI
 /** Called from GuildMemberAdd */
 export async function watchlistOnJoin(client: Client, member: GuildMember): Promise<void> {
   const watches = await getWatches(member.guild.id, member.id);
+  const posted = new Set<string>();
   for (const w of watches) {
     if (!(w.events as string[]).includes("join")) continue;
     const embed = new EmbedBuilder()
@@ -159,7 +217,7 @@ export async function watchlistOnJoin(client: Client, member: GuildMember): Prom
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w.moderatorId, embed);
+    await sendWatchAlert(client, w, embed, posted);
     await incrementAlertCount(member.guild.id, member.id, w.moderatorId);
   }
 }
@@ -169,6 +227,7 @@ export async function watchlistOnLeave(client: Client, member: GuildMember | Par
   const user = member.user;
   if (!user) return;
   const watches = await getWatches(member.guild.id, member.id);
+  const posted = new Set<string>();
   for (const w of watches) {
     if (!(w.events as string[]).includes("leave")) continue;
     const embed = new EmbedBuilder()
@@ -181,7 +240,7 @@ export async function watchlistOnLeave(client: Client, member: GuildMember | Par
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w.moderatorId, embed);
+    await sendWatchAlert(client, w, embed, posted);
     await incrementAlertCount(member.guild.id, member.id, w.moderatorId);
   }
 }
@@ -190,14 +249,14 @@ export async function watchlistOnLeave(client: Client, member: GuildMember | Par
 export async function watchlistOnMessage(client: Client, message: Message, isFirstOfDay = false): Promise<void> {
   if (!message.guildId || message.author.bot) return;
   const watches = await getWatches(message.guildId, message.author.id);
+  const posted = new Set<string>();
   for (const w of watches) {
-    const isWatched = (w.events as string[]).includes("message") || (isFirstOfDay && (w.events as string[]).includes("firstMessage"));
-    if (!isWatched) continue;
-    const alertTitle = isFirstOfDay ? "🕵️ Ghost Watch Alert — First Message of the Day ☀️" : "🕵️ Ghost Watch Alert — Message Sent";
+    const kind = messageAlertKind(w.events, isFirstOfDay);
+    if (!kind) continue;
+    const alertTitle = kind === "firstMessage" ? "🕵️ Ghost Watch Alert — First Message of the Day ☀️" : "🕵️ Ghost Watch Alert — Message Sent";
     const preview = message.content.slice(0, 200) || "[No text content]";
     const embed = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setColor(isFirstOfDay ? 0xF1C40F : 0x5865F2)
+      .setColor(kind === "firstMessage" ? 0xF1C40F : 0x5865F2)
       .setAuthor({ name: alertTitle, iconURL: message.author.displayAvatarURL() })
       .setDescription(`**${message.author.tag}** sent a message in <#${message.channelId}>.`)
       .addFields(
@@ -208,7 +267,7 @@ export async function watchlistOnMessage(client: Client, message: Message, isFir
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w.moderatorId, embed);
+    await sendWatchAlert(client, w, embed, posted);
     await incrementAlertCount(message.guildId, message.author.id, w.moderatorId);
   }
 }
@@ -217,6 +276,7 @@ export async function watchlistOnMessage(client: Client, message: Message, isFir
 export async function watchlistOnMessageEdit(client: Client, message: Message): Promise<void> {
   if (!message.guildId || message.author?.bot) return;
   const watches = await getWatches(message.guildId, message.author.id);
+  const posted = new Set<string>();
   for (const w of watches) {
     if (!(w.events as string[]).includes("edit")) continue;
     const preview = message.content?.slice(0, 200) ?? "[Unknown content]";
@@ -232,7 +292,7 @@ export async function watchlistOnMessageEdit(client: Client, message: Message): 
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w.moderatorId, embed);
+    await sendWatchAlert(client, w, embed, posted);
     await incrementAlertCount(message.guildId, message.author.id, w.moderatorId);
   }
 }
@@ -241,6 +301,7 @@ export async function watchlistOnMessageEdit(client: Client, message: Message): 
 export async function watchlistOnMessageDelete(client: Client, message: Message): Promise<void> {
   if (!message.guildId || !message.author || message.author.bot) return;
   const watches = await getWatches(message.guildId, message.author.id);
+  const posted = new Set<string>();
   for (const w of watches) {
     if (!(w.events as string[]).includes("delete")) continue;
     const preview = message.content?.slice(0, 200) ?? "[Unknown content]";
@@ -255,7 +316,7 @@ export async function watchlistOnMessageDelete(client: Client, message: Message)
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w.moderatorId, embed);
+    await sendWatchAlert(client, w, embed, posted);
     await incrementAlertCount(message.guildId, message.author.id, w.moderatorId);
   }
 }
@@ -274,6 +335,7 @@ export async function watchlistOnRoleChange(client: Client, oldMember: GuildMemb
 
   if (added.length === 0 && removed.length === 0) return; // No role change
 
+  const posted = new Set<string>();
   for (const w of watches) {
     if (!(w.events as string[]).includes("roleChange")) continue;
     const changeLines = [
@@ -291,7 +353,7 @@ export async function watchlistOnRoleChange(client: Client, oldMember: GuildMemb
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w.moderatorId, embed);
+    await sendWatchAlert(client, w, embed, posted);
     await incrementAlertCount(newMember.guild.id, newMember.id, w.moderatorId);
   }
 }
@@ -303,8 +365,9 @@ export async function watchlistOnVoiceJoin(client: Client, voiceState: VoiceStat
   if (!channel) return;
 
   const watches = await getWatches(voiceState.guild.id, voiceState.member.id);
+  const posted = new Set<string>();
   for (const w of watches) {
-    if (!(w.events as string[]).includes("voice") && !(w.events as string[]).includes("presence") && !(w.events as string[]).includes("all")) continue;
+    if (!watchesVoice(w.events)) continue;
 
     const embed = new EmbedBuilder()
       .setColor(0x2ECC71)
@@ -318,7 +381,7 @@ export async function watchlistOnVoiceJoin(client: Client, voiceState: VoiceStat
       .setFooter({ text: "Ghost Watch • You are watching this member" })
       .setTimestamp();
 
-    await sendWatchAlert(client, w.moderatorId, embed);
+    await sendWatchAlert(client, w, embed, posted);
     await incrementAlertCount(voiceState.guild.id, voiceState.member.id, w.moderatorId);
   }
 }

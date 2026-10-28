@@ -33,7 +33,8 @@ import {
   watchlistOnRoleChange,
   watchlistOnVoiceJoin,
 } from "../services/watchlistService";
-import { UserActivityModel, TicketModel } from "../database/mongo";
+import { TicketModel } from "../database/mongo";
+import { recordMemberMessage } from "../services/memberActivity";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -165,19 +166,8 @@ export function setupEvents(client: Client): void {
     if (responded) return;
 
     // 2. Ghost Watch — alert watchers on message
-    // Track user message activity & check first message of the day
-    const today = new Date().toISOString().slice(0, 10);
-    const prevAct = await UserActivityModel.findOne({ guildId: message.guildId, userId: message.author.id }).lean() as any;
-    const isFirstToday = !prevAct || prevAct.lastMessageDate !== today;
-
-    UserActivityModel.updateOne(
-      { guildId: message.guildId, userId: message.author.id },
-      {
-        $inc: { messageCount: 1 },
-        $set: { lastMessageAt: new Date(), lastMessageDate: today },
-      },
-      { upsert: true }
-    ).catch(() => null);
+    // Track message count / last active (debounced, no content) & first message of the day
+    const isFirstToday = await recordMemberMessage(message.guildId, message.author.id).catch(() => false);
 
     TicketModel.updateOne(
       { guildId: message.guildId, channelId: message.channelId, status: "open" },

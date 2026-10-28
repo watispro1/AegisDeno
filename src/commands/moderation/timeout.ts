@@ -14,7 +14,9 @@ import {
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
-import { addModerationCase } from "../../services/moderationCases";
+import { addModerationCase, revokeModerationCase } from "../../services/moderationCases";
+import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
+import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
 import { ModerationCaseModel } from "../../database/mongo";
 
 const DURATION_CHOICES = [
@@ -66,16 +68,21 @@ export const command: Command = {
         )
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the timeout").setMaxLength(512).setRequired(false)
+      opt.setName("reason").setDescription("Reason: pick a preset or type your own").setAutocomplete(true).setMaxLength(512).setRequired(false)
     )
     .addBooleanOption(opt =>
       opt.setName("silent").setDescription("Skip DM notification to the member (default: false)").setRequired(false)
+    )
+    .addAttachmentOption(opt =>
+      opt.setName("proof").setDescription("Optional screenshot or proof, stored with the case").setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ModerateMembers],
   botPermissions:  [PermissionFlagsBits.ModerateMembers],
+
+  autocomplete: handleReasonAutocomplete,
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     let target = interaction.options.getMember("user") as GuildMember | null;
@@ -89,7 +96,8 @@ export const command: Command = {
     const durationMs   = durationSec * 1000;
     const preset       = interaction.options.getString("preset");
     const customReason = interaction.options.getString("reason");
-    const reason       = preset && customReason ? `[${preset}] ${customReason}` : (preset || customReason || "No reason provided.");
+    const reason       = combineReason(preset, customReason) ?? "No reason provided.";
+    const proof        = interaction.options.getAttachment("proof");
     const silent       = interaction.options.getBoolean("silent") ?? false;
     const guildId      = interaction.guildId!;
 
@@ -135,6 +143,7 @@ export const command: Command = {
         { name: "📝 Reason",     value: reason, inline: false },
         { name: "🔕 Silent",     value: silent ? "Yes" : "No", inline: true },
         { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
+        ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
       )
       .setFooter({ text: "This confirmation expires in 30 seconds." })
       .setTimestamp();
@@ -176,13 +185,15 @@ export const command: Command = {
       try {
         await target.timeout(durationMs, `${reason} | By ${interaction.user.tag}`);
 
-        await addModerationCase({
+        const appliedAt = Date.now();
+        const caseId = await addModerationCase({
           guildId,
           userId: target.id,
           moderatorId: interaction.user.id,
           action: "timeout",
           reason,
           details: `Duration: ${durationLabel} | Until ${until.toISOString()}`,
+          proofUrl: proof?.url ?? null,
         });
 
         if (!silent) {
@@ -209,16 +220,14 @@ export const command: Command = {
             { name: "📝 Reason",     value: reason, inline: false },
             { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
             { name: "🔕 DM Sent",   value: !silent ? "✅ Yes" : "❌ No (silent)", inline: true },
+            ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
           )
+          .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)
           .setTimestamp();
 
         // Offer quick-action buttons after applying
         const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`timeout_remove_${target.id}`)
-            .setLabel("Remove Timeout")
-            .setStyle(ButtonStyle.Success)
-            .setEmoji("🔓"),
+          buildUndoButton(`timeout_undo_${target.id}`),
           new ButtonBuilder()
             .setCustomId(`timeout_extend_${target.id}`)
             .setLabel("Extend (+1h)")
@@ -242,11 +251,14 @@ export const command: Command = {
         // Handle post-timeout quick actions
         const actionCollector = resultMsg.createMessageComponentCollector({
           componentType: ComponentType.Button,
-          time: 60_000,
-          filter: (bi) => bi.memberPermissions?.has(PermissionFlagsBits.ModerateMembers) === true,
+          time: UNDO_WINDOW_MS,
         });
 
         actionCollector.on("collect", async (bi) => {
+          if (!canPressUndo("timeout", bi.memberPermissions)) {
+            await bi.reply({ content: "❌ Only moderators can use these buttons.", flags: MessageFlags.Ephemeral });
+            return;
+          }
           const hierarchyOk = await isRoleHierarchyValid(
             interaction.client,
             guildId,
@@ -261,30 +273,34 @@ export const command: Command = {
             return;
           }
 
-          if (bi.customId === `timeout_remove_${target.id}`) {
+          if (bi.customId === `timeout_undo_${target.id}`) {
+            if (!isUndoWindowOpen(appliedAt, Date.now())) {
+              await bi.reply({ content: "⏱️ The 5-minute undo window has passed. Use `/removetimeout` instead.", flags: MessageFlags.Ephemeral });
+              return;
+            }
             await bi.deferUpdate();
             const refreshedMember = await interaction.guild!.members.fetch(target.id).catch(() => null);
             if (!refreshedMember) {
               await bi.followUp({ content: "❌ Member no longer found in the server.", flags: MessageFlags.Ephemeral });
               return;
             }
-            await refreshedMember.timeout(null, `Timeout removed by ${bi.user.tag}`).catch(() => null);
-            await addModerationCase({
-              guildId,
-              userId: target.id,
-              moderatorId: bi.user.id,
-              action: "untimeout",
-              reason: `Timeout removed via quick action by ${bi.user.tag}`,
-            });
+            try {
+              await refreshedMember.timeout(null, `Timeout undone by ${bi.user.tag}`);
+            } catch (undoErr) {
+              logger.warn(`Undo timeout failed for ${target.id} in ${guildId}`, undoErr);
+              await bi.followUp({ content: "❌ Could not lift the timeout. Check my permissions.", flags: MessageFlags.Ephemeral });
+              return;
+            }
+            const revoked = caseId ? await revokeModerationCase(guildId, caseId, bi.user.id) : false;
             await sendGuildLog(interaction.client, guildId, {
-              title: "🔓 Timeout Removed",
+              title: "↩️ Timeout Undone",
               color: 0x57F287,
-              description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Removed by:** ${bi.user.tag}`,
+              description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Undone by:** ${bi.user.tag}${caseId ? `\n**Case:** \`${caseId}\`${revoked ? " (marked revoked)" : ""}` : ""}`,
             });
-            actionCollector.stop();
+            actionCollector.stop("undone");
             await bi.editReply({
-              embeds: [resultEmbed.setColor(0x57F287).setTitle("🔓 Timeout Removed")],
-              components: [],
+              embeds: [resultEmbed.setColor(0x57F287).setTitle("↩️ Timeout Undone")],
+              components: [new ActionRowBuilder<ButtonBuilder>().addComponents(buildUndoButton(`timeout_undo_${target.id}`, "done"))],
             });
           } else if (bi.customId === `timeout_extend_${target.id}`) {
             await bi.deferUpdate();
@@ -328,7 +344,7 @@ export const command: Command = {
               await bi.reply({ content: `✅ <@${target.id}> has no prior moderation cases recorded.`, flags: MessageFlags.Ephemeral });
             } else {
               const lines = cases.map((c, idx) =>
-                `**${idx + 1}.** \`${c.action.toUpperCase()}\` — ${c.reason} (<t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>)`
+                `**${idx + 1}.** \`${c.action.toUpperCase()}\`${c.revoked ? " *(revoked)*" : ""} — ${c.reason} (<t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>)`
               );
               await bi.reply({
                 content: `📜 **Recent Moderation Cases for <@${target.id}> (${cases.length}):**\n${lines.join("\n")}`,
@@ -338,7 +354,8 @@ export const command: Command = {
           }
         });
 
-        actionCollector.on("end", async () => {
+        actionCollector.on("end", async (_c, endReason) => {
+          if (endReason === "undone") return;
           await interaction.editReply({ components: [] }).catch(() => null);
         });
       } catch (err) {
