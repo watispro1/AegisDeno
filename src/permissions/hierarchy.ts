@@ -1,6 +1,24 @@
 import { Client, GuildMember } from "discord.js";
 
 /**
+ * Pure hierarchy rule behind isRoleHierarchyValid(): nobody can act on
+ * themselves, the owner can act on anyone, nobody can act on the owner, and
+ * otherwise the actor's top role must be strictly above the target's.
+ */
+export function outranks(input: {
+  ownerId: string;
+  actorId: string;
+  targetId: string;
+  actorTopPosition: number;
+  targetTopPosition: number;
+}): boolean {
+  if (input.actorId === input.targetId) return false;
+  if (input.ownerId === input.actorId) return true;
+  if (input.ownerId === input.targetId) return false;
+  return input.actorTopPosition > input.targetTopPosition;
+}
+
+/**
  * Checks if the moderator's highest role is above the target's highest role.
  * Returns false if either member is not found.
  */
@@ -25,7 +43,13 @@ export async function isRoleHierarchyValid(
 
   if (!moderator || !target) return false;
 
-  return moderator.roles.highest.position > target.roles.highest.position;
+  return outranks({
+    ownerId: guild.ownerId,
+    actorId: moderatorId,
+    targetId,
+    actorTopPosition: moderator.roles.highest.position,
+    targetTopPosition: target.roles.highest.position,
+  });
 }
 
 /**

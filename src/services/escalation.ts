@@ -1,9 +1,25 @@
 import { Client, GuildMember } from "discord.js";
-import { getGuildConfig } from "./configuration";
+import { getGuildConfig, type GuildConfig } from "./configuration";
 import { getTotalWarningCount } from "./warnings";
 import { createModerationCase } from "./moderationCases";
 import { sendGuildLog } from "./logging";
 import { logger } from "../utils/logger";
+
+type EscalationThreshold = GuildConfig["escalation"]["thresholds"][number];
+
+/**
+ * Pick the threshold that fires at exactly `totalWarnings` warnings, if any.
+ * Thresholds only trigger on an exact match, so a user who jumps past a
+ * threshold (e.g. bulk warnings) does not re-trigger lower ones.
+ */
+export function findEscalationThreshold(
+  thresholds: readonly EscalationThreshold[],
+  totalWarnings: number,
+): EscalationThreshold | undefined {
+  return thresholds
+    .filter(t => t.atWarnings === totalWarnings)
+    .sort((a, b) => b.atWarnings - a.atWarnings)[0];
+}
 
 /**
  * After a warning is issued, check if any escalation thresholds are hit and
@@ -23,10 +39,7 @@ export async function checkEscalation(
 
     const totalWarnings = await getTotalWarningCount(guildId, userId);
 
-    // Find the highest threshold that exactly matches the current warning count
-    const threshold = config.escalation.thresholds
-      .filter(t => t.atWarnings === totalWarnings)
-      .sort((a, b) => b.atWarnings - a.atWarnings)[0];
+    const threshold = findEscalationThreshold(config.escalation.thresholds, totalWarnings);
 
     if (!threshold) return { triggered: false };
 
