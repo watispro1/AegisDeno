@@ -7,6 +7,15 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Website
+- Redesigned every page of the public site (home, features, commands, docs, troubleshooting, changelog, status, privacy, terms, 404) with a plainer, docs-first look: light theme by default with an optional dark theme, one teal accent, IBM Plex Sans and Plex Mono, thin borders, small corners. Removed gradients, glow, emoji headings, icon tiles, the theme picker and the interactive "lab" demo.
+- Feature copy rewritten to be short and match the code. Trust score docs now describe the real formula (account age maxes at two years, server tenure at one year, tenure bonus of 6/12/20 points).
+- Command examples throughout use real option names and choice labels, and the command reference shows a usage line for every command and subcommand.
+- Fixed the command category filter (the markup and script used different ids), moved the troubleshooting filter out of an inline script that the CSP blocked, and removed the inline changelog script.
+- The status page no longer shows the process ID, Node version or hard-coded "operational" subsystem cards; it shows only values read from the running bot.
+- New favicon and social preview image without gradients.
+- `scripts/smoke-web.ts` now checks that the stylesheet has no scroll-reveal, gradient-text or blur effects.
+
 ## [3.4.0] — 2026-10-26
 
 ### 🔒 Transition to Proprietary Platform

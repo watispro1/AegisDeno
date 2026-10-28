@@ -155,11 +155,8 @@ async function main() {
 
   console.log("\nNo-JS safety");
   const cssText = await (await fetch(origin + "/assets/site.css")).text();
-  check("reveal gated on .js", /\.js \.reveal\s*\{/.test(cssText));
-  check(
-    "no ungated .reveal opacity:0",
-    !/^\s*\.reveal\s*\{\s*opacity:\s*0/m.test(cssText)
-  );
+  check("no hidden-until-scroll content", !/\.reveal\b/.test(cssText));
+  check("no gradient text or blur effects", !/background-clip:\s*text|backdrop-filter/.test(cssText));
   const init = await (await fetch(origin + "/assets/theme-init.js")).text();
   check("theme-init adds js class", init.includes("classList.add(\"js\")"));
 

@@ -30,13 +30,15 @@ When a user is banned, Aegis automatically DMs them a unique **appeal code** and
 
 ### Web Portal & Design System
 
-- **Liquid Glass 2.0**: Ultra-refined frosted glass aesthetic with multi-layer blur, specular rim lights, and iridescent highlights. Fully CSS-driven — toggling is instant and layout-shift-free.
-- **Toggleable Glass Mode**: One-click toggle between VisionOS frosted materials and high-contrast solid performance mode via the navbar button or `G` keyboard shortcut. Preference persists across sessions (FOUC-free via `themeInitScript`).
-- **Reading Progress Bar**: Subtle gradient scroll progress indicator across all documentation and guides.
-- **Automatic Code Copy**: 1-click clipboard copy buttons with visual feedback and toast notifications on all documentation code blocks.
-- **Enhanced Mobile Experience**: Full responsive support across mobile and tablet viewports with sticky table-of-contents jump navigation, touch-optimized tables, and smooth drawer animations.
-- **Comprehensive Documentation Manual**: Overhauled `/docs` handbook covering Quickstart, Tickets, Verification, Starboard, AutoMod, and Audit streams with live section tracking.
-- **Global Site Search**: `Ctrl+K` search dialog covering all pages and every slash command with live results.
+The public site (`src/web/`) is server-rendered from TypeScript strings and served by Express. The design is intentionally plain and docs-first:
+
+- **Look**: one warm off-white background (light by default, dark via the header toggle, saved in `localStorage`), one teal accent, IBM Plex Sans for text and IBM Plex Mono for anything you would type into Discord. Thin borders instead of shadows, corners of 6px or less, no gradients, blur or scroll animations.
+- **Content**: commands are shown as real Discord slash commands (`/warn user:@member reason:...`) instead of icon tiles. The home page lists each feature with the command you would start with; `/features` and `/docs` give setup steps with copy-pasteable examples.
+- **Command reference**: `/commands` is generated from the command definitions at startup, with a usage line, options table and permissions per command, a `/` shortcut to filter, category filters and `#cmd-<name>` deep links.
+- **Search**: `Ctrl+K` (or `Cmd+K`) searches pages and every slash command.
+- **Pages**: home, features, commands, docs, troubleshooting, changelog, status, privacy, terms and a 404. Health and data endpoints: `/health`, `/api/stats`, `/api/commands`, `/api/plugins`, `/changelog.xml`.
+- **Files**: `theme.ts` (stylesheet), `layout.ts` (shell, nav, footer, search dialog), `pages.ts` (page bodies), `content.ts` (feature and FAQ copy), `client.ts` (progressive-enhancement JS, no dependencies), `assets.ts` (favicon, OG image, manifest).
+- **Checks**: `npm run typecheck`, `npm test` (build plus `scripts/smoke-web.ts`), `npx tsx scripts/audit-site.ts` (links, ids, unstyled classes, dead CSS) and `npx tsx scripts/preview-site.ts` (static build into `dist/site`).
 
 ### Moderation & Security
 
