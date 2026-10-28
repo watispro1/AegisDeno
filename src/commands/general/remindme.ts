@@ -8,7 +8,7 @@ import {
 import { Command } from "../../types/discord";
 import { createTask, getTasksForCreator, deleteTaskForCreator } from "../../services/scheduler";
 import { scheduleTask, cancelTask } from "../../services/schedulerRunner";
-import { encodePersonalReminder, decodePersonalReminder } from "../../services/timedActions";
+import { encodePersonalReminder, decodePersonalReminder, reminderRepeatIntervalMs, type ReminderRepeat } from "../../services/timedActions";
 import { parseDuration, formatDuration } from "../../utils/duration";
 
 const MIN_REMINDER_SECONDS = 10;
@@ -44,6 +44,17 @@ export const command: Command = {
         .addBooleanOption(opt =>
           opt.setName("channel_reminder").setDescription("Also ping you in this channel (default: DM only)").setRequired(false)
         )
+        .addStringOption(opt =>
+          opt
+            .setName("repeat")
+            .setDescription("Repeat the reminder after it fires (default: once)")
+            .setRequired(false)
+            .addChoices(
+              { name: "Once", value: "none" },
+              { name: "Daily", value: "daily" },
+              { name: "Weekly", value: "weekly" },
+            )
+        )
     )
     .addSubcommand(sub =>
       sub.setName("list").setDescription("List your pending reminders.")
@@ -69,7 +80,8 @@ export const command: Command = {
 
       const lines = reminders.slice(0, 15).map(t => {
         const ts = Math.floor(new Date(t.executeAt).getTime() / 1000);
-        return `⏰ **\`${t.id}\`** — <t:${ts}:R>\n*${preview(reminderText(t.payload))}*`;
+        const repeat = decodePersonalReminder(t.payload)?.repeat;
+        return `⏰ **\`${t.id}\`** — <t:${ts}:R>${repeat ? ` · 🔁 ${repeat}` : ""}\n*${preview(reminderText(t.payload))}*`;
       });
 
       const embed = new EmbedBuilder()
@@ -100,6 +112,9 @@ export const command: Command = {
     const text        = interaction.options.getString("reminder", true);
     const durationRaw = interaction.options.getString("duration", true);
     const inChannel   = interaction.options.getBoolean("channel_reminder") ?? false;
+    const repeatRaw   = interaction.options.getString("repeat");
+    const repeat: ReminderRepeat | undefined = repeatRaw === "daily" || repeatRaw === "weekly" ? repeatRaw : undefined;
+    const intervalMs  = reminderRepeatIntervalMs(repeat);
 
     const durationSec = parseDuration(durationRaw);
     if (!durationSec || durationSec < MIN_REMINDER_SECONDS) {
@@ -139,8 +154,10 @@ export const command: Command = {
           inChannel,
           sourceName: interaction.guild?.name ?? "Direct Message",
           setAt,
+          ...(repeat ? { repeat } : {}),
         }),
         fireAt,
+        intervalMs,
       );
       scheduleTask(interaction.client, task);
       taskId = task.id!;
@@ -160,6 +177,7 @@ export const command: Command = {
         { name: "📝 Reminder", value: text, inline: false },
         { name: "⏳ Duration", value: formatDuration(durationSec), inline: true },
         { name: "🔔 Delivery",  value: inChannel ? "DM + Channel Ping" : "DM only", inline: true },
+        { name: "🔁 Repeats",   value: repeat ? (repeat === "daily" ? "Daily" : "Weekly") : "Once", inline: true },
       )
       .setFooter({ text: `ID: ${taskId} · You can close this. I'll DM you when the time comes.` })
       .setTimestamp();

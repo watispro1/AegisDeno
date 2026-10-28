@@ -29,6 +29,37 @@ export interface PersonalReminderPayload {
   sourceName: string;
   /** When the reminder was created (epoch ms). */
   setAt: number;
+  /** Repeating reminders re-fire on this cadence until cancelled. Omitted for one-off reminders. */
+  repeat?: ReminderRepeat;
+}
+
+export type ReminderRepeat = "daily" | "weekly";
+
+const DAY_MS = 86_400_000;
+
+/** Interval for a repeating reminder, or null for a one-off. */
+export function reminderRepeatIntervalMs(repeat: string | null | undefined): number | null {
+  if (repeat === "daily") return DAY_MS;
+  if (repeat === "weekly") return 7 * DAY_MS;
+  return null;
+}
+
+/** Snooze lengths offered on a delivered reminder, in minutes. */
+export const SNOOZE_OPTIONS_MINUTES = [10, 60] as const;
+
+export const REMINDER_SNOOZE_PREFIX = "remindsnooze_";
+
+export function reminderSnoozeCustomId(userId: string, minutes: number): string {
+  return `${REMINDER_SNOOZE_PREFIX}${userId}_${minutes}`;
+}
+
+/** Parse a snooze button id; only the offered lengths are accepted. */
+export function parseReminderSnoozeCustomId(customId: string): { userId: string; minutes: number } | null {
+  const m = /^remindsnooze_(\d{1,20})_(\d{1,4})$/.exec(customId);
+  if (!m) return null;
+  const minutes = Number(m[2]);
+  if (!(SNOOZE_OPTIONS_MINUTES as readonly number[]).includes(minutes)) return null;
+  return { userId: m[1], minutes };
 }
 
 export function encodePersonalReminder(payload: PersonalReminderPayload): string {
@@ -41,12 +72,14 @@ export function decodePersonalReminder(raw: string): PersonalReminderPayload | n
     if (!obj || typeof obj !== "object") return null;
     const o = obj as Record<string, unknown>;
     if (typeof o.text !== "string" || o.text.length === 0) return null;
-    return {
+    const payload: PersonalReminderPayload = {
       text: o.text,
       inChannel: o.inChannel === true,
       sourceName: typeof o.sourceName === "string" ? o.sourceName : "Direct Message",
       setAt: typeof o.setAt === "number" && Number.isFinite(o.setAt) ? o.setAt : Date.now(),
     };
+    if (o.repeat === "daily" || o.repeat === "weekly") payload.repeat = o.repeat;
+    return payload;
   } catch {
     return null;
   }
