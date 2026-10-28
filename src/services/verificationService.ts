@@ -2,6 +2,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  Client,
   EmbedBuilder,
   Guild,
   GuildMember,
@@ -10,6 +11,11 @@ import {
 import { VerificationModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 import { sendGuildLog } from "./logging";
+import { createTask, deleteTasksForCreatorInGuild, type ScheduledTask } from "./scheduler";
+import { CaptchaStore, decodeVerifyKick, encodeVerifyKick, normalizeKickMinutes } from "./verificationLogic";
+
+/** Issued math captchas, keyed by guild + user. Answers never leave the process. */
+export const captchaStore = new CaptchaStore();
 
 export interface VerificationConfig {
   guildId: string;
@@ -31,8 +37,72 @@ export async function getVerificationConfig(guildId: string): Promise<Verificati
     type: doc.type as "button" | "captcha",
     channelId: doc.channelId ?? null,
     messageId: doc.messageId ?? null,
-    kickUnverifiedMinutes: (doc as any).kickUnverifiedMinutes ?? 0,
+    kickUnverifiedMinutes: normalizeKickMinutes((doc as any).kickUnverifiedMinutes ?? 0),
   };
+}
+
+/** Change the unverified auto-kick delay without re-posting the panel. Returns false if not set up. */
+export async function setKickUnverifiedMinutes(guildId: string, minutes: number): Promise<boolean> {
+  const res = await VerificationModel.updateOne(
+    { guildId },
+    { $set: { kickUnverifiedMinutes: normalizeKickMinutes(minutes) } },
+  );
+  return res.matchedCount > 0;
+}
+
+/**
+ * On join: if verification is on with an auto-kick delay, persist a `verify_kick` task
+ * so the check survives restarts. The task re-checks state before kicking.
+ */
+export async function scheduleUnverifiedKick(client: Client, member: GuildMember): Promise<void> {
+  if (member.user.bot) return;
+  const config = await getVerificationConfig(member.guild.id);
+  if (!config?.enabled || config.kickUnverifiedMinutes <= 0) return;
+
+  const at = new Date(Date.now() + config.kickUnverifiedMinutes * 60_000);
+  const task = await createTask(
+    member.guild.id,
+    config.channelId ?? member.guild.id,
+    member.id,
+    "verify_kick",
+    encodeVerifyKick({ userId: member.id }),
+    at,
+  );
+  const { scheduleTask } = await import("./schedulerRunner");
+  scheduleTask(client, task);
+}
+
+/** Drop a member's pending auto-kick (after they verify or leave). */
+export async function clearUnverifiedKick(guildId: string, userId: string): Promise<void> {
+  const ids = await deleteTasksForCreatorInGuild(guildId, userId, "verify_kick");
+  if (!ids.length) return;
+  const { cancelTask } = await import("./schedulerRunner");
+  for (const id of ids) cancelTask(id);
+}
+
+/** Scheduler handler for `verify_kick`. Kicks only if verification is still on and the member is unverified. */
+export async function runVerifyKick(client: Client, task: ScheduledTask): Promise<void> {
+  const payload = decodeVerifyKick(task.payload);
+  if (!payload) return;
+
+  const config = await getVerificationConfig(task.guildId);
+  if (!config?.enabled || config.kickUnverifiedMinutes <= 0) return;
+
+  const guild = client.guilds.cache.get(task.guildId) ?? await client.guilds.fetch(task.guildId).catch(() => null);
+  if (!guild) return;
+  const member = await guild.members.fetch(payload.userId).catch(() => null);
+  if (!member || member.roles.cache.has(config.verifiedRoleId)) return;
+  if (!member.kickable) {
+    logger.warn(`Verification auto-kick: cannot kick ${member.id} in ${guild.id} (role order or permissions).`);
+    return;
+  }
+
+  await member.kick(`Unverified after ${config.kickUnverifiedMinutes} minutes`);
+  await sendGuildLog(client, guild.id, {
+    title: "👢 Member Kicked (Verification Timeout)",
+    color: 0xE74C3C,
+    description: `${member.user.tag} (<@${member.id}>) was kicked for failing to verify within ${config.kickUnverifiedMinutes} minutes.`,
+  }, "modActions");
 }
 
 export async function setupVerification(
@@ -44,6 +114,7 @@ export async function setupVerification(
   description = "Click the button below to verify your account and gain access to the rest of the server.",
   kickUnverifiedMinutes = 0
 ): Promise<VerificationConfig | null> {
+  kickUnverifiedMinutes = normalizeKickMinutes(kickUnverifiedMinutes);
   try {
     // Purge previous verification panel messages in this channel to prevent duplicates
     const fetchedMsgs = await channel.messages.fetch({ limit: 50 }).catch(() => null);
@@ -130,6 +201,7 @@ export async function processVerification(
     }
 
     await member.roles.add(role, "Completed server verification");
+    await clearUnverifiedKick(guild.id, member.id).catch(() => null);
 
     await sendGuildLog(guild.client, guild.id, {
       title: "✅ Member Verified",

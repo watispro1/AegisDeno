@@ -1,6 +1,12 @@
-import { Client, TextChannel, EmbedBuilder } from "discord.js";
+import { Client, TextChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { getAllPendingTasks, deleteTask, updateTaskNextRun, ScheduledTask } from "./scheduler";
-import { decodeChannelUnlock, decodePersonalReminder, nextTimerDelay } from "./timedActions";
+import {
+  decodeChannelUnlock,
+  decodePersonalReminder,
+  nextTimerDelay,
+  reminderSnoozeCustomId,
+  SNOOZE_OPTIONS_MINUTES,
+} from "./timedActions";
 import { sendGuildLog } from "./logging";
 import { isSendableChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
@@ -32,15 +38,30 @@ async function deliverPersonalReminder(client: Client, task: ScheduledTask): Pro
       .setTitle("⏰ Reminder!")
       .setDescription(`You asked me to remind you about:\n\n**${payload.text}**`)
       .addFields(
+        { name: "📝 Reminder", value: payload.text.slice(0, 1024) },
         { name: "⏳ Set",  value: `<t:${Math.floor(payload.setAt / 1000)}:R>` },
         { name: "📌 From", value: payload.sourceName },
       )
-      .setFooter({ text: "Set with /remindme" })
+      .setFooter({
+        text: payload.repeat
+          ? `Repeats ${payload.repeat} · ID ${task.id} · stop with /remindme cancel`
+          : "Set with /remindme",
+      })
       .setTimestamp();
+
+    const snoozeRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      ...SNOOZE_OPTIONS_MINUTES.map(min =>
+        new ButtonBuilder()
+          .setCustomId(reminderSnoozeCustomId(task.creatorId, min))
+          .setLabel(min >= 60 ? `Snooze ${min / 60}h` : `Snooze ${min}m`)
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("💤"),
+      ),
+    );
 
     const user = await client.users.fetch(task.creatorId).catch(() => null);
     if (user) {
-      await user.send({ embeds: [dmEmbed] }).catch(() => null);
+      await user.send({ embeds: [dmEmbed], components: [snoozeRow] }).catch(() => null);
     }
 
     if (payload.inChannel) {
@@ -107,6 +128,20 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
 
     if (task.type === "channel_unlock") {
       await performChannelUnlock(client, task);
+      retryCount.delete(taskId);
+      return;
+    }
+
+    if (task.type === "ticket_autoclose") {
+      const { runTicketAutoClose } = await import("./ticketService");
+      await runTicketAutoClose(client, task);
+      retryCount.delete(taskId);
+      return;
+    }
+
+    if (task.type === "verify_kick") {
+      const { runVerifyKick } = await import("./verificationService");
+      await runVerifyKick(client, task);
       retryCount.delete(taskId);
       return;
     }

@@ -13,6 +13,8 @@ import {
 import { Command } from "../../types/discord";
 import { getWarningsForUser } from "../../services/warnings";
 import { getModerationCases } from "../../services/moderationCases";
+import { calculateTrustProfile, scoreBar } from "../../services/trustScore";
+import { hasModerationPermissions } from "../../services/commandAccess";
 
 const KEY_PERMISSIONS: Array<{ flag: bigint; name: string }> = [
   { flag: PermissionFlagsBits.Administrator, name: "Administrator" },
@@ -63,10 +65,16 @@ export const command: Command = {
       return;
     }
 
-    const [warnings, cases] = await Promise.all([
-      getWarningsForUser(interaction.guildId!, user.id),
-      getModerationCases(interaction.guildId!, user.id, 5),
-    ]);
+    // Warn counts, trust score and the mod-record buttons are only for moderators,
+    // and their reply is ephemeral so the record is not shown to the channel.
+    const viewerIsMod = hasModerationPermissions(interaction.memberPermissions?.bitfield ?? null);
+
+    const [warnings, cases] = viewerIsMod
+      ? await Promise.all([
+          getWarningsForUser(interaction.guildId!, user.id),
+          getModerationCases(interaction.guildId!, user.id, 5),
+        ])
+      : [[], []] as [Awaited<ReturnType<typeof getWarningsForUser>>, Awaited<ReturnType<typeof getModerationCases>>];
 
     const roles = member.roles.cache
       .filter((role) => role.id !== interaction.guildId)
@@ -106,7 +114,6 @@ export const command: Command = {
       .addFields(
         { name: "👤 Member", value: `<@${user.id}>`, inline: true },
         { name: "🏷️ Status", value: `${statusEmoji} ${statusKey.charAt(0).toUpperCase() + statusKey.slice(1)}`, inline: true },
-        { name: "⚠️ Warnings", value: `**${warnings.length}** warning(s)`, inline: true },
         { name: "📅 Account Created", value: `<t:${Math.floor(user.createdTimestamp / 1000)}:D> (<t:${Math.floor(user.createdTimestamp / 1000)}:R>)`, inline: true },
         { name: "📥 Joined Server", value: member.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:D> (<t:${Math.floor(member.joinedTimestamp / 1000)}:R>)` : "Unknown", inline: true },
         { name: "💎 Booster Since", value: member.premiumSinceTimestamp ? `<t:${Math.floor(member.premiumSinceTimestamp / 1000)}:R>` : "Not boosting", inline: true },
@@ -117,17 +124,36 @@ export const command: Command = {
       .setFooter({ text: badges.length > 0 ? `Badges: ${badges.join(" • ")}` : (user.bot ? "Bot Account" : "Server Member") })
       .setTimestamp();
 
+    if (viewerIsMod) {
+      const trust = calculateTrustProfile({
+        accountCreatedAt: user.createdAt,
+        joinedAt: member.joinedAt,
+        warnings: warnings.length,
+        cases: cases.length,
+      });
+      embed.addFields(
+        { name: "⚠️ Warnings", value: `**${warnings.length}** warning(s)`, inline: true },
+        { name: "🧠 Trust Score", value: `**${trust.score}**/100 · ${trust.tier}\n\`${scoreBar(trust.score)}\``, inline: true },
+      );
+    }
+
+    const modButtons = viewerIsMod
+      ? [
+          new ButtonBuilder()
+            .setCustomId(`userinfo_warns_${user.id}`)
+            .setLabel("Warn History")
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji("📜"),
+          new ButtonBuilder()
+            .setCustomId(`userinfo_cases_${user.id}`)
+            .setLabel("Mod Cases")
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji("📂"),
+        ]
+      : [];
+
     const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`userinfo_warns_${user.id}`)
-        .setLabel("Warn History")
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji("📜"),
-      new ButtonBuilder()
-        .setCustomId(`userinfo_cases_${user.id}`)
-        .setLabel("Mod Cases")
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji("📂"),
+      ...modButtons,
       new ButtonBuilder()
         .setCustomId(`userinfo_roles_${user.id}`)
         .setLabel("All Roles")
@@ -145,7 +171,12 @@ export const command: Command = {
         .setEmoji("🖼️"),
     );
 
-    const sent = await interaction.reply({ embeds: [embed], components: [buttons], fetchReply: true });
+    const sent = await interaction.reply({
+      embeds: [embed],
+      components: [buttons],
+      fetchReply: true,
+      ...(viewerIsMod ? { flags: MessageFlags.Ephemeral as const } : {}),
+    });
 
     const collector = sent.createMessageComponentCollector({
       componentType: ComponentType.Button,
@@ -153,6 +184,11 @@ export const command: Command = {
     });
 
     collector.on("collect", async (i) => {
+      const isModRecord = i.customId.startsWith("userinfo_warns_") || i.customId.startsWith("userinfo_cases_");
+      if (isModRecord && !hasModerationPermissions(i.memberPermissions?.bitfield ?? null)) {
+        await i.reply({ content: "❌ Moderation records are only visible to moderators.", flags: MessageFlags.Ephemeral });
+        return;
+      }
       if (i.customId.startsWith("userinfo_warns_")) {
         if (warnings.length === 0) {
           await i.reply({ content: `✅ <@${user.id}> has zero warnings on record.`, flags: MessageFlags.Ephemeral });

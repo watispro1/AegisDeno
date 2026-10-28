@@ -5,11 +5,30 @@ import {
   EmbedBuilder,
   Guild,
   GuildMember,
+  StringSelectMenuBuilder,
   TextChannel,
 } from "discord.js";
 import { RolePanelModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 import { sendGuildLog } from "./logging";
+import {
+  meetsPanelRequirement,
+  normalizePanelMode,
+  normalizePanelStyle,
+  planRoleChanges,
+  rolePanelSelectCustomId,
+  type RolePanelMode,
+  type RolePanelStyle,
+} from "./rolePanelLogic";
+
+export interface RolePanelOptions {
+  /** "button" (default) or "dropdown" (select menu). */
+  style?: RolePanelStyle;
+  /** "multi" (default) toggles each role; "exclusive" lets a member hold only one panel role. */
+  mode?: RolePanelMode;
+  /** Members must hold this role to use the panel. */
+  requiredRoleId?: string | null;
+}
 
 export interface RolePanelOption {
   roleId: string;
@@ -26,6 +45,9 @@ export interface RolePanel {
   title: string;
   description: string;
   roles: RolePanelOption[];
+  panelStyle?: RolePanelStyle;
+  mode?: RolePanelMode;
+  requiredRoleId?: string | null;
   createdAt: Date;
 }
 
@@ -34,32 +56,60 @@ export async function createRolePanel(
   channel: TextChannel,
   title: string,
   description: string,
-  roles: RolePanelOption[]
+  roles: RolePanelOption[],
+  options: RolePanelOptions = {},
 ): Promise<RolePanel | null> {
   try {
     const panelId = `panel-${crypto.randomUUID()}`;
+    const panelStyle = normalizePanelStyle(options.style);
+    const mode = normalizePanelMode(options.mode);
+    const requiredRoleId = options.requiredRoleId ?? null;
+    const shown = roles.slice(0, panelStyle === "dropdown" ? 25 : 5); // 5 buttons per row; 25 select options
+
+    const footer = [
+      panelStyle === "dropdown"
+        ? (mode === "exclusive" ? "Pick one role from the menu. Picking it again removes it." : "Pick roles from the menu to toggle them.")
+        : (mode === "exclusive" ? "Click a button to take that role; you can hold only one." : "Click a button below to toggle your roles."),
+    ].join(" ");
 
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setColor(0x9B59B6)
-      .setDescription(description)
-      .setFooter({ text: "Click a button below to toggle your roles." });
+      .setDescription(requiredRoleId ? `${description}\n\n🔒 Requires <@&${requiredRoleId}>.` : description)
+      .setFooter({ text: footer });
 
-    const row = new ActionRowBuilder<ButtonBuilder>();
+    let components: ActionRowBuilder<ButtonBuilder>[] | ActionRowBuilder<StringSelectMenuBuilder>[];
+    if (panelStyle === "dropdown") {
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId(rolePanelSelectCustomId(panelId))
+        .setPlaceholder(mode === "exclusive" ? "Choose a role…" : "Choose roles…")
+        .setMinValues(1)
+        .setMaxValues(mode === "exclusive" ? 1 : shown.length)
+        .addOptions(
+          shown.map(item => ({
+            label: item.label.slice(0, 100),
+            value: item.roleId,
+            ...(item.emoji ? { emoji: item.emoji } : {}),
+          })),
+        );
+      components = [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)];
+    } else {
+      const row = new ActionRowBuilder<ButtonBuilder>();
+      for (const item of shown) {
+        const btn = new ButtonBuilder()
+          .setCustomId(`rolepanel_${panelId}_${item.roleId}`)
+          .setLabel(item.label)
+          .setStyle(item.style || ButtonStyle.Primary);
 
-    for (const item of roles.slice(0, 5)) { // Max 5 buttons per row
-      const btn = new ButtonBuilder()
-        .setCustomId(`rolepanel_${panelId}_${item.roleId}`)
-        .setLabel(item.label)
-        .setStyle(item.style || ButtonStyle.Primary);
-
-      if (item.emoji) {
-        btn.setEmoji(item.emoji);
+        if (item.emoji) {
+          btn.setEmoji(item.emoji);
+        }
+        row.addComponents(btn);
       }
-      row.addComponents(btn);
+      components = [row];
     }
 
-    const message = await channel.send({ embeds: [embed], components: [row] });
+    const message = await channel.send({ embeds: [embed], components });
 
     const doc = await RolePanelModel.create({
       id: panelId,
@@ -68,7 +118,10 @@ export async function createRolePanel(
       messageId: message.id,
       title,
       description,
-      roles,
+      roles: shown,
+      panelStyle,
+      mode,
+      requiredRoleId,
     });
 
     await sendGuildLog(guild.client, guild.id, {
@@ -84,6 +137,55 @@ export async function createRolePanel(
   }
 }
 
+export interface PanelChangeResult {
+  added: string[];
+  removed: string[];
+}
+
+/**
+ * Apply a member's pick on a panel (button click or dropdown selection), honouring the
+ * panel's mode and required role. Throws with a user-facing message when it cannot.
+ */
+export async function applyRolePanelPick(
+  guild: Guild,
+  member: GuildMember,
+  panelId: string,
+  messageId: string,
+  pickedRoleIds: readonly string[],
+): Promise<PanelChangeResult> {
+  const panel = await RolePanelModel.findOne({ id: panelId, guildId: guild.id, messageId }).lean();
+  if (!panel) throw new Error("This role panel is no longer active.");
+
+  const held = [...member.roles.cache.keys()];
+  if (!meetsPanelRequirement(held, panel.requiredRoleId)) {
+    throw new Error(`You need the <@&${panel.requiredRoleId}> role to use this panel.`);
+  }
+
+  const panelRoleIds = panel.roles.map(r => r.roleId);
+  const plan = planRoleChanges(held, panelRoleIds, pickedRoleIds, normalizePanelMode(panel.mode));
+  if (plan.add.length === 0 && plan.remove.length === 0) {
+    throw new Error("That role is not part of this panel.");
+  }
+
+  const resolve = async (roleId: string) => {
+    const role = guild.roles.cache.get(roleId) ?? await guild.roles.fetch(roleId).catch(() => null);
+    if (!role) throw new Error("Role no longer exists.");
+    if (role.managed || !role.editable) {
+      throw new Error("I cannot manage that role. Check my role position and permissions.");
+    }
+    return role;
+  };
+
+  const toAdd = await Promise.all(plan.add.map(resolve));
+  const toRemove = await Promise.all(plan.remove.map(resolve));
+
+  if (toRemove.length) await member.roles.remove(toRemove, "Role panel");
+  if (toAdd.length) await member.roles.add(toAdd, "Role panel");
+
+  return { added: toAdd.map(r => r.name), removed: toRemove.map(r => r.name) };
+}
+
+/** Button-panel toggle kept for callers of the original API. */
 export async function toggleRoleFromPanel(
   guild: Guild,
   member: GuildMember,
@@ -91,29 +193,17 @@ export async function toggleRoleFromPanel(
   panelId: string,
   messageId: string,
 ): Promise<{ added: boolean; roleName: string }> {
-  const panel = await RolePanelModel.findOne({
-    id: panelId,
-    guildId: guild.id,
-    messageId,
-    "roles.roleId": roleId,
-  }).lean();
-  if (!panel) throw new Error("This role panel is no longer active.");
+  const res = await applyRolePanelPick(guild, member, panelId, messageId, [roleId]);
+  const added = res.added.length > 0;
+  return { added, roleName: added ? res.added[0] : res.removed[0] };
+}
 
-  const role = guild.roles.cache.get(roleId) ?? await guild.roles.fetch(roleId).catch(() => null);
-  if (!role) {
-    throw new Error("Role no longer exists.");
-  }
-  if (role.managed || !role.editable) {
-    throw new Error("I cannot manage that role. Check my role position and permissions.");
-  }
-
-  if (member.roles.cache.has(roleId)) {
-    await member.roles.remove(role, "Role panel toggle");
-    return { added: false, roleName: role.name };
-  } else {
-    await member.roles.add(role, "Role panel toggle");
-    return { added: true, roleName: role.name };
-  }
+/** One-line summary of a panel change for the ephemeral reply. */
+export function describePanelChange(res: PanelChangeResult): string {
+  const parts: string[] = [];
+  if (res.added.length) parts.push(`✅ Granted ${res.added.map(n => `**${n}**`).join(", ")}.`);
+  if (res.removed.length) parts.push(`🗑️ Removed ${res.removed.map(n => `**${n}**`).join(", ")}.`);
+  return parts.join(" ") || "No changes.";
 }
 
 export async function getRolePanels(guildId: string): Promise<RolePanel[]> {

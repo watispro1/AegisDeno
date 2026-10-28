@@ -7,9 +7,21 @@ const OVERDUE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
  * - reminder / scheduled: `/automation` channel posts (payload is the message text)
  * - personal_reminder: `/remindme` DM reminders (payload is JSON, see timedActions.ts)
  * - channel_unlock: `/lock channel duration_minutes` auto-unlock (payload is JSON)
+ * - ticket_autoclose: ticket inactivity check (payload is JSON, see ticketTranscript.ts)
+ * - verify_kick: kick a member still unverified after the configured delay (payload is JSON)
  * - poll_close: timed `/poll` auto-close (payload is JSON `{ messageId }`)
  */
-export type TaskType = "reminder" | "scheduled" | "personal_reminder" | "channel_unlock" | "poll_close";
+export type TaskType =
+  | "reminder"
+  | "scheduled"
+  | "personal_reminder"
+  | "channel_unlock"
+  | "ticket_autoclose"
+  | "verify_kick"
+  | "poll_close";
+
+/** Restored on boot however overdue: each re-checks current state before acting. */
+const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick", "poll_close"];
 
 /** Task types managed through `/automation list|cancel`. */
 export const AUTOMATION_TASK_TYPES: readonly TaskType[] = ["reminder", "scheduled"];
@@ -119,6 +131,18 @@ export async function deleteTaskForCreator(creatorId: string, type: TaskType, id
   }
 }
 
+/** Delete every task of one type for a creator in a guild (e.g. a member's pending verification kick). */
+export async function deleteTasksForCreatorInGuild(guildId: string, creatorId: string, type: TaskType): Promise<string[]> {
+  try {
+    const docs = await TaskModel.find({ guildId, creatorId, type }).select("_id").lean();
+    const ids = docs.map(d => String(d._id));
+    if (ids.length) await TaskModel.deleteMany({ _id: { $in: ids } });
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
 /** Tasks of one type targeting a specific channel (e.g. pending auto-unlocks). */
 export async function getTasksForChannel(guildId: string, channelId: string, type: TaskType): Promise<ScheduledTask[]> {
   const docs = await TaskModel.find({ guildId, channelId, type }).sort({ executeAt: 1 });
@@ -138,8 +162,9 @@ export async function getAllPendingTasks(): Promise<ScheduledTask[]> {
   const cutoff = new Date(Date.now() - OVERDUE_RESTORE_WINDOW_MS);
   // Auto-unlocks and poll closes are always restored, however overdue: a channel
   // must never stay locked (or a poll open) forever because the bot was down a day.
+  // Ticket inactivity checks and verification kicks re-check state, so they are too.
   const docs = await TaskModel.find({
-    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: ["channel_unlock", "poll_close"] } }],
+    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: [...ALWAYS_RESTORE_TYPES] } }],
   })
     .select("guildId channelId creatorId type payload executeAt intervalMs createdAt")
     .sort({ executeAt: 1 })

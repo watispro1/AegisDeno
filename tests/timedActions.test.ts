@@ -7,6 +7,10 @@ import {
   decodePersonalReminder,
   encodeChannelUnlock,
   decodeChannelUnlock,
+  reminderRepeatIntervalMs,
+  reminderSnoozeCustomId,
+  parseReminderSnoozeCustomId,
+  SNOOZE_OPTIONS_MINUTES,
 } from "../src/services/timedActions";
 
 const DAY = 86_400_000;
@@ -53,4 +57,28 @@ test("channel unlock payload round-trips and degrades safely", () => {
   assert.deepEqual(decodeChannelUnlock(encodeChannelUnlock(payload)), payload);
   // An unreadable payload must still allow the unlock to run.
   assert.deepEqual(decodeChannelUnlock("garbage"), { moderatorTag: "Unknown", durationMinutes: 0 });
+});
+
+test("repeating reminder payload round-trips; one-off stays without repeat", () => {
+  const repeating = { text: "Stand-up", inChannel: false, sourceName: "Guild", setAt: 1, repeat: "weekly" as const };
+  assert.deepEqual(decodePersonalReminder(encodePersonalReminder(repeating)), repeating);
+  const once = decodePersonalReminder(encodePersonalReminder({ text: "x", inChannel: false, sourceName: "G", setAt: 1 }));
+  assert.equal(once && "repeat" in once, false);
+  assert.equal(decodePersonalReminder('{"text":"x","repeat":"hourly"}')?.repeat, undefined);
+});
+
+test("reminder repeat intervals", () => {
+  assert.equal(reminderRepeatIntervalMs("daily"), DAY);
+  assert.equal(reminderRepeatIntervalMs("weekly"), 7 * DAY);
+  assert.equal(reminderRepeatIntervalMs("none"), null);
+  assert.equal(reminderRepeatIntervalMs(undefined), null);
+});
+
+test("snooze custom ids round-trip and only accept offered lengths", () => {
+  for (const min of SNOOZE_OPTIONS_MINUTES) {
+    assert.deepEqual(parseReminderSnoozeCustomId(reminderSnoozeCustomId("123456789012345678", min)), { userId: "123456789012345678", minutes: min });
+  }
+  assert.equal(parseReminderSnoozeCustomId("remindsnooze_123_5"), null);
+  assert.equal(parseReminderSnoozeCustomId("remindsnooze_abc_10"), null);
+  assert.ok(reminderSnoozeCustomId("123456789012345678", 60).length <= 100);
 });

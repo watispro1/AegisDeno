@@ -10,9 +10,48 @@ import {
   PermissionFlagsBits,
   type PermissionResolvable,
   MessageFlags,
+  PermissionsBitField,
+  type AutocompleteInteraction,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { commands, COMMAND_CATEGORIES } from "../loader";
+import { canUseCommand, searchCommands } from "../../services/commandAccess";
+
+type Invoker = Pick<ChatInputCommandInteraction | AutocompleteInteraction, "inGuild" | "memberPermissions">;
+
+/** Commands the invoking member is allowed to run where /help was used. */
+function visibleCommands(interaction: Invoker): Command[] {
+  const inGuild = interaction.inGuild();
+  const memberPermissions = interaction.memberPermissions?.bitfield ?? null;
+  return Array.from(commands.values()).filter(cmd => {
+    const json = cmd.data.toJSON() as { default_member_permissions?: string | null; dm_permission?: boolean | null };
+    let userPermissions: bigint | undefined;
+    try {
+      userPermissions = cmd.userPermissions?.length ? PermissionsBitField.resolve(cmd.userPermissions) : undefined;
+    } catch {
+      userPermissions = undefined;
+    }
+    return canUseCommand(
+      {
+        guildOnly: cmd.guildOnly,
+        userPermissions,
+        defaultMemberPermissions: json.default_member_permissions ?? null,
+        dmPermission: json.dm_permission ?? null,
+      },
+      { inGuild, memberPermissions },
+    );
+  });
+}
+
+function subcommandNames(cmd: Command): string[] {
+  const json = cmd.data.toJSON() as { options?: Array<{ type: number; name: string; options?: Array<{ type: number; name: string }> }> };
+  const out: string[] = [];
+  for (const o of json.options ?? []) {
+    if (o.type === 1) out.push(o.name);
+    if (o.type === 2) for (const sub of o.options ?? []) out.push(`${o.name} ${sub.name}`);
+  }
+  return out;
+}
 
 const CATEGORY_ICONS: Record<string, string> = {
   general: "🌐",
@@ -62,25 +101,37 @@ function truncate(value: string, limit = 1_000): string {
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("help")
-    .setDescription("Browse all available bot commands interactively or inspect a specific command.")
+    .setDescription("Browse the commands you can use, or search for one.")
     .addStringOption(opt =>
-      opt.setName("command").setDescription("Specific command to inspect (e.g. warn, ticket, embed)").setAutocomplete(true).setRequired(false)
+      opt.setName("command").setDescription("Search commands by name, description or subcommand (e.g. warn, transcript)").setAutocomplete(true).setRequired(false)
     ),
 
   botPermissions: [PermissionFlagsBits.EmbedLinks],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const targetCommandName = interaction.options.getString("command")?.toLowerCase().trim();
-    const allCmds = Array.from(commands.values());
+    // Only commands this member can actually use here.
+    const allCmds = visibleCommands(interaction);
+    const visibleNames = new Set(allCmds.map(c => c.data.name));
+    const categories = COMMAND_CATEGORIES.filter(cat => allCmds.some(c => c.category === cat));
 
     // ─── SPECIFIC COMMAND LOOKUP ──────────────────────────────────────────────
     if (targetCommandName) {
       const cleanName = targetCommandName.replace(/^\//, "");
-      const foundCmd = commands.get(cleanName);
+      let foundCmd = visibleNames.has(cleanName) ? commands.get(cleanName) : undefined;
+      if (!foundCmd) {
+        // Free text that was not picked from autocomplete: use the best search match.
+        const best = searchCommands(
+          allCmds.map(c => ({ name: c.data.name, description: c.data.description, category: c.category ?? "general", subcommands: subcommandNames(c) })),
+          cleanName,
+          1,
+        )[0];
+        foundCmd = best ? commands.get(best.name) : undefined;
+      }
 
       if (!foundCmd) {
         await interaction.reply({
-          content: `❌ Command \`/${cleanName}\` not found. Use \`/help\` to view the list of available commands.`,
+          content: `❌ No command you can use matches \`${cleanName}\`. Use \`/help\` to browse the commands available to you.`,
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -90,6 +141,7 @@ export const command: Command = {
       const userPerms = formatPermissions(foundCmd.userPermissions);
       const botPerms = foundCmd.botPermissions?.length ? formatPermissions(foundCmd.botPermissions) : "Send Messages";
 
+      const shownName = json.name;
       const subcommands = json.options?.filter((o: any) => o.type === 1 || o.type === 2) ?? [];
       const normalOptions = json.options?.filter((o: any) => o.type !== 1 && o.type !== 2) ?? [];
 
@@ -98,7 +150,7 @@ export const command: Command = {
         : (subcommands.length > 0 ? "*See subcommands below*" : "None");
 
       const subcommandsList = subcommands.length > 0
-        ? truncate(subcommands.map((s: any) => `• \`/${cleanName} ${s.name}\`: ${s.description}`).join("\n"))
+        ? truncate(subcommands.map((s: any) => `• \`/${shownName} ${s.name}\`: ${s.description}`).join("\n"))
         : "None";
 
       const categoryIcon = CATEGORY_ICONS[foundCmd.category ?? "general"] ?? "🌐";
@@ -113,7 +165,7 @@ export const command: Command = {
           { name: "🤖 Required Bot Permissions", value: botPerms, inline: true },
           { name: "⚙️ Options", value: optionsList, inline: false },
           { name: "🔀 Subcommands", value: subcommandsList, inline: false },
-          { name: "💡 Usage Example", value: `\`/${cleanName}${subcommands.length > 0 ? ` ${subcommands[0].name}` : ""}\``, inline: false }
+          { name: "💡 Usage Example", value: `\`/${shownName}${subcommands.length > 0 ? ` ${subcommands[0].name}` : ""}\``, inline: false }
         )
         .setFooter({ text: "Aegis Bot • Command Manual" })
         .setTimestamp();
@@ -122,7 +174,7 @@ export const command: Command = {
         new ButtonBuilder()
           .setLabel("View on Web")
           .setStyle(ButtonStyle.Link)
-          .setURL(`https://aegisdeno.fly.dev/commands#cmd-${cleanName}`)
+          .setURL(`https://aegisdeno.fly.dev/commands#cmd-${shownName}`)
           .setEmoji("🌐"),
         new ButtonBuilder()
           .setLabel("Documentation")
@@ -150,7 +202,7 @@ export const command: Command = {
             `Select a category from the dropdown below to view specific commands.\n\n` +
             `💡 *Tip: Type \`/help command:name\` (e.g. \`/help command:warn\`) for detailed options & permission rules.*`
           )
-          .addFields({ name: "📊 Total Commands", value: `**${allCmds.length}** commands registered across ${COMMAND_CATEGORIES.length} categories`, inline: false })
+          .addFields({ name: "📊 Your Commands", value: `**${allCmds.length}** of ${commands.size} commands are available to you, across ${categories.length} categories`, inline: false })
           .setFooter({ text: "Aegis Bot • Interactive Menu" })
           .setTimestamp();
       }
@@ -182,7 +234,7 @@ export const command: Command = {
           value: "all",
           emoji: "🏠",
         },
-        ...COMMAND_CATEGORIES.map((cat) => ({
+        ...categories.map((cat) => ({
           label: (CATEGORIES[cat] ?? cat).replace(/^\S+\s/, ""),
           description: `View ${(CATEGORIES[cat] ?? cat).replace(/^\S+\s/, "")} commands`,
           value: cat,
@@ -248,20 +300,17 @@ export const command: Command = {
   },
 
   async autocomplete(interaction) {
-    const focused = interaction.options.getFocused().toLowerCase().replace(/^\//, "");
-    const ranked = Array.from(commands.values())
-      .map(command => ({
+    const focused = interaction.options.getFocused();
+    const ranked = searchCommands(
+      visibleCommands(interaction).map(command => ({
         name: command.data.name,
         description: command.data.description,
         category: command.category ?? "general",
-      }))
-      .filter(command => !focused || `${command.name} ${command.description} ${command.category}`.toLowerCase().includes(focused))
-      .sort((a, b) => {
-        const aStarts = a.name.startsWith(focused) ? 0 : 1;
-        const bStarts = b.name.startsWith(focused) ? 0 : 1;
-        return aStarts - bStarts || a.name.localeCompare(b.name);
-      })
-      .slice(0, 25);
+        subcommands: subcommandNames(command),
+      })),
+      focused,
+      25,
+    );
 
     await interaction.respond(ranked.map(command => ({
       name: `/${command.name} — ${command.description}`.slice(0, 100),
