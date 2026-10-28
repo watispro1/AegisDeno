@@ -10,14 +10,16 @@ import {
   ButtonInteraction,
   TextChannel,
   MessageFlags,
+  Client,
 } from "discord.js";
 import { Command } from "../../types/discord";
+import { isSendableChannel } from "../../utils/channels";
 import { sendGuildLog } from "../../services/logging";
 import { GiveawayModel } from "../../database/mongo";
+import { MAX_TIMEOUT_MS } from "../../services/timedActions";
 import { randomInt } from "node:crypto";
 
 const giveawayTimers = new Map<string, ReturnType<typeof setTimeout>>();
-const MAX_TIMEOUT_MS = 2_147_483_647;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -47,7 +49,7 @@ async function pickWinners(entrants: string[], count: number): Promise<string[]>
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
-function scheduleGiveawayEnd(client: any, guildId: string, messageId: string, endsAt: Date): void {
+function scheduleGiveawayEnd(client: Client, guildId: string, messageId: string, endsAt: Date): void {
   if (giveawayTimers.has(messageId)) return;
   const delay = Math.max(0, endsAt.getTime() - Date.now());
   const handle = setTimeout(async () => {
@@ -66,8 +68,8 @@ function scheduleGiveawayEnd(client: any, guildId: string, messageId: string, en
 }
 
 /** Restore active giveaway timers after a bot restart. */
-export async function initGiveawayScheduler(client: any): Promise<void> {
-  const active = await GiveawayModel.find({ ended: false }).lean() as any[];
+export async function initGiveawayScheduler(client: Client): Promise<void> {
+  const active = await GiveawayModel.find({ ended: false }).lean();
   for (const giveaway of active) {
     scheduleGiveawayEnd(client, giveaway.guildId, giveaway.messageId, new Date(giveaway.endsAt));
   }
@@ -82,7 +84,7 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
     guildId: interaction.guildId,
     messageId: interaction.message.id,
     ended: false,
-  }).lean() as any;
+  }).lean();
 
   if (!giveaway) {
     await interaction.reply({ content: "❌ This giveaway has ended or is no longer available.", flags: MessageFlags.Ephemeral });
@@ -111,7 +113,7 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
     { guildId: interaction.guildId, messageId: interaction.message.id, ended: false },
     { $addToSet: { entrants: interaction.user.id } },
     { new: true },
-  ).lean() as any;
+  ).lean();
   if (!updated) {
     await interaction.reply({ content: "❌ This giveaway just ended. Better luck next time!", flags: MessageFlags.Ephemeral });
     return;
@@ -216,7 +218,7 @@ export const command: Command = {
         return interaction.reply({ content: "❌ Giveaway duration cannot exceed 30 days.", flags: MessageFlags.Ephemeral });
       }
 
-      if (!targetChan || !("send" in targetChan) || typeof (targetChan as any).send !== "function") {
+      if (!isSendableChannel(targetChan)) {
         return interaction.reply({ content: "❌ Cannot send messages in that channel.", flags: MessageFlags.Ephemeral });
       }
 
@@ -256,7 +258,7 @@ export const command: Command = {
           .setEmoji("👥"),
       );
 
-      const gMsg = await (targetChan as TextChannel).send({ embeds: [embed], components: [row] });
+      const gMsg = await targetChan.send({ embeds: [embed], components: [row] });
 
       // Save to DB
       await GiveawayModel.create({
@@ -306,7 +308,7 @@ export const command: Command = {
       const rerollCount = interaction.options.getInteger("winners") ?? null;
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const giveaway = await GiveawayModel.findOne({ guildId, messageId, ended: true }).lean() as any;
+      const giveaway = await GiveawayModel.findOne({ guildId, messageId, ended: true }).lean();
       if (!giveaway) {
         await interaction.editReply("❌ No completed giveaway found with that message ID.");
         return;
@@ -371,7 +373,7 @@ export const command: Command = {
 // ─── Shared end logic ─────────────────────────────────────────────────────────
 
 async function endGiveaway(
-  client: any,
+  client: Client,
   guildId: string,
   messageId: string,
 ): Promise<{ ok: boolean; winners?: string[]; error?: string }> {
@@ -382,7 +384,7 @@ async function endGiveaway(
     { guildId, messageId, ended: false },
     { $set: { ended: true, endedAt: new Date() } },
     { new: false },
-  ).lean() as any;
+  ).lean();
   if (!giveaway) return { ok: false, error: "No active giveaway found with that message ID." };
 
   const winners = await pickWinners(giveaway.entrants ?? [], giveaway.winnerCount ?? 1);

@@ -2,7 +2,6 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   EmbedBuilder,
-  TextChannel,
   PermissionFlagsBits,
   ActionRowBuilder,
   ModalBuilder,
@@ -15,6 +14,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
+import { isSendableChannel } from "../../utils/channels";
 
 /** Short-term debounce lock preventing duplicate concurrent submissions by the same user to the same channel */
 const activeQuickEmbeds = new Set<string>();
@@ -96,7 +96,7 @@ export const command: Command = {
       const color = parseColor(interaction.options.getString("color"));
       const footer = interaction.options.getString("footer");
 
-      if (!("send" in channel) || typeof (channel as any).send !== "function") {
+      if (!isSendableChannel(channel)) {
         return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
       }
 
@@ -118,7 +118,7 @@ export const command: Command = {
       if (footer) embed.setFooter({ text: footer });
 
       try {
-        await (channel as TextChannel).send({ embeds: [embed] });
+        await channel.send({ embeds: [embed] });
         await interaction.editReply({ content: `✅ Embed posted to <#${channel.id}>.` });
       } catch {
         await interaction.editReply({ content: `❌ Failed to send embed to <#${channel.id}>. Please check my permissions.` });
@@ -141,7 +141,7 @@ export const command: Command = {
       ? initialDesc.replace(/\\n/g, "\n")
       : "*Click **Edit Description** to write or edit the embed body...*";
 
-    if (!("send" in channel) || typeof (channel as any).send !== "function") {
+    if (!isSendableChannel(channel)) {
       return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
     }
 
@@ -350,7 +350,7 @@ export const command: Command = {
         });
 
         try {
-          await (channel as TextChannel).send({ embeds: [buildEmbed()] });
+          await channel.send({ embeds: [buildEmbed()] });
           await interaction.editReply({
             content: `✅ Embed successfully posted to <#${channel.id}>!`,
           });
