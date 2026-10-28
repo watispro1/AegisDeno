@@ -15,6 +15,7 @@ import { addWarning, getWarningsForUser, removeWarning } from "../../services/wa
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
 import { checkEscalation } from "../../services/escalation";
+import { handleReasonAutocomplete } from "../../utils/moderationPresets";
 
 const SEVERITY_CONFIG: Record<string, { color: number; label: string; emoji: string }> = {
   low:    { color: 0xFEE75C, label: "Low",    emoji: "🟡" },
@@ -43,7 +44,10 @@ export const command: Command = {
         )
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Custom reason for the warning").setRequired(false).setMaxLength(512)
+      opt.setName("reason").setDescription("Reason for warning (preset or custom)").setAutocomplete(true).setRequired(false).setMaxLength(512)
+    )
+    .addAttachmentOption(opt =>
+      opt.setName("proof").setDescription("Optional screenshot or proof attachment").setRequired(false)
     )
     .addStringOption(opt =>
       opt
@@ -70,6 +74,7 @@ export const command: Command = {
     const customReason = interaction.options.getString("reason");
     const severity     = interaction.options.getString("severity") ?? "low";
     const silent       = interaction.options.getBoolean("silent") ?? false;
+    const proof        = interaction.options.getAttachment("proof");
     const guildId      = interaction.guildId!;
 
     if (!preset && !customReason) {

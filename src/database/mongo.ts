@@ -45,6 +45,7 @@ const GuildConfigSchema = new mongoose.Schema({
     enabled: { type: Boolean, default: false },
     // e.g. [{atWarnings: 3, action: "timeout", durationMinutes: 60}, {atWarnings: 5, action: "ban"}]
     thresholds: { type: mongoose.Schema.Types.Mixed, default: [] },
+    warnExpiryDays: { type: Number, default: null },
   },
 });
 export const GuildConfigModel = mongoose.model("GuildConfig", GuildConfigSchema);
@@ -66,6 +67,7 @@ const ModerationCaseSchema = new mongoose.Schema({
   action: { type: String, required: true },
   reason: { type: String, required: true },
   details: { type: String, default: null },
+  proofUrl: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 ModerationCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
@@ -141,6 +143,8 @@ const TicketSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   staffRoleId: { type: String, default: null },
   category: { type: String, default: "general" },
+  claimedBy: { type: String, default: null },
+  lastActivityAt: { type: Date, default: Date.now },
   status: { type: String, default: "open" },
   closedBy: { type: String, default: null },
   closedAt: { type: Date, default: null },
@@ -163,6 +167,7 @@ const VerificationSchema = new mongoose.Schema({
   type: { type: String, enum: ["button", "captcha"], default: "button" },
   channelId: { type: String, default: null },
   messageId: { type: String, default: null },
+  kickUnverifiedMinutes: { type: Number, default: 0 },
 });
 export const VerificationModel = mongoose.model("Verification", VerificationSchema);
 
@@ -197,6 +202,9 @@ const RolePanelSchema = new mongoose.Schema({
   messageId: { type: String, required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
+  panelStyle: { type: String, default: 'button' },
+  mode: { type: String, default: 'multi' },
+  requiredRoleId: { type: String, default: null },
   roles: [
     {
       roleId: { type: String, required: true },
@@ -217,6 +225,7 @@ const GiveawaySchema = new mongoose.Schema({
   description:   { type: String, default: null },
   winnerCount:   { type: Number, default: 1 },
   requiredRoleId:{ type: String, default: null },
+  requiredLevel: { type: Number, default: 0 },
   hostId:        { type: String, required: true },
   entrants:      { type: [String], default: [] },
   winners:       { type: [String], default: [] },
@@ -339,3 +348,13 @@ AutomodHitSchema.index({ guildId: 1, triggeredAt: -1 });
 AutomodHitSchema.index({ guildId: 1, userId: 1, triggeredAt: -1 });
 AutomodHitSchema.index({ guildId: 1, rule: 1, triggeredAt: -1 });
 export const AutomodHitModel = mongoose.model("AutomodHit", AutomodHitSchema);
+
+const UserActivitySchema = new mongoose.Schema({
+  guildId: { type: String, required: true },
+  userId: { type: String, required: true },
+  messageCount: { type: Number, default: 0 },
+  lastMessageAt: { type: Date, default: Date.now },
+  lastMessageDate: { type: String, default: '' },
+});
+UserActivitySchema.index({ guildId: 1, userId: 1 }, { unique: true });
+export const UserActivityModel = mongoose.model('UserActivity', UserActivitySchema);

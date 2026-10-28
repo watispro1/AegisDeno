@@ -21,6 +21,7 @@ import { sendGuildLog } from "../services/logging";
 import { processAutomod, processAutomodEdit } from "../services/automodExecution";
 import { processAutoResponders } from "../services/autoResponderService";
 import { getGuildConfig } from "../services/configuration";
+import { getVerificationConfig } from "../services/verificationService";
 import { knubManager } from "../knub";
 import { registerDefaultPlugins } from "../knub/plugins";
 import {
@@ -30,7 +31,9 @@ import {
   watchlistOnMessageEdit,
   watchlistOnMessageDelete,
   watchlistOnRoleChange,
+  watchlistOnVoiceJoin,
 } from "../services/watchlistService";
+import { UserActivityModel, TicketModel } from "../database/mongo";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -45,6 +48,7 @@ export function createClient(): Client {
       // Required for user.setPresence() to have any effect. Discord silently
       // drops presence updates from a connection missing this intent.
       GatewayIntentBits.GuildPresences,
+      GatewayIntentBits.GuildVoiceStates,
     ],
     partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
   });
@@ -161,7 +165,26 @@ export function setupEvents(client: Client): void {
     if (responded) return;
 
     // 2. Ghost Watch — alert watchers on message
-    watchlistOnMessage(client, message).catch(err =>
+    // Track user message activity & check first message of the day
+    const today = new Date().toISOString().slice(0, 10);
+    const prevAct = await UserActivityModel.findOne({ guildId: message.guildId, userId: message.author.id }).lean() as any;
+    const isFirstToday = !prevAct || prevAct.lastMessageDate !== today;
+
+    UserActivityModel.updateOne(
+      { guildId: message.guildId, userId: message.author.id },
+      {
+        $inc: { messageCount: 1 },
+        $set: { lastMessageAt: new Date(), lastMessageDate: today },
+      },
+      { upsert: true }
+    ).catch(() => null);
+
+    TicketModel.updateOne(
+      { guildId: message.guildId, channelId: message.channelId, status: "open" },
+      { $set: { lastActivityAt: new Date() } }
+    ).catch(() => null);
+
+    watchlistOnMessage(client, message, isFirstToday).catch(err =>
       logger.warn("Watchlist message error:", err)
     );
 
@@ -249,9 +272,29 @@ export function setupEvents(client: Client): void {
           .replace(/{user}/g, `<@${member.user.id}>`)
           .replace(/{username}/g, member.user.username)
           .replace(/{server}/g, member.guild.name)
-          .replace(/{member_count}/g, String(member.guild.memberCount));
+          .replace(/{member_count}/g, String(member.guild.memberCount))
+          .replace(/{count}/g, String(member.guild.memberCount));
         await channel.send(msg).catch(() => null);
       }
+    }
+
+    const vConfig = await getVerificationConfig(member.guild.id);
+    if (vConfig?.enabled && vConfig.kickUnverifiedMinutes > 0) {
+      setTimeout(async () => {
+        try {
+          const freshMember = await member.guild.members.fetch(member.id).catch(() => null);
+          if (freshMember && !freshMember.roles.cache.has(vConfig.verifiedRoleId)) {
+            await freshMember.kick(`Unverified after ${vConfig.kickUnverifiedMinutes} minutes`).catch(() => null);
+            await sendGuildLog(client, member.guild.id, {
+              title: "👢 Member Kicked (Verification Timeout)",
+              color: 0xE74C3C,
+              description: `${userTag} (<@${member.id}>) was kicked for failing to verify within ${vConfig.kickUnverifiedMinutes} minutes.`,
+            }, "modActions");
+          }
+        } catch (kickErr) {
+          logger.warn(`Verification auto-kick failed for ${member.id} in ${member.guild.id}:`, kickErr);
+        }
+      }, vConfig.kickUnverifiedMinutes * 60 * 1000).unref?.();
     }
   });
 
@@ -260,6 +303,16 @@ export function setupEvents(client: Client): void {
     watchlistOnRoleChange(client, oldMember, newMember).catch(err =>
       logger.warn("Watchlist roleChange error:", err)
     );
+  });
+
+  // ─── Voice State Update (voice joins for Ghost Watch) ─────────────────────
+  client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+    if (newState.member?.user.bot) return;
+    if (!oldState.channelId && newState.channelId) {
+      watchlistOnVoiceJoin(client, newState).catch(err =>
+        logger.warn("Watchlist voice join error:", err)
+      );
+    }
   });
 
   // ─── Member Leave ─────────────────────────────────────────────────────────

@@ -51,6 +51,8 @@ export const command: Command = {
               { name: "💬 Messages Only",        value: "messages" },
               { name: "🚪 Join / Leave Only",    value: "presence" },
               { name: "🔧 Role Changes Only",    value: "roles" },
+              { name: "🎙️ Voice Joins Only",     value: "voice" },
+              { name: "☀️ First Message Only",   value: "first_message" },
             )
         )
     )
@@ -109,10 +111,12 @@ export const command: Command = {
 
       // Resolve watched events
       const eventMap: Record<string, string[]> = {
-        all:      ["message", "edit", "delete", "join", "leave", "roleChange"],
+        all:      ["message", "edit", "delete", "join", "leave", "roleChange", "voice", "firstMessage"],
         messages: ["message", "edit", "delete"],
-        presence: ["join", "leave"],
+        presence: ["join", "leave", "voice"],
         roles:    ["roleChange"],
+        voice:    ["voice"],
+        first_message: ["firstMessage"],
       };
       const events = eventMap[eventSet] ?? eventMap.all;
 

@@ -6,7 +6,7 @@
  * takes a monitored action. The watched member is never notified.
  */
 
-import { Client, EmbedBuilder, GuildMember, Message, PartialGuildMember } from "discord.js";
+import { Client, EmbedBuilder, GuildMember, Message, PartialGuildMember, VoiceState } from "discord.js";
 import { WatchlistEntryModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 
@@ -187,15 +187,18 @@ export async function watchlistOnLeave(client: Client, member: GuildMember | Par
 }
 
 /** Called from MessageCreate */
-export async function watchlistOnMessage(client: Client, message: Message): Promise<void> {
+export async function watchlistOnMessage(client: Client, message: Message, isFirstOfDay = false): Promise<void> {
   if (!message.guildId || message.author.bot) return;
   const watches = await getWatches(message.guildId, message.author.id);
   for (const w of watches) {
-    if (!(w.events as string[]).includes("message")) continue;
+    const isWatched = (w.events as string[]).includes("message") || (isFirstOfDay && (w.events as string[]).includes("firstMessage"));
+    if (!isWatched) continue;
+    const alertTitle = isFirstOfDay ? "🕵️ Ghost Watch Alert — First Message of the Day ☀️" : "🕵️ Ghost Watch Alert — Message Sent";
     const preview = message.content.slice(0, 200) || "[No text content]";
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setAuthor({ name: "🕵️ Ghost Watch Alert — Message Sent", iconURL: message.author.displayAvatarURL() })
+      .setColor(isFirstOfDay ? 0xF1C40F : 0x5865F2)
+      .setAuthor({ name: alertTitle, iconURL: message.author.displayAvatarURL() })
       .setDescription(`**${message.author.tag}** sent a message in <#${message.channelId}>.`)
       .addFields(
         { name: "👤 User",     value: `${message.author.tag} (<@${message.author.id}>)`, inline: true },
@@ -290,5 +293,32 @@ export async function watchlistOnRoleChange(client: Client, oldMember: GuildMemb
       .setTimestamp();
     await sendWatchAlert(client, w.moderatorId, embed);
     await incrementAlertCount(newMember.guild.id, newMember.id, w.moderatorId);
+  }
+}
+
+/** Called from VoiceStateUpdate */
+export async function watchlistOnVoiceJoin(client: Client, voiceState: VoiceState): Promise<void> {
+  if (!voiceState.guild?.id || !voiceState.member || voiceState.member.user.bot) return;
+  const channel = voiceState.channel;
+  if (!channel) return;
+
+  const watches = await getWatches(voiceState.guild.id, voiceState.member.id);
+  for (const w of watches) {
+    if (!(w.events as string[]).includes("voice") && !(w.events as string[]).includes("presence") && !(w.events as string[]).includes("all")) continue;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x2ECC71)
+      .setAuthor({ name: "🕵️ Ghost Watch Alert — Joined Voice 🎙️", iconURL: voiceState.member.user.displayAvatarURL() })
+      .setDescription(`**${voiceState.member.user.tag}** joined voice channel <#${channel.id}> (${channel.name}) in **${voiceState.guild.name}**.`)
+      .addFields(
+        { name: "👤 User",    value: `${voiceState.member.user.tag} (<@${voiceState.member.id}>)`, inline: true },
+        { name: "🎙️ Channel", value: `<#${channel.id}>`, inline: true },
+        { name: "🏠 Server",  value: voiceState.guild.name, inline: true },
+      )
+      .setFooter({ text: "Ghost Watch • You are watching this member" })
+      .setTimestamp();
+
+    await sendWatchAlert(client, w.moderatorId, embed);
+    await incrementAlertCount(voiceState.guild.id, voiceState.member.id, w.moderatorId);
   }
 }

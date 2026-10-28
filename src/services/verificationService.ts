@@ -18,6 +18,7 @@ export interface VerificationConfig {
   type: "button" | "captcha";
   channelId: string | null;
   messageId: string | null;
+  kickUnverifiedMinutes: number;
 }
 
 export async function getVerificationConfig(guildId: string): Promise<VerificationConfig | null> {
@@ -30,6 +31,7 @@ export async function getVerificationConfig(guildId: string): Promise<Verificati
     type: doc.type as "button" | "captcha",
     channelId: doc.channelId ?? null,
     messageId: doc.messageId ?? null,
+    kickUnverifiedMinutes: (doc as any).kickUnverifiedMinutes ?? 0,
   };
 }
 
@@ -39,7 +41,8 @@ export async function setupVerification(
   verifiedRoleId: string,
   type: "button" | "captcha" = "button",
   title = "🛡️ Server Verification Required",
-  description = "Click the button below to verify your account and gain access to the rest of the server."
+  description = "Click the button below to verify your account and gain access to the rest of the server.",
+  kickUnverifiedMinutes = 0
 ): Promise<VerificationConfig | null> {
   try {
     // Purge previous verification panel messages in this channel to prevent duplicates
@@ -80,6 +83,7 @@ export async function setupVerification(
           type,
           channelId: channel.id,
           messageId: msg.id,
+          kickUnverifiedMinutes,
         },
       },
       { upsert: true, new: true }
@@ -98,6 +102,7 @@ export async function setupVerification(
       type: config.type as "button" | "captcha",
       channelId: config.channelId ?? null,
       messageId: config.messageId ?? null,
+      kickUnverifiedMinutes: (config as any).kickUnverifiedMinutes ?? 0,
     };
   } catch (err) {
     logger.error("Failed to setup verification:", err);
