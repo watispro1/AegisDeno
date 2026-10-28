@@ -10,6 +10,9 @@ export interface Suggestion {
   status: "pending" | "approved" | "rejected" | "considered" | "archived";
   upvotes: string[];
   downvotes: string[];
+  reviewedBy?: string | null;
+  reviewReason?: string | null;
+  reviewedAt?: Date | null;
   createdAt: Date;
 }
 
@@ -50,6 +53,25 @@ export async function voteOnSuggestion(
   const updated = await SuggestionModel.findOneAndUpdate(
     { guildId, id, status: { $in: ["pending", "considered"] } },
     { $pull: { [removeField]: userId }, $addToSet: { [addField]: userId } },
+    { new: true },
+  );
+  return updated ? updated.toObject() as Suggestion : null;
+}
+
+/**
+ * Move a suggestion to a reviewed status, but only if it is still open
+ * (pending or under consideration), so two moderators can't both finalise it.
+ */
+export async function reviewSuggestion(
+  guildId: string,
+  id: string,
+  status: "approved" | "rejected" | "considered",
+  reviewerId: string,
+  reason: string | null,
+): Promise<Suggestion | null> {
+  const updated = await SuggestionModel.findOneAndUpdate(
+    { guildId, id, status: { $in: ["pending", "considered"] } },
+    { $set: { status, reviewedBy: reviewerId, reviewReason: reason, reviewedAt: new Date() } },
     { new: true },
   );
   return updated ? updated.toObject() as Suggestion : null;

@@ -132,6 +132,9 @@ const SuggestionSchema = new mongoose.Schema({
   status: { type: String, default: "pending" },
   upvotes: { type: [String], default: [] },
   downvotes: { type: [String], default: [] },
+  reviewedBy: { type: String, default: null },
+  reviewReason: { type: String, default: null },
+  reviewedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 export const SuggestionModel = mongoose.model("Suggestion", SuggestionSchema);
