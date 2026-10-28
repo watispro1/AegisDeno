@@ -8,6 +8,7 @@ import {
   ButtonStyle,
   ComponentType,
   Colors,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { WarningModel, ModerationCaseModel } from "../../database/mongo";
@@ -134,7 +135,7 @@ export const command: Command = {
     const isEphemeral = interaction.options.getBoolean("ephemeral") ?? true;
     const guildId     = interaction.guildId!;
 
-    await interaction.deferReply({ ephemeral: isEphemeral });
+    await interaction.deferReply({ flags: isEphemeral ? MessageFlags.Ephemeral : undefined });
 
     // Fetch guild member for join date
     const member = await interaction.guild?.members.fetch(targetUser.id).catch(() => null);

@@ -8,6 +8,7 @@ import {
   ComponentType,
   PermissionFlagsBits,
   ChannelType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getAutomodConfig } from "../../services/automod";
@@ -24,7 +25,7 @@ export const command: Command = {
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const guild = interaction.guild!;
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const fetchStats = async () => {
       const [automod, config, openTickets, pendingSuggestions, totalWarnings, totalCases] = await Promise.all([
@@ -152,13 +153,13 @@ export const command: Command = {
                 `**Exempt Channels:** ${automod.exemptChannelIds.length > 0 ? automod.exemptChannelIds.map((id: string) => `<#${id}>`).join(", ") : "None"}`,
               ].join("\n")
             : "❌ AutoMod is not yet configured. Run `/automod` to set it up.";
-          await i.reply({ content: text, ephemeral: true });
+          await i.reply({ content: text, flags: MessageFlags.Ephemeral });
           break;
         }
         case "dash_tickets": {
           const count = await TicketModel.countDocuments({ guildId: guild.id, status: "open" }).catch(() => 0);
           const closed = await TicketModel.countDocuments({ guildId: guild.id, status: "closed" }).catch(() => 0);
-          await i.reply({ content: `🎫 **Ticket Summary for ${guild.name}:**\n• Open: **${count}**\n• Closed (all-time): **${closed}**`, ephemeral: true });
+          await i.reply({ content: `🎫 **Ticket Summary for ${guild.name}:**\n• Open: **${count}**\n• Closed (all-time): **${closed}**`, flags: MessageFlags.Ephemeral });
           break;
         }
         case "dash_suggestions": {
@@ -167,7 +168,7 @@ export const command: Command = {
             SuggestionModel.countDocuments({ guildId: guild.id, status: "approved" }).catch(() => 0),
             SuggestionModel.countDocuments({ guildId: guild.id, status: "rejected" }).catch(() => 0),
           ]);
-          await i.reply({ content: `💡 **Suggestions Summary for ${guild.name}:**\n• ⏳ Pending: **${pending}**\n• ✅ Approved: **${approved}**\n• ❌ Rejected: **${rejected}**`, ephemeral: true });
+          await i.reply({ content: `💡 **Suggestions Summary for ${guild.name}:**\n• ⏳ Pending: **${pending}**\n• ✅ Approved: **${approved}**\n• ❌ Rejected: **${rejected}**`, flags: MessageFlags.Ephemeral });
           break;
         }
         case "dash_warnings": {
@@ -176,7 +177,7 @@ export const command: Command = {
             guildId: guild.id,
             createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
           }).catch(() => 0);
-          await i.reply({ content: `⚠️ **Warnings Summary for ${guild.name}:**\n• All-time: **${total}**\n• Last 7 days: **${last7Days}**\n\nUse \`/modstats\` for the full moderation dashboard.`, ephemeral: true });
+          await i.reply({ content: `⚠️ **Warnings Summary for ${guild.name}:**\n• All-time: **${total}**\n• Last 7 days: **${last7Days}**\n\nUse \`/modstats\` for the full moderation dashboard.`, flags: MessageFlags.Ephemeral });
           break;
         }
         case "dash_health": {
@@ -192,7 +193,7 @@ export const command: Command = {
               `• Bot Uptime: **${h}h ${m}m**`,
               `• Guilds Connected: **${interaction.client.guilds.cache.size}**`,
             ].join("\n"),
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
           break;
         }
@@ -205,7 +206,7 @@ export const command: Command = {
             .join(", ");
           await i.reply({
             content: `🎭 **Roles Overview for ${guild.name}:**\n• Total Roles: **${Math.max(0, guild.roles.cache.size - 1)}**\n• Top Roles: ${topRoles || "None"}`,
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
           break;
         }

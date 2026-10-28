@@ -11,6 +11,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   TextChannel,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -95,7 +96,7 @@ export const command: Command = {
 
     // Validate channel is sendable
     if (!("send" in channel) || typeof (channel as any).send !== "function") {
-      return interaction.reply({ content: "❌ Please select a text channel.", ephemeral: true });
+      return interaction.reply({ content: "❌ Please select a text channel.", flags: MessageFlags.Ephemeral });
     }
 
     // Check bot perms in target channel
@@ -103,7 +104,7 @@ export const command: Command = {
     if (me && "permissionsFor" in channel && typeof (channel as any).permissionsFor === "function") {
       const perms = (channel as any).permissionsFor(me);
       if (perms && !perms.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
-        return interaction.reply({ content: "❌ I need View Channel + Send Messages permissions in that channel.", ephemeral: true });
+        return interaction.reply({ content: "❌ I need View Channel + Send Messages permissions in that channel.", flags: MessageFlags.Ephemeral });
       }
     }
 
@@ -164,7 +165,7 @@ export const command: Command = {
       content: "**📋 Announcement Preview** — review before sending:",
       embeds: [previewEmbed, embed],
       components: [previewRow],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
 
     let currentBody = body;

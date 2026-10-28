@@ -6,6 +6,7 @@ import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { knubManager } from "../../knub";
@@ -77,7 +78,7 @@ export const command: Command = {
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     // ── /plugins list ──────────────────────────────────────────────────────
     if (sub === "list") {

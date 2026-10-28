@@ -6,6 +6,7 @@ import {
   ComponentType,
   InteractionCollector,
   ButtonInteraction,
+  MessageFlags,
 } from "discord.js";
 
 /**
@@ -36,7 +37,7 @@ export async function requestConfirmation(
   await interaction.reply({
     content: promptMessage,
     components: [row],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 
   try {

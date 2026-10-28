@@ -8,6 +8,7 @@ import {
   ButtonStyle,
   ComponentType,
   ActivityType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getWarningsForUser } from "../../services/warnings";
@@ -58,7 +59,7 @@ export const command: Command = {
     const member = await interaction.guild?.members.fetch(user.id).catch(() => null);
 
     if (!member) {
-      await interaction.reply({ content: "❌ That user is not a member of this server.", ephemeral: true });
+      await interaction.reply({ content: "❌ That user is not a member of this server.", flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -154,31 +155,31 @@ export const command: Command = {
     collector.on("collect", async (i) => {
       if (i.customId.startsWith("userinfo_warns_")) {
         if (warnings.length === 0) {
-          await i.reply({ content: `✅ <@${user.id}> has zero warnings on record.`, ephemeral: true });
+          await i.reply({ content: `✅ <@${user.id}> has zero warnings on record.`, flags: MessageFlags.Ephemeral });
         } else {
           const warnText = warnings
             .slice(0, 10)
             .map((w, idx) => `**${idx + 1}.** \`${w.reason}\` — <@${w.moderatorId}> (<t:${Math.floor(new Date(w.createdAt).getTime() / 1000)}:R>)`)
             .join("\n");
-          await i.reply({ content: `📜 **Warning History for <@${user.id}> (${warnings.length}):**\n${warnText}`, ephemeral: true });
+          await i.reply({ content: `📜 **Warning History for <@${user.id}> (${warnings.length}):**\n${warnText}`, flags: MessageFlags.Ephemeral });
         }
       } else if (i.customId.startsWith("userinfo_cases_")) {
         if (cases.length === 0) {
-          await i.reply({ content: `✅ <@${user.id}> has no moderation cases on record.`, ephemeral: true });
+          await i.reply({ content: `✅ <@${user.id}> has no moderation cases on record.`, flags: MessageFlags.Ephemeral });
         } else {
           const caseText = cases
             .slice(0, 5)
             .map((c, idx) => `**${idx + 1}.** \`${c.action.toUpperCase()}\` — ${c.reason} (<t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>)`)
             .join("\n");
-          await i.reply({ content: `📂 **Recent Mod Cases for <@${user.id}>:**\n${caseText}`, ephemeral: true });
+          await i.reply({ content: `📂 **Recent Mod Cases for <@${user.id}>:**\n${caseText}`, flags: MessageFlags.Ephemeral });
         }
       } else if (i.customId.startsWith("userinfo_roles_")) {
         const fullRoles = roles.join(", ") || "None";
-        await i.reply({ content: `🎭 **All Roles for <@${user.id}> (${roles.length}):**\n${fullRoles.slice(0, 1900)}`, ephemeral: true });
+        await i.reply({ content: `🎭 **All Roles for <@${user.id}> (${roles.length}):**\n${fullRoles.slice(0, 1900)}`, flags: MessageFlags.Ephemeral });
       } else if (i.customId.startsWith("userinfo_perms_")) {
         await i.reply({
           content: `🔑 **All Key Permissions for <@${user.id}>:**\n\`\`\`\n${userKeyPerms.join("\n") || "Standard Member"}\n\`\`\``,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     });

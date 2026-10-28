@@ -8,6 +8,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { ModerationCaseModel, WarningModel, AutomodHitModel } from "../../database/mongo";
@@ -208,7 +209,7 @@ export const command: Command = {
     const guildId     = interaction.guildId!;
     const guild       = interaction.guild!;
 
-    await interaction.deferReply({ ephemeral: isEphemeral });
+    await interaction.deferReply({ flags: isEphemeral ? MessageFlags.Ephemeral : undefined });
 
     type Section = "summary" | "offenders" | "moderators" | "automod";
     let currentSection: Section = "summary";

@@ -1,4 +1,5 @@
 import { definePlugin } from "../definePlugin";
+import { MessageFlags } from "discord.js";
 
 export interface VerificationPluginConfig {
   requireVerifiedEmail: boolean;
@@ -16,7 +17,7 @@ export const VerificationPlugin = definePlugin<VerificationPluginConfig>({
       pattern: "verify_start",
       async handler(interaction) {
         if (!interaction.isButton() || !interaction.guild || !interaction.member) return;
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const { processVerification } = await import("../../services/verificationService");
         const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);

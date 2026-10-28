@@ -12,6 +12,7 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -50,19 +51,19 @@ export const command: Command = {
     const guildId = interaction.guildId!;
 
     if (!target || typeof target === "string") {
-      return interaction.reply({ content: "❌ Member not found in this server.", ephemeral: true });
+      return interaction.reply({ content: "❌ Member not found in this server.", flags: MessageFlags.Ephemeral });
     }
     if (target.id === interaction.user.id) {
-      return interaction.reply({ content: "❌ You cannot kick yourself.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot kick yourself.", flags: MessageFlags.Ephemeral });
     }
     if (target.id === interaction.client.user?.id) {
-      return interaction.reply({ content: "❌ You cannot kick me.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot kick me.", flags: MessageFlags.Ephemeral });
     }
     if (target.id === interaction.guild?.ownerId) {
-      return interaction.reply({ content: "❌ You cannot kick the server owner.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot kick the server owner.", flags: MessageFlags.Ephemeral });
     }
     if (!target.kickable) {
-      return interaction.reply({ content: "❌ I cannot kick this member — check my role hierarchy.", ephemeral: true });
+      return interaction.reply({ content: "❌ I cannot kick this member — check my role hierarchy.", flags: MessageFlags.Ephemeral });
     }
 
     const [hierarchyOk, botHierarchyOk] = await Promise.all([
@@ -71,10 +72,10 @@ export const command: Command = {
     ]);
 
     if (!hierarchyOk) {
-      return interaction.reply({ content: "❌ You cannot kick this member — they have a higher or equal role.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot kick this member — they have a higher or equal role.", flags: MessageFlags.Ephemeral });
     }
     if (!botHierarchyOk) {
-      return interaction.reply({ content: "❌ I cannot kick this member — they are above my highest role.", ephemeral: true });
+      return interaction.reply({ content: "❌ I cannot kick this member — they are above my highest role.", flags: MessageFlags.Ephemeral });
     }
 
     // Show confirmation embed with details
@@ -115,7 +116,7 @@ export const command: Command = {
     const prompt = await interaction.reply({
       embeds: [confirmEmbed],
       components: [confirmRow],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       fetchReply: true,
     });
 

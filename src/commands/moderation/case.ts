@@ -3,6 +3,7 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
   AttachmentBuilder,
+  MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { isValidObjectId } from "mongoose";
@@ -69,19 +70,19 @@ export const command: Command = {
 
     if (subcommand === "view") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
-        await interaction.reply({ content: "❌ You need `Moderate Members` permission to view cases.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Moderate Members` permission to view cases.", flags: MessageFlags.Ephemeral });
         return;
       }
 
       const caseId = interaction.options.getString("case_id", true);
       if (!isValidObjectId(caseId)) {
-        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, ephemeral: true });
+        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, flags: MessageFlags.Ephemeral });
         return;
       }
       const record = await ModerationCaseModel.findOne({ guildId: interaction.guild.id, _id: caseId }).catch(() => null);
 
       if (!record) {
-        await interaction.reply({ content: `❌ Moderation case \`${caseId}\` was not found.`, ephemeral: true });
+        await interaction.reply({ content: `❌ Moderation case \`${caseId}\` was not found.`, flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -100,13 +101,13 @@ export const command: Command = {
         .setFooter({ text: `Guild ID: ${interaction.guild.id}` })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       return;
     }
 
     if (subcommand === "user") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
-        await interaction.reply({ content: "❌ You need `Moderate Members` permission to view cases.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Moderate Members` permission to view cases.", flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -117,7 +118,7 @@ export const command: Command = {
         .lean();
 
       if (records.length === 0) {
-        await interaction.reply({ content: `✅ No moderation cases found on record for **${user.tag}** (<@${user.id}>).`, ephemeral: true });
+        await interaction.reply({ content: `✅ No moderation cases found on record for **${user.tag}** (<@${user.id}>).`, flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -135,19 +136,19 @@ export const command: Command = {
         .setFooter({ text: "Use /case view case_id:<id> for single case inspection." })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       return;
     }
 
     if (subcommand === "edit") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
-        await interaction.reply({ content: "❌ You need `Moderate Members` permission to edit cases.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Moderate Members` permission to edit cases.", flags: MessageFlags.Ephemeral });
         return;
       }
 
       const caseId = interaction.options.getString("case_id", true);
       if (!isValidObjectId(caseId)) {
-        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, ephemeral: true });
+        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, flags: MessageFlags.Ephemeral });
         return;
       }
       const newReason = interaction.options.getString("reason", true);
@@ -159,41 +160,41 @@ export const command: Command = {
       ).catch(() => null);
 
       if (!record) {
-        await interaction.reply({ content: `❌ Case \`${caseId}\` not found.`, ephemeral: true });
+        await interaction.reply({ content: `❌ Case \`${caseId}\` not found.`, flags: MessageFlags.Ephemeral });
       } else {
-        await interaction.reply({ content: `✅ Updated reason for case \`${caseId}\` to: "${newReason}"`, ephemeral: true });
+        await interaction.reply({ content: `✅ Updated reason for case \`${caseId}\` to: "${newReason}"`, flags: MessageFlags.Ephemeral });
       }
       return;
     }
 
     if (subcommand === "delete") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-        await interaction.reply({ content: "❌ You need `Administrator` permission to delete moderation cases.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Administrator` permission to delete moderation cases.", flags: MessageFlags.Ephemeral });
         return;
       }
 
       const caseId = interaction.options.getString("case_id", true);
       if (!isValidObjectId(caseId)) {
-        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, ephemeral: true });
+        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, flags: MessageFlags.Ephemeral });
         return;
       }
       const res = await ModerationCaseModel.deleteOne({ guildId: interaction.guild.id, _id: caseId }).catch(() => null);
 
       if (res && res.deletedCount > 0) {
-        await interaction.reply({ content: `🗑️ Moderation case \`${caseId}\` deleted.`, ephemeral: true });
+        await interaction.reply({ content: `🗑️ Moderation case \`${caseId}\` deleted.`, flags: MessageFlags.Ephemeral });
       } else {
-        await interaction.reply({ content: `❌ Case \`${caseId}\` not found.`, ephemeral: true });
+        await interaction.reply({ content: `❌ Case \`${caseId}\` not found.`, flags: MessageFlags.Ephemeral });
       }
       return;
     }
 
     if (subcommand === "export") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-        await interaction.reply({ content: "❌ You need `Manage Server` permission to export logs.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Manage Server` permission to export logs.", flags: MessageFlags.Ephemeral });
         return;
       }
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const cases = await ModerationCaseModel.find({ guildId: interaction.guild.id })
         .select("guildId userId moderatorId action reason details createdAt")

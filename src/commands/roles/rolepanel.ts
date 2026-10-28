@@ -11,6 +11,7 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { createRolePanel, getRolePanels, deleteRolePanel } from "../../services/rolePanelService";
@@ -51,7 +52,7 @@ export const command: Command = {
     // ── CREATE via modal ─────────────────────────────────────────────────────────
     if (subcommand === "create") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
-        await interaction.reply({ content: "❌ You need `Manage Roles` permission to create role panels.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Manage Roles` permission to create role panels.", flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -126,7 +127,7 @@ export const command: Command = {
       }).catch(() => null);
 
       if (!modalResponse) return;
-      await modalResponse.deferReply({ ephemeral: true });
+      await modalResponse.deferReply({ flags: MessageFlags.Ephemeral });
 
       const title = modalResponse.fields.getTextInputValue("panel_title");
       const description = modalResponse.fields.getTextInputValue("panel_desc");
@@ -185,7 +186,7 @@ export const command: Command = {
           .setTitle("🎭 Active Role Panels")
           .setDescription("ℹ️ No role panels configured on this server.")
           .setFooter({ text: "Create one using /rolepanel create" });
-        await interaction.reply({ embeds: [emptyEmbed], ephemeral: true });
+        await interaction.reply({ embeds: [emptyEmbed], flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -200,18 +201,18 @@ export const command: Command = {
         .setFooter({ text: `Total Panels: ${panels.length}` })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       return;
     }
 
     // ── DELETE panel ─────────────────────────────────────────────────────────────
     if (subcommand === "delete") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
-        await interaction.reply({ content: "❌ You need `Manage Roles` permission to delete role panels.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Manage Roles` permission to delete role panels.", flags: MessageFlags.Ephemeral });
         return;
       }
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const id = interaction.options.getString("id", true);
       const ok = await deleteRolePanel(interaction.guild, id);
       

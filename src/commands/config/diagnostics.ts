@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig } from "../../services/configuration";
 import { getAutomodConfig } from "../../services/automod";
@@ -17,11 +17,11 @@ export const command: Command = {
     const botMember = guild.members.me;
 
     if (!botMember) {
-      await interaction.reply({ content: "❌ Could not find bot member in this server.", ephemeral: true });
+      await interaction.reply({ content: "❌ Could not find bot member in this server.", flags: MessageFlags.Ephemeral });
       return;
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     // 1. Fetch Configs
     const guildConfig = await getGuildConfig(guild.id);

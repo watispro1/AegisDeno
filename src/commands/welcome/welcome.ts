@@ -11,6 +11,7 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
@@ -127,7 +128,7 @@ export const command: Command = {
           .setDisabled(!hasMsg && !hasChannel),
       );
 
-      const sent = await interaction.reply({ embeds: [statusEmbed], components: [row], ephemeral: true, fetchReply: true });
+      const sent = await interaction.reply({ embeds: [statusEmbed], components: [row], flags: MessageFlags.Ephemeral, fetchReply: true });
 
       const collector = sent.createMessageComponentCollector({
         componentType: ComponentType.Button,
@@ -176,7 +177,7 @@ export const command: Command = {
             .setFooter({ text: "This is how the message would appear for a new member." })
             .setTimestamp();
 
-          await i.followUp({ embeds: [previewEmbed], ephemeral: true });
+          await i.followUp({ embeds: [previewEmbed], flags: MessageFlags.Ephemeral });
         }
       });
 
@@ -200,7 +201,7 @@ export const command: Command = {
       ) {
         return interaction.reply({
           content: "❌ I need **View Channel** and **Send Messages** permissions in that channel.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -215,7 +216,7 @@ export const command: Command = {
             .addFields({ name: "💡 Next Step", value: "Use `/welcome message` to customize the welcome text.", inline: false })
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -254,7 +255,7 @@ export const command: Command = {
       }).catch(() => null);
 
       if (!modalResponse) return;
-      await modalResponse.deferReply({ ephemeral: true });
+      await modalResponse.deferReply({ flags: MessageFlags.Ephemeral });
 
       const newMsg = modalResponse.fields.getTextInputValue("welcome_msg_input");
       await updateGuildConfig(guildId, { welcomeMessage: newMsg });
@@ -295,7 +296,7 @@ export const command: Command = {
         .setFooter({ text: "Variables are resolved with your account as a stand-in." })
         .setTimestamp();
 
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 
     // ── TOGGLE ────────────────────────────────────────────────────────────────
@@ -315,7 +316,7 @@ export const command: Command = {
             )
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   },

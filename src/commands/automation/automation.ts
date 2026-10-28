@@ -1,5 +1,5 @@
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, TextChannel } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, TextChannel, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
 import { createTask, getTasksForGuild, deleteTask, AUTOMATION_TASK_TYPES } from "../../services/scheduler";
 import { scheduleTask, cancelTask, getActiveTaskIds } from "../../services/schedulerRunner";
@@ -83,7 +83,7 @@ export const command: Command = {
     const sub     = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
 
-    await interaction.deferReply({ ephemeral: sub !== "remind" && sub !== "message" && sub !== "repeat" });
+    await interaction.deferReply({ flags: (sub !== "remind" && sub !== "message" && sub !== "repeat") ? MessageFlags.Ephemeral : undefined });
 
     try {
       // ── remind ────────────────────────────────────────────────────────────

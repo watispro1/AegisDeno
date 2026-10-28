@@ -3,6 +3,7 @@ import type {
   ChatInputCommandInteraction,
   Guild,
 } from "discord.js";
+import { MessageFlags } from "discord.js";
 import type { Command } from "../types/discord";
 import type {
   KnubPlugin,
@@ -27,14 +28,13 @@ async function replyError(
   interaction: ChatInputCommandInteraction,
   content: string,
 ): Promise<void> {
-  const payload = { content, ephemeral: true };
-
   if (interaction.replied) {
-    await interaction.followUp(payload).catch(() => undefined);
+    await interaction.followUp({ content, flags: MessageFlags.Ephemeral }).catch(() => undefined);
   } else if (interaction.deferred) {
-    await interaction.editReply(payload).catch(() => undefined);
+    // editReply keeps whatever visibility deferReply chose; it takes no ephemeral flag.
+    await interaction.editReply({ content }).catch(() => undefined);
   } else {
-    await interaction.reply(payload).catch(() => undefined);
+    await interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => undefined);
   }
 }
 
@@ -379,7 +379,7 @@ export class KnubManager {
           // matching the behaviour already applied to slash commands.
           if (interaction.guildId && !(await this.isPluginEnabledForGuild(interaction.guildId, plugin.name))) {
             await interaction
-              .reply({ content: `❌ The **${plugin.name}** plugin is disabled in this server by administrators.`, ephemeral: true })
+              .reply({ content: `❌ The **${plugin.name}** plugin is disabled in this server by administrators.`, flags: MessageFlags.Ephemeral })
               .catch(() => null);
             return true;
           }
@@ -397,7 +397,7 @@ export class KnubManager {
               await interaction
                 .reply({
                   content: "❌ An error occurred while processing this action. Please try again.",
-                  ephemeral: true,
+                  flags: MessageFlags.Ephemeral,
                 })
                 .catch(() => null);
             } else if (interaction.deferred && !interaction.replied) {

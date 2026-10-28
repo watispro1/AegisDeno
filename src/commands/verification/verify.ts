@@ -11,6 +11,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { setupVerification, getVerificationConfig } from "../../services/verificationService";
@@ -108,7 +109,7 @@ export const command: Command = {
       }).catch(() => null);
 
       if (!modalResponse) return;
-      await modalResponse.deferReply({ ephemeral: true });
+      await modalResponse.deferReply({ flags: MessageFlags.Ephemeral });
 
       const title = modalResponse.fields.getTextInputValue("verify_title") || undefined;
       const description = modalResponse.fields.getTextInputValue("verify_desc") || undefined;
@@ -137,7 +138,7 @@ export const command: Command = {
 
     // ── INFO dashboard ───────────────────────────────────────────────────────────
     if (subcommand === "info") {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const config = await getVerificationConfig(guildId);
       
       const buildEmbed = (cfg: typeof config) => {
@@ -195,7 +196,7 @@ export const command: Command = {
             
             const updatedConfig = await getVerificationConfig(guildId);
             await i.editReply({ embeds: [buildEmbed(updatedConfig)], components: [] });
-            await i.followUp({ content: "🔴 Verification system has been disabled.", ephemeral: true });
+            await i.followUp({ content: "🔴 Verification system has been disabled.", flags: MessageFlags.Ephemeral });
           }
         });
       }
@@ -205,26 +206,26 @@ export const command: Command = {
     // ── MANUAL USER VERIFY ───────────────────────────────────────────────────────
     if (subcommand === "user") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
-        return interaction.reply({ content: "❌ You need `Manage Roles` to verify members manually.", ephemeral: true });
+        return interaction.reply({ content: "❌ You need `Manage Roles` to verify members manually.", flags: MessageFlags.Ephemeral });
       }
 
       const config = await getVerificationConfig(guildId);
       if (!config || !config.enabled || !config.verifiedRoleId) {
-        return interaction.reply({ content: "❌ Verification is not enabled or configured.", ephemeral: true });
+        return interaction.reply({ content: "❌ Verification is not enabled or configured.", flags: MessageFlags.Ephemeral });
       }
 
       const targetUser = interaction.options.getUser("target", true);
       const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
       
       if (!targetMember) {
-        return interaction.reply({ content: "❌ Member not found in the server.", ephemeral: true });
+        return interaction.reply({ content: "❌ Member not found in the server.", flags: MessageFlags.Ephemeral });
       }
 
       if (targetMember.roles.cache.has(config.verifiedRoleId)) {
-        return interaction.reply({ content: "⚠️ That member is already verified.", ephemeral: true });
+        return interaction.reply({ content: "⚠️ That member is already verified.", flags: MessageFlags.Ephemeral });
       }
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         await targetMember.roles.add(config.verifiedRoleId, `Manually verified by ${interaction.user.tag}`);
         await interaction.editReply({
@@ -245,12 +246,12 @@ export const command: Command = {
     // ── BATCH VERIFY ─────────────────────────────────────────────────────────────
     if (subcommand === "batch") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
-        return interaction.reply({ content: "❌ You need `Manage Roles` to verify members manually.", ephemeral: true });
+        return interaction.reply({ content: "❌ You need `Manage Roles` to verify members manually.", flags: MessageFlags.Ephemeral });
       }
 
       const config = await getVerificationConfig(guildId);
       if (!config || !config.enabled || !config.verifiedRoleId) {
-        return interaction.reply({ content: "❌ Verification is not enabled or configured.", ephemeral: true });
+        return interaction.reply({ content: "❌ Verification is not enabled or configured.", flags: MessageFlags.Ephemeral });
       }
 
       const modal = new ModalBuilder()
@@ -273,7 +274,7 @@ export const command: Command = {
       }).catch(() => null);
 
       if (!modalResponse) return;
-      await modalResponse.deferReply({ ephemeral: true });
+      await modalResponse.deferReply({ flags: MessageFlags.Ephemeral });
 
       const rawIds = modalResponse.fields.getTextInputValue("batch_ids");
       const ids = [...new Set(rawIds.match(/\d{17,20}/g) || [])].slice(0, 50); // limit 50
@@ -322,7 +323,7 @@ export const command: Command = {
 
     // ── DISABLE ──────────────────────────────────────────────────────────────────
     if (subcommand === "disable") {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       await VerificationModel.updateOne({ guildId }, { $set: { enabled: false } });
       await interaction.editReply({
         embeds: [

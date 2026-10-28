@@ -8,6 +8,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getRecentCasesForGuild, getTopOffendersForGuild } from "../../services/moderationCases";
@@ -47,7 +48,7 @@ export const command: Command = {
   execute: async (interaction: ChatInputCommandInteraction) => {
     const guildId = interaction.guildId!;
     const initialPeriod = (interaction.options.getString("period") ?? "7d") as Period;
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const buildEmbed = async (period: Period) => {
       const days = period === "7d" ? 7 : 30;

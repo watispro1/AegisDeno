@@ -9,6 +9,7 @@ import {
   ButtonStyle,
   ButtonInteraction,
   TextChannel,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -84,14 +85,14 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
   }).lean() as any;
 
   if (!giveaway) {
-    await interaction.reply({ content: "❌ This giveaway has ended or is no longer available.", ephemeral: true });
+    await interaction.reply({ content: "❌ This giveaway has ended or is no longer available.", flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (interaction.customId === "giveaway_entrants") {
     await interaction.reply({
       content: `👥 **${giveaway.entrants?.length ?? 0}** member(s) have entered this giveaway.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -101,7 +102,7 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
   if (giveaway.requiredRoleId) {
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     if (!member?.roles.cache.has(giveaway.requiredRoleId)) {
-      await interaction.reply({ content: "❌ You do not have the required role for this giveaway.", ephemeral: true });
+      await interaction.reply({ content: "❌ You do not have the required role for this giveaway.", flags: MessageFlags.Ephemeral });
       return;
     }
   }
@@ -112,7 +113,7 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
     { new: true },
   ).lean() as any;
   if (!updated) {
-    await interaction.reply({ content: "❌ This giveaway just ended. Better luck next time!", ephemeral: true });
+    await interaction.reply({ content: "❌ This giveaway just ended. Better luck next time!", flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -121,7 +122,7 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
     content: alreadyEntered
       ? "ℹ️ You are already entered in this giveaway."
       : "✅ You are entered! Good luck!",
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 
   const embed = interaction.message.embeds[0];
@@ -209,17 +210,17 @@ export const command: Command = {
 
       const durationSec = parseDuration(durationRaw);
       if (!durationSec || durationSec < 10) {
-        return interaction.reply({ content: "❌ Invalid duration. Use formats like `30m`, `2h`, `1d`. Minimum is 10 seconds.", ephemeral: true });
+        return interaction.reply({ content: "❌ Invalid duration. Use formats like `30m`, `2h`, `1d`. Minimum is 10 seconds.", flags: MessageFlags.Ephemeral });
       }
       if (durationSec > 86400 * 30) {
-        return interaction.reply({ content: "❌ Giveaway duration cannot exceed 30 days.", ephemeral: true });
+        return interaction.reply({ content: "❌ Giveaway duration cannot exceed 30 days.", flags: MessageFlags.Ephemeral });
       }
 
       if (!targetChan || !("send" in targetChan) || typeof (targetChan as any).send !== "function") {
-        return interaction.reply({ content: "❌ Cannot send messages in that channel.", ephemeral: true });
+        return interaction.reply({ content: "❌ Cannot send messages in that channel.", flags: MessageFlags.Ephemeral });
       }
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const endsAt = new Date(Date.now() + durationSec * 1000);
       const endsTs = Math.floor(endsAt.getTime() / 1000);
@@ -289,7 +290,7 @@ export const command: Command = {
     // ── /giveaway end ─────────────────────────────────────────────────────
     if (sub === "end") {
       const messageId = interaction.options.getString("message_id", true);
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const result = await endGiveaway(interaction.client, guildId, messageId);
       if (!result.ok) {
         await interaction.editReply(`❌ ${result.error}`);
@@ -303,7 +304,7 @@ export const command: Command = {
     if (sub === "reroll") {
       const messageId   = interaction.options.getString("message_id", true);
       const rerollCount = interaction.options.getInteger("winners") ?? null;
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const giveaway = await GiveawayModel.findOne({ guildId, messageId, ended: true }).lean() as any;
       if (!giveaway) {
@@ -351,7 +352,7 @@ export const command: Command = {
 
     // ── /giveaway list ─────────────────────────────────────────────────────
     if (sub === "list") {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const active = await GiveawayModel.find({ guildId, ended: false }).sort({ endsAt: 1 }).limit(10).lean();
       if (active.length === 0) {
         await interaction.editReply("ℹ️ No active giveaways in this server.");

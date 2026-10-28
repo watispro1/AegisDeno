@@ -12,6 +12,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   ModalSubmitInteraction,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { BanAppealModel } from "../../database/mongo";
@@ -99,7 +100,7 @@ export const command: Command = {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers)) {
         await interaction.reply({
           content: "❌ You need the **Ban Members** permission to access ban appeal management.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -108,7 +109,7 @@ export const command: Command = {
     // ── LIST ───────────────────────────────────────────────────────────────
     if (sub === "list") {
       const statusFilter = interaction.options.getString("status") ?? "pending";
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const query: Record<string, any> = statusFilter === "all" ? { guildId } : { guildId, status: statusFilter };
       const appeals = await BanAppealModel.find(query).sort({ createdAt: -1 }).limit(15).lean();
@@ -150,7 +151,7 @@ export const command: Command = {
     // ── VIEW ───────────────────────────────────────────────────────────────
     else if (sub === "view") {
       const code = interaction.options.getString("code", true).toUpperCase();
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const appeal = await BanAppealModel.findOne({ appealCode: code, guildId }) as any;
       if (!appeal) {
@@ -204,7 +205,7 @@ export const command: Command = {
       const code     = interaction.options.getString("code", true).toUpperCase();
       const decision = interaction.options.getString("decision", true) as "approved" | "denied";
       const note     = interaction.options.getString("note") ?? null;
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const appeal = (await BanAppealModel.findOne({ appealCode: code, guildId })) as any;
       if (!appeal) {
@@ -276,14 +277,14 @@ export const command: Command = {
       if (!appeal) {
         await interaction.reply({
           content: `❌ No pending appeal found for code \`${code}\` under your account.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
       if (appeal.status !== "pending") {
         await interaction.reply({
           content: `❌ Appeal \`${code}\` is already **${appeal.status}** and can no longer be edited.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -332,7 +333,7 @@ export const command: Command = {
               .addFields({ name: "📝 Your Statement", value: appealText })
               .setTimestamp(),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       } catch (err) {
         logger.error("Appeal modal submit timeout", err);

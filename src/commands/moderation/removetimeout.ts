@@ -1,5 +1,5 @@
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, GuildMember } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, GuildMember, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
@@ -29,7 +29,7 @@ export const command: Command = {
     const guildId = interaction.guildId!;
 
     if (!target) {
-      return interaction.reply({ content: "❌ Member not found.", ephemeral: true });
+      return interaction.reply({ content: "❌ Member not found.", flags: MessageFlags.Ephemeral });
     }
     const hierarchyOk = await isRoleHierarchyValid(
       interaction.client, guildId, interaction.user.id, target.id
@@ -37,12 +37,12 @@ export const command: Command = {
     if (!hierarchyOk) {
       return interaction.reply({
         content: "❌ You cannot remove this member's timeout — they have a higher or equal role.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
     if (!target.isCommunicationDisabled()) {
-      return interaction.reply({ content: "❌ This member is not currently timed out.", ephemeral: true });
+      return interaction.reply({ content: "❌ This member is not currently timed out.", flags: MessageFlags.Ephemeral });
     }
 
     await interaction.deferReply();

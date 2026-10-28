@@ -10,6 +10,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -92,10 +93,10 @@ export const command: Command = {
     if (sub === "status") {
       const targetChannel = (interaction.options.getChannel("channel") ?? interaction.channel) as TextChannel | null;
       if (!targetChannel || !("permissionOverwrites" in targetChannel)) {
-        return interaction.reply({ content: "❌ Invalid channel.", ephemeral: true });
+        return interaction.reply({ content: "❌ Invalid channel.", flags: MessageFlags.Ephemeral });
       }
       if (targetChannel.isThread?.()) {
-        return interaction.reply({ content: "❌ Target is a thread channel — check the parent text channel status instead.", ephemeral: true });
+        return interaction.reply({ content: "❌ Target is a thread channel — check the parent text channel status instead.", flags: MessageFlags.Ephemeral });
       }
 
       const overwrite = targetChannel.permissionOverwrites.cache.get(guild.roles.everyone.id);
@@ -113,13 +114,13 @@ export const command: Command = {
         )
         .setTimestamp();
 
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 
     // Server lockdown
     if (sub === "server") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-        return interaction.reply({ content: "❌ Server lockdown requires **Administrator** permission.", ephemeral: true });
+        return interaction.reply({ content: "❌ Server lockdown requires **Administrator** permission.", flags: MessageFlags.Ephemeral });
       }
 
       // Confirmation for destructive server-wide action
@@ -153,7 +154,7 @@ export const command: Command = {
       const prompt = await interaction.reply({
         embeds: [warningEmbed],
         components: [confirmRow],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         fetchReply: true,
       });
 

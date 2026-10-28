@@ -2,6 +2,7 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
   EmbedBuilder,
+  MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { applyPreset, PRESETS, PresetType } from "../../services/presetService";
@@ -68,18 +69,18 @@ export const command: Command = {
           { name: "Escalation Rules", value: preset.escalation.thresholds.map(t => `• ${t.atWarnings} Warnings → \`${t.action.toUpperCase()}\``).join("\n") || "None", inline: false }
         );
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       return;
     }
 
     if (subcommand === "apply") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-        await interaction.reply({ content: "❌ You need `Administrator` permission to apply presets.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Administrator` permission to apply presets.", flags: MessageFlags.Ephemeral });
         return;
       }
 
       const type = interaction.options.getString("type", true) as PresetType;
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const applied = await applyPreset(interaction.guild.id, type);
 

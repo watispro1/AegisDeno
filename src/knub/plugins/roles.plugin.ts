@@ -1,4 +1,5 @@
 import { definePlugin } from "../definePlugin";
+import { MessageFlags } from "discord.js";
 
 export interface RolesPluginConfig {
   maxRolesPerPanel: number;
@@ -16,7 +17,7 @@ export const RolesPlugin = definePlugin<RolesPluginConfig>({
       pattern: /^rolepanel_/,
       async handler(interaction) {
         if (!interaction.isButton() || !interaction.guild || !interaction.member) return;
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const match = interaction.customId.match(/^rolepanel_([^_]+)_(.+)$/);
         if (!match) return;

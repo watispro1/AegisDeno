@@ -8,6 +8,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { addWarning, getWarningsForUser, removeWarning } from "../../services/warnings";
@@ -74,20 +75,20 @@ export const command: Command = {
     if (!preset && !customReason) {
       return interaction.reply({
         content: "❌ Please provide either a `preset` or a custom `reason` (or both).",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
     const reason = preset && customReason ? `[${preset}] ${customReason}` : (preset || customReason!);
 
     if (target.id === interaction.user.id) {
-      return interaction.reply({ content: "❌ You cannot warn yourself.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot warn yourself.", flags: MessageFlags.Ephemeral });
     }
     if (target.bot) {
-      return interaction.reply({ content: "❌ You cannot warn a bot.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot warn a bot.", flags: MessageFlags.Ephemeral });
     }
     if (target.id === interaction.guild?.ownerId) {
-      return interaction.reply({ content: "❌ You cannot warn the server owner.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot warn the server owner.", flags: MessageFlags.Ephemeral });
     }
 
     const hierarchyOk = await isRoleHierarchyValid(
@@ -96,7 +97,7 @@ export const command: Command = {
     if (!hierarchyOk) {
       return interaction.reply({
         content: "❌ You cannot warn this user — they have a higher or equal role.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -166,45 +167,45 @@ export const command: Command = {
         if (i.customId.startsWith("warn_hist_")) {
           const userWarns = await getWarningsForUser(guildId, target.id);
           if (userWarns.length === 0) {
-            await i.reply({ content: `✅ <@${target.id}> has zero warnings on record.`, ephemeral: true });
+            await i.reply({ content: `✅ <@${target.id}> has zero warnings on record.`, flags: MessageFlags.Ephemeral });
           } else {
             const historyText = userWarns
               .slice(0, 10)
               .map((w, idx) => `**${idx + 1}.** \`${w.reason}\` — Mod: <@${w.moderatorId}> (<t:${Math.floor(new Date(w.createdAt).getTime() / 1000)}:R>)`)
               .join("\n");
-            await i.reply({ content: `📜 **Warning History for <@${target.id}> (${userWarns.length}):**\n${historyText}`, ephemeral: true });
+            await i.reply({ content: `📜 **Warning History for <@${target.id}> (${userWarns.length}):**\n${historyText}`, flags: MessageFlags.Ephemeral });
           }
         } else if (i.customId.startsWith("warn_undo_")) {
           const warnId = i.customId.replace("warn_undo_", "");
           const hierarchyOk = await isRoleHierarchyValid(interaction.client, guildId, i.user.id, target.id);
           if (!hierarchyOk) {
-            await i.reply({ content: "❌ You cannot modify warnings for this user due to role hierarchy.", ephemeral: true });
+            await i.reply({ content: "❌ You cannot modify warnings for this user due to role hierarchy.", flags: MessageFlags.Ephemeral });
             return;
           }
           const removed = await removeWarning(guildId, warnId);
           if (removed) {
-            await i.reply({ content: `↩️ Warning \`${warnId}\` has been removed. Undone by <@${i.user.id}>.`, ephemeral: false });
+            await i.reply({ content: `↩️ Warning \`${warnId}\` has been removed. Undone by <@${i.user.id}>.` });
             // Disable the undo button after use
             buttons.components[1].setDisabled(true).setLabel("Warn Undone");
             await interaction.editReply({ embeds: [embed], components: [buttons] }).catch(() => null);
           } else {
-            await i.reply({ content: "❌ Could not find that warning — it may have already been removed.", ephemeral: true });
+            await i.reply({ content: "❌ Could not find that warning — it may have already been removed.", flags: MessageFlags.Ephemeral });
           }
         } else if (i.customId.startsWith("warn_timeout_")) {
           const hierarchyOk = await isRoleHierarchyValid(interaction.client, guildId, i.user.id, target.id);
           if (!hierarchyOk) {
-            await i.reply({ content: "❌ You cannot timeout this user due to role hierarchy.", ephemeral: true });
+            await i.reply({ content: "❌ You cannot timeout this user due to role hierarchy.", flags: MessageFlags.Ephemeral });
             return;
           }
           const member = await interaction.guild?.members.fetch(target.id).catch(() => null);
           if (!member || !member.moderatable) {
-            await i.reply({ content: "❌ Cannot timeout member — they may have left or have higher roles than the bot.", ephemeral: true });
+            await i.reply({ content: "❌ Cannot timeout member — they may have left or have higher roles than the bot.", flags: MessageFlags.Ephemeral });
             return;
           }
           await member.timeout(10 * 60 * 1000, `Quick escalation from warn: ${reason} (by ${i.user.tag})`);
           buttons.components[2].setDisabled(true).setLabel("Timed Out (10m)");
           await interaction.editReply({ embeds: [embed], components: [buttons] }).catch(() => null);
-          await i.reply({ content: `⚡ **<@${target.id}>** has been placed in a **10-minute timeout** by <@${i.user.id}>.`, ephemeral: false });
+          await i.reply({ content: `⚡ **<@${target.id}>** has been placed in a **10-minute timeout** by <@${i.user.id}>.` });
         }
       });
 

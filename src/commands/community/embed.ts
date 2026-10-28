@@ -12,6 +12,7 @@ import {
   ButtonStyle,
   ComponentType,
   ModalSubmitInteraction,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 
@@ -96,18 +97,18 @@ export const command: Command = {
       const footer = interaction.options.getString("footer");
 
       if (!("send" in channel) || typeof (channel as any).send !== "function") {
-        return interaction.reply({ content: "❌ Please select a valid text channel.", ephemeral: true });
+        return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
       }
 
       // Concurrency lock to prevent duplicate submissions from rapid clicks or gateway retries
       const lockKey = `${interaction.user.id}:${channel.id}`;
       if (activeQuickEmbeds.has(lockKey)) {
-        return interaction.reply({ content: "⚠️ Please wait a moment between posting embeds.", ephemeral: true });
+        return interaction.reply({ content: "⚠️ Please wait a moment between posting embeds.", flags: MessageFlags.Ephemeral });
       }
       activeQuickEmbeds.add(lockKey);
       setTimeout(() => activeQuickEmbeds.delete(lockKey), 3000);
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const embed = new EmbedBuilder()
         .setTitle(title)
@@ -141,7 +142,7 @@ export const command: Command = {
       : "*Click **Edit Description** to write or edit the embed body...*";
 
     if (!("send" in channel) || typeof (channel as any).send !== "function") {
-      return interaction.reply({ content: "❌ Please select a valid text channel.", ephemeral: true });
+      return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
     }
 
     const buildEmbed = () => {
@@ -195,7 +196,7 @@ export const command: Command = {
       content: `👇 **Embed Preview** — Posting to <#${channel.id}>`,
       embeds: [buildEmbed()],
       components: buildButtons(false),
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       fetchReply: true,
     });
 

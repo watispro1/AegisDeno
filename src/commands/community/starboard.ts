@@ -19,6 +19,7 @@ import {
   PermissionFlagsBits,
   ChannelType,
   TextChannel,
+  MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import {
@@ -162,7 +163,7 @@ export const command: Command = {
 
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guildId) {
-      await interaction.reply({ content: "❌ This command can only be used in a server.", ephemeral: true });
+      await interaction.reply({ content: "❌ This command can only be used in a server.", flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -175,7 +176,7 @@ export const command: Command = {
       await updateStarboardConfig(guildId, { channelId: channel.id });
       await interaction.reply({
         content: `⭐ Starboard channel set to ${channel}. Messages that hit the reaction threshold will be reposted there.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -186,7 +187,7 @@ export const command: Command = {
       await updateStarboardConfig(guildId, { threshold: count });
       await interaction.reply({
         content: `⭐ Starboard threshold updated to **${count}** reaction(s).`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -197,7 +198,7 @@ export const command: Command = {
       await updateStarboardConfig(guildId, { emoji });
       await interaction.reply({
         content: `⭐ Starboard trigger emoji set to **${emoji}**.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -208,7 +209,7 @@ export const command: Command = {
       await updateStarboardConfig(guildId, { selfStar: allowed });
       await interaction.reply({
         content: `⭐ Self-starring is now **${allowed ? "allowed" : "disabled"}**.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -222,7 +223,7 @@ export const command: Command = {
       if (!channel && !role) {
         await interaction.reply({
           content: "❌ Please specify at least a channel or a role to ignore.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -251,7 +252,7 @@ export const command: Command = {
       const what = [channel && `<#${channel.id}>`, role && `<@&${role.id}>`].filter(Boolean).join(" and ");
       await interaction.reply({
         content: `⭐ ${action === "add" ? "Added" : "Removed"} ${what} ${action === "add" ? "to" : "from"} the starboard ignore list.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -259,7 +260,7 @@ export const command: Command = {
     // ── /starboard list ───────────────────────────────────────────────────
     if (sub === "list") {
       const limit = interaction.options.getInteger("limit") ?? 10;
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const entries = await listStarboardEntries(guildId, limit);
       if (!entries.length) {
@@ -309,7 +310,7 @@ export const command: Command = {
         )
         .setFooter({ text: "Use /starboard to modify settings" });
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -319,11 +320,11 @@ export const command: Command = {
       await updateStarboardConfig(guildId, { enabled });
       await interaction.reply({
         content: `⭐ Starboard is now **${enabled ? "enabled" : "disabled"}**.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
-    await interaction.reply({ content: "❌ Unknown subcommand.", ephemeral: true });
+    await interaction.reply({ content: "❌ Unknown subcommand.", flags: MessageFlags.Ephemeral });
   },
 };

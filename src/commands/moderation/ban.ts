@@ -8,6 +8,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
@@ -67,20 +68,20 @@ export const command: Command = {
     if (!preset && !customReason) {
       return interaction.reply({
         content: "❌ Please provide either a `preset` or a custom `reason` (or both).",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
     const reason = preset && customReason ? `[${preset}] ${customReason}` : (preset || customReason!);
 
     if (target.id === interaction.user.id) {
-      return interaction.reply({ content: "❌ You cannot ban yourself.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot ban yourself.", flags: MessageFlags.Ephemeral });
     }
     if (target.id === interaction.client.user?.id) {
-      return interaction.reply({ content: "❌ You cannot ban me.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot ban me.", flags: MessageFlags.Ephemeral });
     }
     if (target.id === interaction.guild?.ownerId) {
-      return interaction.reply({ content: "❌ You cannot ban the server owner.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot ban the server owner.", flags: MessageFlags.Ephemeral });
     }
 
     const member = await interaction.guild!.members.fetch(target.id).catch(() => null);
@@ -90,10 +91,10 @@ export const command: Command = {
         isBotHierarchyValid(interaction.client, guildId, target.id),
       ]);
       if (!hierarchyOk) {
-        return interaction.reply({ content: "❌ You cannot ban this user — they have a higher or equal role.", ephemeral: true });
+        return interaction.reply({ content: "❌ You cannot ban this user — they have a higher or equal role.", flags: MessageFlags.Ephemeral });
       }
       if (!botHierarchyOk) {
-        return interaction.reply({ content: "❌ I cannot ban this user — they are above my highest role.", ephemeral: true });
+        return interaction.reply({ content: "❌ I cannot ban this user — they are above my highest role.", flags: MessageFlags.Ephemeral });
       }
     }
 
@@ -133,7 +134,7 @@ export const command: Command = {
     const prompt = await interaction.reply({
       embeds: [confirmEmbed],
       components: [confirmRow],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       fetchReply: true,
     });
 
@@ -269,7 +270,7 @@ export const command: Command = {
                 description: `**User:** ${target.tag} (<@${target.id}>)\n**Unbanned by:** ${bi.user.tag}`,
               });
               postCollector.stop();
-              await bi.reply({ content: `✅ Ban for **${target.tag}** was revoked by <@${bi.user.id}>.`, ephemeral: false });
+              await bi.reply({ content: `✅ Ban for **${target.tag}** was revoked by <@${bi.user.id}>.` });
               await i.editReply({ components: [] }).catch(() => null);
             }
           });

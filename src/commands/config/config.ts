@@ -4,6 +4,7 @@ import {
   ChatInputCommandInteraction,
   PermissionFlagsBits,
   EmbedBuilder,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
@@ -81,7 +82,7 @@ export const command: Command = {
     const sub = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     try {
       const config = await getGuildConfig(guildId);
 

@@ -1,4 +1,5 @@
 import { definePlugin } from "../definePlugin";
+import { MessageFlags } from "discord.js";
 
 export interface TicketsPluginConfig {
   maxOpenTicketsPerUser: number;
@@ -18,7 +19,7 @@ export const TicketsPlugin = definePlugin<TicketsPluginConfig>({
       pattern: /^ticket_create_/,
       async handler(interaction) {
         if (!interaction.isButton() || !interaction.guild) return;
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const staffRoleId = interaction.customId.replace("ticket_create_", "");
         const cleanStaffRole = staffRoleId === "general" ? null : staffRoleId;
@@ -42,7 +43,7 @@ export const TicketsPlugin = definePlugin<TicketsPluginConfig>({
       pattern: /^ticket_close_/,
       async handler(interaction) {
         if (!interaction.isButton() || !interaction.guild) return;
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const { canCloseTicket, closeTicket } = await import("../../services/ticketService");
         if (!(await canCloseTicket(interaction.guild, interaction.channelId, interaction.user.id))) {
