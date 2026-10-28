@@ -717,16 +717,18 @@ export function renderDocs(cfg: SiteConfig): string {
 /starboard selfstar allowed:false
 /starboard ignore action:add channel:#staff`)}
       <h3>Giveaways and polls</h3>
-      ${cmdBlock(`/giveaway start prize:Nitro duration:24h winners:1
+      ${cmdBlock(`/giveaway start prize:Nitro duration:24h winners:1 booster_multiplier:2
 /giveaway reroll message_id:123456789012345678
-/poll question:Next game night? option1:Friday option2:Saturday anonymous:true`)}
+/poll question:Next game night? option1:Friday option2:Saturday duration:24 Hours (1 Day) multiselect:true anonymous:true`)}
+      <p>Server boosters get extra entries when <code>booster_multiplier</code> is above 1. Ended giveaways have a Reroll button for the host and moderators; rerolls skip people who already won. Timed polls close on their own, even across restarts, and post the results.</p>
       <h3>Suggestions, welcome messages, role panels</h3>
       ${cmdBlock(`/suggest setup channel:#suggestions
 /suggest approve id:12 reason:Doing it
 /welcome channel channel:#welcome
 /welcome message
 /rolepanel create channel:#roles role1:@Events role2:@Updates`)}
-      <p><code>/welcome message</code> opens a form. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{server}</code>, <code>{member_count}</code>.</p>
+      <p>Suggestion posts have Approve, Deny and Consider buttons for staff with Manage Server. Each asks for an optional reason, and the author gets a DM when the status changes.</p>
+      <p><code>/welcome message</code> opens a form and <code>/welcome preview</code> shows the result. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{server}</code>, <code>{count}</code> (<code>{member_count}</code> also works).</p>
 
       <h2 id="automation">Reminders and schedules</h2>
       ${cmdBlock(`/remindme set reminder:Review appeals duration:2h

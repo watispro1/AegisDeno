@@ -7,6 +7,14 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Community
+- `/giveaway start` takes `booster_multiplier` (1–10): server boosters get that many entries. Ended giveaways show a **Reroll** button for the host and anyone with Manage Server, and rerolls (button or `/giveaway reroll`) now skip people who already won.
+- `/poll` is now stored in MongoDB: buttons keep working after a restart, and timed polls close through the existing scheduler (overdue closes are applied on boot), freeze the poll and post a results message with a tie-aware winner and, unless anonymous, who voted for what. The poll creator can also end their own poll. `/poll` is now server-only and is posted as a normal channel message.
+- `/suggest` posts have **Approve**, **Deny** and **Consider** buttons for staff with Manage Server. Each opens an optional reason form, updates the status and colour, and DMs the author (closed DMs are ignored). The slash subcommands now DM the author too, and two moderators can no longer both finalise the same suggestion.
+- Starboard: the author's own star no longer counts toward the threshold or the shown total when self-starring is off; the first non-spoiler image is shown, other files are listed as links, and embed-only messages (bot posts, link previews) keep their text and image. An already-posted entry's count is kept in sync when stars are removed.
+- `/welcome`: new `{count}` placeholder (`{member_count}` still works); variables are filled in a single pass so names containing `{server}` are not re-expanded.
+- Unit tests for the weighted draw, poll tallies, suggestion review rules, starboard media selection and welcome templates.
+
 ### Reliability
 - `/lock channel duration_minutes:` auto-unlocks and `/remindme` reminders are now stored in MongoDB through the existing scheduler and restored on startup, so a restart or deploy no longer leaves a channel locked or drops a reminder. Overdue auto-unlocks are always applied on boot, however late.
 - Timers longer than Node's ~24.8-day limit are re-armed in chunks. `/remindme` now accepts up to 365 days (was 24).
