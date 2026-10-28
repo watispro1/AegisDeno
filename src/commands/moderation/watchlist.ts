@@ -9,10 +9,11 @@ import {
   ButtonStyle,
   ComponentType,
   MessageFlags,
+  ChannelType,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { WatchlistEntryModel } from "../../database/mongo";
-import { updateWatchCache, removeWatchFromCache } from "../../services/watchlistService";
+import { updateWatchCache, removeWatchFromCache, resolveWatchEvents } from "../../services/watchlistService";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -53,7 +54,13 @@ export const command: Command = {
               { name: "🔧 Role Changes Only",    value: "roles" },
               { name: "🎙️ Voice Joins Only",     value: "voice" },
               { name: "☀️ First Message Only",   value: "first_message" },
+              { name: "☀️🎙️ First Message of the Day + Voice Joins", value: "daily" },
             )
+        )
+        .addChannelOption(o =>
+          o.setName("alert_channel")
+            .setDescription("Also post alerts to this staff channel (default: DM only)")
+            .addChannelTypes(ChannelType.GuildText)
         )
     )
     .addSubcommand(sub =>
@@ -86,6 +93,7 @@ export const command: Command = {
       const reason   = interaction.options.getString("reason") ?? "No reason provided.";
       const duration = interaction.options.getString("duration") ?? "24h";
       const eventSet = interaction.options.getString("events") ?? "all";
+      const alertChannel = interaction.options.getChannel("alert_channel");
 
       if (target.id === modId) {
         await interaction.reply({ content: "❌ You cannot watch yourself.", flags: MessageFlags.Ephemeral });
@@ -110,15 +118,21 @@ export const command: Command = {
       const expiresAt = duration === "permanent" ? null : new Date(Date.now() + durationMap[duration]);
 
       // Resolve watched events
-      const eventMap: Record<string, string[]> = {
-        all:      ["message", "edit", "delete", "join", "leave", "roleChange", "voice", "firstMessage"],
-        messages: ["message", "edit", "delete"],
-        presence: ["join", "leave", "voice"],
-        roles:    ["roleChange"],
-        voice:    ["voice"],
-        first_message: ["firstMessage"],
-      };
-      const events = eventMap[eventSet] ?? eventMap.all;
+      const events: string[] = resolveWatchEvents(eventSet);
+
+      // The alert channel must be one the bot can post in and the moderator can see.
+      let alertChannelId: string | null = null;
+      if (alertChannel) {
+        const resolved = interaction.guild?.channels.cache.get(alertChannel.id);
+        const me = interaction.guild?.members.me;
+        const canPost = resolved && me && resolved.permissionsFor(me)?.has(["ViewChannel", "SendMessages", "EmbedLinks"]);
+        const modCanSee = resolved && interaction.member && resolved.permissionsFor(interaction.user.id)?.has("ViewChannel");
+        if (!canPost || !modCanSee) {
+          await interaction.reply({ content: `❌ I can't post alerts in <#${alertChannel.id}> (or you can't see it). Pick a staff channel where I can send embeds.`, flags: MessageFlags.Ephemeral });
+          return;
+        }
+        alertChannelId = alertChannel.id;
+      }
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
@@ -131,13 +145,14 @@ export const command: Command = {
               expiresAt,
               events,
               alertCount: 0,
+              alertChannelId,
               createdAt: new Date(),
             },
           },
           { upsert: true, new: true }
         );
 
-        updateWatchCache(guildId, target.id, modId, events, expiresAt);
+        updateWatchCache(guildId, target.id, modId, events, expiresAt, alertChannelId);
 
         const expiryText = expiresAt
           ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:R>`
@@ -149,12 +164,13 @@ export const command: Command = {
           .setThumbnail(target.displayAvatarURL())
           .setDescription(
             `**${target.tag}** is now under silent surveillance.\n` +
-            `You will receive a **private DM** for every monitored event — the member will not be notified.`
+            `You will receive a **private DM** for every monitored event${alertChannelId ? `, also posted in <#${alertChannelId}>` : ""} — the member will not be notified.`
           )
           .addFields(
             { name: "👤 Target",    value: `${target.tag} (<@${target.id}>)`, inline: true },
             { name: "⏰ Expires",   value: expiryText, inline: true },
             { name: "🎯 Events",    value: events.map(e => `\`${e}\``).join(", "), inline: false },
+            ...(alertChannelId ? [{ name: "📣 Alert Channel", value: `<#${alertChannelId}>`, inline: true }] : []),
             { name: "📝 Reason",    value: reason, inline: false },
           )
           .setFooter({ text: `Watching as ${interaction.user.tag} • Watch ID: ${makeCode(target.id)}` })
@@ -215,7 +231,7 @@ export const command: Command = {
         .setColor(0x5865F2)
         .setTitle(`🕵️ Your Ghost-Watch List — ${entries.length} member(s)`)
         .setDescription(lines.join("\n"))
-        .setFooter({ text: "Alerts are sent as private DMs. Members are never notified." })
+        .setFooter({ text: "Alerts go to your DMs (and the watch's alert channel, if set). Members are never notified." })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -246,6 +262,7 @@ export const command: Command = {
           { name: "🔔 Alerts Fired",   value: `${entry.alertCount}`, inline: true },
           { name: "🎯 Monitored Events", value: (entry.events as string[]).map((e: string) => `\`${e}\``).join(", "), inline: false },
           { name: "📝 Reason",         value: entry.reason ?? "No reason provided.", inline: false },
+          ...(entry.alertChannelId ? [{ name: "📣 Alert Channel", value: `<#${entry.alertChannelId}>`, inline: true }] : []),
           { name: "📅 Watch Started",  value: `<t:${Math.floor(new Date(entry.createdAt).getTime() / 1000)}:R>`, inline: true },
           { name: "🆔 Watch ID",       value: `\`${makeCode(target.id)}\``, inline: true },
         )

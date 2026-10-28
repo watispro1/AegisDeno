@@ -55,8 +55,15 @@ const WarningSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   moderatorId: { type: String, required: true },
   reason: { type: String, required: true },
+  proofUrl: { type: String, default: null },
+  // Set by the /warn Undo button. Revoked warnings are kept for the record but
+  // no longer count toward totals, escalation or the trust score.
+  revoked: { type: Boolean, default: false },
+  revokedBy: { type: String, default: null },
+  revokedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
+WarningSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 WarningSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const WarningModel = mongoose.model("Warning", WarningSchema);
 
@@ -68,6 +75,10 @@ const ModerationCaseSchema = new mongoose.Schema({
   reason: { type: String, required: true },
   details: { type: String, default: null },
   proofUrl: { type: String, default: null },
+  // Set when the action is reversed with the Undo button on /timeout or /ban.
+  revoked: { type: Boolean, default: false },
+  revokedBy: { type: String, default: null },
+  revokedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 ModerationCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
@@ -132,6 +143,9 @@ const SuggestionSchema = new mongoose.Schema({
   status: { type: String, default: "pending" },
   upvotes: { type: [String], default: [] },
   downvotes: { type: [String], default: [] },
+  reviewedBy: { type: String, default: null },
+  reviewReason: { type: String, default: null },
+  reviewedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 export const SuggestionModel = mongoose.model("Suggestion", SuggestionSchema);
@@ -229,6 +243,11 @@ const GiveawaySchema = new mongoose.Schema({
   hostId:        { type: String, required: true },
   entrants:      { type: [String], default: [] },
   winners:       { type: [String], default: [] },
+  // Everyone who has won this giveaway before a reroll, so rerolls pick new people.
+  previousWinners: { type: [String], default: [] },
+  // Server boosters get `boosterMultiplier` tickets; boosting is checked when they enter.
+  boosterMultiplier: { type: Number, default: 1, min: 1, max: 10 },
+  boosterEntrants: { type: [String], default: [] },
   endsAt:        { type: Date, required: true },
   endedAt:       { type: Date, default: null },
   ended:         { type: Boolean, default: false },
@@ -236,6 +255,31 @@ const GiveawaySchema = new mongoose.Schema({
 });
 GiveawaySchema.index({ guildId: 1, ended: 1, endsAt: 1 });
 export const GiveawayModel = mongoose.model("Giveaway", GiveawaySchema);
+
+/**
+ * A /poll. Votes live here (not in memory) so buttons keep working and timed
+ * polls still close after a restart. `votes` maps user ID → picked option indices.
+ */
+const PollSchema = new mongoose.Schema({
+  guildId:      { type: String, required: true },
+  channelId:    { type: String, required: true },
+  messageId:    { type: String, required: true, unique: true },
+  creatorId:    { type: String, required: true },
+  creatorTag:   { type: String, default: "" },
+  question:     { type: String, required: true, maxlength: 300 },
+  options:      { type: [String], required: true },
+  multiselect:  { type: Boolean, default: false },
+  anonymous:    { type: Boolean, default: false },
+  imageUrl:     { type: String, default: null },
+  votes:        { type: mongoose.Schema.Types.Mixed, default: {} },
+  endsAt:       { type: Date, default: null },
+  closeTaskId:  { type: String, default: null },
+  ended:        { type: Boolean, default: false },
+  endedAt:      { type: Date, default: null },
+  createdAt:    { type: Date, default: Date.now },
+}, { minimize: false });
+PollSchema.index({ guildId: 1, ended: 1 });
+export const PollModel = mongoose.model("Poll", PollSchema);
 
 
 const PluginConfigSchema = new mongoose.Schema({
@@ -299,6 +343,7 @@ const WatchlistEntrySchema = new mongoose.Schema({
   expiresAt:    { type: Date, default: null },       // null = indefinite
   events:       { type: [String], default: ["message", "edit", "delete", "join", "leave", "roleChange"] },
   alertCount:   { type: Number, default: 0 },        // how many alerts fired
+  alertChannelId: { type: String, default: null },   // optional staff channel that also gets alerts
   createdAt:    { type: Date, default: Date.now },
 });
 WatchlistEntrySchema.index({ guildId: 1, targetId: 1, moderatorId: 1 }, { unique: true });

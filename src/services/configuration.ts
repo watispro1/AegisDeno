@@ -16,6 +16,8 @@ export interface GuildConfig {
   escalation: {
     enabled: boolean;
     thresholds: Array<{ atWarnings: number; action: "timeout" | "kick" | "ban"; durationMinutes?: number }>;
+    /** Warnings older than this many days stop counting toward thresholds; null = never expire. */
+    warnExpiryDays?: number | null;
   };
 }
 
@@ -33,8 +35,18 @@ const DEFAULT_CONFIG: Omit<GuildConfig, "guildId"> = {
   escalation: {
     enabled: false,
     thresholds: [],
+    warnExpiryDays: null,
   },
 };
+
+/** Longest configurable warning expiry; warnings are deleted after a year anyway. */
+export const MAX_WARN_EXPIRY_DAYS = 365;
+
+export function normalizeWarnExpiryDays(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const days = Number(value);
+  return Number.isInteger(days) && days >= 1 && days <= MAX_WARN_EXPIRY_DAYS ? days : null;
+}
 
 const DISCORD_ID = /^\d{17,20}$/;
 const LOG_CATEGORIES = new Set([
@@ -90,6 +102,7 @@ function normalizeGuildConfig(guildId: string, source?: Partial<GuildConfig>): G
     escalation: {
       enabled: Boolean(config.escalation && typeof config.escalation === "object" && config.escalation.enabled === true),
       thresholds: normalizeThresholds(config.escalation && typeof config.escalation === "object" ? config.escalation.thresholds : []),
+      warnExpiryDays: normalizeWarnExpiryDays(config.escalation && typeof config.escalation === "object" ? config.escalation.warnExpiryDays : null),
     },
   };
 }

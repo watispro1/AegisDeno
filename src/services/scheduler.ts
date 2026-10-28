@@ -20,6 +20,9 @@ export type TaskType =
 
 /** Restored on boot however overdue: each re-checks current state before acting. */
 const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick"];
+ * - poll_close: timed `/poll` auto-close (payload is JSON `{ messageId }`)
+ */
+export type TaskType = "reminder" | "scheduled" | "personal_reminder" | "channel_unlock" | "poll_close";
 
 /** Task types managed through `/automation list|cancel`. */
 export const AUTOMATION_TASK_TYPES: readonly TaskType[] = ["reminder", "scheduled"];
@@ -163,6 +166,10 @@ export async function getAllPendingTasks(): Promise<ScheduledTask[]> {
   // inactivity checks and verification kicks re-check state, so they are too.
   const docs = await TaskModel.find({
     $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: [...ALWAYS_RESTORE_TYPES] } }],
+  // Auto-unlocks and poll closes are always restored, however overdue: a channel
+  // must never stay locked (or a poll open) forever because the bot was down a day.
+  const docs = await TaskModel.find({
+    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: ["channel_unlock", "poll_close"] } }],
   })
     .select("guildId channelId creatorId type payload executeAt intervalMs createdAt")
     .sort({ executeAt: 1 })

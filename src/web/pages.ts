@@ -617,9 +617,9 @@ export function renderDocs(cfg: SiteConfig): string {
       <div class="callout"><p>If commands do not show up, restart your Discord client. If they still do not, the bot was probably invited without the <code>applications.commands</code> scope; invite it again with the link above.</p></div>
 
       <h2 id="moderation">Moderation</h2>
-      <p>Warn, timeout, kick and ban each check that both you and Aegis rank above the target, ask for confirmation, and create a case. Add <code>silent:true</code> to skip the DM to the member.</p>
-      ${cmdBlock(`/warn user:@member reason:Spamming severity:Low
-/timeout user:@member duration:1 hour reason:Arguing with staff
+      <p>Warn, timeout, kick and ban each check that both you and Aegis rank above the target, ask for confirmation, and create a case. Add <code>silent:true</code> to skip the DM to the member. The <code>reason</code> option suggests presets (Spam, NSFW, Harassment, Advertising, Raiding, Other) but takes any text, and <code>proof</code> attaches a screenshot to the case. Warn, timeout and ban show an Undo button for five minutes; it reverses the action and marks the case revoked.</p>
+      ${cmdBlock(`/warn user:@member reason:Spam severity:Low
+/timeout user:@member duration:1 hour reason:Arguing with staff proof:screenshot.png
 /kick user:@member reason:Alt account
 /ban user:@member reason:Raid account delete_messages:1
 /unban user_id:123456789012345678`)}
@@ -630,13 +630,17 @@ export function renderDocs(cfg: SiteConfig): string {
 /infractions user:@member
 /note add user:@member`)}
       <h3>Escalation</h3>
-      <p>Escalation rules act automatically when a member reaches a warning count. Timeout durations are in minutes.</p>
+      <p>Escalation rules act automatically when a member reaches a warning count. Timeout durations are in minutes. Set an expiry and warnings older than that many days stop counting; revoked warnings never count.</p>
       ${cmdBlock(`/escalation add warnings:3 action:Timeout duration:60
 /escalation add warnings:5 action:Ban
+/escalation expiry days:30
 /escalation toggle enabled:true`)}
       <h3>Channels</h3>
+      <p><code>/purge</code> can combine a filter with <code>user</code> and <code>keyword</code>, leaves pinned messages alone, and reports how many were deleted and how many were skipped for being older than 14 days.</p>
       ${cmdBlock(`/purge amount:50 filter:Bot messages only
-/lock channel channel:#general duration_minutes:15
+/purge amount:200 filter:Messages with links user:@member
+/lock channel channel:#general duration_minutes:15 message:Back in 15 minutes
+/lock category category:Events duration_minutes:30
 /lock unlock channel:#general
 /slowmode custom seconds:10`)}
 
@@ -659,12 +663,14 @@ export function renderDocs(cfg: SiteConfig): string {
             <tr><td>Account age</td><td>0 to 25</td><td>Scales up to two years old.</td></tr>
             <tr><td>Time in server</td><td>0 to 25</td><td>Scales up to one year.</td></tr>
             <tr><td>Long-tenure bonus</td><td>0, 6, 12 or 20</td><td>At 180 days, one year and two years in the server.</td></tr>
-            <tr><td>Warnings</td><td>0 to &minus;30</td><td>&minus;5 each.</td></tr>
-            <tr><td>Cases</td><td>0 to &minus;20</td><td>&minus;4 each.</td></tr>
+            <tr><td>Warnings</td><td>0 to &minus;30</td><td>&minus;5 per active warning.</td></tr>
+            <tr><td>Infractions</td><td>0 to &minus;20</td><td>&minus;4 per timeout, kick or ban that was not undone.</td></tr>
+            <tr><td>Message count</td><td>0, 2, 4, 7 or 10</td><td>At 10, 50, 250 and 1,000 messages in the server.</td></tr>
+            <tr><td>Recent activity</td><td>0, 2 or 5</td><td>Active in the last 30 days or the last 7.</td></tr>
           </tbody>
         </table>
       </div>
-      <p>The total is clamped to 0&ndash;100. 80 and up is <em>trusted</em>, 60 <em>established</em>, 40 <em>caution</em>, 20 <em>elevated risk</em>, below 20 <em>high risk</em>.</p>
+      <p>The reply opens with a short list of why, biggest factor first. Aegis keeps only a message count and last-active time per member for this, never message content. The total is clamped to 0&ndash;100. 80 and up is <em>trusted</em>, 60 <em>established</em>, 40 <em>caution</em>, 20 <em>elevated risk</em>, below 20 <em>high risk</em>.</p>
 
       <h2 id="appeal">Ban appeals</h2>
       <p>Every ban that can DM the member sends them a code like <code>AGS-K7X2</code> with instructions. Since they are no longer in your server, they run the submit command from any other server Aegis is in; the DM tells them this.</p>
@@ -675,8 +681,9 @@ export function renderDocs(cfg: SiteConfig): string {
       <p>Approving lifts the ban and DMs the member. Reviewing needs Ban Members; submitting does not.</p>
 
       <h2 id="watchlist">Watchlist</h2>
-      <p>Adds a member to a private watch. You get DMs for the events you picked; nothing is posted in the server.</p>
+      <p>Adds a member to a private watch. You get DMs for the events you picked. Add <code>alert_channel</code> to also post them in a staff channel; the member is never told.</p>
       ${cmdBlock(`/watchlist add user:@member duration:7 Days events:All Events reason:Alt of a banned user
+/watchlist add user:@member events:First Message of the Day + Voice Joins alert_channel:#mod-alerts
 /watchlist list
 /watchlist info user:@member
 /watchlist remove user:@member`)}
@@ -721,9 +728,10 @@ export function renderDocs(cfg: SiteConfig): string {
 /starboard selfstar allowed:false
 /starboard ignore action:add channel:#staff`)}
       <h3>Giveaways and polls</h3>
-      ${cmdBlock(`/giveaway start prize:Nitro duration:24h winners:1
+      ${cmdBlock(`/giveaway start prize:Nitro duration:24h winners:1 booster_multiplier:2
 /giveaway reroll message_id:123456789012345678
-/poll question:Next game night? option1:Friday option2:Saturday anonymous:true`)}
+/poll question:Next game night? option1:Friday option2:Saturday duration:24 Hours (1 Day) multiselect:true anonymous:true`)}
+      <p>Server boosters get extra entries when <code>booster_multiplier</code> is above 1. Ended giveaways have a Reroll button for the host and moderators; rerolls skip people who already won. Timed polls close on their own, even across restarts, and post the results.</p>
       <h3>Suggestions, welcome messages, role panels</h3>
       ${cmdBlock(`/suggest setup channel:#suggestions
 /suggest approve id:12 reason:Doing it
@@ -733,6 +741,9 @@ export function renderDocs(cfg: SiteConfig): string {
 /rolepanel create channel:#colors role1:@Red role2:@Blue style:Dropdown menu exclusive:true required_role:@Member`)}
       <p>Role panels use buttons or a dropdown menu. With <code>exclusive:true</code> a member can hold only one role from the panel, and <code>required_role</code> limits the panel to members who already have that role.</p>
       <p><code>/welcome message</code> opens a form. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{server}</code>, <code>{member_count}</code>.</p>
+/rolepanel create channel:#roles role1:@Events role2:@Updates`)}
+      <p>Suggestion posts have Approve, Deny and Consider buttons for staff with Manage Server. Each asks for an optional reason, and the author gets a DM when the status changes.</p>
+      <p><code>/welcome message</code> opens a form and <code>/welcome preview</code> shows the result. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{server}</code>, <code>{count}</code> (<code>{member_count}</code> also works).</p>
 
       <h2 id="automation">Reminders and schedules</h2>
       ${cmdBlock(`/remindme set reminder:Review appeals duration:2h

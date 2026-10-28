@@ -142,6 +142,10 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
     if (task.type === "verify_kick") {
       const { runVerifyKick } = await import("./verificationService");
       await runVerifyKick(client, task);
+    if (task.type === "poll_close") {
+      // Lazy import: polls.ts imports this module to arm its timers.
+      const { closePollFromTask } = await import("./polls");
+      await closePollFromTask(client, task);
       retryCount.delete(taskId);
       return;
     }

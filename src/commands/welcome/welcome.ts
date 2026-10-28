@@ -15,16 +15,19 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
+import { renderWelcomeTemplate } from "../../services/communityLogic";
 
-// Variables that can be interpolated in welcome messages
-const VARIABLES = ["{user}", "{username}", "{server}", "{member_count}"];
+// Variables that can be interpolated in welcome messages ({member_count} still works as an alias of {count}).
+const VARIABLES = ["{user}", "{username}", "{server}", "{count}"];
 
+/** Resolve template variables with the invoking moderator as a stand-in for the new member. */
 function applyVariables(text: string, interaction: ChatInputCommandInteraction): string {
-  return text
-    .replace(/{user}/g,         `<@${interaction.user.id}>`)
-    .replace(/{username}/g,     interaction.user.username)
-    .replace(/{server}/g,       interaction.guild?.name ?? "this server")
-    .replace(/{member_count}/g, String(interaction.guild?.memberCount ?? "?"));
+  return renderWelcomeTemplate(text, {
+    userId: interaction.user.id,
+    username: interaction.user.username,
+    serverName: interaction.guild?.name ?? "this server",
+    memberCount: interaction.guild?.memberCount ?? null,
+  });
 }
 
 export const command: Command = {
@@ -232,7 +235,7 @@ export const command: Command = {
         .setStyle(TextInputStyle.Paragraph)
         .setMaxLength(2000)
         .setRequired(true)
-        .setPlaceholder("e.g. Welcome to {server}, {user}! You are member #{member_count} 🎉")
+        .setPlaceholder("e.g. Welcome to {server}, {user}! You are member #{count} 🎉")
         .setValue(config.welcomeMessage ?? "");
 
       const hintInput = new TextInputBuilder()
@@ -240,7 +243,7 @@ export const command: Command = {
         .setLabel("Available variables (read-only reference)")
         .setStyle(TextInputStyle.Short)
         .setRequired(false)
-        .setValue("{user} {username} {server} {member_count}");
+        .setValue("{user} {username} {server} {count}");
 
       modal.addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(msgInput),
@@ -271,7 +274,7 @@ export const command: Command = {
               { name: "📝 New Message (raw)", value: `\`\`\`\n${newMsg.slice(0, 900)}\n\`\`\``, inline: false },
               { name: "👁️ Preview", value: preview.slice(0, 1024), inline: false },
             )
-            .setFooter({ text: "Variables are substituted when a member actually joins." })
+            .setFooter({ text: "Variables are substituted when a member actually joins. Run /welcome preview any time." })
             .setTimestamp(),
         ],
       });

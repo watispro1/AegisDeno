@@ -12,7 +12,12 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { WarningModel, ModerationCaseModel } from "../../database/mongo";
-import { calculateTrustProfile, scoreBar, type TrustProfile } from "../../services/trustScore";
+import { calculateTrustProfile, explainTrust, scoreBar, type TrustProfile } from "../../services/trustScore";
+import { NOT_REVOKED } from "../../services/warnings";
+import { getMemberActivity } from "../../services/memberActivity";
+
+/** Case actions that count as infractions for the trust score. */
+const INFRACTION_ACTIONS = ["timeout", "kick", "ban"];
 
 // ─── Trust Score Engine ───────────────────────────────────────────────────────
 
@@ -23,12 +28,21 @@ async function computeTrustProfile(
   joinedAt: Date | null
 ): Promise<TrustProfile> {
   // ── Parallelize Warning & Case counts ─────────────────────────────────────
-  const [warnings, cases] = await Promise.all([
-    WarningModel.countDocuments({ guildId, userId }),
-    ModerationCaseModel.countDocuments({ guildId, userId }),
+  // Revoked warnings/cases (undone with the Undo button) don't count.
+  const [warnings, cases, activity] = await Promise.all([
+    WarningModel.countDocuments({ guildId, userId, ...NOT_REVOKED }),
+    ModerationCaseModel.countDocuments({ guildId, userId, action: { $in: INFRACTION_ACTIONS }, revoked: { $ne: true } }),
+    getMemberActivity(guildId, userId),
   ]);
 
-  return calculateTrustProfile({ accountCreatedAt, joinedAt, warnings, cases });
+  return calculateTrustProfile({
+    accountCreatedAt,
+    joinedAt,
+    warnings,
+    cases,
+    messageCount: activity.messageCount,
+    lastActiveAt: activity.lastActiveAt,
+  });
 }
 
 // ─── Command ─────────────────────────────────────────────────────────────────
@@ -36,7 +50,7 @@ async function computeTrustProfile(
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("trustscore")
-    .setDescription("View a member's automated Trust Score — risk rating based on age, tenure, and infractions.")
+    .setDescription("View a member's Trust Score: account age, tenure, infractions and message activity.")
     .addUserOption(o => o.setName("user").setDescription("Member to evaluate (defaults to yourself)").setRequired(false))
     .addBooleanOption(o => o.setName("ephemeral").setDescription("Only show the response to you (default: true)").setRequired(false))
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
@@ -70,17 +84,18 @@ export const command: Command = {
         .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
         .setDescription(
           `\`${scoreBar(p.score)}\` **${p.score}%**\n` +
-          `> *This score is automatically calculated from account age, server tenure, warnings, and moderation cases — no manual input.*`
+          `> *Calculated from account age, server tenure, active warnings, infractions and message activity — no manual input.*`
         )
         .addFields(
+          { name: "🧭 Why", value: explainTrust(p).map((line) => `• ${line}`).join("\n"), inline: false },
           { name: "📅 Account Age",   value: p.accountAgeLabel, inline: true },
           { name: "🏠 Server Tenure", value: p.tenureLabel, inline: true },
-          { name: "⚠️ Warnings",      value: `${-p.breakdown.warningPenalty / 5 | 0}`, inline: true },
-          { name: "📁 Cases",         value: `${-p.breakdown.casePenalty / 4 | 0}`, inline: true },
-          { name: "🎖️ Veteran Bonus", value: p.breakdown.bonus > 0 ? `+${p.breakdown.bonus} pts` : "None", inline: true },
+          { name: "💬 Messages",      value: `${p.counts.messages.toLocaleString("en-US")} · last ${p.lastActiveLabel}`, inline: true },
+          { name: "⚠️ Active Warnings", value: `${p.counts.warnings}`, inline: true },
+          { name: "📁 Infractions",   value: `${p.counts.cases}`, inline: true },
           { name: "🔢 Final Score",   value: `**${p.score}** / 100`, inline: true },
         )
-        .setFooter({ text: `Requested by ${interaction.user.tag} • Trust Score v1.0` })
+        .setFooter({ text: `Requested by ${interaction.user.tag} • Trust Score v1.1` })
         .setTimestamp();
 
     const buildBreakdownEmbed = (p: TrustProfile) =>
@@ -101,17 +116,22 @@ export const command: Command = {
           },
           {
             name: "⚠️ Warning Penalty",
-            value: `${p.breakdown.warningPenalty} pts\n> ${-p.breakdown.warningPenalty / 5 | 0} warning(s) × −5 pts each (max −30)`,
+            value: `${p.breakdown.warningPenalty} pts\n> ${p.counts.warnings} active warning(s) × −5 pts each (max −30)`,
             inline: false,
           },
           {
-            name: "📁 Case Penalty",
-            value: `${p.breakdown.casePenalty} pts\n> ${-p.breakdown.casePenalty / 4 | 0} case(s) × −4 pts each (max −20)`,
+            name: "📁 Infraction Penalty",
+            value: `${p.breakdown.casePenalty} pts\n> ${p.counts.cases} timeout/kick/ban case(s) × −4 pts each (max −20)`,
             inline: false,
           },
           {
             name: "🎖️ Veteran Bonus",
             value: `+${p.breakdown.bonus} pts\n> Long-tenure loyalty bonus (180d: +6 · 365d: +12 · 730d: +20)`,
+            inline: false,
+          },
+          {
+            name: "💬 Message Activity",
+            value: `+${p.breakdown.activity} pts\n> ${p.counts.messages.toLocaleString("en-US")} message(s) (10: +2 · 50: +4 · 250: +7 · 1,000: +10), last active ${p.lastActiveLabel} (7d: +5 · 30d: +2)`,
             inline: false,
           },
           {
