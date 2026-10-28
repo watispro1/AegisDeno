@@ -699,15 +699,19 @@ export function renderDocs(cfg: SiteConfig): string {
 /ticket claim
 /ticket add user:@member
 /ticket transcript
-/ticket close reason:Solved`)}
+/ticket close reason:Solved
+/ticket settings log_channel:#ticket-logs autoclose_hours:48`)}
       <p>Members can have one open ticket at a time. Aegis needs Manage Channels in the category where tickets are created.</p>
+      <p>Staff can press <strong>Claim</strong> on the ticket to show who is handling it. When a ticket closes, Aegis builds an HTML transcript, posts it to the ticket log channel if you set one, and DMs it to the member who opened the ticket. Tickets with no messages for 48 hours close on their own; change that with <code>autoclose_hours</code>, or set it to <code>0</code> to turn it off.</p>
 
       <h2 id="verification">Verification</h2>
       ${cmdBlock(`/verify setup channel:#verify verified_role:@Member type:One-Click Button
 /verify info
 /verify user target:@member
+/verify autokick minutes:30
 /verify disable`)}
       <p>Set your other channels so that only the verified role can see them. The Aegis role has to sit above the verified role to grant it.</p>
+      <p>CAPTCHA mode asks a small math question in a pop-up form before granting the role. Auto-kick is off by default; with <code>/verify autokick</code> or the <code>kick_unverified_minutes</code> option on setup, members who have not verified in time are kicked, even if the bot restarted in between.</p>
 
       <h2 id="community">Community tools</h2>
       <h3>Starboard</h3>
@@ -725,18 +729,21 @@ export function renderDocs(cfg: SiteConfig): string {
 /suggest approve id:12 reason:Doing it
 /welcome channel channel:#welcome
 /welcome message
-/rolepanel create channel:#roles role1:@Events role2:@Updates`)}
+/rolepanel create channel:#roles role1:@Events role2:@Updates
+/rolepanel create channel:#colors role1:@Red role2:@Blue style:Dropdown menu exclusive:true required_role:@Member`)}
+      <p>Role panels use buttons or a dropdown menu. With <code>exclusive:true</code> a member can hold only one role from the panel, and <code>required_role</code> limits the panel to members who already have that role.</p>
       <p><code>/welcome message</code> opens a form. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{server}</code>, <code>{member_count}</code>.</p>
 
       <h2 id="automation">Reminders and schedules</h2>
       ${cmdBlock(`/remindme set reminder:Review appeals duration:2h
+/remindme set reminder:Stand-up notes duration:1d repeat:Daily
 /remindme list
 /remindme cancel id:abc123
 /automation message in:1d channel:#announcements message:Event starts in an hour
 /automation repeat interval:7d channel:#general message:Weekly thread is up
 /automation list
 /automation cancel id:abc123`)}
-      <p>Durations use <code>30s</code>, <code>10m</code>, <code>2h</code>, <code>1d</code> (<code>/remindme</code> also takes <code>1w</code> and goes up to a year). Reminders, scheduled tasks and <code>/lock</code> auto-unlocks are restored after a restart.</p>
+      <p>Durations use <code>30s</code>, <code>10m</code>, <code>2h</code>, <code>1d</code> (<code>/remindme</code> also takes <code>1w</code> and goes up to a year). Reminders, scheduled tasks and <code>/lock</code> auto-unlocks are restored after a restart. A <code>/remindme</code> reminder can repeat daily or weekly, and the DM has Snooze buttons for 10 minutes or 1 hour.</p>
 
       <h2 id="configuration">Configuration</h2>
       ${cmdBlock(`/config view

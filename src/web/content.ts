@@ -158,8 +158,9 @@ export const features: Feature[] = [
     short: "A button that opens a private channel between a member and your staff.",
     text: "Post a panel, members click it, and Aegis creates a channel only they and your staff role can see. One open ticket per member, so the queue does not fill with duplicates.",
     points: [
-      "Staff can claim a ticket and add or remove members.",
-      "Text transcript on demand.",
+      "Staff can claim a ticket with a button, so everyone can see who is handling it.",
+      "HTML transcript on close, posted to your ticket log channel and sent to the member by DM.",
+      "Tickets with no messages for 48 hours close on their own (configurable, or off).",
       "Closing a ticket deletes its channel shortly after and logs the close.",
     ],
     commands: [
@@ -167,6 +168,7 @@ export const features: Feature[] = [
       ["/ticket claim", "Take ownership"],
       ["/ticket transcript", "Export the conversation"],
       ["/ticket close reason:solved", "Close it"],
+      ["/ticket settings log_channel:#ticket-logs autoclose_hours:48", "Transcripts and auto-close"],
     ],
     docs: "tickets",
   },
@@ -177,13 +179,15 @@ export const features: Feature[] = [
     short: "New members press a button or solve a captcha before they get the verified role.",
     text: "A simple gate for raids and throwaway accounts. Unverified members only see the verify channel; passing the check grants the role you picked.",
     points: [
-      "Button or captcha mode.",
+      "Button or captcha mode; captcha asks a small math question in a pop-up.",
+      "Optional auto-kick for members who stay unverified, off by default.",
       "Re-running setup removes the old panel.",
       "Staff can verify someone manually with /verify user.",
     ],
     commands: [
       ["/verify setup channel:#verify verified_role:@Member type:CAPTCHA Verification", "Post the gate"],
       ["/verify user target:@member", "Verify by hand"],
+      ["/verify autokick minutes:30", "Kick if unverified"],
     ],
     docs: "verification",
   },
@@ -198,7 +202,7 @@ export const features: Feature[] = [
       "Giveaways up to 30 days long, with role requirements, up to 20 winners, early end and reroll.",
       "Polls with up to 10 options, anonymous and multi-select modes.",
       "Suggestions with voting and approve, consider or deny.",
-      "Button role panels with up to three roles each.",
+      "Role panels with up to three roles each, as buttons or a dropdown, with optional pick-only-one and required-role rules.",
       "Welcome messages with {user}, {server} and {member_count} placeholders.",
     ],
     commands: [
@@ -217,6 +221,7 @@ export const features: Feature[] = [
     text: "Tasks are stored in the database and restored when the bot starts, so a restart does not lose next week's announcement.",
     points: [
       "Durations like 30s, 10m, 2h or 1d.",
+      "Personal reminders can repeat daily or weekly and be snoozed from the DM.",
       "List and cancel tasks by ID.",
     ],
     commands: [

@@ -7,6 +7,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Roles, tickets, verification and general commands
+- `/rolepanel create` has a `style` option (buttons or a dropdown menu), `exclusive` (members can hold only one role from the panel) and `required_role` (only members with that role can use the panel). Existing button panels keep working, and the roles plugin's max-roles setting is enforced.
+- Tickets have a staff-only **Claim** button that shows who claimed the ticket; `/ticket claim` now records the claim too, and a ticket can only be claimed once.
+- Tickets close automatically after 48 hours without messages. The check is stored through the Mongo scheduler, so it survives restarts. Change it or turn it off with `/ticket settings autoclose_hours:`.
+- Closing a ticket builds a self-contained HTML transcript, posts it to the ticket log channel (`/ticket settings log_channel:`) and DMs it to the member who opened the ticket; DM failures are ignored. `/ticket transcript` now returns the same HTML file.
+- `/verify` CAPTCHA mode now asks a small math question in a pop-up form. Answers are checked in memory and expire after 5 minutes.
+- Optional kick for members still unverified after a set number of minutes (`/verify autokick minutes:` or `kick_unverified_minutes` on setup), off by default. It is now persisted through the scheduler instead of an in-memory timer, and cancelled when the member verifies.
+- `/remindme set` has a `repeat` option (daily or weekly), and delivered reminder DMs have Snooze buttons (10 minutes, 1 hour). The 25-pending-reminders limit still applies.
+- `/userinfo` shows the warning count and trust score only to members with moderation permissions, in a reply only they can see. Warn History and Mod Cases buttons are moderator-only.
+- `/help` shows only commands the member can use, and its `command` option searches names, descriptions and subcommands.
+
 ### Reliability
 - `/lock channel duration_minutes:` auto-unlocks and `/remindme` reminders are now stored in MongoDB through the existing scheduler and restored on startup, so a restart or deploy no longer leaves a channel locked or drops a reminder. Overdue auto-unlocks are always applied on boot, however late.
 - Timers longer than Node's ~24.8-day limit are re-armed in chunks. `/remindme` now accepts up to 365 days (was 24).
