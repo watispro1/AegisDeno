@@ -10,9 +10,10 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  TextChannel,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
+import { isSendableChannel } from "../../utils/channels";
 import { sendGuildLog } from "../../services/logging";
 import { logger } from "../../utils/logger";
 
@@ -94,16 +95,16 @@ export const command: Command = {
     const crosspost      = interaction.options.getBoolean("crosspost") ?? false;
 
     // Validate channel is sendable
-    if (!("send" in channel) || typeof (channel as any).send !== "function") {
-      return interaction.reply({ content: "❌ Please select a text channel.", ephemeral: true });
+    if (!isSendableChannel(channel)) {
+      return interaction.reply({ content: "❌ Please select a text channel.", flags: MessageFlags.Ephemeral });
     }
 
     // Check bot perms in target channel
     const me = interaction.guild?.members.me;
-    if (me && "permissionsFor" in channel && typeof (channel as any).permissionsFor === "function") {
-      const perms = (channel as any).permissionsFor(me);
+    if (me && "permissionsFor" in channel) {
+      const perms = channel.permissionsFor(me);
       if (perms && !perms.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
-        return interaction.reply({ content: "❌ I need View Channel + Send Messages permissions in that channel.", ephemeral: true });
+        return interaction.reply({ content: "❌ I need View Channel + Send Messages permissions in that channel.", flags: MessageFlags.Ephemeral });
       }
     }
 
@@ -164,7 +165,7 @@ export const command: Command = {
       content: "**📋 Announcement Preview** — review before sending:",
       embeds: [previewEmbed, embed],
       components: [previewRow],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
 
     let currentBody = body;
@@ -229,7 +230,7 @@ export const command: Command = {
         collector.stop("sent");
         await i.update({ content: "⏳ Sending announcement...", components: [] });
         try {
-          const sent = await (channel as TextChannel).send({
+          const sent = await channel.send({
             content: pingContent || undefined,
             embeds: [currentEmbed],
           });

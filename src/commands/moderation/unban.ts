@@ -8,6 +8,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -36,10 +37,10 @@ export const command: Command = {
     const guildId   = interaction.guildId!;
 
     if (!/^\d{17,20}$/.test(userId)) {
-      return interaction.reply({ content: "❌ That doesn't look like a valid Discord user ID (17-20 digits).", ephemeral: true });
+      return interaction.reply({ content: "❌ That doesn't look like a valid Discord user ID (17-20 digits).", flags: MessageFlags.Ephemeral });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
       const ban = await interaction.guild!.bans.fetch(userId).catch(() => null);

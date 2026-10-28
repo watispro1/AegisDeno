@@ -7,6 +7,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -85,7 +86,7 @@ export const command: Command = {
     }
 
     if (new Set(options.map(o => o.toLowerCase())).size !== options.length) {
-      return interaction.reply({ content: "❌ Poll options must be distinct.", ephemeral: true });
+      return interaction.reply({ content: "❌ Poll options must be distinct.", flags: MessageFlags.Ephemeral });
     }
 
     // Keep the published deadline stable. Computing it while re-rendering made
@@ -194,18 +195,18 @@ export const command: Command = {
           .filter(({ idx }) => votes.get(idx)?.has(i.user.id));
 
         if (userVotes.length === 0) {
-          return i.reply({ content: "📋 You haven't voted yet.", ephemeral: true });
+          return i.reply({ content: "📋 You haven't voted yet.", flags: MessageFlags.Ephemeral });
         }
         return i.reply({
           content: `📋 **Your vote${userVotes.length !== 1 ? "s" : ""}:** ${userVotes.map(v => `${NUMBER_EMOJIS[v.idx]} ${v.opt}`).join(", ")}`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
       // End poll (moderators only)
       if (i.customId === "poll_end") {
         if (!i.memberPermissions?.has(PermissionFlagsBits.ManageMessages)) {
-          return i.reply({ content: "❌ Only moderators can end polls early.", ephemeral: true });
+          return i.reply({ content: "❌ Only moderators can end polls early.", flags: MessageFlags.Ephemeral });
         }
         collector.stop("ended");
         await i.deferUpdate();
@@ -228,14 +229,14 @@ export const command: Command = {
         if (set.has(userId)) {
           // Toggle off
           set.delete(userId);
-          await i.reply({ content: `↩️ Removed your vote for **${options[optIdx]}**.`, ephemeral: true });
+          await i.reply({ content: `↩️ Removed your vote for **${options[optIdx]}**.`, flags: MessageFlags.Ephemeral });
         } else {
           set.add(userId);
           await i.reply({
             content: anonymous
               ? `✅ Vote recorded.`
               : `✅ Voted for **${NUMBER_EMOJIS[optIdx]} ${options[optIdx]}**.`,
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         }
 

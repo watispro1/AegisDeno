@@ -1,5 +1,8 @@
 import { Client, TextChannel, EmbedBuilder } from "discord.js";
 import { getAllPendingTasks, deleteTask, updateTaskNextRun, ScheduledTask } from "./scheduler";
+import { decodeChannelUnlock, decodePersonalReminder, nextTimerDelay } from "./timedActions";
+import { sendGuildLog } from "./logging";
+import { isSendableChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
 
 const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -7,16 +10,107 @@ const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 /** After this many failed attempts, give up and delete the task from the DB. */
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 60_000;
-const MAX_TIMEOUT_MS = 2_147_483_647;
 
 /** Track how many times each task has failed so we can cap retries. */
 const retryCount = new Map<string, number>();
+
+/**
+ * Deliver a `/remindme` reminder: DM the user, and optionally ping them in the
+ * channel the reminder was set from. Delivery failures are swallowed (as before
+ * persistence was added) so a user with closed DMs is not retried and spammed.
+ */
+async function deliverPersonalReminder(client: Client, task: ScheduledTask): Promise<void> {
+  const payload = decodePersonalReminder(task.payload);
+  if (!payload) {
+    logger.warn(`Task ${task.id}: unreadable personal reminder payload — removing task.`);
+    return;
+  }
+
+  try {
+    const dmEmbed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle("⏰ Reminder!")
+      .setDescription(`You asked me to remind you about:\n\n**${payload.text}**`)
+      .addFields(
+        { name: "⏳ Set",  value: `<t:${Math.floor(payload.setAt / 1000)}:R>` },
+        { name: "📌 From", value: payload.sourceName },
+      )
+      .setFooter({ text: "Set with /remindme" })
+      .setTimestamp();
+
+    const user = await client.users.fetch(task.creatorId).catch(() => null);
+    if (user) {
+      await user.send({ embeds: [dmEmbed] }).catch(() => null);
+    }
+
+    if (payload.inChannel) {
+      const channel = await client.channels.fetch(task.channelId).catch(() => null);
+      if (isSendableChannel(channel)) {
+        await channel.send({
+          content: `<@${task.creatorId}> ⏰ **Reminder:** ${payload.text}`,
+        }).catch(() => null);
+      }
+    }
+  } catch (err) {
+    logger.warn(`Reminder delivery failed for user ${task.creatorId}`, err);
+  }
+}
+
+/**
+ * Lift a timed `/lock channel` lock. Throws if the permission edit fails so the
+ * normal retry path runs; a missing channel just drops the task.
+ */
+async function performChannelUnlock(client: Client, task: ScheduledTask): Promise<void> {
+  const { moderatorTag, durationMinutes } = decodeChannelUnlock(task.payload);
+  const channel = await client.channels.fetch(task.channelId).catch(() => null);
+
+  if (!channel || channel.isDMBased() || channel.isThread() || !("permissionOverwrites" in channel)) {
+    logger.warn(`Task ${task.id}: unlock target ${task.channelId} is gone or not lockable — removing task.`);
+    return;
+  }
+  if (channel.guild.id !== task.guildId) {
+    logger.error(`Task ${task.id}: unlock target ${task.channelId} is not in guild ${task.guildId} — removing task.`);
+    return;
+  }
+
+  await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { SendMessages: null });
+
+  await sendGuildLog(client, task.guildId, {
+    title: "🔓 Auto-Unlock",
+    color: 0x57F287,
+    description: `**Channel:** <#${channel.id}> was automatically unlocked after ${durationMinutes} minute(s).\n**Original Moderator:** ${moderatorTag}`,
+  }).catch(err => logger.warn(`Task ${task.id}: auto-unlock log failed`, err));
+
+  if (isSendableChannel(channel)) {
+    await channel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x57F287)
+          .setTitle("🔓 Channel Unlocked")
+          .setDescription(`This channel has been automatically unlocked after a ${durationMinutes}-minute lockdown.`)
+          .setTimestamp(),
+      ],
+    }).catch(() => null);
+  }
+}
 
 async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
   const taskId = task.id!;
   let shouldRetry = false;
 
   try {
+    if (task.type === "personal_reminder") {
+      await deliverPersonalReminder(client, task);
+      retryCount.delete(taskId);
+      return;
+    }
+
+    if (task.type === "channel_unlock") {
+      await performChannelUnlock(client, task);
+      retryCount.delete(taskId);
+      return;
+    }
+
     const channel = await client.channels.fetch(task.channelId).catch(() => null);
 
     if (!channel) {
@@ -114,7 +208,7 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
 
 export function scheduleTask(client: Client, task: ScheduledTask): void {
   const taskId = task.id!;
-  const delay = Math.max(0, new Date(task.executeAt).getTime() - Date.now());
+  const { waitMs, final } = nextTimerDelay(new Date(task.executeAt).getTime(), Date.now());
 
   // Don't double-schedule a task that's already in the timer map
   if (activeTimers.has(taskId)) {
@@ -126,17 +220,17 @@ export function scheduleTask(client: Client, task: ScheduledTask): void {
   // in chunks so monthly reminders and recurring jobs cannot fire immediately.
   const handle = setTimeout(
     () => {
-      if (delay > MAX_TIMEOUT_MS) {
+      if (!final) {
         activeTimers.delete(taskId);
         scheduleTask(client, task);
       } else {
         void executeTask(client, task);
       }
     },
-    Math.min(delay, MAX_TIMEOUT_MS),
+    waitMs,
   );
   activeTimers.set(taskId, handle);
-  logger.debug(`Task ${taskId} (${task.type}) scheduled in ${Math.round(delay / 1000)}s.`);
+  logger.debug(`Task ${taskId} (${task.type}) scheduled in ${Math.round(waitMs / 1000)}s${final ? "" : " (chunked)"}.`);
 }
 
 export function cancelTask(id: string): boolean {

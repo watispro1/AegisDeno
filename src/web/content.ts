@@ -220,7 +220,7 @@ export const features: Feature[] = [
       "List and cancel tasks by ID.",
     ],
     commands: [
-      ["/remindme reminder:Check the appeal queue duration:2h", "DM yourself later"],
+      ["/remindme set reminder:Check the appeal queue duration:2h", "DM yourself later"],
       ["/automation repeat interval:1d channel:#general message:...", "Daily post"],
       ["/automation list", "See scheduled tasks"],
     ],

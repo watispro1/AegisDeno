@@ -9,6 +9,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -93,26 +94,26 @@ export const command: Command = {
     const guildId      = interaction.guildId!;
 
     if (!target || typeof target === "string") {
-      return interaction.reply({ content: "❌ Member not found in this server.", ephemeral: true });
+      return interaction.reply({ content: "❌ Member not found in this server.", flags: MessageFlags.Ephemeral });
     }
     if (target.id === interaction.user.id) {
-      return interaction.reply({ content: "❌ You cannot timeout yourself.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot timeout yourself.", flags: MessageFlags.Ephemeral });
     }
     if (target.id === interaction.client.user?.id) {
-      return interaction.reply({ content: "❌ You cannot timeout me.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot timeout me.", flags: MessageFlags.Ephemeral });
     }
     if (target.id === interaction.guild?.ownerId) {
-      return interaction.reply({ content: "❌ You cannot timeout the server owner.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot timeout the server owner.", flags: MessageFlags.Ephemeral });
     }
     if (!target.moderatable) {
-      return interaction.reply({ content: "❌ I cannot timeout this member — check my role hierarchy.", ephemeral: true });
+      return interaction.reply({ content: "❌ I cannot timeout this member — check my role hierarchy.", flags: MessageFlags.Ephemeral });
     }
 
     const hierarchyOk = await isRoleHierarchyValid(
       interaction.client, guildId, interaction.user.id, target.id
     );
     if (!hierarchyOk) {
-      return interaction.reply({ content: "❌ You cannot timeout this member — they have a higher or equal role.", ephemeral: true });
+      return interaction.reply({ content: "❌ You cannot timeout this member — they have a higher or equal role.", flags: MessageFlags.Ephemeral });
     }
 
     const until = new Date(Date.now() + durationMs);
@@ -154,7 +155,7 @@ export const command: Command = {
     const prompt = await interaction.reply({
       embeds: [confirmEmbed],
       components: [confirmRow],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       fetchReply: true,
     });
 
@@ -255,7 +256,7 @@ export const command: Command = {
           if (!hierarchyOk) {
             await bi.reply({
               content: "❌ You cannot change this timeout because the member has an equal or higher role.",
-              ephemeral: true,
+              flags: MessageFlags.Ephemeral,
             });
             return;
           }
@@ -264,7 +265,7 @@ export const command: Command = {
             await bi.deferUpdate();
             const refreshedMember = await interaction.guild!.members.fetch(target.id).catch(() => null);
             if (!refreshedMember) {
-              await bi.followUp({ content: "❌ Member no longer found in the server.", ephemeral: true });
+              await bi.followUp({ content: "❌ Member no longer found in the server.", flags: MessageFlags.Ephemeral });
               return;
             }
             await refreshedMember.timeout(null, `Timeout removed by ${bi.user.tag}`).catch(() => null);
@@ -289,7 +290,7 @@ export const command: Command = {
             await bi.deferUpdate();
             const refreshedMember = await interaction.guild!.members.fetch(target.id).catch(() => null);
             if (!refreshedMember) {
-              await bi.followUp({ content: "❌ Member no longer found in the server.", ephemeral: true });
+              await bi.followUp({ content: "❌ Member no longer found in the server.", flags: MessageFlags.Ephemeral });
               return;
             }
             const currentEnd = (refreshedMember.communicationDisabledUntil && refreshedMember.communicationDisabledUntil > new Date())
@@ -316,7 +317,7 @@ export const command: Command = {
             });
             await bi.followUp({
               content: `⏩ Timeout extended. New expiry: <t:${Math.floor(newUntil.getTime() / 1000)}:R>`,
-              ephemeral: true,
+              flags: MessageFlags.Ephemeral,
             });
           } else if (bi.customId === `timeout_cases_${target.id}`) {
             const cases = await ModerationCaseModel.find({ guildId, userId: target.id })
@@ -324,14 +325,14 @@ export const command: Command = {
               .limit(5)
               .lean();
             if (cases.length === 0) {
-              await bi.reply({ content: `✅ <@${target.id}> has no prior moderation cases recorded.`, ephemeral: true });
+              await bi.reply({ content: `✅ <@${target.id}> has no prior moderation cases recorded.`, flags: MessageFlags.Ephemeral });
             } else {
               const lines = cases.map((c, idx) =>
                 `**${idx + 1}.** \`${c.action.toUpperCase()}\` — ${c.reason} (<t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>)`
               );
               await bi.reply({
                 content: `📜 **Recent Moderation Cases for <@${target.id}> (${cases.length}):**\n${lines.join("\n")}`,
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
               });
             }
           }

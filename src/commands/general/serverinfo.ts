@@ -7,6 +7,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 
@@ -112,7 +113,7 @@ export const command: Command = {
       if (i.customId === "serverinfo_channels") {
         await i.reply({
           content: `💬 **Channel Breakdown for ${guild.name}:**\n- Text Channels: **${textChannels}**\n- Voice Rooms: **${voiceChannels}**\n- Forum Forums: **${forumChannels}**\n- Categories: **${categories}**\n- Total Channels: **${channels.size}**`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       } else if (i.customId === "serverinfo_roles") {
         const topRoles = guild.roles.cache
@@ -123,12 +124,12 @@ export const command: Command = {
           .join(", ");
         await i.reply({
           content: `🎨 **Server Customization Assets:**\n- Total Roles: **${Math.max(0, guild.roles.cache.size - 1)}**\n- Top Roles: ${topRoles}\n- Custom Emojis: **${emojis?.size ?? 0}**\n- Stickers: **${stickers?.size ?? 0}**`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       } else if (i.customId === "serverinfo_security") {
         await i.reply({
           content: `🔒 **Security & Safety Overview:**\n- Verification Level: \`${guild.verificationLevel}\`\n- Explicit Content Filter: \`${guild.explicitContentFilter}\`\n- Default Notifications: \`${guild.defaultMessageNotifications}\`\n- MFA Level: \`${guild.mfaLevel}\``,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     });

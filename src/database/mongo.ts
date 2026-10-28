@@ -83,6 +83,7 @@ const TaskSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 TaskSchema.index({ guildId: 1, executeAt: 1 });
+TaskSchema.index({ creatorId: 1, type: 1, executeAt: 1 });
 export const TaskModel = mongoose.model("ScheduledTask", TaskSchema);
 
 const AutomodSchema = new mongoose.Schema({

@@ -9,6 +9,7 @@ import {
   ComponentType,
   PermissionFlagsBits,
   type PermissionResolvable,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { commands, COMMAND_CATEGORIES } from "../loader";
@@ -80,7 +81,7 @@ export const command: Command = {
       if (!foundCmd) {
         await interaction.reply({
           content: `❌ Command \`/${cleanName}\` not found. Use \`/help\` to view the list of available commands.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -135,7 +136,7 @@ export const command: Command = {
           .setEmoji("💬")
       );
 
-      await interaction.reply({ embeds: [detailEmbed], components: [cmdButtons], ephemeral: true });
+      await interaction.reply({ embeds: [detailEmbed], components: [cmdButtons], flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -219,7 +220,7 @@ export const command: Command = {
     const sent = await interaction.reply({
       embeds: [generateCategoryEmbed("all")],
       components: [row, linkRow],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       fetchReply: true,
     });
 

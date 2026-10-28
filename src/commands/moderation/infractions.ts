@@ -8,6 +8,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getWarningsForUser } from "../../services/warnings";
@@ -38,7 +39,7 @@ export const command: Command = {
     const ephemeral = interaction.options.getBoolean("ephemeral") ?? false;
     const guildId   = interaction.guildId!;
 
-    await interaction.deferReply({ ephemeral });
+    await interaction.deferReply({ flags: ephemeral ? MessageFlags.Ephemeral : undefined });
 
     try {
       const [warnings, cases] = await Promise.all([

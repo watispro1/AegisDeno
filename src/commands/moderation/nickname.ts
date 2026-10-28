@@ -3,6 +3,7 @@ import {
   GuildMember,
   PermissionFlagsBits,
   SlashCommandBuilder,
+  MessageFlags,
 } from "discord.js";
 import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
@@ -41,7 +42,7 @@ export const command: Command = {
     const guildId = interaction.guildId!;
 
     if (!target || typeof target === "string") {
-      await interaction.reply({ content: "❌ That user is not a member of this server.", ephemeral: true });
+      await interaction.reply({ content: "❌ That user is not a member of this server.", flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -50,11 +51,11 @@ export const command: Command = {
       isBotHierarchyValid(interaction.client, guildId, target.id),
     ]);
     if (!moderatorAllowed) {
-      await interaction.reply({ content: "❌ You cannot rename a member with an equal or higher role.", ephemeral: true });
+      await interaction.reply({ content: "❌ You cannot rename a member with an equal or higher role.", flags: MessageFlags.Ephemeral });
       return;
     }
     if (!botAllowed || !target.manageable) {
-      await interaction.reply({ content: "❌ I cannot rename this member because of role hierarchy.", ephemeral: true });
+      await interaction.reply({ content: "❌ I cannot rename this member because of role hierarchy.", flags: MessageFlags.Ephemeral });
       return;
     }
 

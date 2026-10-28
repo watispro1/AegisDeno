@@ -4,6 +4,7 @@ import {
   EmbedBuilder,
   REST,
   Routes,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { BOT_OWNER_IDS } from "../../config/env";
@@ -29,11 +30,11 @@ export const command: Command = {
     if (!BOT_OWNER_IDS.has(interaction.user.id)) {
       return interaction.reply({
         content: "❌ You do not have permission to use developer commands.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const guildOnly = interaction.options.getBoolean("guild_only") ?? false;
     const targetGuildId = TEST_GUILD_ID || interaction.guildId;

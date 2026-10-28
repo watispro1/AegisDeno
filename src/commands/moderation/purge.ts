@@ -9,6 +9,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -78,14 +79,14 @@ export const command: Command = {
     const guildId = interaction.guildId!;
 
     if (!channel || !channel.isTextBased() || !("bulkDelete" in channel)) {
-      return interaction.reply({ content: "❌ This command can only be used in a text channel.", ephemeral: true });
+      return interaction.reply({ content: "❌ This command can only be used in a text channel.", flags: MessageFlags.Ephemeral });
     }
 
     if (filter === "keyword" && !keyword) {
-      return interaction.reply({ content: "❌ You must provide a `keyword` when using the `keyword` filter.", ephemeral: true });
+      return interaction.reply({ content: "❌ You must provide a `keyword` when using the `keyword` filter.", flags: MessageFlags.Ephemeral });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
       const fetched = await channel.messages.fetch({ limit: 100 });

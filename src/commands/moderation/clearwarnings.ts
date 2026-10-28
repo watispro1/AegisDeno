@@ -1,5 +1,5 @@
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
 import { clearWarningsForUser, getWarningsForUser } from "../../services/warnings";
 import { sendGuildLog } from "../../services/logging";
@@ -28,7 +28,7 @@ export const command: Command = {
     if (!hierarchyOk) {
       return interaction.reply({
         content: "❌ You cannot clear warnings for this user — they have a higher or equal role.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 

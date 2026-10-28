@@ -3,7 +3,15 @@ import { TaskModel } from "../database/mongo";
 const MAX_RESTORED_TASKS = 10_000;
 const OVERDUE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-export type TaskType = "reminder" | "scheduled";
+/**
+ * - reminder / scheduled: `/automation` channel posts (payload is the message text)
+ * - personal_reminder: `/remindme` DM reminders (payload is JSON, see timedActions.ts)
+ * - channel_unlock: `/lock channel duration_minutes` auto-unlock (payload is JSON)
+ */
+export type TaskType = "reminder" | "scheduled" | "personal_reminder" | "channel_unlock";
+
+/** Task types managed through `/automation list|cancel`. */
+export const AUTOMATION_TASK_TYPES: readonly TaskType[] = ["reminder", "scheduled"];
 
 export interface ScheduledTask {
   _id: string;
@@ -81,11 +89,38 @@ export async function updateTaskNextRun(guildId: string, id: string, nextExecute
   }
 }
 
-export async function getTasksForGuild(guildId: string, creatorId?: string): Promise<ScheduledTask[]> {
-  const filter: { guildId: string; creatorId?: string } = { guildId };
+export async function getTasksForGuild(
+  guildId: string,
+  creatorId?: string,
+  types?: readonly TaskType[],
+): Promise<ScheduledTask[]> {
+  const filter: { guildId: string; creatorId?: string; type?: { $in: TaskType[] } } = { guildId };
   if (creatorId) filter.creatorId = creatorId;
+  if (types) filter.type = { $in: [...types] };
 
   const docs = await TaskModel.find(filter).sort({ executeAt: 1 });
+  return docs.map(doc => toTask(doc.toObject()));
+}
+
+/** All tasks of one type created by a user, across every guild and DM. */
+export async function getTasksForCreator(creatorId: string, type: TaskType): Promise<ScheduledTask[]> {
+  const docs = await TaskModel.find({ creatorId, type }).sort({ executeAt: 1 });
+  return docs.map(doc => toTask(doc.toObject()));
+}
+
+/** Delete a task only if it belongs to the given creator and type. */
+export async function deleteTaskForCreator(creatorId: string, type: TaskType, id: string): Promise<boolean> {
+  try {
+    const res = await TaskModel.deleteOne({ _id: id, creatorId, type });
+    return res.deletedCount > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Tasks of one type targeting a specific channel (e.g. pending auto-unlocks). */
+export async function getTasksForChannel(guildId: string, channelId: string, type: TaskType): Promise<ScheduledTask[]> {
+  const docs = await TaskModel.find({ guildId, channelId, type }).sort({ executeAt: 1 });
   return docs.map(doc => toTask(doc.toObject()));
 }
 
@@ -100,7 +135,11 @@ export async function deleteTask(guildId: string, id: string): Promise<boolean> 
 
 export async function getAllPendingTasks(): Promise<ScheduledTask[]> {
   const cutoff = new Date(Date.now() - OVERDUE_RESTORE_WINDOW_MS);
-  const docs = await TaskModel.find({ executeAt: { $gte: cutoff } })
+  // Auto-unlocks are always restored, however overdue: a channel must never stay
+  // locked forever just because the bot was down for more than a day.
+  const docs = await TaskModel.find({
+    $or: [{ executeAt: { $gte: cutoff } }, { type: "channel_unlock" }],
+  })
     .select("guildId channelId creatorId type payload executeAt intervalMs createdAt")
     .sort({ executeAt: 1 })
     .limit(MAX_RESTORED_TASKS)

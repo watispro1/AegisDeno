@@ -5,7 +5,8 @@
   "main": "dist/main.js",
   "private": true,
   "scripts": {
-    "test": "npm run build && npx tsx scripts/smoke-web.ts",
+    "test": "npm run test:unit && npm run build && npx tsx scripts/smoke-web.ts",
+    "test:unit": "tsx --test tests/*.test.ts",
     "dev": "tsx src/main.ts",
     "build": "tsc",
     "start": "node dist/main.js",

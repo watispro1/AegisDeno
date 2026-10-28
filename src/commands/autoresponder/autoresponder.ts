@@ -2,6 +2,7 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
   EmbedBuilder,
+  MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { addAutoResponder, removeAutoResponder, getAutoResponders } from "../../services/autoResponderService";
@@ -74,7 +75,7 @@ export const command: Command = {
 
     if (subcommand === "add" || subcommand === "create") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-        await interaction.reply({ content: "❌ You need `Manage Server` permission to add autoresponders.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Manage Server` permission to add autoresponders.", flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -93,17 +94,17 @@ export const command: Command = {
       if (ar) {
         await interaction.reply({
           content: `✅ Autoresponder created!\n**ID:** \`${ar.id}\` | **Trigger:** \`${ar.trigger}\` | **Match:** \`${ar.matchType}\``,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       } else {
-        await interaction.reply({ content: "❌ Failed to create autoresponder.", ephemeral: true });
+        await interaction.reply({ content: "❌ Failed to create autoresponder.", flags: MessageFlags.Ephemeral });
       }
       return;
     }
 
     if (subcommand === "remove" || subcommand === "delete") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-        await interaction.reply({ content: "❌ You need `Manage Server` permission to remove autoresponders.", ephemeral: true });
+        await interaction.reply({ content: "❌ You need `Manage Server` permission to remove autoresponders.", flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -111,9 +112,9 @@ export const command: Command = {
       const deleted = await removeAutoResponder(interaction.guild.id, id);
 
       if (deleted) {
-        await interaction.reply({ content: `✅ Removed autoresponder \`${id}\`.`, ephemeral: true });
+        await interaction.reply({ content: `✅ Removed autoresponder \`${id}\`.`, flags: MessageFlags.Ephemeral });
       } else {
-        await interaction.reply({ content: `❌ Autoresponder \`${id}\` was not found.`, ephemeral: true });
+        await interaction.reply({ content: `❌ Autoresponder \`${id}\` was not found.`, flags: MessageFlags.Ephemeral });
       }
       return;
     }
@@ -121,7 +122,7 @@ export const command: Command = {
     if (subcommand === "list") {
       const list = await getAutoResponders(interaction.guild.id);
       if (list.length === 0) {
-        await interaction.reply({ content: "ℹ️ No custom autoresponders configured for this server.", ephemeral: true });
+        await interaction.reply({ content: "ℹ️ No custom autoresponders configured for this server.", flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -138,7 +139,7 @@ export const command: Command = {
         )
         .setFooter({ text: `Total: ${list.length} autoresponder(s)` });
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       return;
     }
   },

@@ -7,6 +7,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { getModerationCases } from "../../services/moderationCases";
 import { Command } from "../../types/discord";
@@ -64,7 +65,7 @@ export const command: Command = {
     const initialFilter = interaction.options.getString("filter") ?? "all";
     const guildId = interaction.guildId!;
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     let allCases = await getModerationCases(guildId, target.id, HISTORY_LIMIT);
     let filteredCases = initialFilter === "all" ? allCases : allCases.filter(c => c.action === initialFilter);

@@ -10,6 +10,7 @@ import {
   ComponentType,
   TextChannel,
   ChannelType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
@@ -103,7 +104,7 @@ export const command: Command = {
     const targetChan = (interaction.options.getChannel("channel") ?? interaction.channel) as TextChannel | null;
 
     if (!targetChan || !("setRateLimitPerUser" in targetChan)) {
-      return interaction.reply({ content: "❌ Slowmode can only be set on text channels.", ephemeral: true });
+      return interaction.reply({ content: "❌ Slowmode can only be set on text channels.", flags: MessageFlags.Ephemeral });
     }
 
     // ── /slowmode check ────────────────────────────────────────────────────
@@ -119,7 +120,7 @@ export const command: Command = {
         )
         .setFooter({ text: `Checked by ${interaction.user.tag}` })
         .setTimestamp();
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 
     // ── /slowmode set / custom ─────────────────────────────────────────────

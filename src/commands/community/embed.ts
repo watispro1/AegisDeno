@@ -2,7 +2,6 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   EmbedBuilder,
-  TextChannel,
   PermissionFlagsBits,
   ActionRowBuilder,
   ModalBuilder,
@@ -12,8 +11,10 @@ import {
   ButtonStyle,
   ComponentType,
   ModalSubmitInteraction,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
+import { isSendableChannel } from "../../utils/channels";
 
 /** Short-term debounce lock preventing duplicate concurrent submissions by the same user to the same channel */
 const activeQuickEmbeds = new Set<string>();
@@ -95,19 +96,19 @@ export const command: Command = {
       const color = parseColor(interaction.options.getString("color"));
       const footer = interaction.options.getString("footer");
 
-      if (!("send" in channel) || typeof (channel as any).send !== "function") {
-        return interaction.reply({ content: "❌ Please select a valid text channel.", ephemeral: true });
+      if (!isSendableChannel(channel)) {
+        return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
       }
 
       // Concurrency lock to prevent duplicate submissions from rapid clicks or gateway retries
       const lockKey = `${interaction.user.id}:${channel.id}`;
       if (activeQuickEmbeds.has(lockKey)) {
-        return interaction.reply({ content: "⚠️ Please wait a moment between posting embeds.", ephemeral: true });
+        return interaction.reply({ content: "⚠️ Please wait a moment between posting embeds.", flags: MessageFlags.Ephemeral });
       }
       activeQuickEmbeds.add(lockKey);
       setTimeout(() => activeQuickEmbeds.delete(lockKey), 3000);
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const embed = new EmbedBuilder()
         .setTitle(title)
@@ -117,7 +118,7 @@ export const command: Command = {
       if (footer) embed.setFooter({ text: footer });
 
       try {
-        await (channel as TextChannel).send({ embeds: [embed] });
+        await channel.send({ embeds: [embed] });
         await interaction.editReply({ content: `✅ Embed posted to <#${channel.id}>.` });
       } catch {
         await interaction.editReply({ content: `❌ Failed to send embed to <#${channel.id}>. Please check my permissions.` });
@@ -140,8 +141,8 @@ export const command: Command = {
       ? initialDesc.replace(/\\n/g, "\n")
       : "*Click **Edit Description** to write or edit the embed body...*";
 
-    if (!("send" in channel) || typeof (channel as any).send !== "function") {
-      return interaction.reply({ content: "❌ Please select a valid text channel.", ephemeral: true });
+    if (!isSendableChannel(channel)) {
+      return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
     }
 
     const buildEmbed = () => {
@@ -195,7 +196,7 @@ export const command: Command = {
       content: `👇 **Embed Preview** — Posting to <#${channel.id}>`,
       embeds: [buildEmbed()],
       components: buildButtons(false),
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       fetchReply: true,
     });
 
@@ -349,7 +350,7 @@ export const command: Command = {
         });
 
         try {
-          await (channel as TextChannel).send({ embeds: [buildEmbed()] });
+          await channel.send({ embeds: [buildEmbed()] });
           await interaction.editReply({
             content: `✅ Embed successfully posted to <#${channel.id}>!`,
           });

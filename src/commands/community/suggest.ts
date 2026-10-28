@@ -11,6 +11,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { createSuggestion, getSuggestion, updateSuggestion } from "../../services/suggestions";
@@ -86,7 +87,7 @@ export const command: Command = {
     // Setup
     if (sub === "setup") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-        return interaction.reply({ content: "❌ You need **Manage Server** permission to set up suggestions.", ephemeral: true });
+        return interaction.reply({ content: "❌ You need **Manage Server** permission to set up suggestions.", flags: MessageFlags.Ephemeral });
       }
       const channel = interaction.options.getChannel("channel", true);
       await updateGuildConfig(guildId, { suggestionsChannelId: channel.id });
@@ -98,7 +99,7 @@ export const command: Command = {
             .setDescription(`Suggestions will now be posted to <#${channel.id}>.`)
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -108,7 +109,7 @@ export const command: Command = {
       if (!config.suggestionsChannelId) {
         return interaction.reply({
           content: "❌ Suggestions are not set up in this server. An admin must run `/suggest setup` first.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -145,7 +146,7 @@ export const command: Command = {
       }).catch(() => null);
 
       if (!modalResponse) return;
-      await modalResponse.deferReply({ ephemeral: true });
+      await modalResponse.deferReply({ flags: MessageFlags.Ephemeral });
 
       try {
         const channel = await interaction.guild!.channels.fetch(config.suggestionsChannelId).catch(() => null);
@@ -213,10 +214,10 @@ export const command: Command = {
     // Approve / deny / consider
     if (sub === "approve" || sub === "deny" || sub === "consider") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-        return interaction.reply({ content: `❌ You need **Manage Server** to ${sub} suggestions.`, ephemeral: true });
+        return interaction.reply({ content: `❌ You need **Manage Server** to ${sub} suggestions.`, flags: MessageFlags.Ephemeral });
       }
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const id = interaction.options.getString("id", true);
       const reason = interaction.options.getString("reason") || "No reason provided.";
@@ -315,7 +316,7 @@ export const command: Command = {
 
     // Info
     if (sub === "info") {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const id = interaction.options.getString("id", true);
       const suggestion = await getSuggestion(guildId, id);

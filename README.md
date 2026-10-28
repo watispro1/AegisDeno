@@ -6,7 +6,9 @@
 [![MongoDB](https://img.shields.io/badge/mongodb-v9.0-47A248.svg)](https://www.mongodb.com/)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](#license)
 
-Aegis is a premium, invite-only Discord moderation and community management bot built with TypeScript, **discord.js v14**, and MongoDB. Engineered for high-security server environments, it delivers features found nowhere else — ghost-watch intel, per-member trust scores, automated ban appeal workflows, and rich moderation analytics.
+Aegis is a moderation bot for Discord, run from slash commands. It handles warnings, timeouts, bans and the case log behind them, plus automod, ban appeals, tickets, verification, logging, a staff watchlist and per-member trust scores.
+
+> **Note:** despite the repository name, Aegis is a **Node.js** app (TypeScript, discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
 
 ---
 
@@ -38,7 +40,7 @@ The public site (`src/web/`) is server-rendered from TypeScript strings and serv
 - **Search**: `Ctrl+K` (or `Cmd+K`) searches pages and every slash command.
 - **Pages**: home, features, commands, docs, troubleshooting, changelog, status, privacy, terms and a 404. Health and data endpoints: `/health`, `/api/stats`, `/api/commands`, `/api/plugins`, `/changelog.xml`.
 - **Files**: `theme.ts` (stylesheet), `layout.ts` (shell, nav, footer, search dialog), `pages.ts` (page bodies), `content.ts` (feature and FAQ copy), `client.ts` (progressive-enhancement JS, no dependencies), `assets.ts` (favicon, OG image, manifest).
-- **Checks**: `npm run typecheck`, `npm test` (build plus `scripts/smoke-web.ts`), `npx tsx scripts/audit-site.ts` (links, ids, unstyled classes, dead CSS) and `npx tsx scripts/preview-site.ts` (static build into `dist/site`).
+- **Checks**: `npm run typecheck`, `npm test` (unit tests in `tests/` via `node:test`, then build plus `scripts/smoke-web.ts`; both also run in GitHub Actions CI), `npx tsx scripts/audit-site.ts` (links, ids, unstyled classes, dead CSS) and `npx tsx scripts/preview-site.ts` (static build into `dist/site`).
 
 ### Moderation & Security
 

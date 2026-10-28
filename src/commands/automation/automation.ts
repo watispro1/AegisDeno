@@ -1,7 +1,7 @@
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, TextChannel } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, TextChannel, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
-import { createTask, getTasksForGuild, deleteTask } from "../../services/scheduler";
+import { createTask, getTasksForGuild, deleteTask, AUTOMATION_TASK_TYPES } from "../../services/scheduler";
 import { scheduleTask, cancelTask, getActiveTaskIds } from "../../services/schedulerRunner";
 
 const MAX_REMINDER_MS = 28 * 24 * 60 * 60 * 1000;
@@ -83,7 +83,7 @@ export const command: Command = {
     const sub     = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
 
-    await interaction.deferReply({ ephemeral: sub !== "remind" && sub !== "message" && sub !== "repeat" });
+    await interaction.deferReply({ flags: (sub !== "remind" && sub !== "message" && sub !== "repeat") ? MessageFlags.Ephemeral : undefined });
 
     try {
       // ── remind ────────────────────────────────────────────────────────────
@@ -203,7 +203,7 @@ export const command: Command = {
         }
 
         const creatorFilter = showAll ? undefined : interaction.user.id;
-        const tasks = await getTasksForGuild(guildId, creatorFilter);
+        const tasks = await getTasksForGuild(guildId, creatorFilter, AUTOMATION_TASK_TYPES);
         const activeIds = new Set(getActiveTaskIds());
 
         if (tasks.length === 0) {
@@ -234,7 +234,7 @@ export const command: Command = {
       if (sub === "cancel") {
         const id = interaction.options.getString("id", true).trim();
 
-        const currentTasks = await getTasksForGuild(guildId);
+        const currentTasks = await getTasksForGuild(guildId, undefined, AUTOMATION_TASK_TYPES);
         const task = currentTasks.find(t => t.id === id);
 
         if (!task) {

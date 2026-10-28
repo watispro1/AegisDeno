@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
 import { BOT_OWNER_IDS } from "../../config/env";
 import { commands } from "../loader";
@@ -19,7 +19,7 @@ export const command: Command = {
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     if (!BOT_OWNER_IDS.has(interaction.user.id)) {
-      return interaction.reply({ content: "❌ You do not have permission to use developer commands.", ephemeral: true });
+      return interaction.reply({ content: "❌ You do not have permission to use developer commands.", flags: MessageFlags.Ephemeral });
     }
 
     const sub = interaction.options.getSubcommand();
@@ -48,7 +48,7 @@ export const command: Command = {
         )
         .setTimestamp();
 
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 
     if (sub === "guilds") {
@@ -62,7 +62,7 @@ export const command: Command = {
         .setDescription(guildList.length > 4000 ? guildList.substring(0, 4000) + "\n..." : guildList)
         .setTimestamp();
 
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 
     if (sub === "commands") {
@@ -82,7 +82,7 @@ export const command: Command = {
         embed.addFields({ name: `${category[0].toUpperCase()}${category.slice(1)}`, value: names.join(", "), inline: false });
       }
 
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
   },
 };

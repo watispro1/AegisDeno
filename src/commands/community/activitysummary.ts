@@ -6,6 +6,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { getGuildActivitySummary } from "../../services/activitySummaryService";
@@ -34,12 +35,12 @@ export const command: Command = {
     if (!interaction.guild) return;
 
     if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
-      await interaction.reply({ content: "❌ You need `Moderate Members` permission to view activity summaries.", ephemeral: true });
+      await interaction.reply({ content: "❌ You need `Moderate Members` permission to view activity summaries.", flags: MessageFlags.Ephemeral });
       return;
     }
 
     let timeframe = interaction.options.getInteger("timeframe") || 7;
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const buildEmbedAndButtons = async (days: number) => {
       const summary = await getGuildActivitySummary(interaction.guild!.id, days);

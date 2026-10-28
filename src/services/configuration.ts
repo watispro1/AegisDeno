@@ -47,7 +47,7 @@ function optionalId(value: unknown): string | null {
   return value === null || value === undefined ? null : DISCORD_ID.test(String(value)) ? String(value) : null;
 }
 
-function normalizeThresholds(value: unknown): GuildConfig["escalation"]["thresholds"] {
+export function normalizeThresholds(value: unknown): GuildConfig["escalation"]["thresholds"] {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 20).flatMap((entry) => {
     if (!entry || typeof entry !== "object") return [];

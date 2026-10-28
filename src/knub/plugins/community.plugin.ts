@@ -1,5 +1,5 @@
 import { definePlugin } from "../definePlugin";
-import { ActionRowBuilder, ButtonBuilder, EmbedBuilder } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 
 export interface CommunityPluginConfig {
   maxGiveawayDurationDays: number;
@@ -34,12 +34,12 @@ export const CommunityPlugin = definePlugin<CommunityPluginConfig>({
           const { getSuggestion } = await import("../../services/suggestions");
           const suggestion = await getSuggestion(interaction.guildId, id);
           if (!suggestion) {
-            await interaction.reply({ content: "❌ This suggestion no longer exists.", ephemeral: true }).catch(() => null);
+            await interaction.reply({ content: "❌ This suggestion no longer exists.", flags: MessageFlags.Ephemeral }).catch(() => null);
             return;
           }
           await interaction.reply({
             content: `**Suggestion details**\nStatus: **${suggestion.status}**\n👍 ${suggestion.upvotes.length} · 👎 ${suggestion.downvotes.length}\n\n${suggestion.content}`,
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           }).catch(() => null);
           return;
         }

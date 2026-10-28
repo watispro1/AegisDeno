@@ -8,6 +8,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { WatchlistEntryModel } from "../../database/mongo";
@@ -85,15 +86,15 @@ export const command: Command = {
       const eventSet = interaction.options.getString("events") ?? "all";
 
       if (target.id === modId) {
-        await interaction.reply({ content: "❌ You cannot watch yourself.", ephemeral: true });
+        await interaction.reply({ content: "❌ You cannot watch yourself.", flags: MessageFlags.Ephemeral });
         return;
       }
       if (target.bot) {
-        await interaction.reply({ content: "❌ You cannot watch a bot.", ephemeral: true });
+        await interaction.reply({ content: "❌ You cannot watch a bot.", flags: MessageFlags.Ephemeral });
         return;
       }
       if (target.id === interaction.guild?.ownerId) {
-        await interaction.reply({ content: "❌ You cannot watch the server owner.", ephemeral: true });
+        await interaction.reply({ content: "❌ You cannot watch the server owner.", flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -115,7 +116,7 @@ export const command: Command = {
       };
       const events = eventMap[eventSet] ?? eventMap.all;
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       try {
         await WatchlistEntryModel.findOneAndUpdate(
@@ -165,7 +166,7 @@ export const command: Command = {
     // ── REMOVE ─────────────────────────────────────────────────────────────
     else if (sub === "remove") {
       const target = interaction.options.getUser("user", true);
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const deleted = await WatchlistEntryModel.findOneAndDelete({ guildId, targetId: target.id, moderatorId: modId });
       if (!deleted) {
@@ -187,7 +188,7 @@ export const command: Command = {
 
     // ── LIST ───────────────────────────────────────────────────────────────
     else if (sub === "list") {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const entries = await WatchlistEntryModel.find({ guildId, moderatorId: modId }).sort({ createdAt: -1 });
       if (entries.length === 0) {
         await interaction.editReply("🔍 Your ghost-watch list is empty. Use `/watchlist add` to start monitoring a member.");
@@ -219,7 +220,7 @@ export const command: Command = {
     // ── INFO ───────────────────────────────────────────────────────────────
     else if (sub === "info") {
       const target = interaction.options.getUser("user", true);
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const entry = await WatchlistEntryModel.findOne({ guildId, targetId: target.id, moderatorId: modId });
       if (!entry) {

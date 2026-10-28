@@ -11,6 +11,7 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { StaffNoteModel } from "../../database/mongo";
@@ -67,7 +68,7 @@ export const command: Command = {
       const target = interaction.options.getUser("user", true);
 
       if (target.bot) {
-        return interaction.reply({ content: "❌ You cannot add notes to bots.", ephemeral: true });
+        return interaction.reply({ content: "❌ You cannot add notes to bots.", flags: MessageFlags.Ephemeral });
       }
 
       const modal = new ModalBuilder()
@@ -91,7 +92,7 @@ export const command: Command = {
       }).catch(() => null);
 
       if (!modalResponse) return;
-      await modalResponse.deferReply({ ephemeral: true });
+      await modalResponse.deferReply({ flags: MessageFlags.Ephemeral });
 
       try {
         const noteText = modalResponse.fields.getTextInputValue("note_content");
@@ -129,7 +130,7 @@ export const command: Command = {
     // ── VIEW with pagination + quick-delete buttons ───────────────────────────
     if (sub === "view") {
       const target = interaction.options.getUser("user", true);
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       try {
         let notes = await StaffNoteModel.find({ guildId, userId: target.id }).sort({ createdAt: -1 });
@@ -241,9 +242,9 @@ export const command: Command = {
               if (deleted) {
                 notes = await StaffNoteModel.find({ guildId, userId: target.id }).sort({ createdAt: -1 });
                 if (page >= totalPages()) page = Math.max(0, totalPages() - 1);
-                await i.followUp({ content: `✅ Note deleted.`, ephemeral: true }).catch(() => null);
+                await i.followUp({ content: `✅ Note deleted.`, flags: MessageFlags.Ephemeral }).catch(() => null);
               } else {
-                await i.followUp({ content: "❌ Note not found — it may have already been deleted.", ephemeral: true }).catch(() => null);
+                await i.followUp({ content: "❌ Note not found — it may have already been deleted.", flags: MessageFlags.Ephemeral }).catch(() => null);
               }
             }
 
@@ -268,7 +269,7 @@ export const command: Command = {
 
     // ── DELETE by ID ──────────────────────────────────────────────────────────
     if (sub === "delete") {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const noteId = interaction.options.getString("id", true).trim();
         const deleted = await StaffNoteModel.findOneAndDelete({ _id: noteId, guildId });
@@ -301,11 +302,11 @@ export const command: Command = {
     // ── CLEAR ALL ─────────────────────────────────────────────────────────────
     if (sub === "clear") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-        return interaction.reply({ content: "❌ Clearing all notes requires **Manage Server** permission.", ephemeral: true });
+        return interaction.reply({ content: "❌ Clearing all notes requires **Manage Server** permission.", flags: MessageFlags.Ephemeral });
       }
 
       const target = interaction.options.getUser("user", true);
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       try {
         const count = await StaffNoteModel.countDocuments({ guildId, userId: target.id });

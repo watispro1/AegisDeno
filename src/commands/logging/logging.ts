@@ -8,6 +8,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
@@ -134,7 +135,7 @@ export const command: Command = {
       const sent = await interaction.reply({
         embeds: [buildStatusEmbed(currentCats)],
         components: buildCategoryButtons(currentCats),
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         fetchReply: true,
       });
 
@@ -161,7 +162,7 @@ export const command: Command = {
             color: 0x5865F2,
             description: `This is a test log entry sent by <@${interaction.user.id}>.\n\nIf you see this message, logging is working correctly!`,
           });
-          await i.followUp({ content: "✅ Test log sent!", ephemeral: true });
+          await i.followUp({ content: "✅ Test log sent!", flags: MessageFlags.Ephemeral });
           return;
         }
 
@@ -191,7 +192,7 @@ export const command: Command = {
       ) {
         return interaction.reply({
           content: "❌ I need **View Channel**, **Send Messages**, and **Embed Links** in that channel.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -215,7 +216,7 @@ export const command: Command = {
             .addFields({ name: "💡 Tip", value: "Use `/logging status` to manage which event categories are logged.", inline: false })
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -237,7 +238,7 @@ export const command: Command = {
             )
             .setTimestamp(),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -246,11 +247,11 @@ export const command: Command = {
       if (!config.loggingChannelId) {
         return interaction.reply({
           content: "❌ No logging channel set. Use `/logging channel` first.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       await sendGuildLog(interaction.client, guildId, {
         title: "🔔 Test Log Entry",
         color: 0x5865F2,
