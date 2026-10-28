@@ -206,3 +206,20 @@ After inviting Aegis to a server:
 | `BOT_INVITE_URL`          | Optional | Custom OAuth2 invite URL                                        |
 | `SUPPORT_SERVER_URL`      | Optional | Discord support server invite                                   |
 | `CONTACT_EMAIL`           | Optional | Contact email shown in web footer                               |
+
+## Automatic deploys from GitHub
+
+Every push to `main` runs the CI checks (typecheck + tests). If they pass, the
+`deploy` job runs `flyctl deploy --remote-only`.
+
+One-time setup:
+
+1. Create a deploy token scoped to this app: `fly tokens create deploy -a aegisdeno`
+2. In GitHub, go to Settings → Secrets and variables → Actions → New repository secret.
+   Name it `FLY_API_TOKEN` and paste the token.
+
+To redeploy without a code change, re-run the latest CI workflow on `main` from the Actions tab.
+
+Slash commands are registered on every boot (`registerCommands()` in `src/main.ts`),
+so a deploy also syncs them. In global mode Discord can take up to an hour to show changes;
+set `DISCORD_TEST_GUILD_ID` for instant guild-scoped registration while testing.
