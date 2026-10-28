@@ -24,6 +24,14 @@ export const CommunityPlugin = definePlugin<CommunityPluginConfig>({
       },
     },
     {
+      pattern: /^poll_(?:vote_\d+|end|results)$/,
+      async handler(interaction) {
+        if (!interaction.isButton()) return;
+        const { handlePollButton } = await import("../../services/polls");
+        await handlePollButton(interaction);
+      },
+    },
+    {
       pattern: /^suggest_/,
       async handler(interaction) {
         if (!interaction.isButton()) return;

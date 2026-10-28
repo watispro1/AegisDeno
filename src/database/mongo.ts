@@ -242,6 +242,31 @@ const GiveawaySchema = new mongoose.Schema({
 GiveawaySchema.index({ guildId: 1, ended: 1, endsAt: 1 });
 export const GiveawayModel = mongoose.model("Giveaway", GiveawaySchema);
 
+/**
+ * A /poll. Votes live here (not in memory) so buttons keep working and timed
+ * polls still close after a restart. `votes` maps user ID → picked option indices.
+ */
+const PollSchema = new mongoose.Schema({
+  guildId:      { type: String, required: true },
+  channelId:    { type: String, required: true },
+  messageId:    { type: String, required: true, unique: true },
+  creatorId:    { type: String, required: true },
+  creatorTag:   { type: String, default: "" },
+  question:     { type: String, required: true, maxlength: 300 },
+  options:      { type: [String], required: true },
+  multiselect:  { type: Boolean, default: false },
+  anonymous:    { type: Boolean, default: false },
+  imageUrl:     { type: String, default: null },
+  votes:        { type: mongoose.Schema.Types.Mixed, default: {} },
+  endsAt:       { type: Date, default: null },
+  closeTaskId:  { type: String, default: null },
+  ended:        { type: Boolean, default: false },
+  endedAt:      { type: Date, default: null },
+  createdAt:    { type: Date, default: Date.now },
+}, { minimize: false });
+PollSchema.index({ guildId: 1, ended: 1 });
+export const PollModel = mongoose.model("Poll", PollSchema);
+
 
 const PluginConfigSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
