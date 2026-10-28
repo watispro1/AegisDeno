@@ -10,7 +10,19 @@ import {
   MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
-import { createTicketChannel, closeTicket, addUserToTicket, removeUserFromTicket, canCloseTicket, canManageTicket } from "../../services/ticketService";
+import {
+  closeTicket,
+  addUserToTicket,
+  removeUserFromTicket,
+  canCloseTicket,
+  canManageTicket,
+  claimTicket,
+  buildTicketTranscript,
+  getTicketSettings,
+  updateTicketSettings,
+  ensureAutoCloseChecks,
+} from "../../services/ticketService";
+import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../services/ticketTranscript";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -52,7 +64,29 @@ export const command: Command = {
     .addSubcommand(sub =>
       sub
         .setName("transcript")
-        .setDescription("Generate and fetch a chat transcript of this ticket.")
+        .setDescription("Generate and fetch an HTML transcript of this ticket.")
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("settings")
+        .setDescription("View or change the transcript log channel and inactivity auto-close.")
+        .addChannelOption(opt =>
+          opt.setName("log_channel").setDescription("Channel that receives transcripts when tickets close").addChannelTypes(ChannelType.GuildText).setRequired(false)
+        )
+        .addIntegerOption(opt =>
+          opt
+            .setName("autoclose_hours")
+            .setDescription("Close tickets after this many hours without messages (0 = off, default 48)")
+            .setMinValue(0)
+            .setMaxValue(MAX_TICKET_AUTOCLOSE_HOURS)
+            .setRequired(false)
+        )
+        .addBooleanOption(opt =>
+          opt.setName("transcripts").setDescription("Post transcripts to the log channel on close (default on)").setRequired(false)
+        )
+        .addBooleanOption(opt =>
+          opt.setName("clear_log_channel").setDescription("Stop posting transcripts to a log channel").setRequired(false)
+        )
     ),
 
   category: "tickets",
@@ -155,19 +189,68 @@ export const command: Command = {
     }
 
     if (subcommand === "claim") {
-      const channel = interaction.channel as TextChannel | null;
-      if (!channel || !("name" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
+      const result = await claimTicket(interaction.guild, interaction.channelId, interaction.user.id);
+      if (result.status === "not_ticket") {
         await interaction.reply({ content: "❌ This command can only be used inside an active ticket channel.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+      if (result.status === "forbidden") {
+        await interaction.reply({ content: "❌ Only support staff can claim tickets.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+      if (result.status === "already") {
+        await interaction.reply({ content: `ℹ️ This ticket is already claimed by <@${result.claimedBy}>.`, flags: MessageFlags.Ephemeral });
         return;
       }
 
       const embed = new EmbedBuilder()
         .setColor(0xF1C40F)
-        .setTitle("👤 Ticket Claimed")
+        .setTitle("🙋 Ticket Claimed")
         .setDescription(`This ticket is now being handled by <@${interaction.user.id}>.`)
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed], allowedMentions: { parse: [] } });
+      return;
+    }
+
+    if (subcommand === "settings") {
+      const logChannel = interaction.options.getChannel("log_channel");
+      const autoCloseHours = interaction.options.getInteger("autoclose_hours");
+      const transcripts = interaction.options.getBoolean("transcripts");
+      const clearLog = interaction.options.getBoolean("clear_log_channel") ?? false;
+      const changing = Boolean(logChannel) || autoCloseHours !== null || transcripts !== null || clearLog;
+
+      if (changing && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
+        await interaction.reply({ content: "❌ You need `Manage Channels` permission to change ticket settings.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const patch: Parameters<typeof updateTicketSettings>[1] = {};
+      if (logChannel) patch.logChannelId = logChannel.id;
+      if (clearLog) patch.logChannelId = null;
+      if (autoCloseHours !== null) patch.autoCloseHours = autoCloseHours;
+      if (transcripts !== null) patch.transcriptLogging = transcripts;
+
+      const settings = changing
+        ? await updateTicketSettings(interaction.guild.id, patch)
+        : await getTicketSettings(interaction.guild.id);
+      if (changing && settings.autoCloseHours > 0) {
+        // Queue checks for tickets opened before auto-close was on; runs after the reply.
+        void ensureAutoCloseChecks(interaction.guild).catch(() => 0);
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(0x3498DB)
+        .setTitle(changing ? "✅ Ticket Settings Updated" : "🎫 Ticket Settings")
+        .addFields(
+          { name: "📄 Transcript log channel", value: settings.logChannelId ? `<#${settings.logChannelId}>` : "Not set", inline: true },
+          { name: "📨 Post transcripts", value: settings.transcriptLogging ? "On" : "Off", inline: true },
+          { name: "⏳ Auto-close", value: settings.autoCloseHours > 0 ? `After ${settings.autoCloseHours}h without messages` : "Off", inline: true },
+        )
+        .setFooter({ text: "The ticket opener always gets a transcript by DM when a ticket closes (if their DMs are open). Auto-close changes apply to the next check of each ticket." })
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -180,20 +263,20 @@ export const command: Command = {
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const fetchedMessages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
-      if (!fetchedMessages || fetchedMessages.size === 0) {
+      const { TicketModel } = await import("../../database/mongo");
+      const ticket = await TicketModel.findOne({ guildId: interaction.guild.id, channelId: channel.id, status: "open" }).lean();
+      const { file, messageCount } = await buildTicketTranscript(channel, {
+        ticketId: ticket?.id ?? channel.id,
+        openerId: ticket?.userId ?? "unknown",
+      });
+      if (messageCount === 0) {
         await interaction.editReply("❌ No messages found in this ticket to export.");
         return;
       }
 
-      const sortedMsgs = Array.from(fetchedMessages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-      const lines = sortedMsgs.map(m => `[${new Date(m.createdTimestamp).toISOString()}] ${m.author.tag} (${m.author.id}): ${m.content || "[Embed/Attachment]"}`);
-      const transcriptText = `--- Aegis Support Ticket Transcript ---\nChannel: ${channel.name}\nExported At: ${new Date().toISOString()}\nTotal Messages: ${sortedMsgs.length}\n---------------------------------------\n\n` + lines.join("\n");
-
-      const buffer = Buffer.from(transcriptText, "utf-8");
       await interaction.editReply({
-        content: `📄 **Ticket Transcript Generated** (${sortedMsgs.length} messages)`,
-        files: [{ attachment: buffer, name: `transcript-${channel.name}.txt` }],
+        content: `📄 **Ticket Transcript Generated** (${messageCount} messages)`,
+        files: [file],
       });
       return;
     }
