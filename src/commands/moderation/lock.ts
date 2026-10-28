@@ -11,12 +11,80 @@ import {
   ButtonStyle,
   ComponentType,
   MessageFlags,
+  ChannelType,
+  type Client,
+  type Guild,
+  type GuildBasedChannel,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { createTask, deleteTask, getTasksForChannel } from "../../services/scheduler";
 import { scheduleTask, cancelTask } from "../../services/schedulerRunner";
 import { encodeChannelUnlock } from "../../services/timedActions";
+import { LOCK_MESSAGE_MAX, buildLockNoticeText, shouldPostLockNotice } from "../../services/lockNotice";
+
+type LockableChannel = Extract<GuildBasedChannel, { permissionOverwrites: unknown }>;
+
+function isLockable(ch: GuildBasedChannel | null | undefined): ch is LockableChannel {
+  return Boolean(ch && !ch.isThread() && ch.type !== ChannelType.GuildCategory && "permissionOverwrites" in ch);
+}
+
+/** Channels inside a category that a lock applies to. */
+function categoryChildren(guild: Guild, categoryId: string): LockableChannel[] {
+  return [...guild.channels.cache.values()]
+    .filter((ch): ch is LockableChannel => ch.parentId === categoryId && isLockable(ch))
+    .sort((a, b) => ("position" in a && "position" in b ? a.position - b.position : 0));
+}
+
+/**
+ * Lock or unlock one channel, replace any pending auto-unlock, and (when
+ * locking with a duration) persist a new one on the scheduler.
+ * Returns the auto-unlock markup, "None", or a warning string.
+ */
+async function applyLock(
+  client: Client,
+  guild: Guild,
+  channel: LockableChannel,
+  isLocking: boolean,
+  durationMinutes: number,
+  moderator: { id: string; tag: string },
+): Promise<string> {
+  await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: isLocking ? false : null });
+  await clearPendingUnlocks(guild.id, channel.id);
+
+  if (!isLocking || durationMinutes <= 0) return "None";
+  const unlockAt = new Date(Date.now() + durationMinutes * 60_000);
+  try {
+    // Persisted so a restart or deploy can't leave the channel locked forever.
+    const task = await createTask(
+      guild.id,
+      channel.id,
+      moderator.id,
+      "channel_unlock",
+      encodeChannelUnlock({ moderatorTag: moderator.tag, durationMinutes }),
+      unlockAt,
+    );
+    scheduleTask(client, task);
+    return `<t:${Math.floor(unlockAt.getTime() / 1000)}:R>`;
+  } catch (err) {
+    logger.error(`Failed to schedule auto-unlock for channel ${channel.id} in guild ${guild.id}`, err);
+    return "⚠️ Could not be scheduled — use /lock unlock";
+  }
+}
+
+async function postLockNotice(channel: LockableChannel, text: string, moderatorTag: string): Promise<void> {
+  if (!("send" in channel) || typeof channel.send !== "function") return;
+  await channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xED4245)
+        .setTitle("🔒 This channel has been locked")
+        .setDescription(text)
+        .setFooter({ text: `Locked by ${moderatorTag}` })
+        .setTimestamp(),
+    ],
+  }).catch(() => null);
+}
 
 /** Cancel and remove every pending persisted auto-unlock for a channel. */
 async function clearPendingUnlocks(guildId: string, channelId: string): Promise<void> {
@@ -49,6 +117,31 @@ export const command: Command = {
             .setMinValue(0)
             .setMaxValue(1440)
         )
+        .addStringOption(opt =>
+          opt.setName("message").setDescription("Custom message to post in the locked channel").setMaxLength(LOCK_MESSAGE_MAX).setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("category")
+        .setDescription("Lock every channel in a category.")
+        .addChannelOption(opt =>
+          opt.setName("category").setDescription("Category to lock").addChannelTypes(ChannelType.GuildCategory).setRequired(true)
+        )
+        .addStringOption(opt =>
+          opt.setName("reason").setDescription("Reason for locking").setMaxLength(512).setRequired(false)
+        )
+        .addIntegerOption(opt =>
+          opt
+            .setName("duration_minutes")
+            .setDescription("Auto-unlock after this many minutes (0 = no auto-unlock)")
+            .setRequired(false)
+            .setMinValue(0)
+            .setMaxValue(1440)
+        )
+        .addStringOption(opt =>
+          opt.setName("message").setDescription("Custom message to post in each locked channel").setMaxLength(LOCK_MESSAGE_MAX).setRequired(false)
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -59,6 +152,9 @@ export const command: Command = {
         )
         .addStringOption(opt =>
           opt.setName("reason").setDescription("Reason for unlocking").setMaxLength(512).setRequired(false)
+        )
+        .addChannelOption(opt =>
+          opt.setName("category").setDescription("Unlock every channel in this category instead").addChannelTypes(ChannelType.GuildCategory).setRequired(false)
         )
     )
     .addSubcommand(sub =>
@@ -217,50 +313,81 @@ export const command: Command = {
       return;
     }
 
+    const customMessage = interaction.options.getString("message");
+    const moderator = { id: interaction.user.id, tag: interaction.user.tag };
+
+    // Category lock / unlock
+    const category = sub === "category" || sub === "unlock" ? interaction.options.getChannel("category") : null;
+    if (category) {
+      if (category.type !== ChannelType.GuildCategory) {
+        return interaction.reply({ content: "❌ Please pick a category.", flags: MessageFlags.Ephemeral });
+      }
+      const isLocking = sub === "category";
+      const durationMinutes = isLocking ? (interaction.options.getInteger("duration_minutes") ?? 0) : 0;
+      await interaction.deferReply();
+
+      const children = categoryChildren(guild, category.id);
+      if (children.length === 0) {
+        await interaction.editReply(`⚠️ <#${category.id}> has no channels I can ${isLocking ? "lock" : "unlock"}.`);
+        return;
+      }
+
+      let done = 0;
+      const failed: string[] = [];
+      let autoUnlockText = "None";
+      for (const ch of children) {
+        try {
+          const result = await applyLock(interaction.client, guild, ch, isLocking, durationMinutes, moderator);
+          if (result !== "None") autoUnlockText = result;
+          done++;
+          if (isLocking && ch.isTextBased()) {
+            await postLockNotice(ch, buildLockNoticeText({ reason, customMessage, autoUnlockText: durationMinutes > 0 ? result : null }), moderator.tag);
+          }
+        } catch (err) {
+          logger.warn(`Failed to ${isLocking ? "lock" : "unlock"} ${ch.id} in category ${category.id}`, err);
+          failed.push(`<#${ch.id}>`);
+        }
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(isLocking ? 0xED4245 : 0x57F287)
+        .setTitle(isLocking ? "🔒 Category Locked" : "🔓 Category Unlocked")
+        .addFields(
+          { name: "📁 Category",   value: `<#${category.id}>`, inline: true },
+          { name: "📌 Channels",   value: `${done} of ${children.length}`, inline: true },
+          { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
+          { name: "📝 Reason",     value: reason, inline: false },
+          ...(isLocking ? [{ name: "⏰ Auto-Unlock", value: autoUnlockText, inline: true }] : []),
+          ...(failed.length ? [{ name: "⚠️ Failed", value: failed.join(", ").slice(0, 1000), inline: false }] : []),
+        )
+        .setTimestamp();
+      await interaction.editReply({ embeds: [embed] });
+      await sendGuildLog(interaction.client, guildId, {
+        title: isLocking ? "🔒 Category Locked" : "🔓 Category Unlocked",
+        color: isLocking ? 0xED4245 : 0x57F287,
+        description: `**Category:** <#${category.id}> (${done}/${children.length} channels)\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}${isLocking && durationMinutes > 0 ? `\n**Auto-Unlock:** ${autoUnlockText}` : ""}`,
+      });
+      return;
+    }
+
     // Single channel lock / unlock
     await interaction.deferReply();
 
     try {
-      const targetChannel = (interaction.options.getChannel("channel") ?? interaction.channel) as TextChannel | null;
-      if (!targetChannel || !("permissionOverwrites" in targetChannel)) {
-        await interaction.editReply("❌ Invalid channel — please select a text channel.");
+      const picked = interaction.options.getChannel("channel");
+      const targetChannel = (picked ? guild.channels.cache.get(picked.id) ?? null : interaction.channel) as GuildBasedChannel | null;
+      if (targetChannel?.isThread()) {
+        await interaction.editReply("❌ Threads inherit permissions from their parent channel. Please lock the parent channel instead.");
         return;
       }
-      if (targetChannel.isThread?.()) {
-        await interaction.editReply("❌ Threads inherit permissions from their parent channel. Please lock the parent channel instead.");
+      if (!isLockable(targetChannel)) {
+        await interaction.editReply("❌ Invalid channel — please select a text channel.");
         return;
       }
 
       const isLocking = sub === "channel";
       const durationMinutes = isLocking ? (interaction.options.getInteger("duration_minutes") ?? 0) : 0;
-
-      const overwrite: PermissionOverwriteOptions = { SendMessages: isLocking ? false : null };
-      await targetChannel.permissionOverwrites.edit(guild.roles.everyone, overwrite);
-
-      // Cancel any existing timed unlock for this channel
-      await clearPendingUnlocks(guildId, targetChannel.id);
-
-      let autoUnlockText = "None";
-      if (isLocking && durationMinutes > 0) {
-        const unlockAt = new Date(Date.now() + durationMinutes * 60_000);
-        autoUnlockText = `<t:${Math.floor(unlockAt.getTime() / 1000)}:R>`;
-
-        // Persisted so a restart or deploy can't leave the channel locked forever.
-        try {
-          const task = await createTask(
-            guildId,
-            targetChannel.id,
-            interaction.user.id,
-            "channel_unlock",
-            encodeChannelUnlock({ moderatorTag: interaction.user.tag, durationMinutes }),
-            unlockAt,
-          );
-          scheduleTask(interaction.client, task);
-        } catch (err) {
-          logger.error(`Failed to schedule auto-unlock for channel ${targetChannel.id} in guild ${guildId}`, err);
-          autoUnlockText = "⚠️ Could not be scheduled — use /lock unlock";
-        }
-      }
+      const autoUnlockText = await applyLock(interaction.client, guild, targetChannel, isLocking, durationMinutes, moderator);
 
       const embed = new EmbedBuilder()
         .setColor(isLocking ? 0xED4245 : 0x57F287)
@@ -280,18 +407,12 @@ export const command: Command = {
         description: `**Channel:** <#${targetChannel.id}>\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}${isLocking && durationMinutes > 0 ? `\n**Auto-Unlock:** ${autoUnlockText}` : ""}`,
       });
 
-      // If locking publicly, send a notice in the locked channel (unless it's the current channel)
-      if (isLocking && targetChannel.id !== interaction.channelId) {
-        await targetChannel.send({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0xED4245)
-              .setTitle("🔒 This channel has been locked")
-              .setDescription(`**Reason:** ${reason}${durationMinutes > 0 ? `\n**Auto-unlock:** ${autoUnlockText}` : ""}`)
-              .setFooter({ text: `Locked by ${interaction.user.tag}` })
-              .setTimestamp(),
-          ],
-        }).catch(() => null);
+      if (isLocking && targetChannel.isTextBased() && shouldPostLockNotice(targetChannel.id, interaction.channelId, Boolean(customMessage?.trim()))) {
+        await postLockNotice(
+          targetChannel,
+          buildLockNoticeText({ reason, customMessage, autoUnlockText: durationMinutes > 0 ? autoUnlockText : null }),
+          moderator.tag,
+        );
       }
     } catch (err) {
       logger.error(`Failed to ${sub} channel in guild ${guildId}`, err);
