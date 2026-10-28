@@ -310,6 +310,7 @@ const WatchlistEntrySchema = new mongoose.Schema({
   expiresAt:    { type: Date, default: null },       // null = indefinite
   events:       { type: [String], default: ["message", "edit", "delete", "join", "leave", "roleChange"] },
   alertCount:   { type: Number, default: 0 },        // how many alerts fired
+  alertChannelId: { type: String, default: null },   // optional staff channel that also gets alerts
   createdAt:    { type: Date, default: Date.now },
 });
 WatchlistEntrySchema.index({ guildId: 1, targetId: 1, moderatorId: 1 }, { unique: true });
