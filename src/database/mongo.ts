@@ -229,6 +229,11 @@ const GiveawaySchema = new mongoose.Schema({
   hostId:        { type: String, required: true },
   entrants:      { type: [String], default: [] },
   winners:       { type: [String], default: [] },
+  // Everyone who has won this giveaway before a reroll, so rerolls pick new people.
+  previousWinners: { type: [String], default: [] },
+  // Server boosters get `boosterMultiplier` tickets; boosting is checked when they enter.
+  boosterMultiplier: { type: Number, default: 1, min: 1, max: 10 },
+  boosterEntrants: { type: [String], default: [] },
   endsAt:        { type: Date, required: true },
   endedAt:       { type: Date, default: null },
   ended:         { type: Boolean, default: false },

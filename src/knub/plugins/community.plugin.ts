@@ -16,7 +16,7 @@ export const CommunityPlugin = definePlugin<CommunityPluginConfig>({
   },
   customIdHandlers: [
     {
-      pattern: /^giveaway_(?:enter|entrants)$/,
+      pattern: /^giveaway_(?:enter|entrants|reroll)$/,
       async handler(interaction) {
         if (!interaction.isButton()) return;
         const { handleGiveawayButton } = await import("../../commands/community/giveaway");
