@@ -2,7 +2,7 @@
  * Persistent /poll engine.
  *
  * Polls and their votes are stored in MongoDB (`PollModel`), the buttons are
- * handled by the community plugin's custom-ID handler (so they keep working
+ * routed by customId in src/bot/interactions/community.ts (so they keep working
  * after the command finishes or the bot restarts), and timed polls are closed
  * by a `poll_close` task in the existing Mongo-backed scheduler.
  */

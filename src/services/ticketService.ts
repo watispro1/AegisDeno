@@ -14,45 +14,28 @@ import {
 import { TicketModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 import { sendGuildLog } from "./logging";
-import { knubManager } from "../knub/KnubManager";
+import { defaultGuildConfig, getGuildConfig, updateGuildConfig, type TicketSettings } from "./configuration";
 import { createTask, deleteTask, getTasksForChannel, type ScheduledTask } from "./scheduler";
 import {
-  DEFAULT_TICKET_AUTOCLOSE_HOURS,
   autoCloseDecision,
   decodeTicketTask,
   encodeTicketTask,
-  normalizeAutoCloseHours,
   renderTranscriptHtml,
   type TranscriptMessage,
 } from "./ticketTranscript";
 
-/** Per-guild ticket settings, stored as the `tickets` plugin config. */
-export interface TicketSettings {
-  /** Channel that receives HTML transcripts when a ticket closes. */
-  logChannelId: string | null;
-  /** Close a ticket after this many hours without messages; 0 disables. */
-  autoCloseHours: number;
-  /** Post transcripts to the log channel on close. */
-  transcriptLogging: boolean;
-}
+export type { TicketSettings } from "./configuration";
 
 /** Most messages fetched into a transcript (Discord pages are 100 each). */
 const TRANSCRIPT_MESSAGE_LIMIT = 1000;
 
+/** Ticket settings live in the guild config (`tickets`). */
 export async function getTicketSettings(guildId: string): Promise<TicketSettings> {
-  const cfg = await knubManager
-    .getGuildPluginConfig<Record<string, unknown>>(guildId, "tickets")
-    .catch(() => ({} as Record<string, unknown>));
-  return {
-    logChannelId: typeof cfg.logChannelId === "string" && cfg.logChannelId ? cfg.logChannelId : null,
-    autoCloseHours: normalizeAutoCloseHours(cfg.autoCloseHours ?? DEFAULT_TICKET_AUTOCLOSE_HOURS),
-    transcriptLogging: cfg.transcriptLogging !== false,
-  };
+  return (await getGuildConfig(guildId).catch(() => defaultGuildConfig(guildId))).tickets;
 }
 
 export async function updateTicketSettings(guildId: string, patch: Partial<TicketSettings>): Promise<TicketSettings> {
-  await knubManager.setGuildPluginConfig(guildId, "tickets", patch);
-  return getTicketSettings(guildId);
+  return (await updateGuildConfig(guildId, { tickets: patch })).tickets;
 }
 
 /** The opener's channel button row: Claim (staff only) and Close. */
@@ -223,11 +206,11 @@ export async function createTicketChannel(
         category,
         status: "open",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // A second instance can win the unique-index race after this process has
       // already created a channel. Remove the orphan and direct the user to
       // the winning ticket rather than leaving duplicate private channels.
-      if (error?.code === 11000) {
+      if ((error as { code?: unknown } | null)?.code === 11000) {
         await channel.delete("Duplicate ticket creation prevented").catch(() => null);
         const existing = await TicketModel.findOne({ guildId: guild.id, userId, status: "open" });
         const existingChannel = existing

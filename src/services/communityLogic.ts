@@ -156,6 +156,11 @@ export function isSuggestionOpen(status: SuggestionStatus): boolean {
  * Stars that count toward the threshold. When self-starring is off, the
  * author's own reaction is not counted.
  */
+/** Whether a reaction's emoji is the configured starboard emoji (unicode name or `<:custom:id>` form). */
+export function starEmojiMatches(configured: string, emojiName: string | null, emojiString: string): boolean {
+  return (emojiName ?? emojiString) === configured || emojiString === configured;
+}
+
 export function effectiveStarCount(rawCount: number, authorReacted: boolean, selfStarAllowed: boolean): number {
   const n = Math.max(0, rawCount);
   return !selfStarAllowed && authorReacted ? Math.max(0, n - 1) : n;

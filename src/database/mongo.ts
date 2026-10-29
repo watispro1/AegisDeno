@@ -47,6 +47,17 @@ const GuildConfigSchema = new mongoose.Schema({
     thresholds: { type: mongoose.Schema.Types.Mixed, default: [] },
     warnExpiryDays: { type: Number, default: null },
   },
+  // No schema defaults: services/configuration.ts fills them, and an absent
+  // field is how the one-time copy of retired settings knows what is unset.
+  tickets: {
+    logChannelId: { type: String },
+    autoCloseHours: { type: Number },
+    transcriptLogging: { type: Boolean },
+  },
+  roles: {
+    maxRolesPerPanel: { type: Number },
+  },
+  legacySettingsMigratedAt: { type: Date, default: null },
 });
 export const GuildConfigModel = mongoose.model("GuildConfig", GuildConfigSchema);
 
@@ -282,21 +293,26 @@ PollSchema.index({ guildId: 1, ended: 1 });
 export const PollModel = mongoose.model("Poll", PollSchema);
 
 
-const PluginConfigSchema = new mongoose.Schema({
+/**
+ * Retired per-feature settings (one document per guild and feature). Read only,
+ * once per guild, to copy ticket and role-panel settings into GuildConfig; see
+ * services/configuration.ts. Nothing writes here any more, and `autoIndex` is
+ * off so the bot never touches this collection's indexes. Safe to drop once
+ * every guild's config has `legacySettingsMigratedAt` set.
+ */
+const LegacyPluginSettingsSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   pluginName: { type: String, required: true },
-  enabled: { type: Boolean, default: true },
-  config: { type: mongoose.Schema.Types.Mixed, default: {} },
-  updatedAt: { type: Date, default: Date.now },
-});
-PluginConfigSchema.index({ guildId: 1, pluginName: 1 }, { unique: true });
-export const PluginConfigModel = mongoose.model("PluginConfig", PluginConfigSchema);
+  enabled: { type: Boolean },
+  config: { type: mongoose.Schema.Types.Mixed },
+}, { collection: "pluginconfigs", autoIndex: false, autoCreate: false });
+export const LegacyPluginSettingsModel = mongoose.model("LegacyPluginSettings", LegacyPluginSettingsSchema);
 
 // ─── Starboard ────────────────────────────────────────────────────────────────
 
 /**
  * Per-guild starboard configuration stored in MongoDB.
- * Separate from PluginConfig so it can be queried cheaply on every reaction.
+ * Read on every starboard reaction (cached in services/starboard.ts).
  */
 const StarboardConfigSchema = new mongoose.Schema({
   guildId:         { type: String, required: true, unique: true },

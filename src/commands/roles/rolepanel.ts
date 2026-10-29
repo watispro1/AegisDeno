@@ -16,6 +16,7 @@ import {
 import type { Command } from "../../types/discord";
 import { createRolePanel, getRolePanels, deleteRolePanel } from "../../services/rolePanelService";
 import { normalizePanelStyle } from "../../services/rolePanelLogic";
+import { getGuildConfig, MAX_ROLES_PER_PANEL } from "../../services/configuration";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -184,12 +185,10 @@ export const command: Command = {
         rolesInput.push({ roleId: role3.id, label: label3 });
       }
 
-      // Respect the roles plugin's per-guild max-roles setting.
-      const { knubManager } = await import("../../knub/KnubManager");
-      const rolesCfg = await knubManager
-        .getGuildPluginConfig<{ maxRolesPerPanel?: number }>(interaction.guild.id, "roles")
-        .catch(() => ({ maxRolesPerPanel: 25 }));
-      const maxRoles = Math.max(1, Number(rolesCfg.maxRolesPerPanel) || 25);
+      // Respect the guild's max-roles-per-panel setting (default 25).
+      const maxRoles = await getGuildConfig(interaction.guild.id)
+        .then((cfg) => cfg.roles.maxRolesPerPanel)
+        .catch(() => MAX_ROLES_PER_PANEL);
       if (rolesInput.length > maxRoles) {
         await modalResponse.editReply(`❌ This server allows at most ${maxRoles} role(s) per panel.`);
         return;

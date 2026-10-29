@@ -9,9 +9,6 @@ import {
   TextChannel,
   ActivityType,
   PresenceUpdateStatus,
-  ActionRowBuilder,
-  ButtonBuilder,
-  EmbedBuilder,
 } from "discord.js";
 import "../types/augmentation"; // Ensure augmentation is loaded
 import { logger } from "../utils/logger";
@@ -22,8 +19,8 @@ import { processAutomod, processAutomodEdit } from "../services/automodExecution
 import { processAutoResponders } from "../services/autoResponderService";
 import { getGuildConfig } from "../services/configuration";
 import { scheduleUnverifiedKick } from "../services/verificationService";
-import { knubManager } from "../knub";
-import { registerDefaultPlugins } from "../knub/plugins";
+import { componentRouter } from "./interactions";
+import { registerStarboardEvents } from "./events/starboard";
 import {
   watchlistOnJoin,
   watchlistOnLeave,
@@ -64,11 +61,7 @@ export function createClient(): Client {
 }
 
 export function setupEvents(client: Client): void {
-  // Initialize Knub plugins
-  registerDefaultPlugins();
-  knubManager.initialize(client).catch((err) => {
-    logger.error("[Knub] Plugin initialization error:", err);
-  });
+  registerStarboardEvents(client);
 
   // ─── Ready ────────────────────────────────────────────────────────────────
   client.once(Events.ClientReady, (c) => {
@@ -150,7 +143,7 @@ export function setupEvents(client: Client): void {
       }
       await executeCommand(command, interaction);
     } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
-      await knubManager.dispatchComponent(interaction as any);
+      await componentRouter.dispatch(interaction);
     }
   });
 
@@ -313,8 +306,7 @@ export function setupEvents(client: Client): void {
   });
 
   // ─── Guild Join / Discovery ────────────────────────────────────────────────
-  client.on(Events.GuildCreate, async (guild) => {
+  client.on(Events.GuildCreate, (guild) => {
     logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
-    await knubManager.handleGuildCreate(guild);
   });
 }
