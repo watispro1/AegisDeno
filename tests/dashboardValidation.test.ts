@@ -3,6 +3,14 @@ import assert from "node:assert/strict";
 import { PermissionFlagsBits } from "discord.js";
 import { canManageGuild, guildInviteUrl, partitionGuilds, type OAuthGuild } from "../src/web/dashboard/permissions";
 import {
+  fieldValues,
+  isStarboardEmoji,
+  parseAppealFilter,
+  parseAppealReview,
+  parseRevoke,
+  parseTicketPanel,
+  parseVerificationPanel,
+  parseWordList,
   parseAutomod,
   parseCaseFilter,
   parseCaseReason,
@@ -125,14 +133,14 @@ test("automod enforces the same ranges as the slash command", () => {
     spam_enabled: "on", spam_action: "timeout", spam_maxMessages: "5", spam_windowSeconds: "5",
     caps_action: "delete", caps_threshold: "80",
   };
-  const ok = parseAutomod(body);
+  const ok = parseAutomod(body, ctx);
   assert.ok(ok.ok);
   assert.equal(ok.value.words.enabled, true);
   assert.equal(ok.value.links.enabled, false);
   assert.equal(ok.value.spam.maxMessages, 5);
 
   for (const [key, value] of [["mentions_threshold", "1"], ["spam_maxMessages", "31"], ["spam_windowSeconds", "61"], ["caps_threshold", "49"], ["links_action", "ban"]]) {
-    const r = parseAutomod({ ...body, [key]: value });
+    const r = parseAutomod({ ...body, [key]: value }, ctx);
     assert.ok(!r.ok && r.errors[key], key);
   }
 });
@@ -184,8 +192,71 @@ test("case reason and filters", () => {
   assert.ok(!parseCaseReason({ reason: ["a", ""] }).ok, "last repeated value wins");
 
   assert.deepEqual(parseCaseFilter({ type: "ban", user: "<@!123456789012345678>", moderator: "nope", page: "3" }), {
-    type: "ban", userId: "123456789012345678", moderatorId: null, page: 3,
+    type: "ban", userId: "123456789012345678", moderatorId: null, query: null, page: 3,
   });
-  assert.deepEqual(parseCaseFilter({ type: "$where", page: "-1" }), { type: null, userId: null, moderatorId: null, page: 1 });
+  assert.deepEqual(parseCaseFilter({ type: "$where", page: "-1" }), { type: null, userId: null, moderatorId: null, query: null, page: 1 });
+  assert.equal(parseCaseFilter({ q: "  free   nitro " }).query, "free nitro");
+  assert.equal(parseCaseFilter({ q: "x".repeat(300) }).query?.length, 100);
   assert.equal(parseCaseFilter({ page: ["2", "9"] }).page, 2);
+});
+
+/* ── v1.2.0 forms ────────────────────────────────────────────────── */
+
+test("word list: one per line, lower-cased, de-duplicated, same length rules as /automod words add", () => {
+  assert.deepEqual(parseWordList("Spam\r\n  free nitro \n\nspam\nSPAM"), { list: ["spam", "free nitro"], error: null });
+  assert.match(parseWordList("ok\nx").error ?? "", /2 to 100/);
+  assert.match(parseWordList("y".repeat(101)).error ?? "", /2 to 100/);
+  assert.match(parseWordList(Array.from({ length: 501 }, (_, i) => `word${i}`).join("\n")).error ?? "", /500 words/);
+  assert.deepEqual(parseWordList("a, b, c"), { list: ["a, b, c"], error: null }, "commas are part of a phrase");
+});
+
+test("automod exemptions accept visible IDs and previously saved ones only", () => {
+  const body = {
+    words_action: "delete", links_action: "delete", mentions_action: "delete", mentions_threshold: "5",
+    spam_action: "delete", spam_maxMessages: "5", spam_windowSeconds: "5", caps_action: "delete", caps_threshold: "80",
+  };
+  const ok = parseAutomod({ ...body, exempt_roles: [HIGH_ROLE, HIGH_ROLE], exempt_channels: ["999999999999999999", CH] }, ctx, { exemptRoleIds: [], exemptChannelIds: ["999999999999999999"] });
+  assert.ok(ok.ok);
+  assert.deepEqual(ok.value.exemptRoleIds, [HIGH_ROLE], "any role, de-duplicated");
+  assert.deepEqual(ok.value.exemptChannelIds, ["999999999999999999", CH]);
+  const unknown = parseAutomod({ ...body, exempt_channels: "999999999999999999" }, ctx);
+  assert.ok(!unknown.ok && unknown.errors.exempt_channels);
+  const notId = parseAutomod({ ...body, exempt_roles: "@everyone" }, ctx);
+  assert.ok(!notId.ok && notId.errors.exempt_roles);
+  assert.deepEqual(fieldValues({ a: ["1", " ", 3, "2"] }, "a"), ["1", "2"]);
+});
+
+test("starboard emoji: one Unicode emoji or a custom emoji", () => {
+  for (const e of ["⭐", "🌟", "❤️", "👍🏽", "🇺🇸", "<:aegis:123456789012345678>", "<a:spin:123456789012345678>"]) assert.ok(isStarboardEmoji(e), e);
+  for (const e of ["", "star", ":star:", "⭐ ⭐", "<script>", "<:x:1>", "a⭐"]) assert.ok(!isStarboardEmoji(e), e);
+  const s = parseStarboard({ threshold: "3", emoji: "", ignoredChannels: CH2, ignoredRoles: [ROLE, HIGH_ROLE] }, ctx);
+  assert.ok(s.ok && s.value.emoji === "⭐", "blank emoji falls back to the default");
+  assert.ok(s.ok && s.value.ignoredRoles.length === 2);
+  assert.ok(!parseStarboard({ threshold: "3", emoji: "nope" }, ctx).ok);
+});
+
+test("panel forms: channel required, staff role may be any role, verified role must be assignable", () => {
+  const t = parseTicketPanel({ channelId: CH, staffRoleId: HIGH_ROLE, title: "  Help  ", description: "" }, ctx);
+  assert.deepEqual(t, { ok: true, value: { channelId: CH, staffRoleId: HIGH_ROLE, title: "Help", description: null } });
+  assert.ok(!parseTicketPanel({ channelId: "" }, ctx).ok);
+  assert.ok(!parseTicketPanel({ channelId: "555555555555555555" }, ctx).ok);
+  assert.ok(!parseTicketPanel({ channelId: CH, description: "d".repeat(2001) }, ctx).ok);
+
+  const v = parseVerificationPanel({ channelId: CH, verifiedRoleId: ROLE, type: "button", kickUnverifiedMinutes: "" }, ctx);
+  assert.ok(v.ok && v.value.kickUnverifiedMinutes === 0 && v.value.title === null);
+  assert.ok(!parseVerificationPanel({ channelId: CH, verifiedRoleId: HIGH_ROLE, type: "button" }, ctx).ok);
+  assert.ok(!parseVerificationPanel({ channelId: CH, verifiedRoleId: ROLE, type: "both" }, ctx).ok);
+  assert.ok(!parseVerificationPanel({ channelId: CH, verifiedRoleId: ROLE, type: "button", title: "t".repeat(101) }, ctx).ok);
+});
+
+test("appeal filter and review forms", () => {
+  assert.deepEqual(parseAppealFilter({}), { status: "pending", page: 1 });
+  assert.deepEqual(parseAppealFilter({ status: "all", page: "2" }), { status: "all", page: 2 });
+  assert.deepEqual(parseAppealFilter({ status: { $ne: 1 }, page: "0" }), { status: "pending", page: 1 });
+  assert.deepEqual(parseAppealReview({ decision: "denied", note: "  no  " }), { ok: true, value: { decision: "denied", note: "no" } });
+  assert.deepEqual(parseAppealReview({ decision: "approved" }), { ok: true, value: { decision: "approved", note: null } });
+  assert.ok(!parseAppealReview({ decision: "maybe" }).ok);
+  assert.ok(!parseAppealReview({ decision: "denied", note: "n".repeat(513) }).ok);
+  assert.deepEqual(parseRevoke({ unban: "on" }), { unban: true });
+  assert.deepEqual(parseRevoke({}), { unban: false });
 });

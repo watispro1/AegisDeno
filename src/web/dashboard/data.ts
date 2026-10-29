@@ -14,6 +14,12 @@ import { ensureAutoCloseChecks, getTicketSettings, updateTicketSettings, type Ti
 import { getVerificationConfig, updateVerificationSettings, type VerificationConfig } from "../../services/verificationService";
 import { getStarboardConfig, updateStarboardConfig, type StarboardConfig } from "../../services/starboard";
 import { sendGuildLog } from "../../services/logging";
+import { getAppeal, listAppeals, reviewBanAppeal, type AppealRecord, type AppealStatus } from "../../services/appeals";
+import { unbanMember } from "../../services/unban";
+import { postTicketPanel } from "../../services/ticketService";
+import { setupVerification } from "../../services/verificationService";
+import { getRolePanels, repostRolePanel } from "../../services/rolePanelService";
+import { ChannelType, type TextChannel } from "discord.js";
 import { logger } from "../../utils/logger";
 import { SECTION_TITLES } from "./validation";
 import type {
@@ -24,9 +30,13 @@ import type {
   SettingsSection,
   StarboardSettingsInput,
   TicketSettingsInput,
+  TicketPanelInput,
+  VerificationPanelInput,
   VerificationSettingsInput,
   WelcomeSettings,
 } from "./validation";
+
+export type { AppealRecord, AppealStatus } from "../../services/appeals";
 
 export interface Actor {
   userId: string;
@@ -85,6 +95,24 @@ export type SettingsValue =
   | { section: "verification"; value: VerificationSettingsInput }
   | { section: "starboard"; value: StarboardSettingsInput };
 
+export interface RolePanelSummary {
+  id: string;
+  title: string;
+  channelId: string;
+  roleCount: number;
+  style: string;
+  createdAt: Date;
+}
+
+/** Outcome of posting a panel from the dashboard. */
+export type PanelResult = "posted" | "channel-missing" | "not-found" | "failed";
+
+export type UnbanOutcome = "done" | "not-banned" | "failed";
+
+export type AppealReviewOutcome =
+  | { ok: true; unban: "done" | "failed" | null }
+  | { ok: false; reason: "not_found" | "already_reviewed" };
+
 export interface DashboardData {
   overview(guildId: string): Promise<OverviewData>;
   listCases(guildId: string, filter: CaseFilter, perPage: number): Promise<{ items: CaseRecord[]; total: number }>;
@@ -92,6 +120,17 @@ export interface DashboardData {
   editCaseReason(guildId: string, id: string, reason: string, actor: Actor): Promise<boolean>;
   /** Marks a case or warning revoked. False when missing or already revoked. */
   revokeCase(guildId: string, id: string, actor: Actor): Promise<boolean>;
+  /** Lifts the ban for a ban case's member (shared with /unban). */
+  unbanCaseMember(guildId: string, record: CaseRecord, actor: Actor): Promise<UnbanOutcome>;
+  listAppeals(guildId: string, status: AppealStatus | "all", page: number, perPage: number): Promise<{ items: AppealRecord[]; total: number }>;
+  getAppeal(guildId: string, code: string): Promise<AppealRecord | null>;
+  /** Same path as /appeal review: approve unbans, the appellant gets a DM. */
+  reviewAppeal(guildId: string, code: string, decision: "approved" | "denied", note: string | null, actor: Actor): Promise<AppealReviewOutcome>;
+  listRolePanels(guildId: string): Promise<RolePanelSummary[]>;
+  postTicketPanel(guildId: string, input: TicketPanelInput, actor: Actor): Promise<PanelResult>;
+  /** Same as /verify setup: posts the panel and saves the settings. */
+  setupVerificationPanel(guildId: string, input: VerificationPanelInput, actor: Actor): Promise<PanelResult>;
+  repostRolePanel(guildId: string, panelId: string, channelId: string, actor: Actor): Promise<PanelResult>;
   loadSettings(guildId: string): Promise<SettingsSnapshot>;
   /** Saves one section. Resolves false when the section cannot be saved yet (verification not set up). */
   saveSettings(guildId: string, input: SettingsValue, actor: Actor): Promise<boolean>;
@@ -131,10 +170,20 @@ export function mongoDashboardData(client: Client): DashboardData {
   const log = (guildId: string, title: string, description: string) =>
     sendGuildLog(client, guildId, { title, color: 0x3498db, description }).catch(() => null);
 
+  /** A text or announcement channel from the bot's cache, or null. */
+  const textChannel = (guildId: string, channelId: string): TextChannel | null => {
+    const ch = client.guilds?.cache?.get(guildId)?.channels.cache.get(channelId);
+    if (!ch || (ch.type !== ChannelType.GuildText && ch.type !== ChannelType.GuildAnnouncement)) return null;
+    return ch as TextChannel;
+  };
+
   async function listCases(guildId: string, filter: CaseFilter, perPage: number) {
     const people: Record<string, string> = {};
     if (filter.userId) people.userId = filter.userId;
     if (filter.moderatorId) people.moderatorId = filter.moderatorId;
+    const reasonMatch: Record<string, unknown> = filter.query
+      ? { reason: { $regex: filter.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } }
+      : {};
     const wantCases = filter.type !== "warn";
     const wantWarnings = filter.type === null || filter.type === "warn";
     const skip = (filter.page - 1) * perPage;
@@ -147,7 +196,7 @@ export function mongoDashboardData(client: Client): DashboardData {
     let rows: Array<{ items: Array<Record<string, unknown>>; total: Array<{ n: number }> }>;
     if (wantCases) {
       const pipeline: PipelineStage[] = [
-        { $match: { guildId, ...people, ...(filter.type ? { action: filter.type } : {}) } },
+        { $match: { guildId, ...people, ...reasonMatch, ...(filter.type ? { action: filter.type } : {}) } },
         { $project: { ...PROJECT, kind: { $literal: "case" } } },
       ];
       if (wantWarnings) {
@@ -155,7 +204,7 @@ export function mongoDashboardData(client: Client): DashboardData {
           $unionWith: {
             coll: WarningModel.collection.collectionName,
             pipeline: [
-              { $match: { guildId, ...people } },
+              { $match: { guildId, ...people, ...reasonMatch } },
               { $project: { ...PROJECT, action: { $literal: "warn" }, kind: { $literal: "warning" } } },
             ],
           },
@@ -164,7 +213,7 @@ export function mongoDashboardData(client: Client): DashboardData {
       rows = await ModerationCaseModel.aggregate(pipeline.concat(tail));
     } else {
       rows = await WarningModel.aggregate([
-        { $match: { guildId, ...people } },
+        { $match: { guildId, ...people, ...reasonMatch } },
         { $project: { ...PROJECT, action: { $literal: "warn" }, kind: { $literal: "warning" } } },
         ...tail,
       ]);
@@ -195,7 +244,7 @@ export function mongoDashboardData(client: Client): DashboardData {
         ModerationCaseModel.countDocuments({ guildId, createdAt: { $gte: since30 } }),
         WarningModel.countDocuments({ guildId, createdAt: { $gte: since7 } }),
         WarningModel.countDocuments({ guildId, createdAt: { $gte: since30 } }),
-        listCases(guildId, { type: null, userId: null, moderatorId: null, page: 1 }, 10),
+        listCases(guildId, { type: null, userId: null, moderatorId: null, query: null, page: 1 }, 10),
         TicketModel.countDocuments({ guildId, status: "open" }),
         TicketModel.find({ guildId, status: "open" }).sort({ createdAt: -1 }).limit(10).lean(),
         BanAppealModel.countDocuments({ guildId, status: "pending" }),
@@ -249,6 +298,89 @@ export function mongoDashboardData(client: Client): DashboardData {
       return ok;
     },
 
+    async unbanCaseMember(guildId, record, actor) {
+      const guild = client.guilds?.cache?.get(guildId);
+      if (!guild) return "failed";
+      const result = await unbanMember(
+        guild,
+        record.userId,
+        { id: actor.userId, tag: actor.username },
+        plainText(`Ban case ${record.id} revoked on the web dashboard`, 200),
+        { via: "on the web dashboard" },
+      );
+      return result.ok ? "done" : result.reason === "not_banned" ? "not-banned" : "failed";
+    },
+
+    async listAppeals(guildId, status, page, perPage) {
+      return listAppeals(guildId, status, { skip: (page - 1) * perPage, limit: perPage });
+    },
+
+    getAppeal,
+
+    async reviewAppeal(guildId, code, decision, note, actor) {
+      const result = await reviewBanAppeal(client, guildId, code, decision, note, { id: actor.userId, tag: actor.username });
+      if (!result.ok) return { ok: false, reason: result.reason };
+      await log(
+        guildId,
+        decision === "approved" ? "✅ Ban Appeal Approved" : "❌ Ban Appeal Denied",
+        `**Appeal:** \`${result.appeal.code}\`\n**User:** <@${result.appeal.userId}>\n` +
+          (note ? `**Note:** ${plainText(note)}\n` : "") +
+          (result.unban === "done" ? "**Unbanned:** yes\n" : result.unban === "failed" ? "**Unbanned:** failed, unban manually\n" : "") +
+          `**Reviewed by:** <@${actor.userId}> on the web dashboard`,
+      );
+      return { ok: true, unban: result.unban };
+    },
+
+    async listRolePanels(guildId) {
+      const panels = await getRolePanels(guildId);
+      return panels.map(p => ({
+        id: p.id,
+        title: p.title,
+        channelId: p.channelId,
+        roleCount: p.roles?.length ?? 0,
+        style: p.panelStyle ?? "button",
+        createdAt: new Date(p.createdAt ?? 0),
+      }));
+    },
+
+    async postTicketPanel(guildId, input, actor) {
+      const channel = textChannel(guildId, input.channelId);
+      if (!channel) return "channel-missing";
+      try {
+        await postTicketPanel(channel, input);
+      } catch (err) {
+        logger.warn(`Dashboard: ticket panel post failed in guild ${guildId}: ${(err as Error)?.message ?? err}`);
+        return "failed";
+      }
+      await log(guildId, "🎫 Ticket Panel Posted", `**Channel:** <#${channel.id}>\n**Posted by:** <@${actor.userId}> on the web dashboard`);
+      return "posted";
+    },
+
+    async setupVerificationPanel(guildId, input, actor) {
+      const guild = client.guilds?.cache?.get(guildId);
+      const channel = textChannel(guildId, input.channelId);
+      if (!guild || !channel) return "channel-missing";
+      const result = await setupVerification(
+        guild, channel, input.verifiedRoleId, input.type,
+        input.title ?? undefined, input.description ?? undefined, input.kickUnverifiedMinutes,
+      );
+      if (!result) return "failed";
+      logger.info(`Dashboard: verification panel posted in guild ${guildId} by user ${actor.userId}`);
+      return "posted";
+    },
+
+    async repostRolePanel(guildId, panelId, channelId, actor) {
+      const guild = client.guilds?.cache?.get(guildId);
+      const channel = textChannel(guildId, channelId);
+      if (!guild || !channel) return "channel-missing";
+      const exists = (await getRolePanels(guildId)).some(p => p.id === panelId);
+      if (!exists) return "not-found";
+      const created = await repostRolePanel(guild, panelId, channel);
+      if (!created) return "failed";
+      logger.info(`Dashboard: role panel ${panelId} re-posted in guild ${guildId} by user ${actor.userId}`);
+      return "posted";
+    },
+
     async loadSettings(guildId) {
       const [guild, automod, tickets, verification, starboard] = await Promise.all([
         getGuildConfig(guildId),
@@ -269,17 +401,16 @@ export function mongoDashboardData(client: Client): DashboardData {
           await updateGuildConfig(guildId, { escalation: input.value });
           break;
         case "automod": {
-          // updateAutomodConfig normalises the whole document, so merge onto the current one
-          // to keep the word list and exemptions that the dashboard does not edit.
-          const current = await getAutomodConfig(guildId);
+          // The form carries every automod field, the word list and exemptions included.
           const v = input.value;
           await updateAutomodConfig(guildId, {
-            ...current,
-            words: { ...current.words, ...v.words },
-            links: { ...current.links, ...v.links },
-            mentions: { ...current.mentions, ...v.mentions },
-            spam: { ...current.spam, ...v.spam },
-            caps: { ...current.caps, ...v.caps },
+            words: { ...v.words },
+            links: { ...v.links },
+            mentions: { ...v.mentions },
+            spam: { ...v.spam },
+            caps: { ...v.caps },
+            exemptRoleIds: v.exemptRoleIds,
+            exemptChannelIds: v.exemptChannelIds,
           });
           break;
         }

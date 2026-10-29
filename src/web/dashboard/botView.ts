@@ -26,6 +26,15 @@ export interface RoleOption {
   assignable: boolean;
 }
 
+/** Extra permissions some dashboard actions need, matching their slash commands. */
+export type DashboardPermission = "BanMembers" | "ManageChannels" | "ManageRoles";
+
+export const DASHBOARD_PERMISSION_LABELS: Record<DashboardPermission, string> = {
+  BanMembers: "Ban Members",
+  ManageChannels: "Manage Channels",
+  ManageRoles: "Manage Roles",
+};
+
 export interface BotView {
   hasGuild(guildId: string): boolean;
   guild(guildId: string): GuildSummary | null;
@@ -34,6 +43,12 @@ export interface BotView {
    * Administrator / Manage Server right now. Fails closed on any error.
    */
   memberCanManage(guildId: string, userId: string): Promise<boolean>;
+  /**
+   * Live check for one extra permission (Ban Members, Manage Channels, Manage
+   * Roles), the same one the matching slash command requires. Owner and
+   * Administrator always pass. Fails closed on any error.
+   */
+  memberHasPermission(guildId: string, userId: string, permission: DashboardPermission): Promise<boolean>;
   /** Text and announcement channels, in server order. */
   textChannels(guildId: string): ChannelOption[];
   /** Roles from highest to lowest, without @everyone. */
@@ -76,6 +91,19 @@ export function discordBotView(client: Client): BotView {
         return canManageGuild(member.permissions.bitfield, g.ownerId === member.id);
       } catch (err) {
         logger.debug(`Dashboard permission check failed for a member of guild ${guildId}: ${(err as Error)?.message ?? err}`);
+        return false;
+      }
+    },
+
+    async memberHasPermission(guildId, userId, permission) {
+      const g = get(guildId);
+      if (!g) return false;
+      if (g.ownerId === userId) return true;
+      try {
+        const member = await g.members.fetch(userId);
+        return member.permissions.has(PermissionFlagsBits.Administrator) || member.permissions.has(PermissionFlagsBits[permission]);
+      } catch (err) {
+        logger.debug(`Dashboard permission check (${permission}) failed in guild ${guildId}: ${(err as Error)?.message ?? err}`);
         return false;
       }
     },

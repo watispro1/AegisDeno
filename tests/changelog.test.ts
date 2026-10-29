@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getDashboardChangelog, parseChangelog, readChangelogFile, renderInline } from "../src/web/changelog";
-import { VERSION } from "../src/version";
+import { DASHBOARD_VERSION, VERSION } from "../src/version";
 
 const sample = `# Changelog
 
@@ -72,27 +72,69 @@ test("CHANGELOG.md parses and its newest release matches src/version.ts", () => 
   }
 });
 
-test("DASHBOARD_CHANGELOG.md parses into an Unreleased dashboard release", () => {
+test("DASHBOARD_CHANGELOG.md parses into a released 1.2.0 that matches DASHBOARD_VERSION", () => {
   const path = join(__dirname, "..", "DASHBOARD_CHANGELOG.md");
   const log = readChangelogFile(path);
   assert.ok(log.intro.length > 0, "intro paragraphs");
   assert.ok(log.releases.length >= 1);
   const [first] = log.releases;
-  assert.equal(first.version, "Unreleased");
-  assert.equal(first.date, null);
-  assert.equal(first.id, "unreleased");
-  assert.ok(first.notes.some((n) => n.includes("Dashboard 0.1.0")), "version label note");
-  assert.deepEqual(first.sections.map((s) => s.title), ["Added", "Security", "Known limitations"]);
+  assert.equal(first.version, DASHBOARD_VERSION);
+  assert.equal(first.version, "1.2.0");
+  assert.equal(first.date, "2026-10-29");
+  assert.equal(first.id, "v1.2.0");
+  assert.ok(first.notes.some((n) => n.includes("Dashboard 1.2.0")), "version label note");
+  assert.ok(!log.releases.some((r) => r.date === null), "no Unreleased section left");
+  assert.deepEqual(first.sections.map((s) => s.title), ["Added", "Changed", "Fixed", "Security", "Known limitations"]);
   for (const r of log.releases) {
     assert.ok(r.sections.length > 0, `${r.version} has no sections`);
     for (const s of r.sections) {
       assert.ok(["Added", "Changed", "Fixed", "Removed", "Deprecated", "Security", "Known limitations"].includes(s.title), `${r.version}: unexpected section "${s.title}"`);
       assert.ok(s.items.length > 0, `${r.version} ${s.title} is empty`);
-      for (const i of s.items) assert.ok(!/\]\(|\*\*/.test(i), `${r.version}: unrendered markdown in "${i}"`);
+      for (const i of s.items) {
+        assert.ok(!/\]\(|\*\*/.test(i), `${r.version}: unrendered markdown in "${i}"`);
+        assert.ok(!/\s-\s\*\*|\s- [A-Z][a-z]+:/.test(i), `${r.version}: nested bullet flattened into "${i.slice(0, 80)}"`);
+      }
     }
   }
+  // The settings sections are a nested list, not run together.
+  const settings = first.sections[0].items.find((i) => i.startsWith("<strong>Settings</strong>"));
+  assert.ok(settings, "Settings item");
+  assert.match(settings, /<ul><li>Logging: [^<]*<\/li><li>Escalation:/);
   // The same file through the cached root-level loader.
   assert.deepEqual(getDashboardChangelog(), log);
+});
+
+test("parseChangelog renders nested bullets as a nested list, with wrapped lines", () => {
+  const md = `## [2.0.0] - 2026-10-29
+
+### Added
+- **Parent** item
+  that wraps.
+  - First child with \`code\`
+    continued here.
+  - Second child
+- Next top-level item
+`;
+  const [section] = parseChangelog(md).releases[0].sections;
+  assert.equal(section.items.length, 2);
+  assert.equal(
+    section.items[0],
+    '<strong>Parent</strong> item that wraps.<ul><li>First child with <code class="inline">code</code> continued here.</li><li>Second child</li></ul>',
+  );
+  assert.equal(section.items[1], "Next top-level item");
+  assert.ok(!section.items[0].includes(" - "), "no literal dash separator");
+});
+
+test("parseChangelog escapes HTML inside nested items", () => {
+  const md = `## [2.0.0] - 2026-10-29
+
+### Fixed
+- Parent
+  - <img src=x onerror=alert(1)>
+`;
+  const item = parseChangelog(md).releases[0].sections[0].items[0];
+  assert.ok(item.includes("&lt;img"));
+  assert.ok(!item.includes("<img"));
 });
 
 test("readChangelogFile returns an empty changelog for a missing file", () => {

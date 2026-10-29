@@ -562,6 +562,8 @@ main { display: block; min-height: 60vh; }
 .changes { padding-left: 1.1rem; margin: 0; max-width: 76ch; }
 .changes li { padding: .2rem 0; margin: 0; font-size: .93rem; color: var(--text-2); }
 .changes li strong { color: var(--text); font-weight: 600; }
+.changes li ul { padding-left: 1.1rem; margin: .2rem 0 0; list-style: circle; }
+.changes li li { padding: .1rem 0; }
 
 /* ── Status ─────────────────────────────────────────────────────────── */
 .status-line {
@@ -678,6 +680,21 @@ a.guild-item:hover { border-color: var(--accent); color: var(--text); }
 .detail-list dd { margin: 0; overflow-wrap: anywhere; }
 .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn.danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; filter: brightness(.92); }
+.tag.ok { color: var(--ok); border-color: currentColor; }
+.prewrap { white-space: pre-wrap; }
+.pick-list .pick-scroll { max-height: 18rem; overflow-y: auto; margin: 0 -.35rem .75rem; padding: 0 .35rem; }
+.pick-group { margin: 0 0 .5rem; }
+.pick-group-title { font-size: .78rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: .5rem 0 .1rem; }
+.check.pick { margin: 0; padding: .3rem 0; overflow-wrap: anywhere; }
+.check.pick span { min-width: 0; }
+.panel-list { list-style: none; padding: 0; margin: 0 0 2.5rem; display: grid; gap: .75rem; max-width: 44rem; }
+.panel-item { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 20rem); gap: .75rem 1rem; align-items: end; padding: .85rem 1rem; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); }
+.panel-meta { min-width: 0; overflow-wrap: anywhere; align-self: center; }
+.panel-meta .faint { display: block; font-size: .87rem; }
+.panel-repost { display: flex; align-items: flex-end; gap: .5rem; margin: 0; min-width: 0; }
+.panel-repost .field { flex: 1 1 auto; min-width: 0; margin: 0; }
+.panel-repost .field > label { font-size: .85rem; }
+.review-buttons { margin-top: .5rem; }
 @media (max-width: 640px) {
   .field-row { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .detail-list { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
@@ -685,6 +702,10 @@ a.guild-item:hover { border-color: var(--accent); color: var(--text); }
   .detail-list code.inline { white-space: normal; overflow-wrap: anywhere; }
   .dash-form fieldset { padding: .85rem .85rem .25rem; }
   .dash-form > .btn, .dash-action .btn { width: 100%; }
+  .panel-item { grid-template-columns: minmax(0, 1fr); }
+  .panel-repost { flex-direction: column; align-items: stretch; }
+  .panel-repost .btn, .review-buttons .btn { width: 100%; }
+  .review-buttons { flex-direction: column; }
   .filter-bar .btn-row .btn { flex: 1 1 0; }
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
   .stat { padding: .65rem .8rem; }

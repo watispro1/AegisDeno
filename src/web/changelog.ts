@@ -6,15 +6,16 @@
  *
  * The parser only understands the subset of Markdown the changelog uses:
  * `## [version] - date` release headings, `### Section` headings, paragraphs,
- * `- ` list items (continuation lines indented), inline code, bold, inline
- * links and reference links.
+ * `- ` list items (continuation lines indented), one level of nested `- `
+ * items (indented two or more spaces under a parent item), inline code, bold,
+ * inline links and reference links.
  */
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 
 export interface ChangelogSection {
   title: string;
-  /** Rendered HTML for each list item. */
+  /** Rendered HTML for each list item; nested items become a `<ul>` inside it. */
   items: string[];
 }
 
@@ -106,10 +107,18 @@ export function parseChangelog(md: string): Changelog {
   let section: ChangelogSection | null = null;
   let para: string[] = [];
   let item: string[] | null = null;
+  /** Nested items of the current item, each a list of wrapped lines. */
+  let subs: string[][] = [];
 
   const flushItem = () => {
-    if (item && section) section.items.push(renderInline(item.join(" "), refs));
+    if (item && section) {
+      const nested = subs.length
+        ? `<ul>${subs.map(sub => `<li>${renderInline(sub.join(" "), refs)}</li>`).join("")}</ul>`
+        : "";
+      section.items.push(renderInline(item.join(" "), refs) + nested);
+    }
     item = null;
+    subs = [];
   };
   const flushPara = () => {
     if (para.length) {
@@ -166,8 +175,16 @@ export function parseChangelog(md: string): Changelog {
       continue;
     }
 
+    const nested = line.match(/^\s{2,}[-*]\s+(.*)$/);
+    if (item && nested) {
+      subs.push([nested[1].trim()]);
+      continue;
+    }
+
     if (item && /^\s+\S/.test(line)) {
-      item.push(line.trim());
+      // A continuation line belongs to the nested item it follows, if any.
+      if (subs.length) subs[subs.length - 1].push(line.trim());
+      else item.push(line.trim());
       continue;
     }
 

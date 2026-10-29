@@ -6,13 +6,15 @@
 import express, { type NextFunction, type Request, type Response, type Router } from "express";
 import { logger } from "../../utils/logger";
 import type { SiteConfig } from "../pages";
-import type { BotView } from "./botView";
+import { DASHBOARD_PERMISSION_LABELS, type BotView, type DashboardPermission } from "./botView";
+import { describeChanges, memoryAuditStore, type AuditStore } from "./audit";
+import { memoryRateLimitStore, type RateLimitStore } from "./rateLimitStore";
+import type { PanelResult } from "./data";
 import type { DashboardConfig } from "./config";
-import type { DashboardData, SettingsValue } from "./data";
+import type { DashboardData, SettingsSnapshot, SettingsValue } from "./data";
 import { authorizeUrl, exchangeCode, fetchUser, fetchUserGuilds, revokeToken, type FetchLike } from "./discordOAuth";
 import { guildInviteUrl, isSnowflake, partitionGuilds } from "./permissions";
 import {
-  RateLimiter,
   SESSION_COOKIE,
   SESSION_TTL_MS,
   STATE_COOKIE,
@@ -31,7 +33,13 @@ import {
 import type { SessionData, SessionStore } from "./sessions";
 import {
   isSettingsSection,
+  parseAppealFilter,
+  parseAppealReview,
   parseAutomod,
+  parseRevoke,
+  parseRolePanelRepost,
+  parseTicketPanel,
+  parseVerificationPanel,
   parseCaseFilter,
   parseCaseReason,
   parseEscalation,
@@ -46,8 +54,13 @@ import {
   type ValidationContext,
 } from "./validation";
 import {
+  MULTI_FIELDS,
+  renderActivity,
+  renderAppeal,
+  renderAppeals,
   renderCase,
   renderCases,
+  renderPanels,
   renderError,
   renderLanding,
   renderNotConfigured,
@@ -57,10 +70,13 @@ import {
   settingsValues,
   submittedValues,
   type GuildContext,
+  type PanelsState,
   type Viewer,
 } from "./views";
 
 export const CASES_PER_PAGE = 25;
+export const APPEALS_PER_PAGE = 25;
+export const AUDIT_PER_PAGE = 50;
 /** Re-fetch the user's guild list on the picker when it is older than this. */
 const GUILD_LIST_MAX_AGE_MS = 10 * 60 * 1000;
 
@@ -74,6 +90,10 @@ export interface DashboardDeps {
   now?: () => number;
   /** Requests per minute per client. Defaults: auth 20, POST 30, pages 240. */
   limits?: { auth?: number; post?: number; page?: number };
+  /** Where rate-limit counters live. Defaults to in-memory; production passes the Mongo store. */
+  rateLimits?: RateLimitStore;
+  /** Dashboard change log. Defaults to in-memory; production passes the Mongo store. */
+  audit?: AuditStore;
 }
 
 interface Authed {
@@ -92,16 +112,22 @@ function clientKey(req: Request): string {
   return (typeof fly === "string" && fly) || req.ip || req.socket.remoteAddress || "unknown";
 }
 
-function limit(limiter: RateLimiter, deps: DashboardDeps) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const result = limiter.hit(clientKey(req), deps.now?.());
-    if (result.allowed) return next();
-    res.setHeader("Retry-After", String(result.retryAfterSeconds));
-    res.status(429).type("html").send(renderError(deps.site, {
-      status: 429,
-      title: "Too many requests",
-      message: `Wait ${result.retryAfterSeconds} seconds and try again.`,
-    }));
+const RATE_WINDOW_MS = 60_000;
+
+function limit(store: RateLimitStore, bucket: string, max: number, deps: DashboardDeps) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await store.hit(bucket, clientKey(req), max, RATE_WINDOW_MS, deps.now?.() ?? Date.now());
+      if (result.allowed) return next();
+      res.setHeader("Retry-After", String(result.retryAfterSeconds));
+      res.status(429).type("html").send(renderError(deps.site, {
+        status: 429,
+        title: "Too many requests",
+        message: `Wait ${result.retryAfterSeconds} seconds and try again.`,
+      }));
+    } catch (err) {
+      next(err);
+    }
   };
 }
 
@@ -130,9 +156,11 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   }
 
   const secret = cfg.sessionSecret;
-  const authLimiter = new RateLimiter(deps.limits?.auth ?? 20, 60_000);
-  const postLimiter = new RateLimiter(deps.limits?.post ?? 30, 60_000);
-  const pageLimiter = new RateLimiter(deps.limits?.page ?? 240, 60_000);
+  const store = deps.rateLimits ?? memoryRateLimitStore();
+  const audit = deps.audit ?? memoryAuditStore();
+  const authLimit = limit(store, "auth", deps.limits?.auth ?? 20, deps);
+  const postLimit = limit(store, "post", deps.limits?.post ?? 30, deps);
+  const pageLimit = limit(store, "page", deps.limits?.page ?? 240, deps);
   const form = express.urlencoded({ extended: false, limit: "32kb", parameterLimit: 200 });
 
   const send = (res: Response, html: string, status = 200) => res.status(status).type("html").send(html);
@@ -209,17 +237,42 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
     }
   };
 
+  /** Whether the viewer lacks an extra permission an action needs; returns its label, or null when they have it. */
+  async function missingPermission(ctx: GuildContext, permission: DashboardPermission): Promise<string | null> {
+    const ok = await deps.bot.memberHasPermission(ctx.guild.id, ctx.viewer.userId, permission).catch(() => false);
+    return ok ? null : DASHBOARD_PERMISSION_LABELS[permission];
+  }
+
+  /** POST guard for actions whose slash command needs more than Manage Server. */
+  const requirePermission = (permission: DashboardPermission) => async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const missing = await missingPermission(ctx, permission);
+      if (missing) {
+        logger.info(`Dashboard: ${permission} refused in guild ${ctx.guild.id} for user ${ctx.viewer.userId}`);
+        return fail(res, 403, "Missing permission", `This needs ${missing} in this server, the same as the slash command.`, ctx.viewer);
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  const actorOf = (ctx: GuildContext) => ({ userId: ctx.viewer.userId, username: ctx.viewer.username });
+  const logAudit = (ctx: GuildContext, action: string, target: string | null, summary: string) =>
+    audit.record({ guildId: ctx.guild.id, userId: ctx.viewer.userId, username: ctx.viewer.username, action, target, summary }).catch(() => undefined);
+
   const noticeParam = (req: Request): string | null => (typeof req.query.notice === "string" ? req.query.notice.slice(0, 40) : null);
 
   /* ── Auth ─────────────────────────────────────────────────────────── */
 
-  router.get("/login", limit(authLimiter, deps), (_req, res) => {
+  router.get("/login", authLimit, (_req, res) => {
     const { state, cookie: stateCookie } = createOAuthState(secret, now());
     res.setHeader("Set-Cookie", cookie(STATE_COOKIE, stateCookie, STATE_TTL_MS));
     res.redirect(302, authorizeUrl(cfg, state));
   });
 
-  router.get("/callback", limit(authLimiter, deps), async (req, res, next) => {
+  router.get("/callback", authLimit, async (req, res, next) => {
     const clearState = cookie(STATE_COOKIE, "", 0);
     try {
       const cookies = parseCookies(req.headers.cookie);
@@ -268,7 +321,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
     }
   });
 
-  router.post("/logout", limit(postLimiter, deps), form, async (req, res, next) => {
+  router.post("/logout", postLimit, form, async (req, res, next) => {
     try {
       const authed = await loadSession(req);
       if (authed) {
@@ -302,7 +355,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
     }
   }
 
-  router.get("/", limit(pageLimiter, deps), async (req, res, next) => {
+  router.get("/", pageLimit, async (req, res, next) => {
     try {
       const authed = await loadSession(req);
       if (!authed) return send(res, renderLanding(deps.site, null));
@@ -320,7 +373,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
     }
   });
 
-  router.post("/refresh", limit(postLimiter, deps), form, requireSession, requireCsrf, async (_req, res, next) => {
+  router.post("/refresh", postLimit, form, requireSession, requireCsrf, async (_req, res, next) => {
     try {
       const ok = await refreshGuilds(res.locals.dash as Authed);
       res.redirect(303, `/dashboard?notice=${ok ? "refreshed" : "refresh-failed"}`);
@@ -331,8 +384,8 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
 
   /* ── Guild pages ─────────────────────────────────────────────────── */
 
-  const guildGet = [limit(pageLimiter, deps), requireSession, requireGuild];
-  const guildPost = [limit(postLimiter, deps), form, requireSession, requireCsrf, requireGuild];
+  const guildGet = [pageLimit, requireSession, requireGuild];
+  const guildPost = [postLimit, form, requireSession, requireCsrf, requireGuild];
 
   router.get("/:guildId", ...guildGet, async (_req, res, next) => {
     try {
@@ -375,7 +428,8 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
       if (!parsed.ok) {
         return send(res, renderCase(deps.site, ctx, record, { reasonError: parsed.errors.reason, reasonValue: String((req.body as FormBody).reason ?? "") }), 400);
       }
-      await deps.data.editCaseReason(ctx.guild.id, caseId, parsed.value, { userId: ctx.viewer.userId, username: ctx.viewer.username });
+      const edited = await deps.data.editCaseReason(ctx.guild.id, caseId, parsed.value, actorOf(ctx));
+      if (edited) await logAudit(ctx, "case.reason", caseId, describeChanges({ reason: record.reason }, { reason: parsed.value }));
       res.redirect(303, `/dashboard/${ctx.guild.id}/cases/${encodeURIComponent(caseId)}?notice=reason`);
     } catch (err) {
       next(err);
@@ -386,8 +440,171 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
     try {
       const { ctx } = res.locals.dash as GuildLocals;
       const caseId = String(req.params.caseId);
-      const ok = await deps.data.revokeCase(ctx.guild.id, caseId, { userId: ctx.viewer.userId, username: ctx.viewer.username });
-      res.redirect(303, `/dashboard/${ctx.guild.id}/cases/${encodeURIComponent(caseId)}?notice=${ok ? "revoked" : "already-revoked"}`);
+      const caseUrl = `/dashboard/${ctx.guild.id}/cases/${encodeURIComponent(caseId)}`;
+      const record = await deps.data.getCase(ctx.guild.id, caseId);
+      if (!record) return fail(res, 404, "Case not found", "No case or warning with that ID exists in this server.", ctx.viewer);
+      const wantsUnban = parseRevoke(req.body as FormBody).unban && record.kind === "case" && record.action === "ban";
+      // Unbanning is checked before anything changes, so a refusal leaves the case as it was.
+      if (wantsUnban) {
+        const missing = await missingPermission(ctx, "BanMembers");
+        if (missing) return fail(res, 403, "Missing permission", `Unbanning needs ${missing} in this server, the same as /unban. Nothing was changed.`, ctx.viewer);
+      }
+      const ok = await deps.data.revokeCase(ctx.guild.id, caseId, actorOf(ctx));
+      if (!ok) return res.redirect(303, `${caseUrl}?notice=already-revoked`);
+      if (!wantsUnban) {
+        await logAudit(ctx, "case.revoke", caseId, `${record.action} for member ${record.userId}`);
+        return res.redirect(303, `${caseUrl}?notice=revoked`);
+      }
+      const outcome = await deps.data.unbanCaseMember(ctx.guild.id, record, actorOf(ctx));
+      await logAudit(ctx, "case.revoke+unban", caseId, `ban for member ${record.userId}; unban: ${outcome}`);
+      const code = outcome === "done" ? "revoked-unbanned" : outcome === "not-banned" ? "revoked-not-banned" : "revoked-unban-failed";
+      res.redirect(303, `${caseUrl}?notice=${code}`);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ── Appeals ─────────────────────────────────────────────────────── */
+
+  router.get("/:guildId/appeals", ...guildGet, async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const filter = parseAppealFilter(req.query as Record<string, unknown>);
+      const [result, missing] = await Promise.all([
+        deps.data.listAppeals(ctx.guild.id, filter.status, filter.page, APPEALS_PER_PAGE),
+        missingPermission(ctx, "BanMembers"),
+      ]);
+      send(res, renderAppeals(deps.site, ctx, filter, result, APPEALS_PER_PAGE, { missingPermission: missing, noticeCode: noticeParam(req) }));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get("/:guildId/appeals/:code", ...guildGet, async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const appeal = await deps.data.getAppeal(ctx.guild.id, String(req.params.code));
+      if (!appeal) return fail(res, 404, "Appeal not found", "No appeal with that code exists in this server.", ctx.viewer);
+      const missing = await missingPermission(ctx, "BanMembers");
+      send(res, renderAppeal(deps.site, ctx, appeal, { missingPermission: missing, noticeCode: noticeParam(req) }));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/:guildId/appeals/:code/review", ...guildPost, requirePermission("BanMembers"), async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const appeal = await deps.data.getAppeal(ctx.guild.id, String(req.params.code));
+      if (!appeal) return fail(res, 404, "Appeal not found", "No appeal with that code exists in this server.", ctx.viewer);
+      const url = `/dashboard/${ctx.guild.id}/appeals/${encodeURIComponent(appeal.code)}`;
+      const body = (req.body ?? {}) as FormBody;
+      const parsed = parseAppealReview(body);
+      if (!parsed.ok) {
+        return send(res, renderAppeal(deps.site, ctx, appeal, { errors: parsed.errors, noteValue: typeof body.note === "string" ? body.note : "" }), 400);
+      }
+      const outcome = await deps.data.reviewAppeal(ctx.guild.id, appeal.code, parsed.value.decision, parsed.value.note, actorOf(ctx));
+      if (!outcome.ok) {
+        if (outcome.reason === "not_found") return fail(res, 404, "Appeal not found", "No appeal with that code exists in this server.", ctx.viewer);
+        return res.redirect(303, `${url}?notice=appeal-reviewed`);
+      }
+      await logAudit(ctx, `appeal.${parsed.value.decision}`, appeal.code,
+        `member ${appeal.userId}${outcome.unban ? `; unban: ${outcome.unban}` : ""}${parsed.value.note ? `; note: ${parsed.value.note}` : ""}`);
+      const code = parsed.value.decision === "denied" ? "appeal-denied" : outcome.unban === "failed" ? "appeal-approved-unban-failed" : "appeal-approved";
+      res.redirect(303, `${url}?notice=${code}`);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ── Panels ──────────────────────────────────────────────────────── */
+
+  async function panelsPage(ctx: GuildContext, noticeCode: string | null, state?: PanelsState): Promise<string> {
+    const [rolePanels, snapshot, ticketsMissing, rolesMissing] = await Promise.all([
+      deps.data.listRolePanels(ctx.guild.id),
+      deps.data.loadSettings(ctx.guild.id),
+      missingPermission(ctx, "ManageChannels"),
+      missingPermission(ctx, "ManageRoles"),
+    ]);
+    return renderPanels(deps.site, ctx, {
+      channels: deps.bot.textChannels(ctx.guild.id),
+      roles: deps.bot.roles(ctx.guild.id),
+      rolePanels,
+      verificationSetUp: snapshot.verification !== null,
+      state,
+      noticeCode,
+      missing: { tickets: ticketsMissing, roles: rolesMissing },
+    });
+  }
+
+  const panelNotice = (result: PanelResult, okCode: string) =>
+    result === "posted" ? okCode : result === "channel-missing" ? "panel-channel-missing" : result === "not-found" ? "panel-not-found" : "panel-failed";
+
+  router.get("/:guildId/panels", ...guildGet, async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      send(res, await panelsPage(ctx, noticeParam(req)));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/:guildId/panels/tickets", ...guildPost, requirePermission("ManageChannels"), async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const body = (req.body ?? {}) as FormBody;
+      const parsed = parseTicketPanel(body, validationContext(ctx.guild.id));
+      if (!parsed.ok) return send(res, await panelsPage(ctx, null, { form: "ticket", values: submittedValues(body), errors: parsed.errors }), 400);
+      const result = await deps.data.postTicketPanel(ctx.guild.id, parsed.value, actorOf(ctx));
+      if (result === "posted") await logAudit(ctx, "panel.ticket", parsed.value.channelId, `in channel ${parsed.value.channelId}${parsed.value.staffRoleId ? `, staff role ${parsed.value.staffRoleId}` : ""}`);
+      res.redirect(303, `/dashboard/${ctx.guild.id}/panels?notice=${panelNotice(result, "panel-posted")}#tickets`);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/:guildId/panels/verification", ...guildPost, requirePermission("ManageRoles"), async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const body = (req.body ?? {}) as FormBody;
+      const parsed = parseVerificationPanel(body, validationContext(ctx.guild.id));
+      if (!parsed.ok) return send(res, await panelsPage(ctx, null, { form: "verification", values: submittedValues(body), errors: parsed.errors }), 400);
+      const result = await deps.data.setupVerificationPanel(ctx.guild.id, parsed.value, actorOf(ctx));
+      if (result === "posted") {
+        await logAudit(ctx, "panel.verification", parsed.value.channelId,
+          `in channel ${parsed.value.channelId}, role ${parsed.value.verifiedRoleId}, ${parsed.value.type}, auto-kick ${parsed.value.kickUnverifiedMinutes} min`);
+        return res.redirect(303, `/dashboard/${ctx.guild.id}/settings/verification?notice=verification-posted`);
+      }
+      res.redirect(303, `/dashboard/${ctx.guild.id}/panels?notice=${panelNotice(result, "panel-posted")}#verification`);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/:guildId/panels/roles/:panelId", ...guildPost, requirePermission("ManageRoles"), async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const panelId = String(req.params.panelId);
+      if (!/^panel-[\w-]{1,64}$/.test(panelId)) return fail(res, 404, "Panel not found", "That role panel does not exist.", ctx.viewer);
+      const parsed = parseRolePanelRepost((req.body ?? {}) as FormBody, validationContext(ctx.guild.id));
+      if (!parsed.ok) return res.redirect(303, `/dashboard/${ctx.guild.id}/panels?notice=panel-channel-missing#roles`);
+      const result = await deps.data.repostRolePanel(ctx.guild.id, panelId, parsed.value.channelId, actorOf(ctx));
+      if (result === "posted") await logAudit(ctx, "panel.role", panelId, `to channel ${parsed.value.channelId}`);
+      res.redirect(303, `/dashboard/${ctx.guild.id}/panels?notice=${panelNotice(result, "rolepanel-posted")}#roles`);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ── Activity ────────────────────────────────────────────────────── */
+
+  router.get("/:guildId/activity", ...guildGet, async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const raw = Number(typeof req.query.page === "string" ? req.query.page : "");
+      const page = Number.isInteger(raw) && raw >= 1 && raw <= 10_000 ? raw : 1;
+      const result = await audit.list(ctx.guild.id, { page, perPage: AUDIT_PER_PAGE });
+      send(res, renderActivity(deps.site, ctx, page, result, AUDIT_PER_PAGE));
     } catch (err) {
       next(err);
     }
@@ -407,16 +624,16 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
     };
   }
 
-  function parseSection(section: SettingsSection, body: FormBody, vctx: ValidationContext): Parsed<SettingsValue> {
+  function parseSection(section: SettingsSection, body: FormBody, vctx: ValidationContext, current: SettingsSnapshot): Parsed<SettingsValue> {
     const wrap = <T>(p: Parsed<T>, make: (v: T) => SettingsValue): Parsed<SettingsValue> => (p.ok ? { ok: true, value: make(p.value) } : p);
     switch (section) {
       case "logging": return wrap(parseLogging(body, vctx), value => ({ section, value }));
       case "escalation": return wrap(parseEscalation(body), value => ({ section, value }));
-      case "automod": return wrap(parseAutomod(body), value => ({ section, value }));
+      case "automod": return wrap(parseAutomod(body, vctx, current.automod), value => ({ section, value }));
       case "welcome": return wrap(parseWelcome(body, vctx), value => ({ section, value }));
       case "tickets": return wrap(parseTickets(body, vctx), value => ({ section, value }));
       case "verification": return wrap(parseVerification(body, vctx), value => ({ section, value }));
-      case "starboard": return wrap(parseStarboard(body, vctx), value => ({ section, value }));
+      case "starboard": return wrap(parseStarboard(body, vctx, current.starboard), value => ({ section, value }));
     }
   }
 
@@ -442,20 +659,25 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
       const section = req.params.section;
       if (!isSettingsSection(section)) return fail(res, 404, "No such settings page", "Pick a section from the settings menu.", ctx.viewer);
       const body = (req.body ?? {}) as FormBody;
-      const parsed = parseSection(section, body, validationContext(ctx.guild.id));
+      const before = await deps.data.loadSettings(ctx.guild.id);
+      const parsed = parseSection(section, body, validationContext(ctx.guild.id), before);
       if (!parsed.ok) {
-        const snapshot = await deps.data.loadSettings(ctx.guild.id);
-        // Keep display-only values (word count, emoji) that are not form fields.
-        const values = { ...settingsValues(section, snapshot), ...submittedValues(body) };
-        for (const [key, v] of Object.entries(settingsValues(section, snapshot))) {
+        // Keep display-only values that are not form fields.
+        const values = { ...settingsValues(section, before), ...submittedValues(body) };
+        for (const [key, v] of Object.entries(settingsValues(section, before))) {
           if (typeof v === "boolean" && !(key in body)) values[key] = false;
         }
+        for (const key of MULTI_FIELDS[section] ?? []) if (!(key in body)) values[key] = "";
         return send(res, renderSettings(
-          deps.site, ctx, section, snapshot, { values, errors: parsed.errors },
+          deps.site, ctx, section, before, { values, errors: parsed.errors },
           deps.bot.textChannels(ctx.guild.id), deps.bot.roles(ctx.guild.id), null,
         ), 400);
       }
-      const saved = await deps.data.saveSettings(ctx.guild.id, parsed.value, { userId: ctx.viewer.userId, username: ctx.viewer.username });
+      const saved = await deps.data.saveSettings(ctx.guild.id, parsed.value, actorOf(ctx));
+      if (saved) {
+        const after = await deps.data.loadSettings(ctx.guild.id).catch(() => before);
+        await logAudit(ctx, `settings.${section}`, null, describeChanges(settingsValues(section, before), settingsValues(section, after)));
+      }
       res.redirect(303, `/dashboard/${ctx.guild.id}/settings/${section}?notice=${saved ? "saved" : "verification-missing"}`);
     } catch (err) {
       next(err);

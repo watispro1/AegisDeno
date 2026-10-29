@@ -25,6 +25,10 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
   FAQ and privacy policy now describe the dashboard and the login cookies it
   sets.
 - `/case edit` and the dashboard share one `editCaseReason()` service function.
+- `/appeal review`, `/unban` and `/ticket setup` now run through shared service
+  functions (`reviewBanAppeal()`, `unbanMember()`, `postTicketPanel()`) that the
+  dashboard uses too. What they do is unchanged, except that an appeal can no
+  longer be reviewed twice at the same moment.
 - `/changelog` on the website is rendered from this file, so the site and the
   repository can no longer disagree. The Atom feed at `/changelog.xml` uses the
   same entries. The hand-written release list in `pages.ts` is gone.

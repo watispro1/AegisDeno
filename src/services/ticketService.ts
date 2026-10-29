@@ -26,6 +26,49 @@ import {
 
 export type { TicketSettings } from "./configuration";
 
+export const TICKET_PANEL_DEFAULT_TITLE = "🎫 Support Tickets";
+export const TICKET_PANEL_DEFAULT_DESCRIPTION = "Need assistance? Click the button below to open a private support ticket with our team.";
+
+/**
+ * Post the "Create Ticket" panel in a channel, deleting earlier Aegis ticket
+ * panels among its last 50 messages first. Shared by `/ticket setup` and the
+ * web dashboard. Throws when Discord refuses the send (missing permissions).
+ */
+export async function postTicketPanel(
+  channel: TextChannel,
+  opts: { staffRoleId?: string | null; title?: string | null; description?: string | null } = {},
+): Promise<Message> {
+  const botId = channel.client.user?.id;
+  const fetchedMsgs = await channel.messages.fetch({ limit: 50 }).catch(() => null);
+  if (fetchedMsgs) {
+    const oldPanels = fetchedMsgs.filter(
+      (m) =>
+        m.author.id === botId &&
+        m.components.some((row: any) => row.components?.some((c: any) => c.customId?.startsWith("ticket_create_"))),
+    );
+    for (const [, msg] of oldPanels) {
+      await msg.delete().catch(() => null);
+    }
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(opts.title || TICKET_PANEL_DEFAULT_TITLE)
+    .setColor(0x3498DB)
+    .setDescription(opts.description || TICKET_PANEL_DEFAULT_DESCRIPTION)
+    .setFooter({ text: "Aegis Ticket System" });
+
+  const customId = opts.staffRoleId ? `ticket_create_${opts.staffRoleId}` : "ticket_create_general";
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(customId)
+      .setLabel("Create Ticket")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("🎫"),
+  );
+
+  return channel.send({ embeds: [embed], components: [row] });
+}
+
 /** Most messages fetched into a transcript (Discord pages are 100 each). */
 const TRANSCRIPT_MESSAGE_LIMIT = 1000;
 
