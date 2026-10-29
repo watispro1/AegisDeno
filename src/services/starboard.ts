@@ -1,7 +1,7 @@
 /**
  * Starboard Service
  *
- * Handles all MongoDB interactions for the Starboard plugin:
+ * Handles all MongoDB interactions for the starboard:
  *  - Guild configuration (channel, emoji, threshold, ignored lists)
  *  - Tracking which messages have already been posted to the starboard
  *  - Building the Discord embed for a starred message
@@ -19,6 +19,7 @@ import {
   StarboardEntryModel,
 } from "../database/mongo";
 import { effectiveStarCount, pickStarboardMedia } from "./communityLogic";
+import { TtlCache } from "../utils/ttlCache";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,9 +36,18 @@ export interface StarboardConfig {
 
 // ─── Config helpers ───────────────────────────────────────────────────────────
 
-/** Fetch the starboard config for a guild, creating defaults if it doesn't exist yet. */
+/** Read on every reaction in every channel, so cached; updateStarboardConfig refreshes it. */
+const configCache = new TtlCache<StarboardConfig>(60_000);
+
+/** Fetch the starboard config for a guild, or the defaults if none is saved yet. */
 export async function getStarboardConfig(guildId: string): Promise<StarboardConfig> {
-  const doc = await StarboardConfigModel.findOne({ guildId }).lean();
+  return structuredClone(await configCache.getOrLoad(guildId, () => loadStarboardConfig(guildId)));
+}
+
+async function loadStarboardConfig(guildId: string): Promise<StarboardConfig> {
+  const doc = await StarboardConfigModel.findOne({ guildId })
+    .select("-_id guildId channelId emoji threshold selfStar ignoredChannels ignoredRoles enabled")
+    .lean();
   if (doc) return doc as StarboardConfig;
 
   // Return the defaults without persisting — a record is only saved when the
@@ -59,11 +69,13 @@ export async function updateStarboardConfig(
   guildId: string,
   patch: Partial<Omit<StarboardConfig, "guildId">>,
 ): Promise<StarboardConfig> {
+  configCache.delete(guildId);
   const doc = await StarboardConfigModel.findOneAndUpdate(
     { guildId },
     { ...patch, updatedAt: new Date() },
     { upsert: true, new: true },
   ).lean();
+  configCache.delete(guildId);
   return doc as StarboardConfig;
 }
 

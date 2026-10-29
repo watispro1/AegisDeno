@@ -75,6 +75,10 @@ const WarningSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 WarningSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+// Active-warning counts and lists (escalation, /warnings, trust score) filter on revoked.
+WarningSchema.index({ guildId: 1, userId: 1, revoked: 1, createdAt: -1 });
+// Guild-wide recent counts (/modreport, activity summary, dashboard).
+WarningSchema.index({ guildId: 1, createdAt: -1 });
 WarningSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const WarningModel = mongoose.model("Warning", WarningSchema);
 
@@ -93,6 +97,8 @@ const ModerationCaseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 ModerationCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+// Guild case lists and recent counts (/case list, /modreport, /modstats, dashboard).
+ModerationCaseSchema.index({ guildId: 1, createdAt: -1 });
 ModerationCaseSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const ModerationCaseModel = mongoose.model("ModerationCase", ModerationCaseSchema);
 
@@ -108,6 +114,11 @@ const TaskSchema = new mongoose.Schema({
 });
 TaskSchema.index({ guildId: 1, executeAt: 1 });
 TaskSchema.index({ creatorId: 1, type: 1, executeAt: 1 });
+// Boot-time restore: `$or: [{ executeAt >= cutoff }, { type in [...] }]` needs one index per branch.
+TaskSchema.index({ executeAt: 1 });
+TaskSchema.index({ type: 1, executeAt: 1 });
+// Per-channel lookups (ticket auto-close, /lock auto-unlock).
+TaskSchema.index({ guildId: 1, channelId: 1, type: 1 });
 export const TaskModel = mongoose.model("ScheduledTask", TaskSchema);
 
 const AutomodSchema = new mongoose.Schema({
@@ -177,6 +188,8 @@ const TicketSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 TicketSchema.index({ guildId: 1, userId: 1, status: 1 });
+// Message-path activity updates and channel → ticket lookups filter by channel.
+TicketSchema.index({ channelId: 1, status: 1 });
 // Enforce the one-open-ticket-per-member policy even across restarts or
 // multiple bot instances. Closed tickets remain fully queryable as history.
 TicketSchema.index(

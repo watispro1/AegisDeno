@@ -1,4 +1,5 @@
 import { AutomodModel } from "../database/mongo";
+import { TtlCache } from "../utils/ttlCache";
 
 export interface AutomodRule {
   enabled: boolean;
@@ -110,14 +111,21 @@ function normalizeAutomodConfig(guildId: string, source?: Partial<AutomodConfig>
   };
 }
 
-export async function getAutomodConfig(guildId: string): Promise<AutomodConfig> {
-  const doc = await AutomodModel.findOne({ guildId });
-  if (!doc) {
-    return normalizeAutomodConfig(guildId);
-  }
+/**
+ * Read on every message, so cached. Saves through updateAutomodConfig refresh
+ * the entry at once; the TTL only bounds edits made around this module.
+ */
+const automodCache = new TtlCache<AutomodConfig>(60_000);
 
-  const { _id, __v, ...config } = doc.toObject() as Partial<AutomodConfig> & { _id?: unknown; __v?: unknown };
+async function loadAutomodConfig(guildId: string): Promise<AutomodConfig> {
+  const doc = await AutomodModel.findOne({ guildId }).lean();
+  if (!doc) return normalizeAutomodConfig(guildId);
+  const { _id, __v, ...config } = doc as Partial<AutomodConfig> & { _id?: unknown; __v?: unknown };
   return normalizeAutomodConfig(guildId, config);
+}
+
+export async function getAutomodConfig(guildId: string): Promise<AutomodConfig> {
+  return structuredClone(await automodCache.getOrLoad(guildId, () => loadAutomodConfig(guildId)));
 }
 
 export async function updateAutomodConfig(
@@ -126,15 +134,14 @@ export async function updateAutomodConfig(
 ): Promise<AutomodConfig> {
   const normalized = normalizeAutomodConfig(guildId, { guildId, ...config });
 
-  await AutomodModel.findOneAndUpdate(
+  automodCache.delete(guildId);
+  await AutomodModel.updateOne(
     { guildId },
     { $set: normalized },
-    { new: true, upsert: true }
+    { upsert: true }
   );
+  automodCache.delete(guildId);
+  automodCache.set(guildId, structuredClone(normalized));
 
   return normalized;
-}
-
-export async function resetAutomodConfig(guildId: string): Promise<void> {
-  await AutomodModel.deleteOne({ guildId });
 }

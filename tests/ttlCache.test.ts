@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { TtlCache } from "../src/utils/ttlCache";
+import { ActivityThrottle } from "../src/services/ticketActivity";
 import { CooldownTracker } from "../src/commands/executor";
 
 test("TtlCache expires entries after the TTL", () => {
@@ -48,6 +49,33 @@ test("TtlCache: a failed load is not cached", async () => {
   const cache = new TtlCache<number>(60_000);
   await assert.rejects(cache.getOrLoad("k", async () => { throw new Error("x"); }));
   assert.equal(await cache.getOrLoad("k", async () => 1), 1);
+});
+
+test("ticket activity: one write per channel per interval, longer backoff for non-tickets", () => {
+  const t = new ActivityThrottle(60_000, 600_000);
+  assert.equal(t.shouldWrite("c1", 0), true);
+  assert.equal(t.shouldWrite("c1", 1_000), false);
+  t.settle("c1", true, 1_000);
+  assert.equal(t.shouldWrite("c1", 60_999), false);
+  assert.equal(t.shouldWrite("c1", 61_000), true);
+
+  assert.equal(t.shouldWrite("chat", 0), true);
+  t.settle("chat", false, 10);
+  assert.equal(t.shouldWrite("chat", 300_000), false);
+  assert.equal(t.shouldWrite("chat", 600_010), true);
+});
+
+test("ticket activity: 1000 messages in one channel within a minute cause one write", () => {
+  const t = new ActivityThrottle();
+  let writes = 0;
+  for (let i = 0; i < 1000; i++) if (t.shouldWrite("busy", i * 50)) writes++;
+  assert.equal(writes, 1);
+});
+
+test("ticket activity throttle stays bounded", () => {
+  const t = new ActivityThrottle(60_000, 600_000, 3);
+  for (const c of ["a", "b", "c", "d"]) t.shouldWrite(c, 0);
+  assert.equal(t.size, 3);
 });
 
 test("command cooldown reserves, blocks, and releases on failure", () => {

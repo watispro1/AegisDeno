@@ -30,8 +30,8 @@ import {
   watchlistOnRoleChange,
   watchlistOnVoiceJoin,
 } from "../services/watchlistService";
-import { TicketModel } from "../database/mongo";
 import { recordMemberMessage } from "../services/memberActivity";
+import { touchTicketActivity } from "../services/ticketActivity";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -166,10 +166,8 @@ export function setupEvents(client: Client): void {
     // Track message count / last active (debounced, no content) & first message of the day
     const isFirstToday = await recordMemberMessage(message.guildId, message.author.id).catch(() => false);
 
-    TicketModel.updateOne(
-      { guildId: message.guildId, channelId: message.channelId, status: "open" },
-      { $set: { lastActivityAt: new Date() } }
-    ).catch(() => null);
+    // Ticket inactivity clock: at most one write per channel per minute.
+    touchTicketActivity(message.guildId, message.channelId);
 
     watchlistOnMessage(client, message, isFirstToday).catch(err =>
       logger.warn("Watchlist message error:", err)
