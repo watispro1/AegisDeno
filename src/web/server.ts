@@ -25,6 +25,12 @@ import { atomFeed } from "./changelog";
 import { commands } from "../commands/loader";
 import { VERSION } from "../version";
 import { knubManager } from "../knub";
+import { createDashboardRouter } from "./dashboard/router";
+import { readDashboardConfig, missingDashboardSettings } from "./dashboard/config";
+import { discordBotView } from "./dashboard/botView";
+import { mongoDashboardData } from "./dashboard/data";
+import { mongoSessionStore } from "./dashboard/sessions";
+import { dashboardScript } from "./dashboard/client";
 import { registerDefaultPlugins } from "../knub/plugins";
 
 const SITE_VERSION = VERSION;
@@ -35,6 +41,7 @@ const ASSET_VERSION = createHash("sha256")
   .update(styles)
   .update(clientScript)
   .update(themeInitScript)
+  .update(dashboardScript)
   .digest("hex")
   .slice(0, 8);
 
@@ -219,6 +226,7 @@ export function startWebServer(client: Client) {
 
   app.get("/assets/site.css", (_req, res) => asset(res, "text/css", styles, 31536000));
   app.get("/assets/site.js", (_req, res) => asset(res, "text/javascript", clientScript, 31536000));
+  app.get("/assets/dashboard.js", (_req, res) => asset(res, "text/javascript", dashboardScript, 31536000));
   app.get("/assets/theme-init.js", (_req, res) => asset(res, "text/javascript", themeInitScript, 31536000));
   app.get("/assets/favicon.svg", (_req, res) => asset(res, "image/svg+xml", faviconSvg, 31536000));
   app.get("/assets/og.svg", (_req, res) => asset(res, "image/svg+xml", ogImageSvg, 31536000));
@@ -332,6 +340,7 @@ export function startWebServer(client: Client) {
       "Allow: /",
       "Disallow: /api/",
       "Disallow: /health",
+      "Disallow: /dashboard",
       origin ? `Sitemap: ${origin}/sitemap.xml` : "Sitemap: /sitemap.xml",
       "",
     ];
@@ -362,7 +371,6 @@ export function startWebServer(client: Client) {
 
   app.get("/command", (_req, res) => res.redirect(302, "/commands"));
   app.get("/commands/:name", (req, res) => res.redirect(301, `/commands#cmd-${String(req.params.name ?? "")}`));
-  app.get("/dashboard", (_req, res) => res.redirect(301, "/features"));
   app.get("/playground", (_req, res) => res.redirect(301, "/features"));
   app.get("/privacy-policy", (_req, res) => res.redirect(301, "/privacy"));
   app.get("/terms-of-service", (_req, res) => res.redirect(301, "/terms"));
@@ -388,6 +396,20 @@ export function startWebServer(client: Client) {
       send(res, route.render(cfg, ctx), 200, route.live ? "no-cache" : undefined);
     });
   }
+
+  // Web dashboard. Without its env vars every /dashboard route shows a
+  // "not configured" page and nothing else on the site changes.
+  const dashboardConfig = readDashboardConfig();
+  if (!dashboardConfig) {
+    logger.info(`Web dashboard off; missing: ${missingDashboardSettings().join(", ")}`);
+  }
+  app.use("/dashboard", createDashboardRouter({
+    site: cfg,
+    config: dashboardConfig,
+    bot: discordBotView(client),
+    data: mongoDashboardData(client),
+    sessions: mongoSessionStore(),
+  }));
 
   app.use((_req: Request, res: Response) => {
     send(res, renderNotFound(cfg), 404, "no-store");
