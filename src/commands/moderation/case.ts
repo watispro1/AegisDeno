@@ -13,6 +13,7 @@ import type { Command } from "../../types/discord";
 import { isValidObjectId } from "mongoose";
 import { ModerationCaseModel, WarningModel } from "../../database/mongo";
 import { sendGuildLog } from "../../services/logging";
+import { editCaseReason } from "../../services/moderationCases";
 import { MAX_CASES_BROWSABLE, pageInfo, stepPage } from "../../services/casePaging";
 
 const MAX_EXPORT_CASES = 5_000;
@@ -194,26 +195,15 @@ export const command: Command = {
       }
       const newReason = interaction.options.getString("reason", true);
 
-      const record = await ModerationCaseModel.findOneAndUpdate(
-        { guildId: interaction.guild.id, _id: caseId },
-        { $set: { reason: newReason } },
-        { new: false }, // return the old document so the log can show the previous reason
-      ).catch(() => null);
+      const edited = await editCaseReason(interaction.guild.id, caseId, newReason);
 
-      // Warnings live in their own collection; let /case edit fix those too.
-      const warning = record
-        ? null
-        : await WarningModel.findOneAndUpdate(
-            { guildId: interaction.guild.id, _id: caseId },
-            { $set: { reason: newReason } },
-          ).catch(() => null);
-
-      if (!record && !warning) {
+      if (!edited) {
         await interaction.reply({ content: `❌ Case \`${caseId}\` not found.`, flags: MessageFlags.Ephemeral });
         return;
       }
-      const previous = record ?? warning;
-      const targetId = previous?.userId;
+      const warning = edited.kind === "warning";
+      const targetId = edited.userId;
+      const previous = { reason: edited.previousReason };
       await interaction.reply({ content: `✅ Updated reason for ${warning ? "warning" : "case"} \`${caseId}\` to: "${newReason}"`, flags: MessageFlags.Ephemeral });
       await sendGuildLog(interaction.client, interaction.guild.id, {
         title: "✏️ Case Reason Edited",

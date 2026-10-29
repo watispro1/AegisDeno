@@ -51,6 +51,25 @@ export async function setKickUnverifiedMinutes(guildId: string, minutes: number)
 }
 
 /**
+ * Change stored verification settings without re-posting the panel (used by
+ * the web dashboard). Returns false when verification was never set up with
+ * /verify setup, since there is no panel for members to click yet.
+ */
+export async function updateVerificationSettings(
+  guildId: string,
+  patch: Partial<Pick<VerificationConfig, "enabled" | "verifiedRoleId" | "type" | "kickUnverifiedMinutes">>,
+): Promise<boolean> {
+  const update: Record<string, unknown> = {};
+  if (typeof patch.enabled === "boolean") update.enabled = patch.enabled;
+  if (typeof patch.verifiedRoleId === "string" && /^\d{17,20}$/.test(patch.verifiedRoleId)) update.verifiedRoleId = patch.verifiedRoleId;
+  if (patch.type === "button" || patch.type === "captcha") update.type = patch.type;
+  if (patch.kickUnverifiedMinutes !== undefined) update.kickUnverifiedMinutes = normalizeKickMinutes(patch.kickUnverifiedMinutes);
+  if (Object.keys(update).length === 0) return false;
+  const res = await VerificationModel.updateOne({ guildId }, { $set: update });
+  return res.matchedCount > 0;
+}
+
+/**
  * On join: if verification is on with an auto-kick delay, persist a `verify_kick` task
  * so the check survives restarts. The task re-checks state before kicking.
  */

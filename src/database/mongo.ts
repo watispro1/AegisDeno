@@ -403,3 +403,27 @@ const UserActivitySchema = new mongoose.Schema({
 });
 UserActivitySchema.index({ guildId: 1, userId: 1 }, { unique: true });
 export const UserActivityModel = mongoose.model('UserActivity', UserActivitySchema);
+
+// ─── Web dashboard sessions ───────────────────────────────────────────────────
+
+/**
+ * One signed-in dashboard browser. The cookie holds a signed random ID; only its
+ * SHA-256 is stored here. The Discord access token never leaves the server.
+ * Documents are removed by the TTL index once `expiresAt` passes (7 days).
+ */
+const DashboardSessionSchema = new mongoose.Schema({
+  sidHash:        { type: String, required: true, unique: true },
+  userId:         { type: String, required: true },
+  username:       { type: String, required: true },
+  globalName:     { type: String, default: null },
+  accessToken:    { type: String, required: true },
+  tokenExpiresAt: { type: Date, required: true },
+  // Guilds from GET /users/@me/guilds at login or the last refresh: { id, name, icon, owner, permissions }.
+  guilds:         { type: mongoose.Schema.Types.Mixed, default: [] },
+  guildsFetchedAt:{ type: Date, default: Date.now },
+  createdAt:      { type: Date, default: Date.now },
+  expiresAt:      { type: Date, required: true },
+}, { minimize: false });
+DashboardSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+DashboardSessionSchema.index({ userId: 1 });
+export const DashboardSessionModel = mongoose.model("DashboardSession", DashboardSessionSchema);
