@@ -47,8 +47,12 @@ export function createClient(): Client {
       // drops presence updates from a connection missing this intent.
       GatewayIntentBits.GuildPresences,
       GatewayIntentBits.GuildVoiceStates,
+      // Starboard: without this intent Discord never sends reaction events.
+      GatewayIntentBits.GuildMessageReactions,
     ],
-    partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
+    // Message, Channel and Reaction partials deliver reactions on messages that
+    // are not in the cache (anything sent before the bot last started).
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.GuildMember],
   });
 
   // Attach commands collection to client for easy access
