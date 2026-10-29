@@ -22,6 +22,8 @@ A step-by-step guide for deploying Aegis to production on Fly.io with MongoDB At
   - [x] **Server Members Intent** (required for welcome messages and hierarchy checks)
   - [x] **Message Content Intent** (required for automod)
   - [ ] **Presence Intent** (optional — only needed for rich presence display)
+  - The bot also requests the message reactions intent for the starboard. It is
+    not privileged, so there is nothing to enable for it.
 - [ ] Under **OAuth2 → URL Generator**, select scopes: `bot`, `applications.commands`
 - [ ] Select bot permissions: `Manage Messages`, `Kick Members`, `Ban Members`, `Moderate Members`, `Send Messages`, `Embed Links`, `Read Message History`, `View Audit Log`
 - [ ] Copy the generated OAuth2 URL → `BOT_INVITE_URL`

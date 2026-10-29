@@ -774,8 +774,7 @@ export function renderDocs(cfg: SiteConfig): string {
       ${cmdBlock(`/config view
 /config logging channel:#mod-log enabled:true
 /config welcome channel:#welcome enabled:true
-/preset view
-/plugins list`)}
+/preset view`)}
       <p>Presets apply a bundle of automod and escalation settings in one go. Run <code>/preset view</code> to see what each one changes before applying it.</p>
 
       <h2 id="permissions">Permissions</h2>
@@ -1163,7 +1162,6 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
         <tr><td><a href="/health"><code class="inline">/health</code></a></td><td>Up or down, version, uptime, server count, latency. Good for uptime checks.</td></tr>
         <tr><td><a href="/api/stats"><code class="inline">/api/stats</code></a></td><td>The numbers on this page.</td></tr>
         <tr><td><a href="/api/commands"><code class="inline">/api/commands</code></a></td><td>The command catalog with options and permissions.</td></tr>
-        <tr><td><a href="/api/plugins"><code class="inline">/api/plugins</code></a></td><td>Registered Knub plugins.</td></tr>
         <tr><td><a href="/changelog.xml"><code class="inline">/changelog.xml</code></a></td><td>Atom feed of releases.</td></tr>
       </tbody>
     </table>

@@ -6,6 +6,7 @@ import { initScheduler, shutdownScheduler } from "./services/schedulerRunner";
 import { connectDatabase, closeDatabase } from "./database/mongo";
 import { logger } from "./utils/logger";
 import { startWebServer } from "./web/server";
+import { flushMemberActivity } from "./services/memberActivity";
 
 const TOKEN           = process.env.DISCORD_TOKEN!;
 const APPLICATION_ID  = process.env.DISCORD_APPLICATION_ID!;
@@ -99,9 +100,8 @@ async function main(): Promise<void> {
   // 6. Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Shutting down gracefully...`);
-    const { knubManager } = await import("./knub");
-    await knubManager.unloadAll().catch(err => logger.warn("Knub unload error:", err));
     shutdownScheduler();
+    await flushMemberActivity().catch(err => logger.warn("Activity flush error:", err));
     await closeDatabase().catch(err => logger.error("Database shutdown error:", err));
     client.destroy();
     process.exit(0);

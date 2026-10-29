@@ -24,8 +24,7 @@ export const command: Command = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     // 1. Fetch Configs
-    const guildConfig = await getGuildConfig(guild.id);
-    const automodConfig = await getAutomodConfig(guild.id);
+    const [guildConfig, automodConfig] = await Promise.all([getGuildConfig(guild.id), getAutomodConfig(guild.id)]);
 
     // 2. Check Permissions
     const p = botMember.permissions;
@@ -98,19 +97,7 @@ export const command: Command = {
         ].filter(Boolean).join(", ")})`
       : "❌ All rules disabled";
 
-    // 5. Check Knub Plugins
-    const { knubManager } = await import("../../knub");
-    const allPlugins = knubManager.getAllPlugins();
-    const pluginStates = await Promise.all(
-      allPlugins.map(async (p) => ({
-        name: p.name,
-        enabled: await knubManager.isPluginEnabledForGuild(guild.id, p.name),
-      })),
-    );
-    const enabledPlugins = pluginStates.filter(p => p.enabled).map(p => p.name);
-    const disabledPlugins = pluginStates.filter(p => !p.enabled).map(p => p.name);
-
-    // 6. Build Embed
+    // 5. Build Embed
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle("🛠️ Server Diagnostics & Setup")
@@ -121,12 +108,6 @@ export const command: Command = {
         { name: "Welcome Channel", value: welcomeStatus, inline: true },
         { name: "Welcome Role", value: welcomeRoleStatus, inline: true },
         { name: "Automod", value: automodStatus, inline: false },
-        {
-          name: "🧩 Knub Plugins",
-          value: `**Enabled (${enabledPlugins.length}):** ${enabledPlugins.join(", ")}\n` +
-            (disabledPlugins.length > 0 ? `**Disabled (${disabledPlugins.length}):** ${disabledPlugins.join(", ")}` : "*All modules active*"),
-          inline: false,
-        },
       );
 
     const recommendations: string[] = [];
@@ -138,9 +119,6 @@ export const command: Command = {
     }
     if (!hasAnyAutomod) {
       recommendations.push("• Enable some automod features using `/automod <rule> toggle`.");
-    }
-    if (disabledPlugins.length > 0) {
-      recommendations.push(`• You have ${disabledPlugins.length} disabled plugin(s). Manage with \`/plugins\`.`);
     }
 
     if (recommendations.length > 0) {

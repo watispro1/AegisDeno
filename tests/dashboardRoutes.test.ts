@@ -52,6 +52,8 @@ const snapshot: SettingsSnapshot = {
     guildId: GUILD_OK, prefix: "!", language: "en", loggingEnabled: false, loggingChannelId: null, logCategories: null,
     welcomeEnabled: false, welcomeChannelId: null, welcomeMessage: "Welcome {user}", welcomeRoleId: null, suggestionsChannelId: null,
     escalation: { enabled: false, thresholds: [], warnExpiryDays: null },
+    tickets: { logChannelId: null, autoCloseHours: 48, transcriptLogging: true },
+    roles: { maxRolesPerPanel: 25 },
   },
   automod: {
     guildId: GUILD_OK,

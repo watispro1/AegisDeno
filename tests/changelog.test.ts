@@ -99,10 +99,18 @@ test("readChangelogFile returns an empty changelog for a missing file", () => {
   assert.deepEqual(readChangelogFile(join(__dirname, "no-such-changelog.md")), { intro: [], releases: [] });
 });
 
-test("CHANGELOG.md no longer lists the plugin framework and points at the dashboard changelog", () => {
+test("CHANGELOG.md records the /plugins removal and points at the dashboard changelog", () => {
   const md = readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8");
-  assert.ok(!/src\/knub|\/plugins list|\/api\/plugins|Plugin framework|plugin router/.test(md));
   const unreleased = parseChangelog(md).releases[0];
   assert.equal(unreleased.version, "Unreleased");
   assert.ok(unreleased.sections.some((s) => s.items.some((i) => i.includes("DASHBOARD_CHANGELOG.md"))));
+  const removed = unreleased.sections.find((s) => s.title === "Removed");
+  assert.ok(removed, "Unreleased has a Removed section");
+  assert.ok(removed.items.some((i) => i.includes("/plugins") && i.includes("/api/plugins")));
+  // No release before Unreleased ever shipped a plugin framework entry.
+  for (const release of parseChangelog(md).releases.slice(1)) {
+    for (const section of release.sections) {
+      for (const item of section.items) assert.ok(!/\/plugins list|\/api\/plugins|plugin router/.test(item), item);
+    }
+  }
 });

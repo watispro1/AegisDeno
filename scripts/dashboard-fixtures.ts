@@ -38,6 +38,8 @@ export function dashboardAuditPages(cfg: SiteConfig): [string, string][] {
       guildId: GUILD, prefix: "!", language: "en", loggingEnabled: true, loggingChannelId: "700000000000000009", logCategories: null,
       welcomeEnabled: true, welcomeChannelId: "700000000000000001", welcomeMessage: "Welcome {user} to {server}!", welcomeRoleId: null, suggestionsChannelId: null,
       escalation: { enabled: true, thresholds: [{ atWarnings: 3, action: "timeout", durationMinutes: 60 }, { atWarnings: 5, action: "ban" }], warnExpiryDays: 30 },
+      tickets: { logChannelId: null, autoCloseHours: 48, transcriptLogging: true },
+      roles: { maxRolesPerPanel: 25 },
     },
     automod: {
       guildId: GUILD,

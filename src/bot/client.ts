@@ -9,9 +9,6 @@ import {
   TextChannel,
   ActivityType,
   PresenceUpdateStatus,
-  ActionRowBuilder,
-  ButtonBuilder,
-  EmbedBuilder,
 } from "discord.js";
 import "../types/augmentation"; // Ensure augmentation is loaded
 import { logger } from "../utils/logger";
@@ -22,8 +19,8 @@ import { processAutomod, processAutomodEdit } from "../services/automodExecution
 import { processAutoResponders } from "../services/autoResponderService";
 import { getGuildConfig } from "../services/configuration";
 import { scheduleUnverifiedKick } from "../services/verificationService";
-import { knubManager } from "../knub";
-import { registerDefaultPlugins } from "../knub/plugins";
+import { componentRouter } from "./interactions";
+import { registerStarboardEvents } from "./events/starboard";
 import {
   watchlistOnJoin,
   watchlistOnLeave,
@@ -33,8 +30,8 @@ import {
   watchlistOnRoleChange,
   watchlistOnVoiceJoin,
 } from "../services/watchlistService";
-import { TicketModel } from "../database/mongo";
 import { recordMemberMessage } from "../services/memberActivity";
+import { touchTicketActivity } from "../services/ticketActivity";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -50,8 +47,12 @@ export function createClient(): Client {
       // drops presence updates from a connection missing this intent.
       GatewayIntentBits.GuildPresences,
       GatewayIntentBits.GuildVoiceStates,
+      // Starboard: without this intent Discord never sends reaction events.
+      GatewayIntentBits.GuildMessageReactions,
     ],
-    partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
+    // Message, Channel and Reaction partials deliver reactions on messages that
+    // are not in the cache (anything sent before the bot last started).
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.GuildMember],
   });
 
   // Attach commands collection to client for easy access
@@ -64,11 +65,7 @@ export function createClient(): Client {
 }
 
 export function setupEvents(client: Client): void {
-  // Initialize Knub plugins
-  registerDefaultPlugins();
-  knubManager.initialize(client).catch((err) => {
-    logger.error("[Knub] Plugin initialization error:", err);
-  });
+  registerStarboardEvents(client);
 
   // ─── Ready ────────────────────────────────────────────────────────────────
   client.once(Events.ClientReady, (c) => {
@@ -150,7 +147,7 @@ export function setupEvents(client: Client): void {
       }
       await executeCommand(command, interaction);
     } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
-      await knubManager.dispatchComponent(interaction as any);
+      await componentRouter.dispatch(interaction);
     }
   });
 
@@ -169,10 +166,8 @@ export function setupEvents(client: Client): void {
     // Track message count / last active (debounced, no content) & first message of the day
     const isFirstToday = await recordMemberMessage(message.guildId, message.author.id).catch(() => false);
 
-    TicketModel.updateOne(
-      { guildId: message.guildId, channelId: message.channelId, status: "open" },
-      { $set: { lastActivityAt: new Date() } }
-    ).catch(() => null);
+    // Ticket inactivity clock: at most one write per channel per minute.
+    touchTicketActivity(message.guildId, message.channelId);
 
     watchlistOnMessage(client, message, isFirstToday).catch(err =>
       logger.warn("Watchlist message error:", err)
@@ -313,8 +308,7 @@ export function setupEvents(client: Client): void {
   });
 
   // ─── Guild Join / Discovery ────────────────────────────────────────────────
-  client.on(Events.GuildCreate, async (guild) => {
+  client.on(Events.GuildCreate, (guild) => {
     logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
-    await knubManager.handleGuildCreate(guild);
   });
 }

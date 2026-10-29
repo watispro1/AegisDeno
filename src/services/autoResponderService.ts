@@ -1,6 +1,7 @@
 import { Message } from "discord.js";
 import { AutoResponderModel } from "../database/mongo";
 import { logger } from "../utils/logger";
+import { TtlCache } from "../utils/ttlCache";
 
 export interface AutoResponder {
   id: string;
@@ -13,12 +14,26 @@ export interface AutoResponder {
   createdAt: Date;
 }
 
-interface CacheEntry {
-  responders: any[];
-  expiresAt: number;
+/** The fields the message path needs, with the trigger already lower-cased. */
+interface ActiveResponder {
+  trigger: string;
+  response: string;
+  matchType: AutoResponder["matchType"];
 }
-const responderCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 30_000;
+
+/** Enabled responders per guild, read on every message. Add/remove invalidate. */
+const responderCache = new TtlCache<ActiveResponder[]>(30_000);
+
+async function loadActiveResponders(guildId: string): Promise<ActiveResponder[]> {
+  const docs = await AutoResponderModel.find({ guildId, enabled: true })
+    .select("-_id trigger response matchType")
+    .lean();
+  return docs.map((d) => ({
+    trigger: String(d.trigger).toLowerCase(),
+    response: String(d.response),
+    matchType: d.matchType as AutoResponder["matchType"],
+  }));
+}
 
 export async function addAutoResponder(input: {
   guildId: string;
@@ -68,19 +83,13 @@ export async function processAutoResponders(message: Message): Promise<boolean> 
   if (!message.guild || message.author.bot || !message.content) return false;
 
   try {
+    const guildId = message.guild.id;
+    const responders = await responderCache.getOrLoad(guildId, () => loadActiveResponders(guildId));
+    if (responders.length === 0) return false;
     const content = message.content.toLowerCase();
-    const now = Date.now();
-    const cached = responderCache.get(message.guild.id);
-    let responders: any[];
-    if (cached && now < cached.expiresAt) {
-      responders = cached.responders;
-    } else {
-      responders = await AutoResponderModel.find({ guildId: message.guild.id, enabled: true }).lean();
-      responderCache.set(message.guild.id, { responders, expiresAt: now + CACHE_TTL_MS });
-    }
 
     for (const ar of responders) {
-      const trigger = ar.trigger.toLowerCase();
+      const trigger = ar.trigger;
       let matched = false;
 
       if (ar.matchType === "exact" && content === trigger) {

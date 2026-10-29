@@ -36,7 +36,7 @@ const ROUTES: [string, number][] = [
   ["/health", 200],
   ["/api/stats", 200],
   ["/api/commands", 200],
-  ["/api/plugins", 200],
+  ["/api/plugins", 404],
   ["/api/commands/ban", 200],
   ["/api/commands/timeout", 200],
   ["/api/commands/definitely-not-a-command", 404],
@@ -161,8 +161,6 @@ async function main() {
   const commandsJson = await (await fetch(origin + "/api/commands")).json();
   check("commands api returns array", Array.isArray(commandsJson.commands));
 
-  const pluginsJson = await (await fetch(origin + "/api/plugins")).json();
-  check("plugins api returns array", Array.isArray(pluginsJson.plugins));
 
   const oversizedWebhook = await fetch(origin + "/api/topgg/webhook", {
     method: "POST",

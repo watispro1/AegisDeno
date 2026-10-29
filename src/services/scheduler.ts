@@ -80,9 +80,9 @@ export async function createTask(
 
 export async function getTask(guildId: string, id: string): Promise<ScheduledTask | null> {
   try {
-    const doc = await TaskModel.findOne({ _id: id, guildId });
+    const doc = await TaskModel.findOne({ _id: id, guildId }).lean();
     if (!doc) return null;
-    return toTask(doc.toObject());
+    return toTask(doc);
   } catch {
     return null;
   }
@@ -94,9 +94,9 @@ export async function updateTaskNextRun(guildId: string, id: string, nextExecute
       { _id: id, guildId },
       { $set: { executeAt: nextExecuteAt } },
       { new: true }
-    );
+    ).lean();
     if (!doc) return null;
-    return toTask(doc.toObject());
+    return toTask(doc);
   } catch {
     return null;
   }
@@ -111,14 +111,14 @@ export async function getTasksForGuild(
   if (creatorId) filter.creatorId = creatorId;
   if (types) filter.type = { $in: [...types] };
 
-  const docs = await TaskModel.find(filter).sort({ executeAt: 1 });
-  return docs.map(doc => toTask(doc.toObject()));
+  const docs = await TaskModel.find(filter).sort({ executeAt: 1 }).lean();
+  return docs.map(doc => toTask(doc));
 }
 
 /** All tasks of one type created by a user, across every guild and DM. */
 export async function getTasksForCreator(creatorId: string, type: TaskType): Promise<ScheduledTask[]> {
-  const docs = await TaskModel.find({ creatorId, type }).sort({ executeAt: 1 });
-  return docs.map(doc => toTask(doc.toObject()));
+  const docs = await TaskModel.find({ creatorId, type }).sort({ executeAt: 1 }).lean();
+  return docs.map(doc => toTask(doc));
 }
 
 /** Delete a task only if it belongs to the given creator and type. */
@@ -145,8 +145,8 @@ export async function deleteTasksForCreatorInGuild(guildId: string, creatorId: s
 
 /** Tasks of one type targeting a specific channel (e.g. pending auto-unlocks). */
 export async function getTasksForChannel(guildId: string, channelId: string, type: TaskType): Promise<ScheduledTask[]> {
-  const docs = await TaskModel.find({ guildId, channelId, type }).sort({ executeAt: 1 });
-  return docs.map(doc => toTask(doc.toObject()));
+  const docs = await TaskModel.find({ guildId, channelId, type }).sort({ executeAt: 1 }).lean();
+  return docs.map(doc => toTask(doc));
 }
 
 export async function deleteTask(guildId: string, id: string): Promise<boolean> {

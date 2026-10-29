@@ -83,6 +83,60 @@ export function applyPollVote(
   return { choices: [...current, optionIndex].sort((a, b) => a - b), added: true };
 }
 
+/**
+ * Filter that matches a poll only while a user's stored picks are exactly
+ * `current`, for compare-and-set vote updates. Missing, null and empty all mean
+ * "no picks" (an empty array is never stored, but older documents may hold one).
+ */
+export function pollVoteGuard(userId: string, current: readonly number[]): Record<string, unknown> {
+  const key = `votes.${userId}`;
+  return current.length === 0 ? { [key]: { $in: [null, []] } } : { [key]: [...current] };
+}
+
+/** Discord's limit on an embed description. */
+export const EMBED_DESCRIPTION_LIMIT = 4096;
+
+/**
+ * The closed-poll results text. Every option and its count is always shown;
+ * if voter lists would push it past Discord's limit, fewer voters are listed
+ * per option (with "+N more") until it fits, rather than cutting options off.
+ */
+export function renderPollResultsText(
+  poll: { options: readonly string[]; anonymous: boolean; votes: Readonly<Record<string, readonly number[]>> },
+  counts: readonly number[],
+  totalVotes: number,
+  verdict: string,
+  emojis: readonly string[],
+  limit = EMBED_DESCRIPTION_LIMIT,
+): string {
+  const voterIds = poll.options.map((_, i) =>
+    poll.anonymous ? [] : Object.entries(poll.votes).filter(([, picks]) => picks.includes(i)).map(([uid]) => uid),
+  );
+
+  const build = (maxShown: number): string => {
+    const lines = poll.options.map((opt, i) => {
+      let line = `${emojis[i]} **${opt}** — ${counts[i]} vote${counts[i] !== 1 ? "s" : ""}\n\`${buildResultBar(counts[i], totalVotes)}\``;
+      const who = voterIds[i];
+      if (who.length > 0) {
+        const shown = who.slice(0, maxShown).map((uid) => `<@${uid}>`);
+        const rest = who.length - shown.length;
+        const tail = rest > 0 ? `${shown.length ? " " : ""}+${rest} ${shown.length ? "more" : `voter${rest !== 1 ? "s" : ""}`}` : "";
+        line += `\n${shown.join(" ")}${tail}`;
+      }
+      return line;
+    });
+    return `${verdict}\n\n${lines.join("\n\n")}`;
+  };
+
+  for (const maxShown of [15, 10, 5, 3, 1, 0]) {
+    const text = build(maxShown);
+    if (text.length <= limit) return text;
+  }
+  // Options alone cannot exceed the limit with today's caps (10 options of 80
+  // characters), but never send Discord an invalid embed.
+  return build(0).slice(0, limit);
+}
+
 export interface PollTally {
   /** Votes per option, by index. */
   counts: number[];
@@ -156,6 +210,11 @@ export function isSuggestionOpen(status: SuggestionStatus): boolean {
  * Stars that count toward the threshold. When self-starring is off, the
  * author's own reaction is not counted.
  */
+/** Whether a reaction's emoji is the configured starboard emoji (unicode name or `<:custom:id>` form). */
+export function starEmojiMatches(configured: string, emojiName: string | null, emojiString: string): boolean {
+  return (emojiName ?? emojiString) === configured || emojiString === configured;
+}
+
 export function effectiveStarCount(rawCount: number, authorReacted: boolean, selfStarAllowed: boolean): number {
   const n = Math.max(0, rawCount);
   return !selfStarAllowed && authorReacted ? Math.max(0, n - 1) : n;

@@ -97,8 +97,8 @@ export async function getRecentCasesForGuild(
   guildId: string,
   limit = 20,
 ): Promise<ModerationCase[]> {
-  const cases = await ModerationCaseModel.find({ guildId }).sort({ createdAt: -1 }).limit(limit);
-  return cases.map(entry => ({ ...entry.toObject(), _id: String(entry._id) })) as ModerationCase[];
+  const cases = await ModerationCaseModel.find({ guildId }).sort({ createdAt: -1 }).limit(limit).lean();
+  return cases.map(entry => ({ ...entry, _id: String(entry._id) })) as ModerationCase[];
 }
 
 export async function getTopOffendersForGuild(
@@ -120,12 +120,12 @@ export async function getModerationCases(
   limit = 10,
 ): Promise<ModerationCase[]> {
   const [cases, warnings] = await Promise.all([
-    ModerationCaseModel.find({ guildId, userId }).sort({ createdAt: -1 }).limit(limit),
-    WarningModel.find({ guildId, userId }).sort({ createdAt: -1 }).limit(limit),
+    ModerationCaseModel.find({ guildId, userId }).sort({ createdAt: -1 }).limit(limit).lean(),
+    WarningModel.find({ guildId, userId }).sort({ createdAt: -1 }).limit(limit).lean(),
   ]);
 
   const moderationCases: ModerationCase[] = cases.map((entry) => ({
-    ...entry.toObject(),
+    ...entry,
     _id: String(entry._id),
   })) as ModerationCase[];
 
