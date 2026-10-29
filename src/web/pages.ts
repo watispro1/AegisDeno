@@ -8,7 +8,7 @@ import {
   type OptionInfo,
 } from "./catalog";
 import { features, faqs, quickstart } from "./content";
-import { getChangelog, type ChangelogRelease } from "./changelog";
+import { getChangelog, getDashboardChangelog, type ChangelogRelease } from "./changelog";
 
 /** Public source repository (readable; proprietary licence). */
 const REPO_URL = "https://github.com/watispro1/AegisDeno";
@@ -1019,7 +1019,7 @@ export function renderChangelog(cfg: SiteConfig): string {
   ${breadcrumb("Changelog")}
   <div class="page-head">
     <h1>Changelog</h1>
-    <p class="lead">What changed in each version, newest first. This page is built from <a href="${REPO_URL}/blob/main/CHANGELOG.md">CHANGELOG.md</a> in the repository, so the two always match. There is also an <a href="/changelog.xml">Atom feed</a>.</p>
+    <p class="lead">What changed in each version, newest first. This page is built from <a href="${REPO_URL}/blob/main/CHANGELOG.md">CHANGELOG.md</a> in the repository, so the two always match. There is also an <a href="/changelog.xml">Atom feed</a>. Changes to the web dashboard are in the <a href="/dashboard/changelog">dashboard changelog</a>.</p>
   </div>
 
   <details class="toc-mobile">
@@ -1062,6 +1062,33 @@ export function renderChangelog(cfg: SiteConfig): string {
         url: `${process.env.SITE_URL || ""}/changelog#${r.id}`,
       })),
     }),
+  });
+}
+
+/** /dashboard/changelog: rendered from DASHBOARD_CHANGELOG.md. Public, no login. */
+export function renderDashboardChangelog(cfg: SiteConfig): string {
+  const log = getDashboardChangelog();
+  const releases = log.releases.length
+    ? log.releases.map(releaseBlock).join("\n      ")
+    : `<p>The dashboard changelog file could not be read. It lives in the repository as <a href="${REPO_URL}/blob/main/DASHBOARD_CHANGELOG.md">DASHBOARD_CHANGELOG.md</a>.</p>`;
+
+  const body = `
+<div class="wrap">
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep">/</span><a href="/changelog">Changelog</a><span class="sep">/</span><span>Dashboard</span></nav>
+  <div class="page-head">
+    <h1>Dashboard changelog</h1>
+    <p class="lead">What changed in the web dashboard, newest first. This page is built from <a href="${REPO_URL}/blob/main/DASHBOARD_CHANGELOG.md">DASHBOARD_CHANGELOG.md</a> in the repository. Changes to the bot itself are in the <a href="/changelog">main changelog</a>.</p>
+  </div>
+  ${log.intro.map(p => `<p class="faint">${p}</p>`).join("\n  ")}
+  ${releases}
+  <p class="faint"><a href="/dashboard">Open the dashboard</a></p>
+</div>`;
+
+  return page(cfg, {
+    title: "Dashboard changelog | Aegis",
+    description: "Release history for the Aegis web dashboard, built from DASHBOARD_CHANGELOG.md in the repository.",
+    path: "/dashboard/changelog",
+    body,
   });
 }
 

@@ -58,7 +58,8 @@ function shell(cfg: SiteConfig, o: { title: string; path: string; body: string; 
     description: "Manage Aegis for your Discord server: moderation cases and settings.",
     path: o.path,
     current: "/dashboard",
-    body: `<div class="wrap">${bar}${o.body}</div>`,
+    body: `<div class="wrap">${bar}${o.body}
+  <p class="muted"><a href="/dashboard/changelog">Dashboard changelog</a>: what changed in the dashboard.</p></div>`,
     inviteUrl: cfg.inviteUrl,
     supportUrl: cfg.supportUrl,
     version: cfg.version,

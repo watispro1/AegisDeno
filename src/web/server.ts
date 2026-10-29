@@ -14,6 +14,7 @@ import {
   renderDocs,
   renderTroubleshooting,
   renderChangelog,
+  renderDashboardChangelog,
   renderStatus,
   renderTerms,
   renderPrivacy,
@@ -188,6 +189,9 @@ const ROUTES: RouteDef[] = [
   { path: "/docs", render: c => renderDocs(c), priority: "0.8" },
   { path: "/troubleshooting", render: c => renderTroubleshooting(c), priority: "0.7" },
   { path: "/changelog", render: c => renderChangelog(c), priority: "0.6" },
+  // Public and static, so it is served (and indexed) even when the dashboard is off.
+  // Registered before the /dashboard router, which would otherwise treat it as a server ID.
+  { path: "/dashboard/changelog", render: c => renderDashboardChangelog(c), priority: "0.4" },
   { path: "/status", render: (c, x) => renderStatus(c, x.stats, x.online, x.startedAt), priority: "0.6", live: true },
   { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },
   { path: "/terms", render: c => renderTerms(c), priority: "0.4" },
@@ -340,6 +344,9 @@ export function startWebServer(client: Client) {
       "Allow: /",
       "Disallow: /api/",
       "Disallow: /health",
+      // Longest match wins, so the public dashboard changelog stays crawlable
+      // while every per-user dashboard page is blocked.
+      "Allow: /dashboard/changelog",
       "Disallow: /dashboard",
       origin ? `Sitemap: ${origin}/sitemap.xml` : "Sitemap: /sitemap.xml",
       "",

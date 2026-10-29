@@ -16,8 +16,8 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
-# The website renders /changelog from this file at runtime.
-COPY CHANGELOG.md ./
+# The website renders /changelog and /dashboard/changelog from these files at runtime.
+COPY CHANGELOG.md DASHBOARD_CHANGELOG.md ./
 
 # Web server port
 EXPOSE 3000

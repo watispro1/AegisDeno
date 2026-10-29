@@ -28,6 +28,7 @@ const ROUTES: [string, number][] = [
   ["/docs", 200],
   ["/troubleshooting", 200],
   ["/changelog", 200],
+  ["/dashboard/changelog", 200],
   ["/status", 200],
   ["/privacy", 200],
   ["/terms", 200],
@@ -219,6 +220,19 @@ async function main() {
   check("/changelog shows every version", getChangelog().releases.every(r => changelogHtml.includes(`id="${r.id}"`)));
   check("/changelog shows Unreleased", changelogHtml.includes('id="unreleased"'));
   check("/changelog renders inline code", changelogHtml.includes('<code class="inline">/remindme set</code>'));
+  const dashLog = await fetch(origin + "/dashboard/changelog");
+  const dashLogHtml = await dashLog.text();
+  check("/dashboard/changelog 200 without dashboard config", dashLog.status === 200, String(dashLog.status));
+  check("/dashboard/changelog is not the not-configured page", !dashLogHtml.includes("The dashboard is not configured") && dashLogHtml.includes("<h1>Dashboard changelog</h1>"));
+  check("/dashboard/changelog shows Unreleased", dashLogHtml.includes('id="unreleased"'));
+  check("/dashboard/changelog sets no cookie", dashLog.headers.get("set-cookie") === null);
+  check("/dashboard/changelog is indexable", !(dashLog.headers.get("x-robots-tag") ?? "").includes("noindex") && !dashLogHtml.includes('content="noindex'));
+  check("/dashboard/changelog is publicly cacheable", (dashLog.headers.get("cache-control") ?? "").startsWith("public"));
+  check("/changelog links the dashboard changelog", changelogHtml.includes('href="/dashboard/changelog"'));
+  check("/dashboard links the dashboard changelog", dashHtml.includes('href="/dashboard/changelog"'));
+  const robots = await (await fetch(origin + "/robots.txt")).text();
+  check("robots allows /dashboard/changelog", robots.includes("Allow: /dashboard/changelog"));
+  check("sitemap lists /dashboard/changelog", sitemap.includes("/dashboard/changelog</loc>"));
   check("/changelog has no raw markdown", !/\]\(|\*\*|^- /m.test(changelogHtml.replace(/<pre[\s\S]*?<\/pre>/g, "")));
   check("atom has one entry per release", (feed.match(/<entry>/g) ?? []).length === releases.length);
 

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseChangelog, renderInline } from "../src/web/changelog";
+import { getDashboardChangelog, parseChangelog, readChangelogFile, renderInline } from "../src/web/changelog";
 import { VERSION } from "../src/version";
 
 const sample = `# Changelog
@@ -70,4 +70,39 @@ test("CHANGELOG.md parses and its newest release matches src/version.ts", () => 
       for (const i of s.items) assert.ok(!/\]\(|\*\*/.test(i), `${r.version}: unrendered markdown in "${i}"`);
     }
   }
+});
+
+test("DASHBOARD_CHANGELOG.md parses into an Unreleased dashboard release", () => {
+  const path = join(__dirname, "..", "DASHBOARD_CHANGELOG.md");
+  const log = readChangelogFile(path);
+  assert.ok(log.intro.length > 0, "intro paragraphs");
+  assert.ok(log.releases.length >= 1);
+  const [first] = log.releases;
+  assert.equal(first.version, "Unreleased");
+  assert.equal(first.date, null);
+  assert.equal(first.id, "unreleased");
+  assert.ok(first.notes.some((n) => n.includes("Dashboard 0.1.0")), "version label note");
+  assert.deepEqual(first.sections.map((s) => s.title), ["Added", "Security", "Known limitations"]);
+  for (const r of log.releases) {
+    assert.ok(r.sections.length > 0, `${r.version} has no sections`);
+    for (const s of r.sections) {
+      assert.ok(["Added", "Changed", "Fixed", "Removed", "Deprecated", "Security", "Known limitations"].includes(s.title), `${r.version}: unexpected section "${s.title}"`);
+      assert.ok(s.items.length > 0, `${r.version} ${s.title} is empty`);
+      for (const i of s.items) assert.ok(!/\]\(|\*\*/.test(i), `${r.version}: unrendered markdown in "${i}"`);
+    }
+  }
+  // The same file through the cached root-level loader.
+  assert.deepEqual(getDashboardChangelog(), log);
+});
+
+test("readChangelogFile returns an empty changelog for a missing file", () => {
+  assert.deepEqual(readChangelogFile(join(__dirname, "no-such-changelog.md")), { intro: [], releases: [] });
+});
+
+test("CHANGELOG.md no longer lists the plugin framework and points at the dashboard changelog", () => {
+  const md = readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8");
+  assert.ok(!/src\/knub|\/plugins list|\/api\/plugins|Plugin framework|plugin router/.test(md));
+  const unreleased = parseChangelog(md).releases[0];
+  assert.equal(unreleased.version, "Unreleased");
+  assert.ok(unreleased.sections.some((s) => s.items.some((i) => i.includes("DASHBOARD_CHANGELOG.md"))));
 });

@@ -6,7 +6,7 @@
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 import { loadCommands } from "../src/commands/loader";
-import { renderHome, renderFeatures, renderCommands, renderDocs, renderTroubleshooting, renderChangelog, renderStatus, renderTerms, renderPrivacy, renderNotFound, type SiteConfig } from "../src/web/pages";
+import { renderHome, renderFeatures, renderCommands, renderDocs, renderTroubleshooting, renderChangelog, renderDashboardChangelog, renderStatus, renderTerms, renderPrivacy, renderNotFound, type SiteConfig } from "../src/web/pages";
 import { styles } from "../src/web/theme";
 import { clientScript } from "../src/web/client";
 import { themeInitScript } from "../src/web/assets";
@@ -36,6 +36,7 @@ async function main() {
     ["/docs", renderDocs(cfg)],
     ["/troubleshooting", renderTroubleshooting(cfg)],
     ["/changelog", renderChangelog(cfg)],
+    ["/dashboard/changelog", renderDashboardChangelog(cfg)],
     ["/status", renderStatus(cfg, stats, true, Date.now())],
     ["/privacy", renderPrivacy(cfg)],
     ["/terms", renderTerms(cfg)],
