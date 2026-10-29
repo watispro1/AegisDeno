@@ -44,3 +44,20 @@ Aegis is optimized for deployment via platforms like Fly.io. Follow these checks
 3. **Smoke Tests**: Run `npm run test` before deployment to verify web endpoint health and API responses. The smoke tests validate HTTP 200 statuses, correct cache headers, security headers (CSP, HSTS), and accurate JSON formatting.
 4. **Discord Intent and Permissions**: Verify that your bot has been granted the `Server Members` intent (if necessary for fetching member data) and `Message Content` intent (vital for automod link and word filtering) via the Discord Developer Portal.
 5. **Logs**: Monitor your deployment using `fly logs`. The application outputs clear info messages on successful DB connection, command registration, and web server boot up.
+
+## Retired settings collection (`pluginconfigs`)
+
+Up to v3.5.0 ticket settings and the roles-per-panel limit were stored in the
+`pluginconfigs` collection. The bot now keeps them in `guildconfigs` and copies
+the old values over the first time each server's config is loaded, stamping
+`legacySettingsMigratedAt` on the server's config. Nothing reads or writes
+`pluginconfigs` after that copy. Once every server the bot is in has been
+loaded at least once, check what is left and then drop it:
+
+```js
+// mongosh, connected to the bot's database
+db.guildconfigs.countDocuments({ legacySettingsMigratedAt: null })   // servers not yet copied
+db.pluginconfigs.distinct("guildId").filter(id =>
+  !db.guildconfigs.findOne({ guildId: id, legacySettingsMigratedAt: { $ne: null } }))
+db.pluginconfigs.drop()
+```

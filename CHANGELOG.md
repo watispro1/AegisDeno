@@ -40,6 +40,16 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 - The 404 page links to troubleshooting and the changelog as well.
 - README rewritten: shorter, no emoji headings, and every feature description
   checked against the code.
+- Ticket settings and the roles-per-panel limit are stored in the server's
+  config. Values saved before are copied over automatically the first time the
+  server's config is loaded.
+- Guild, automod, starboard and autoresponder settings are cached for up to a
+  minute and refreshed as soon as they are changed, so ordinary messages and
+  reactions no longer read the database. A ticket's last-activity time is
+  written at most once a minute instead of on every message. New database
+  indexes cover warning, case, ticket and scheduled-task lookups.
+- The Docker image runs as the unprivileged `node` user and no longer ships the
+  npm cache.
 
 ### Fixed
 - The README said the trust score reacts to "message behaviour" and that you can
@@ -50,6 +60,23 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
   new-member risk events and a 7-day chart, none of which exist.
 - The features page said Discord caps timeouts at 7 days. Discord allows 28;
   the `/timeout` choices stop at one week.
+- The starboard never posted anything: the bot did not request the message
+  reactions intent, so Discord never sent it reaction events. Two stars landing
+  at the same moment can no longer post a message twice, and removing the last
+  star still updates the count.
+- Two quick clicks on a multi-choice `/poll` could lose one of the votes.
+- Results of a closed `/poll` with many voters could leave out options at the
+  end. Every option is always listed now; voter names are shortened instead.
+- Member activity counted in the last 30 seconds before a restart is saved
+  instead of lost.
+
+### Removed
+- The Knub plugin framework the bot was built on. Buttons, menus and forms on
+  existing messages keep working.
+- `/plugins` (`list`, `toggle` and `info`) and the `/api/plugins` endpoint.
+  Features can no longer be switched off per server with `/plugins toggle`;
+  every feature is on in every server. To hide a command from members, use
+  Server Settings, Integrations, Aegis in Discord.
 
 ## [3.5.0] - 2026-10-28
 
