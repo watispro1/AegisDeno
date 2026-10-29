@@ -50,6 +50,26 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
   indexes cover warning, case, ticket and scheduled-task lookups.
 - The Docker image runs as the unprivileged `node` user and no longer ships the
   npm cache.
+- Buttons, select menus and forms are handled by one small router keyed on
+  each component's ID, with the same IDs as before. If a handler fails, the
+  member gets a short private error message instead of no reply. Servers that
+  had switched a feature off with `/plugins toggle` get a warning in the bot's
+  log the first time their config is loaded.
+- After the one-time copy into the server's config, nothing reads the old
+  `pluginconfigs` collection. `OPERATIONAL.md` explains how to check that every
+  server was copied and then drop it.
+- **Site on phones:** the viewport extends under notches and rounded corners,
+  and the header, page edges, menu, footer and toasts keep clear of them
+  (`env(safe-area-inset-*)`). The open mobile menu scrolls on its own when it
+  is taller than the screen.
+- **Site on phones:** search boxes and form fields use 16px text on small and
+  touch screens, so iOS Safari no longer zooms in when you tap them.
+- **Site on phones:** on touch screens the logo, breadcrumb, footer, sidebar,
+  changelog version and "See all" links are at least 44px tall, and the search
+  button in the header is 44px wide.
+- **Site on phones:** long inline code in the docs, legal pages and callouts
+  wraps instead of running off the screen. Code in tables still scrolls with the
+  table.
 
 ### Fixed
 - The README said the trust score reacts to "message behaviour" and that you can
@@ -69,6 +89,9 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
   end. Every option is always listed now; voter names are shortened instead.
 - Member activity counted in the last 30 seconds before a restart is saved
   instead of lost.
+- Opening a command on `/commands` on a phone made the whole page scroll
+  sideways (to about 2,000px wide for `/remindme`): the usage block and option
+  tables now stay inside the screen and scroll on their own.
 
 ### Removed
 - The Knub plugin framework the bot was built on. Buttons, menus and forms on
