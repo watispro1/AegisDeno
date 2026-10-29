@@ -107,7 +107,7 @@ function channel(body: FormBody, key: string, ctx: ValidationContext, errors: Er
   return raw;
 }
 
-function role(body: FormBody, key: string, ctx: ValidationContext, errors: Errors, required: boolean, label: string): string | null {
+function role(body: FormBody, key: string, ctx: ValidationContext, errors: Errors, required: boolean, label: string, opts: { anyRole?: boolean } = {}): string | null {
   const raw = field(body, key);
   if (raw === "") {
     if (required) errors.add(key, `Pick a ${label}.`);
@@ -118,7 +118,7 @@ function role(body: FormBody, key: string, ctx: ValidationContext, errors: Error
     errors.add(key, `That ${label} does not exist in this server. Pick one from the list.`);
     return null;
   }
-  if (!found.assignable) {
+  if (!found.assignable && !opts.anyRole) {
     errors.add(key, `Aegis cannot assign that role. Move Aegis's role above it and make sure it has Manage Roles.`);
     return null;
   }
@@ -187,11 +187,60 @@ export function parseEscalation(body: FormBody): Parsed<EscalationSettings> {
 }
 
 export interface AutomodSettings {
-  words: { enabled: boolean; action: AutomodAction };
+  words: { enabled: boolean; action: AutomodAction; list: string[] };
   links: { enabled: boolean; action: AutomodAction };
   mentions: { enabled: boolean; action: AutomodAction; threshold: number };
   spam: { enabled: boolean; action: AutomodAction; maxMessages: number; windowSeconds: number };
   caps: { enabled: boolean; action: AutomodAction; threshold: number };
+  exemptRoleIds: string[];
+  exemptChannelIds: string[];
+}
+
+export const AUTOMOD_WORD_MIN = 2;
+export const AUTOMOD_WORD_MAX = 100;
+export const AUTOMOD_WORDS_MAX_COUNT = 500;
+
+/**
+ * The blocked word list as typed: one word or phrase per line.
+ * Same rules as `/automod words add`: trimmed, lower-cased, 2 to 100
+ * characters. Duplicates are dropped silently.
+ */
+export function parseWordList(raw: string): { list: string[]; error: string | null } {
+  const entries = raw.replace(/\r\n/g, "\n").split("\n").map(w => w.trim().toLowerCase()).filter(Boolean);
+  const list: string[] = [];
+  for (const word of entries) {
+    if (word.length < AUTOMOD_WORD_MIN || word.length > AUTOMOD_WORD_MAX) {
+      return { list, error: `Each blocked word must be ${AUTOMOD_WORD_MIN} to ${AUTOMOD_WORD_MAX} characters ("${word.slice(0, 30)}" is ${word.length}).` };
+    }
+    if (!list.includes(word)) list.push(word);
+  }
+  if (list.length > AUTOMOD_WORDS_MAX_COUNT) return { list, error: `Keep the list to ${AUTOMOD_WORDS_MAX_COUNT} words or fewer (it has ${list.length}).` };
+  return { list, error: null };
+}
+
+/** Every value of a repeated field (checkbox groups), trimmed, without blanks. */
+export function fieldValues(body: FormBody, key: string): string[] {
+  const raw = body?.[key];
+  const values = Array.isArray(raw) ? raw : raw === undefined ? [] : [raw];
+  return values.filter((v): v is string => typeof v === "string").map(v => v.trim()).filter(Boolean);
+}
+
+/**
+ * IDs ticked in a checkbox group. Each must be one Aegis can see now, or one
+ * that was already saved (so a channel type the picker does not list, or a
+ * role Aegis cannot see right now, is kept rather than rejected).
+ */
+function pickedIds(body: FormBody, key: string, known: (id: string) => boolean, previous: readonly string[], what: string, errors: Errors, max = 100): string[] {
+  const out: string[] = [];
+  for (const id of fieldValues(body, key)) {
+    if (!/^\d{17,20}$/.test(id) || (!known(id) && !previous.includes(id))) {
+      errors.add(key, `One of the ${what} is not in this server any more. Reload the page and pick again.`);
+      continue;
+    }
+    if (!out.includes(id)) out.push(id);
+  }
+  if (out.length > max) errors.add(key, `Pick at most ${max} ${what}.`);
+  return out;
 }
 
 function automodAction(body: FormBody, key: string, errors: Errors): AutomodAction {
@@ -201,10 +250,17 @@ function automodAction(body: FormBody, key: string, errors: Errors): AutomodActi
   return "delete";
 }
 
-export function parseAutomod(body: FormBody): Parsed<AutomodSettings> {
+export function parseAutomod(
+  body: FormBody,
+  ctx: ValidationContext,
+  previous: { exemptRoleIds: readonly string[]; exemptChannelIds: readonly string[] } = { exemptRoleIds: [], exemptChannelIds: [] },
+): Parsed<AutomodSettings> {
   const errors = new Errors();
+  const rawWords = typeof body?.words_list === "string" ? body.words_list : "";
+  const words = parseWordList(rawWords);
+  if (words.error) errors.add("words_list", words.error);
   const value: AutomodSettings = {
-    words: { enabled: checkbox(body, "words_enabled"), action: automodAction(body, "words_action", errors) },
+    words: { enabled: checkbox(body, "words_enabled"), action: automodAction(body, "words_action", errors), list: words.list },
     links: { enabled: checkbox(body, "links_enabled"), action: automodAction(body, "links_action", errors) },
     mentions: {
       enabled: checkbox(body, "mentions_enabled"),
@@ -222,6 +278,8 @@ export function parseAutomod(body: FormBody): Parsed<AutomodSettings> {
       action: automodAction(body, "caps_action", errors),
       threshold: integer(body, "caps_threshold", 50, 100, "Capitals percentage", errors),
     },
+    exemptRoleIds: pickedIds(body, "exempt_roles", id => ctx.roles.has(id), previous.exemptRoleIds, "exempt roles", errors),
+    exemptChannelIds: pickedIds(body, "exempt_channels", id => ctx.textChannelIds.has(id), previous.exemptChannelIds, "exempt channels", errors),
   };
   return finish(errors, value);
 }
@@ -297,15 +355,33 @@ export interface StarboardSettingsInput {
   channelId: string | null;
   threshold: number;
   selfStar: boolean;
+  emoji: string;
+  ignoredChannels: string[];
+  ignoredRoles: string[];
 }
 
-export function parseStarboard(body: FormBody, ctx: ValidationContext): Parsed<StarboardSettingsInput> {
+/** A custom emoji (<:name:id> or <a:name:id>) or one Unicode emoji, as `/starboard emoji` takes. */
+export function isStarboardEmoji(value: string): boolean {
+  if (/^<a?:\w{2,32}:\d{17,20}>$/.test(value)) return true;
+  if (value.length === 0 || value.length > 16 || /\s/.test(value)) return false;
+  return /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[#*0-9]\uFE0F?\u20E3)/u.test(value) && !/[A-Za-z<>]/.test(value);
+}
+
+export function parseStarboard(
+  body: FormBody,
+  ctx: ValidationContext,
+  previous: { ignoredChannels: readonly string[]; ignoredRoles: readonly string[] } = { ignoredChannels: [], ignoredRoles: [] },
+): Parsed<StarboardSettingsInput> {
   const errors = new Errors();
   const enabled = checkbox(body, "enabled");
   const channelId = channel(body, "channelId", ctx, errors, enabled, "starboard channel");
   const threshold = integer(body, "threshold", 1, 100, "Star threshold", errors);
   const selfStar = checkbox(body, "selfStar");
-  return finish(errors, { enabled, channelId, threshold, selfStar });
+  const emoji = field(body, "emoji") || "⭐";
+  if (!isStarboardEmoji(emoji)) errors.add("emoji", "Use one emoji, such as ⭐ or 🌟, or a custom emoji written as <:name:id>.");
+  const ignoredChannels = pickedIds(body, "ignoredChannels", id => ctx.textChannelIds.has(id), previous.ignoredChannels, "ignored channels", errors);
+  const ignoredRoles = pickedIds(body, "ignoredRoles", id => ctx.roles.has(id), previous.ignoredRoles, "ignored roles", errors);
+  return finish(errors, { enabled, channelId, threshold, selfStar, emoji, ignoredChannels, ignoredRoles });
 }
 
 /* ── Cases ─────────────────────────────────────────────────────────── */
@@ -325,8 +401,12 @@ export interface CaseFilter {
   type: string | null;
   userId: string | null;
   moderatorId: string | null;
+  /** Case-insensitive text the reason must contain. */
+  query?: string | null;
   page: number;
 }
+
+export const CASE_QUERY_MAX = 100;
 
 /** Filters from the query string. Anything malformed is dropped rather than rejected. */
 export function parseCaseFilter(query: Record<string, unknown>): CaseFilter {
@@ -341,10 +421,98 @@ export function parseCaseFilter(query: Record<string, unknown>): CaseFilter {
   const user = id(pick("user"));
   const mod = id(pick("moderator"));
   const page = Number(pick("page"));
+  const q = pick("q").replace(/\s+/g, " ").slice(0, CASE_QUERY_MAX);
   return {
     type: (CASE_TYPES as readonly string[]).includes(type) ? type : null,
     userId: /^\d{17,20}$/.test(user) ? user : null,
     moderatorId: /^\d{17,20}$/.test(mod) ? mod : null,
+    query: q || null,
     page: Number.isInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
   };
+}
+
+/** Revoke form: whether to also lift the ban in Discord. */
+export function parseRevoke(body: FormBody): { unban: boolean } {
+  return { unban: checkbox(body, "unban") };
+}
+
+/* ── Panels ────────────────────────────────────────────────────────── */
+
+export const PANEL_TITLE_MAX = 100;
+export const TICKET_PANEL_DESCRIPTION_MAX = 2000;
+export const VERIFY_PANEL_DESCRIPTION_MAX = 2000;
+
+export interface TicketPanelInput {
+  channelId: string;
+  staffRoleId: string | null;
+  title: string | null;
+  description: string | null;
+}
+
+function text(body: FormBody, key: string, max: number, label: string, errors: Errors): string | null {
+  const raw = body?.[key];
+  const value = (typeof raw === "string" ? raw : "").replace(/\r\n/g, "\n").trim();
+  if (value.length > max) errors.add(key, `Keep the ${label} under ${max} characters (it is ${value.length}).`);
+  return value || null;
+}
+
+export function parseTicketPanel(body: FormBody, ctx: ValidationContext): Parsed<TicketPanelInput> {
+  const errors = new Errors();
+  const channelId = channel(body, "channelId", ctx, errors, true, "channel") ?? "";
+  const staffRoleId = role(body, "staffRoleId", ctx, errors, false, "staff role", { anyRole: true });
+  const title = text(body, "title", PANEL_TITLE_MAX, "title", errors);
+  const description = text(body, "description", TICKET_PANEL_DESCRIPTION_MAX, "description", errors);
+  return finish(errors, { channelId, staffRoleId, title, description });
+}
+
+export interface VerificationPanelInput {
+  channelId: string;
+  verifiedRoleId: string;
+  type: "button" | "captcha";
+  kickUnverifiedMinutes: number;
+  title: string | null;
+  description: string | null;
+}
+
+export function parseVerificationPanel(body: FormBody, ctx: ValidationContext): Parsed<VerificationPanelInput> {
+  const errors = new Errors();
+  const channelId = channel(body, "channelId", ctx, errors, true, "channel") ?? "";
+  const verifiedRoleId = role(body, "verifiedRoleId", ctx, errors, true, "verified role") ?? "";
+  const typeRaw = field(body, "type");
+  if (typeRaw !== "button" && typeRaw !== "captcha") errors.add("type", "Pick button or captcha.");
+  const kickUnverifiedMinutes = integer(body, "kickUnverifiedMinutes", 0, MAX_KICK_UNVERIFIED_MINUTES, "Auto-kick delay", errors, { blank: 0 });
+  const title = text(body, "title", PANEL_TITLE_MAX, "title", errors);
+  const description = text(body, "description", VERIFY_PANEL_DESCRIPTION_MAX, "description", errors);
+  return finish(errors, { channelId, verifiedRoleId, type: typeRaw === "captcha" ? "captcha" : "button", kickUnverifiedMinutes, title, description });
+}
+
+export function parseRolePanelRepost(body: FormBody, ctx: ValidationContext): Parsed<{ channelId: string }> {
+  const errors = new Errors();
+  const channelId = channel(body, "channelId", ctx, errors, true, "channel") ?? "";
+  return finish(errors, { channelId });
+}
+
+/* ── Appeals ───────────────────────────────────────────────────────── */
+
+export const APPEAL_FILTERS = ["pending", "approved", "denied", "expired", "all"] as const;
+export type AppealFilter = (typeof APPEAL_FILTERS)[number];
+
+export function parseAppealFilter(query: Record<string, unknown>): { status: AppealFilter; page: number } {
+  const raw = query?.status;
+  const value = typeof raw === "string" ? raw : "";
+  const page = Number(typeof query?.page === "string" ? query.page : "");
+  return {
+    status: (APPEAL_FILTERS as readonly string[]).includes(value) ? (value as AppealFilter) : "pending",
+    page: Number.isInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
+  };
+}
+
+export const APPEAL_REVIEW_NOTE_MAX = 512;
+
+export function parseAppealReview(body: FormBody): Parsed<{ decision: "approved" | "denied"; note: string | null }> {
+  const errors = new Errors();
+  const decisionRaw = field(body, "decision");
+  if (decisionRaw !== "approved" && decisionRaw !== "denied") errors.add("decision", "Pick approve or deny.");
+  const note = text(body, "note", APPEAL_REVIEW_NOTE_MAX, "note", errors);
+  return finish(errors, { decision: decisionRaw === "approved" ? "approved" : "denied", note });
 }

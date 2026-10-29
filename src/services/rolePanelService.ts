@@ -234,3 +234,28 @@ export async function deleteRolePanel(guild: Guild, id: string): Promise<boolean
     return false;
   }
 }
+
+/**
+ * Post a saved role panel again, in `channel` (which may be its current one).
+ * The new message is created first, then the old panel and its message are
+ * removed, so a failed send leaves the existing panel working. Used by the web
+ * dashboard; the panel's roles, style, mode and requirement are unchanged.
+ */
+export async function repostRolePanel(guild: Guild, id: string, channel: TextChannel): Promise<RolePanel | null> {
+  const doc = await RolePanelModel.findOne({ guildId: guild.id, id }).lean().catch(() => null);
+  if (!doc) return null;
+  const roles: RolePanelOption[] = (doc.roles ?? []).map((r: any) => ({
+    roleId: String(r.roleId),
+    label: String(r.label),
+    emoji: r.emoji ?? null,
+    style: typeof r.style === "number" ? r.style : undefined,
+  }));
+  const created = await createRolePanel(guild, channel, doc.title, doc.description, roles, {
+    style: normalizePanelStyle(doc.panelStyle),
+    mode: normalizePanelMode(doc.mode),
+    requiredRoleId: doc.requiredRoleId ?? null,
+  });
+  if (!created) return null;
+  await deleteRolePanel(guild, id);
+  return created;
+}

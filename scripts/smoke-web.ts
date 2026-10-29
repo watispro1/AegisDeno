@@ -222,7 +222,9 @@ async function main() {
   const dashLogHtml = await dashLog.text();
   check("/dashboard/changelog 200 without dashboard config", dashLog.status === 200, String(dashLog.status));
   check("/dashboard/changelog is not the not-configured page", !dashLogHtml.includes("The dashboard is not configured") && dashLogHtml.includes("<h1>Dashboard changelog</h1>"));
-  check("/dashboard/changelog shows Unreleased", dashLogHtml.includes('id="unreleased"'));
+  check("/dashboard/changelog shows the v1.2.0 release", dashLogHtml.includes('id="v1.2.0"') && dashLogHtml.includes(">v1.2.0<"));
+  check("/dashboard/changelog has no Unreleased section", !dashLogHtml.includes('id="unreleased"') && !dashLogHtml.includes("Not released yet"));
+  check("/dashboard/changelog renders nested lists", /<li>[^<]*<strong>Settings<\/strong>[\s\S]*?<ul><li>Logging:/.test(dashLogHtml));
   check("/dashboard/changelog sets no cookie", dashLog.headers.get("set-cookie") === null);
   check("/dashboard/changelog is indexable", !(dashLog.headers.get("x-robots-tag") ?? "").includes("noindex") && !dashLogHtml.includes('content="noindex'));
   check("/dashboard/changelog is publicly cacheable", (dashLog.headers.get("cache-control") ?? "").startsWith("public"));

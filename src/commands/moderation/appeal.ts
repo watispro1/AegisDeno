@@ -16,6 +16,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { BanAppealModel } from "../../database/mongo";
+import { APPEAL_STATUS_LABELS, reviewBanAppeal } from "../../services/appeals";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -27,12 +28,7 @@ export function generateAppealCode(): string {
   return `AGS-${code}`;
 }
 
-const STATUS_LABELS: Record<string, { emoji: string; color: number; label: string }> = {
-  pending:  { emoji: "⏳", color: 0xFEE75C, label: "Pending Review" },
-  approved: { emoji: "✅", color: 0x57F287, label: "Approved" },
-  denied:   { emoji: "❌", color: 0xED4245, label: "Denied" },
-  expired:  { emoji: "💤", color: 0x99AAB5, label: "Expired" },
-};
+const STATUS_LABELS: Record<string, { emoji: string; color: number; label: string }> = APPEAL_STATUS_LABELS;
 
 // ─── Command ─────────────────────────────────────────────────────────────────
 
@@ -207,52 +203,26 @@ export const command: Command = {
       const note     = interaction.options.getString("note") ?? null;
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const appeal = (await BanAppealModel.findOne({ appealCode: code, guildId })) as any;
-      if (!appeal) {
-        await interaction.editReply(`❌ No appeal found with code \`${code}\` in this server.`);
+      const result = await reviewBanAppeal(interaction.client, guildId, code, decision, note, {
+        id: interaction.user.id,
+        tag: interaction.user.tag,
+      });
+      if (!result.ok) {
+        await interaction.editReply(
+          result.reason === "not_found"
+            ? `❌ No appeal found with code \`${code}\` in this server.`
+            : `❌ Appeal \`${code}\` is already **${result.status}** — cannot review again.`,
+        );
         return;
       }
-      if (appeal.status !== "pending") {
-        await interaction.editReply(`❌ Appeal \`${code}\` is already **${appeal.status}** — cannot review again.`);
-        return;
-      }
-
-      appeal.status     = decision;
-      appeal.reviewedBy = interaction.user.id;
-      appeal.reviewNote = note;
-      appeal.reviewedAt = new Date();
-      await appeal.save();
 
       const s = STATUS_LABELS[decision];
-
-      // If approved, unban the user
-      let unbanResult = "";
-      if (decision === "approved") {
-        try {
-          await interaction.guild?.bans.remove(appeal.userId, `Ban appeal ${code} approved by ${interaction.user.tag}`);
-          unbanResult = "\n✅ The member has been **automatically unbanned**.";
-        } catch {
-          unbanResult = "\n⚠️ Could not automatically unban the user — they may need to be unbanned manually.";
-        }
-      }
-
-      // Notify the appellant via DM
-      try {
-        const appellant = await interaction.client.users.fetch(appeal.userId);
-        const dmEmbed = new EmbedBuilder()
-          .setColor(s.color)
-          .setTitle(`${s.emoji} Your Ban Appeal Has Been ${s.label}`)
-          .setDescription(
-            decision === "approved"
-              ? `Your ban appeal (\`${code}\`) in **${interaction.guild?.name}** has been **approved**. You may rejoin the server.`
-              : `Your ban appeal (\`${code}\`) in **${interaction.guild?.name}** has been **denied**. The ban remains in effect.`
-          )
-          .addFields(
-            { name: "💬 Staff Note", value: note ?? "No additional comments." },
-          )
-          .setTimestamp();
-        await appellant.send({ embeds: [dmEmbed] }).catch(() => null);
-      } catch { /* DMs closed */ }
+      const unbanResult =
+        result.unban === "done"
+          ? "\n✅ The member has been **automatically unbanned**."
+          : result.unban === "failed"
+            ? "\n⚠️ Could not automatically unban the user — they may need to be unbanned manually."
+            : "";
 
       await interaction.editReply({
         embeds: [

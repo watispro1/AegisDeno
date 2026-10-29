@@ -5,7 +5,9 @@
 import { layout } from "../layout";
 import { escapeHtml as esc, type SiteConfig } from "../pages";
 import type { ChannelOption, GuildSummary, RoleOption } from "./botView";
-import type { CaseRecord, OverviewData, SettingsSnapshot } from "./data";
+import type { AppealRecord, CaseRecord, OverviewData, RolePanelSummary, SettingsSnapshot } from "./data";
+import type { AuditEntry } from "./audit";
+import { DASHBOARD_VERSION } from "../../version";
 import type { OAuthGuild } from "./permissions";
 import {
   AUTOMOD_ACTIONS,
@@ -17,7 +19,16 @@ import {
   SECTION_TITLES,
   SETTINGS_SECTIONS,
   WELCOME_MESSAGE_MAX,
+  AUTOMOD_WORD_MAX,
+  AUTOMOD_WORDS_MAX_COUNT,
+  APPEAL_FILTERS,
+  APPEAL_REVIEW_NOTE_MAX,
+  CASE_QUERY_MAX,
+  PANEL_TITLE_MAX,
+  TICKET_PANEL_DESCRIPTION_MAX,
+  VERIFY_PANEL_DESCRIPTION_MAX,
   welcomePreview,
+  type AppealFilter,
   type CaseFilter,
   type FormBody,
   type SettingsSection,
@@ -59,7 +70,7 @@ function shell(cfg: SiteConfig, o: { title: string; path: string; body: string; 
     path: o.path,
     current: "/dashboard",
     body: `<div class="wrap">${bar}${o.body}
-  <p class="muted"><a href="/dashboard/changelog">Dashboard changelog</a>: what changed in the dashboard.</p></div>`,
+  <p class="muted">Dashboard v${esc(DASHBOARD_VERSION)}. <a href="/dashboard/changelog">Dashboard changelog</a>: what changed in the dashboard.</p></div>`,
     inviteUrl: cfg.inviteUrl,
     supportUrl: cfg.supportUrl,
     version: cfg.version,
@@ -84,14 +95,19 @@ function head(title: string, lead: string, crumbs: Array<[string, string | null]
   return `${trail}<div class="page-head"><h1>${esc(title)}</h1>${lead ? `<p class="lead">${lead}</p>` : ""}</div>`;
 }
 
-function guildNav(guildId: string, active: "overview" | "cases" | "settings"): string {
+export type GuildSection = "overview" | "cases" | "appeals" | "panels" | "settings" | "activity";
+
+function guildNav(guildId: string, active: GuildSection): string {
   const base = `/dashboard/${esc(guildId)}`;
-  const item = (key: string, label: string, href: string) =>
+  const item = (key: GuildSection, label: string, href: string) =>
     `<li><a href="${href}"${key === active ? ' aria-current="page"' : ""}>${label}</a></li>`;
   return `<nav aria-label="Server sections"><ul class="dash-nav">
     ${item("overview", "Overview", base)}
     ${item("cases", "Cases", `${base}/cases`)}
+    ${item("appeals", "Appeals", `${base}/appeals`)}
+    ${item("panels", "Panels", `${base}/panels`)}
     ${item("settings", "Settings", `${base}/settings`)}
+    ${item("activity", "Activity", `${base}/activity`)}
   </ul></nav>`;
 }
 
@@ -100,7 +116,20 @@ const NOTICES: Record<string, { text: string; bad?: boolean }> = {
   reason: { text: "Reason updated. The change was posted to your log channel if logging is on." },
   revoked: { text: "Marked as revoked. It stays in the record but no longer counts toward totals or escalation." },
   "already-revoked": { text: "That record was already revoked, or it no longer exists.", bad: true },
-  "verification-missing": { text: "Run /verify setup in Discord first. It posts the panel members click; after that you can change the settings here.", bad: true },
+  "verification-missing": { text: "Verification is not set up yet. Post the verification panel from the Panels page (or run /verify setup in Discord) first.", bad: true },
+  "revoked-unbanned": { text: "Revoked, and the member was unbanned in Discord. The unban was recorded as a new case and posted to your log channel." },
+  "revoked-not-banned": { text: "Revoked. The member was not banned in Discord any more, so there was nothing to lift.", bad: true },
+  "revoked-unban-failed": { text: "Revoked, but Discord refused the unban. Check that Aegis has Ban Members, then use /unban.", bad: true },
+  "appeal-approved": { text: "Appeal approved. The member was unbanned and told by DM if their DMs are open." },
+  "appeal-approved-unban-failed": { text: "Appeal approved, but Discord refused the unban. Check that Aegis has Ban Members, then use /unban.", bad: true },
+  "appeal-denied": { text: "Appeal denied. The ban stays, and the member was told by DM if their DMs are open." },
+  "appeal-reviewed": { text: "That appeal was already reviewed, so nothing changed.", bad: true },
+  "panel-posted": { text: "Panel posted. Earlier Aegis panels of the same kind in that channel were removed." },
+  "verification-posted": { text: "Verification panel posted and verification turned on. You can now change its settings here." },
+  "rolepanel-posted": { text: "Role panel posted again. The old message was removed; members' roles are unchanged." },
+  "panel-channel-missing": { text: "Aegis cannot see that channel any more. Pick another one.", bad: true },
+  "panel-not-found": { text: "That role panel no longer exists. It may have been deleted with /rolepanel.", bad: true },
+  "panel-failed": { text: "Discord refused the message. Check that Aegis can view the channel, send messages, embed links and read message history there.", bad: true },
   refreshed: { text: "Server list refreshed from Discord." },
   "refresh-failed": { text: "Discord did not return your server list. Log out and back in to refresh it.", bad: true },
 };
@@ -260,11 +289,12 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
     ${stat("Warnings, 7 days", data.warnings7)}
     ${stat("Warnings, 30 days", data.warnings30)}
     ${stat("Open tickets", data.openTicketCount)}
-    ${data.pendingAppeals > 0 ? stat("Pending appeals", data.pendingAppeals, "review with /appeal") : ""}
+    ${data.pendingAppeals > 0 ? stat("Pending appeals", data.pendingAppeals, "see Appeals") : ""}
   </dl>
   <h2>Recent cases</h2>
   ${data.recentCases.length ? caseTable(ctx, data.recentCases, "The 10 most recent cases and warnings") : `<p class="muted">No cases or warnings recorded yet.</p>`}
   <p><a class="text-link" href="/dashboard/${esc(g.id)}/cases">All cases &rarr;</a></p>
+  ${data.pendingAppeals > 0 ? `<p><a class="text-link" href="/dashboard/${esc(g.id)}/appeals">Review ${data.pendingAppeals.toLocaleString("en-US")} pending appeal${data.pendingAppeals === 1 ? "" : "s"} &rarr;</a></p>` : ""}
   <h2>Open tickets</h2>
   ${tickets}`,
   });
@@ -277,6 +307,7 @@ export function casesQuery(filter: CaseFilter, page: number): string {
   if (filter.type) q.set("type", filter.type);
   if (filter.userId) q.set("user", filter.userId);
   if (filter.moderatorId) q.set("moderator", filter.moderatorId);
+  if (filter.query) q.set("q", filter.query);
   if (page > 1) q.set("page", String(page));
   const s = q.toString();
   return s ? `?${s}` : "";
@@ -317,7 +348,8 @@ export function renderCases(
     <div><label for="f-type">Type</label><select id="f-type" name="type">${typeOptions}</select></div>
     <div><label for="f-user">Member ID</label><input id="f-user" name="user" type="text" inputmode="numeric" autocomplete="off" value="${esc(filter.userId ?? "")}" placeholder="123456789012345678"></div>
     <div><label for="f-mod">Moderator ID</label><input id="f-mod" name="moderator" type="text" inputmode="numeric" autocomplete="off" value="${esc(filter.moderatorId ?? "")}" placeholder="123456789012345678"></div>
-    <div class="btn-row"><button class="btn" type="submit">Filter</button>${filter.type || filter.userId || filter.moderatorId ? `<a class="btn ghost" href="${base}">Clear</a>` : ""}</div>
+    <div><label for="f-q">Reason contains</label><input id="f-q" name="q" type="search" maxlength="${CASE_QUERY_MAX}" autocomplete="off" value="${esc(filter.query ?? "")}" placeholder="spam"></div>
+    <div class="btn-row"><button class="btn" type="submit">Filter</button>${filter.type || filter.userId || filter.moderatorId || filter.query ? `<a class="btn ghost" href="${base}">Clear</a>` : ""}</div>
   </form>
   ${result.items.length ? caseTable(ctx, result.items, "Cases matching the filter") : `<div class="empty-state"><strong>Nothing matches.</strong>Try a different filter, or clear it.</div>`}
   ${pager}`,
@@ -334,6 +366,7 @@ export function renderCase(
   const action = `/dashboard/${esc(g.id)}/cases/${esc(record.id)}`;
   const kind = record.kind === "warning" ? "Warning" : "Case";
   const reasonValue = o.reasonValue ?? record.reason;
+  const isBanCase = record.kind === "case" && record.action === "ban";
   const err = o.reasonError
     ? `<span class="field-error" id="reason-error">${esc(o.reasonError)}</span>`
     : "";
@@ -342,7 +375,13 @@ export function renderCase(
     ? `<p class="muted">Revoked${record.revokedBy ? ` by ${person(ctx, record.revokedBy)}` : ""}${record.revokedAt ? `, ${esc(fmtDate(record.revokedAt))}` : ""}.</p>`
     : `<form class="dash-action" method="post" action="${action}/revoke" data-confirm="Revoke this ${kind.toLowerCase()}? It stays in the record but stops counting.">
       ${csrfField(ctx.viewer)}
-      <p class="muted">Revoking keeps the record but stops it counting toward totals, escalation and the trust score. It does not lift a ban or timeout in Discord; use <code class="inline">/unban</code> or <code class="inline">/removetimeout</code> for that.</p>
+      <p class="muted">Revoking keeps the record but stops it counting toward totals, escalation and the trust score.${
+        isBanCase ? "" : ` It does not lift a timeout in Discord; use <code class="inline">/removetimeout</code> for that.`
+      }</p>
+      ${isBanCase ? `<div class="field"><label class="check" for="f-unban">
+        <input type="checkbox" id="f-unban" name="unban">
+        <span>Also unban this member in Discord<small>Same as <code class="inline">/unban</code>: lifts the ban, records an unban case and posts it to your log channel. Needs Ban Members.</small></span>
+      </label></div>` : ""}
       <button class="btn danger" type="submit">Revoke ${kind.toLowerCase()}</button>
     </form>`;
 
@@ -356,7 +395,7 @@ export function renderCase(
   <dl class="detail-list">
     <dt>ID</dt><dd><code class="inline">${esc(record.id)}</code></dd>
     <dt>Action</dt><dd>${esc(record.action)}${record.revoked ? ' <span class="tag warn">revoked</span>' : ""}</dd>
-    <dt>Member</dt><dd>${person(ctx, record.userId)}</dd>
+    <dt>Member</dt><dd>${person(ctx, record.userId)} <a class="text-link" href="/dashboard/${esc(g.id)}/cases?user=${esc(record.userId)}">Their history</a></dd>
     <dt>Moderator</dt><dd>${person(ctx, record.moderatorId)}</dd>
     <dt>When</dt><dd>${esc(fmtDate(record.createdAt))}</dd>
     <dt>Reason</dt><dd>${esc(record.reason)}</dd>
@@ -413,7 +452,9 @@ export function settingsValues(section: SettingsSection, s: SettingsSnapshot): V
         mentions_enabled: a.mentions.enabled, mentions_action: a.mentions.action, mentions_threshold: String(a.mentions.threshold),
         spam_enabled: a.spam.enabled, spam_action: a.spam.action, spam_maxMessages: String(a.spam.maxMessages), spam_windowSeconds: String(a.spam.windowSeconds),
         caps_enabled: a.caps.enabled, caps_action: a.caps.action, caps_threshold: String(a.caps.threshold),
-        words_count: String(a.words.list.length),
+        words_list: a.words.list.join("\n"),
+        exempt_roles: a.exemptRoleIds.join(","),
+        exempt_channels: a.exemptChannelIds.join(","),
       };
     }
     case "welcome":
@@ -446,15 +487,28 @@ export function settingsValues(section: SettingsSection, s: SettingsSnapshot): V
         threshold: String(s.starboard.threshold),
         selfStar: s.starboard.selfStar,
         emoji: s.starboard.emoji,
+        ignoredChannels: (s.starboard.ignoredChannels ?? []).join(","),
+        ignoredRoles: (s.starboard.ignoredRoles ?? []).join(","),
       };
   }
 }
+
+/** Checkbox groups: posted once per ticked item, kept as comma-joined IDs in form values. */
+export const MULTI_FIELDS: Partial<Record<SettingsSection, string[]>> = {
+  automod: ["exempt_roles", "exempt_channels"],
+  starboard: ["ignoredChannels", "ignoredRoles"],
+};
+const MULTI_KEYS = new Set(Object.values(MULTI_FIELDS).flat());
 
 /** Turn a submitted body back into form values, so a rejected form keeps what was typed. */
 export function submittedValues(body: FormBody): Values {
   const v: Values = {};
   for (const [key, raw] of Object.entries(body ?? {})) {
     if (key === "_csrf") continue;
+    if (MULTI_KEYS.has(key)) {
+      v[key] = (Array.isArray(raw) ? raw : [raw]).filter((x): x is string => typeof x === "string").join(",");
+      continue;
+    }
     const value = Array.isArray(raw) ? raw[raw.length - 1] : raw;
     if (typeof value !== "string") continue;
     v[key] = value === "on" ? true : value;
@@ -463,7 +517,7 @@ export function submittedValues(body: FormBody): Values {
 }
 
 class Form {
-  constructor(private readonly state: FormState) {}
+  constructor(private readonly state: FormState, private readonly px = "") {}
 
   str(key: string): string {
     const v = this.state.values[key];
@@ -476,30 +530,30 @@ class Form {
 
   private errAttrs(key: string, helpId?: string): string {
     const err = this.state.errors[key];
-    const ids = [err ? `${key}-error` : "", helpId ?? ""].filter(Boolean).join(" ");
+    const ids = [err ? `${this.px}${key}-error` : "", helpId ?? ""].filter(Boolean).join(" ");
     return `${err ? ' aria-invalid="true"' : ""}${ids ? ` aria-describedby="${ids}"` : ""}`;
   }
 
   private errText(key: string): string {
     const err = this.state.errors[key];
-    return err ? `<span class="field-error" id="${key}-error">${esc(err)}</span>` : "";
+    return err ? `<span class="field-error" id="${this.px}${key}-error">${esc(err)}</span>` : "";
   }
 
   private help(key: string, text?: string): string {
-    return text ? `<span class="field-help" id="${key}-help">${text}</span>` : "";
+    return text ? `<span class="field-help" id="${this.px}${key}-help">${text}</span>` : "";
   }
 
   checkbox(key: string, label: string, help?: string): string {
-    return `<div class="field"><label class="check" for="f-${key}">
-      <input type="checkbox" id="f-${key}" name="${key}"${this.on(key) ? " checked" : ""}${this.errAttrs(key)}>
+    return `<div class="field"><label class="check" for="f-${this.px}${key}">
+      <input type="checkbox" id="f-${this.px}${key}" name="${key}"${this.on(key) ? " checked" : ""}${this.errAttrs(key)}>
       <span>${esc(label)}${help ? `<small>${help}</small>` : ""}</span>
     </label>${this.errText(key)}</div>`;
   }
 
   number(key: string, label: string, min: number, max: number, help?: string, extra = ""): string {
     return `<div class="field">
-      <label for="f-${key}">${esc(label)}</label>
-      <input type="number" id="f-${key}" name="${key}" min="${min}" max="${max}" step="1" inputmode="numeric" value="${esc(this.str(key))}"${this.errAttrs(key, help ? `${key}-help` : undefined)}${extra}>
+      <label for="f-${this.px}${key}">${esc(label)}</label>
+      <input type="number" id="f-${this.px}${key}" name="${key}" min="${min}" max="${max}" step="1" inputmode="numeric" value="${esc(this.str(key))}"${this.errAttrs(key, help ? `${this.px}${key}-help` : undefined)}${extra}>
       ${this.errText(key)}${this.help(key, help)}
     </div>`;
   }
@@ -518,16 +572,53 @@ class Form {
     }
     if (openGroup) html += "</optgroup>";
     return `<div class="field">
-      <label for="f-${key}">${esc(label)}</label>
-      <select id="f-${key}" name="${key}"${this.errAttrs(key, help ? `${key}-help` : undefined)}${extra}>${html}</select>
+      <label for="f-${this.px}${key}">${esc(label)}</label>
+      <select id="f-${this.px}${key}" name="${key}"${this.errAttrs(key, help ? `${this.px}${key}-help` : undefined)}${extra}>${html}</select>
       ${this.errText(key)}${this.help(key, help)}
     </div>`;
   }
 
+  text(key: string, label: string, max: number, help?: string, extra = ""): string {
+    return `<div class="field">
+      <label for="f-${this.px}${key}">${esc(label)}</label>
+      <input type="text" id="f-${this.px}${key}" name="${key}" maxlength="${max}" autocomplete="off" value="${esc(this.str(key))}"${this.errAttrs(key, help ? `${this.px}${key}-help` : undefined)}${extra}>
+      ${this.errText(key)}${this.help(key, help)}
+    </div>`;
+  }
+
+  /**
+   * A group of checkboxes posting `key` once per ticked item. Saved IDs that
+   * are not among the options are listed too (still ticked), so saving the
+   * form never drops them silently.
+   */
+  multi(key: string, legend: string, options: Array<{ value: string; label: string; group?: string | null }>, help?: string): string {
+    const picked = new Set(this.str(key).split(",").filter(Boolean));
+    const all = options.slice();
+    for (const id of picked) if (!all.some(o => o.value === id)) all.push({ value: id, label: `Unknown (${id})`, group: "Not visible to Aegis" });
+    let html = "";
+    let openGroup: string | null | undefined;
+    all.forEach((o, i) => {
+      const group = o.group ?? null;
+      if (group !== openGroup) {
+        if (openGroup) html += "</div>";
+        if (group) html += `<div class="pick-group"><p class="pick-group-title">${esc(group)}</p>`;
+        openGroup = group;
+      }
+      html += `<label class="check pick" for="f-${this.px}${key}-${i}"><input type="checkbox" id="f-${this.px}${key}-${i}" name="${key}" value="${esc(o.value)}"${picked.has(o.value) ? " checked" : ""}><span>${esc(o.label)}</span></label>`;
+    });
+    if (openGroup) html += "</div>";
+    const err = this.state.errors[key];
+    return `<fieldset class="pick-list" id="f-${this.px}${key}"${err ? ' aria-invalid="true"' : ""}${err || help ? ` aria-describedby="${[err ? `${this.px}${key}-error` : "", help ? `${this.px}${key}-help` : ""].filter(Boolean).join(" ")}"` : ""}>
+      <legend>${esc(legend)} <span class="faint">(${picked.size} picked)</span></legend>
+      ${all.length ? `<div class="pick-scroll">${html}</div>` : `<p class="muted">Nothing to pick from.</p>`}
+      ${this.errText(key)}${this.help(key, help)}
+    </fieldset>`;
+  }
+
   textarea(key: string, label: string, max: number, help?: string, extra = ""): string {
     return `<div class="field">
-      <label for="f-${key}">${esc(label)}</label>
-      <textarea id="f-${key}" name="${key}" maxlength="${max}"${this.errAttrs(key, help ? `${key}-help` : undefined)}${extra}>${esc(this.str(key))}</textarea>
+      <label for="f-${this.px}${key}">${esc(label)}</label>
+      <textarea id="f-${this.px}${key}" name="${key}" maxlength="${max}"${this.errAttrs(key, help ? `${this.px}${key}-help` : undefined)}${extra}>${esc(this.str(key))}</textarea>
       ${this.errText(key)}${this.help(key, help)}
     </div>`;
   }
@@ -543,6 +634,14 @@ function roleOptions(roles: RoleOption[], noneLabel: string | null) {
   const opts: Array<{ value: string; label: string; disabled?: boolean }> = noneLabel ? [{ value: "", label: noneLabel }] : [{ value: "", label: "Pick a role" }];
   for (const r of roles) opts.push({ value: r.id, label: r.assignable ? `@${r.name}` : `@${r.name} (Aegis cannot assign)`, disabled: !r.assignable });
   return opts;
+}
+
+function channelPicks(channels: ChannelOption[]) {
+  return channels.map(c => ({ value: c.id, label: `#${c.name}`, group: c.parent ?? "No category" }));
+}
+
+function rolePicks(roles: RoleOption[]) {
+  return roles.map(r => ({ value: r.id, label: `@${r.name}`, group: null }));
 }
 
 function missingNote(id: string, list: Array<{ id: string }>, what: string): string {
@@ -594,10 +693,12 @@ function sectionForm(
     }
 
     case "automod":
-      return `<p class="muted">The blocked word list (${esc(f.str("words_count") || "0")} words) and exemptions are edited with <code class="inline">/automod</code> in Discord.</p>
-      <fieldset><legend>Blocked words</legend>
+      return `<fieldset><legend>Blocked words</legend>
         ${f.checkbox("words_enabled", "Filter blocked words")}
         ${f.select("words_action", "When it matches", ACTION_OPTIONS)}
+        ${f.textarea("words_list", "Blocked words", 30_000,
+          `One word or phrase per line, 2 to ${AUTOMOD_WORD_MAX} characters, up to ${AUTOMOD_WORDS_MAX_COUNT}. Matching ignores case. Same list as <code class="inline">/automod words add</code>.`,
+          ' spellcheck="false" autocapitalize="off"')}
       </fieldset>
       <fieldset><legend>Links</legend>
         ${f.checkbox("links_enabled", "Filter links")}
@@ -620,7 +721,11 @@ function sectionForm(
         ${f.checkbox("caps_enabled", "Filter messages that are mostly capitals")}
         ${f.number("caps_threshold", "Percentage of capitals", 50, 100)}
         ${f.select("caps_action", "When it matches", ACTION_OPTIONS)}
-      </fieldset>`;
+      </fieldset>
+      <h2 class="section-title">Exemptions</h2>
+      <p class="muted">Members with an exempt role, and messages in an exempt channel, skip every automod rule.</p>
+      ${f.multi("exempt_roles", "Exempt roles", rolePicks(roles))}
+      ${f.multi("exempt_channels", "Exempt channels", channelPicks(channels), "Text and announcement channels are listed. Other channels exempted with /automod stay exempt and show as Unknown.")}`;
 
     case "welcome": {
       const sample = { username: ctx.viewer.username, serverName: ctx.guild.name, memberCount: ctx.guild.memberCount };
@@ -652,7 +757,8 @@ function sectionForm(
 
     case "verification":
       if (!snapshot.verification) {
-        return `<div class="empty-state"><strong>Verification is not set up.</strong>Run <code class="inline">/verify setup</code> in Discord to post the panel members click. After that you can change the settings here.</div>`;
+        return `<div class="empty-state"><strong>Verification is not set up yet.</strong>
+          New members need a panel to click before verification can work. <a class="text-link" href="/dashboard/${esc(ctx.guild.id)}/panels#verification">Post the verification panel</a> from the Panels page, or run <code class="inline">/verify setup</code> in Discord. After that you can change the settings here.</div>`;
       }
       return `${missingNote(f.str("verifiedRoleId"), roles, "verified role")}
       <fieldset><legend>Verification</legend>
@@ -663,17 +769,22 @@ function sectionForm(
           { value: "captcha", label: "Captcha: a short sum to solve" },
         ], "Changing this takes effect on the next click; the posted panel does not need re-posting.")}
         ${f.number("kickUnverifiedMinutes", "Kick members who have not verified after (minutes)", 0, MAX_KICK_UNVERIFIED_MINUTES, "0 turns auto-kick off. Applies to members who join after you save.")}
-      </fieldset>`;
+      </fieldset>
+      <p class="muted">The panel is in ${snapshot.verification.channelId ? `<code class="inline">#${esc(channels.find(c => c.id === snapshot.verification?.channelId)?.name ?? snapshot.verification.channelId)}</code>` : "an unknown channel"}. To move it or change its text, <a href="/dashboard/${esc(ctx.guild.id)}/panels#verification">post it again from Panels</a>.</p>`;
 
     case "starboard":
       return `${missingNote(f.str("channelId"), channels, "starboard channel")}
       <fieldset><legend>Starboard</legend>
         ${f.checkbox("enabled", "Starboard is on")}
         ${f.select("channelId", "Starboard channel", channelOptions(channels, "No channel"))}
-        ${f.number("threshold", `${f.str("emoji") || "⭐"} reactions needed`, 1, 100)}
+        ${f.text("emoji", "Emoji that stars a message", 64, `One emoji such as ⭐ or 🌟, or a custom emoji written as <code class="inline">&lt;:name:id&gt;</code>. Same as <code class="inline">/starboard emoji</code>.`, ' spellcheck="false" autocapitalize="off"')}
+        ${f.number("threshold", "Reactions needed", 1, 100)}
         ${f.checkbox("selfStar", "Count the author's own star")}
       </fieldset>
-      <p class="muted">The emoji and ignored channels are set with <code class="inline">/starboard</code>.</p>`;
+      <h2 class="section-title">Ignored</h2>
+      <p class="muted">Messages in ignored channels, or from members with an ignored role, are never posted to the starboard.</p>
+      ${f.multi("ignoredChannels", "Ignored channels", channelPicks(channels))}
+      ${f.multi("ignoredRoles", "Ignored roles", rolePicks(roles))}`;
   }
 }
 
@@ -715,5 +826,296 @@ export function renderSettings(
     ${sectionForm(section, f, ctx, channels, roles, snapshot)}
     ${canSave ? `<button class="btn" type="submit">Save ${SECTION_TITLES[section].toLowerCase()} settings</button>` : ""}
   </form>`,
+  });
+}
+
+/* ── Shared bits for the newer pages ───────────────────────────────── */
+
+function errorSummary(errors: Record<string, string>, prefix = "f-"): string {
+  // prefix matches the Form's id prefix: "f-" + its own prefix.
+  const keys = Object.keys(errors);
+  if (!keys.length) return "";
+  return `<div class="error-summary" role="alert" tabindex="-1" data-error-summary>
+      <h2>Nothing was changed. Fix ${keys.length === 1 ? "this" : "these"} first:</h2>
+      <ul>${keys.map(k => `<li><a href="#${prefix}${esc(k)}">${esc(errors[k])}</a></li>`).join("")}</ul>
+    </div>`;
+}
+
+function permissionNote(missing: string | null): string {
+  return missing
+    ? `<p class="callout warn">You need <strong>${esc(missing)}</strong> in this server for this, the same as the slash command. You can look, but the buttons will be refused.</p>`
+    : "";
+}
+
+function pagerNav(base: string, query: (page: number) => string, page: number, pages: number, total: number, noun: string): string {
+  if (pages <= 1) return `<p class="muted">${total.toLocaleString("en-US")} ${noun}${total === 1 ? "" : "s"}.</p>`;
+  return `<nav class="pager" aria-label="Pages">
+      <span>Page ${page} of ${pages}, ${total.toLocaleString("en-US")} ${noun}s</span>
+      <span class="btn-row">
+        ${page > 1 ? `<a class="btn ghost sm" href="${base}${esc(query(page - 1))}" rel="prev">Newer</a>` : ""}
+        ${page < pages ? `<a class="btn ghost sm" href="${base}${esc(query(page + 1))}" rel="next">Older</a>` : ""}
+      </span>
+    </nav>`;
+}
+
+/* ── Appeals ───────────────────────────────────────────────────────── */
+
+const APPEAL_FILTER_LABELS: Record<AppealFilter, string> = {
+  pending: "Pending", approved: "Approved", denied: "Denied", expired: "Expired", all: "All",
+};
+
+function appealTag(status: string): string {
+  const cls = status === "approved" ? "ok" : status === "pending" ? "warn" : "";
+  return `<span class="tag${cls ? ` ${cls}` : ""}">${esc(status)}</span>`;
+}
+
+export function renderAppeals(
+  cfg: SiteConfig,
+  ctx: GuildContext,
+  filter: { status: AppealFilter; page: number },
+  result: { items: AppealRecord[]; total: number },
+  perPage: number,
+  o: { missingPermission?: string | null; noticeCode?: string | null } = {},
+): string {
+  const g = ctx.guild;
+  const base = `/dashboard/${esc(g.id)}/appeals`;
+  const pages = Math.max(1, Math.ceil(result.total / perPage));
+  const page = Math.min(filter.page, pages);
+  const query = (p: number) => {
+    const q = new URLSearchParams();
+    if (filter.status !== "pending") q.set("status", filter.status);
+    if (p > 1) q.set("page", String(p));
+    const s = q.toString();
+    return s ? `?${s}` : "";
+  };
+  const tabs = `<nav aria-label="Appeal status"><ul class="dash-nav">${APPEAL_FILTERS.map(s =>
+    `<li><a href="${base}${s === "pending" ? "" : `?status=${s}`}"${s === filter.status ? ' aria-current="page"' : ""}>${APPEAL_FILTER_LABELS[s]}</a></li>`).join("")}</ul></nav>`;
+
+  const rows = result.items.map(a => `<tr>
+      <td data-label="Filed">${esc(fmtDate(a.createdAt))}</td>
+      <td data-label="Code"><a class="case-link" href="${base}/${esc(a.code)}">${esc(a.code)}</a> ${appealTag(a.status)}</td>
+      <td data-label="Member">${person(ctx, a.userId)}</td>
+      <td data-label="Banned by">${person(ctx, a.moderatorId)}</td>
+      <td data-label="Statement">${a.appealText ? esc(a.appealText.length > 120 ? a.appealText.slice(0, 117) + "…" : a.appealText) : `<span class="faint">Not submitted yet</span>`}</td>
+    </tr>`).join("");
+
+  return shell(cfg, {
+    title: `Appeals in ${g.name}`,
+    path: `/dashboard/${g.id}/appeals`,
+    viewer: ctx.viewer,
+    body: `${head("Ban appeals", "Members banned by Aegis get an appeal code by DM and send their statement with <code class=\"inline\">/appeal submit</code>. Review them here or with <code class=\"inline\">/appeal review</code>.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Appeals", null]])}
+  ${guildNav(g.id, "appeals")}
+  ${notice(o.noticeCode)}
+  ${permissionNote(o.missingPermission ?? null)}
+  ${tabs}
+  ${result.items.length ? `<div class="table-wrap"><table class="case-table">
+    <caption class="visually-hidden">${esc(APPEAL_FILTER_LABELS[filter.status])} ban appeals</caption>
+    <thead><tr><th scope="col">Filed</th><th scope="col">Code</th><th scope="col">Member</th><th scope="col">Banned by</th><th scope="col">Statement</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>` : `<div class="empty-state"><strong>No ${filter.status === "all" ? "" : `${filter.status} `}appeals.</strong>${filter.status === "pending" ? "Nothing is waiting for review." : "Try another status."}</div>`}
+  ${pagerNav(base, query, page, pages, result.total, "appeal")}`,
+  });
+}
+
+export function renderAppeal(
+  cfg: SiteConfig,
+  ctx: GuildContext,
+  appeal: AppealRecord,
+  o: { missingPermission?: string | null; noticeCode?: string | null; errors?: Record<string, string>; noteValue?: string } = {},
+): string {
+  const g = ctx.guild;
+  const action = `/dashboard/${esc(g.id)}/appeals/${esc(appeal.code)}`;
+  const errors = o.errors ?? {};
+  const review = appeal.status === "pending"
+    ? `<h2>Review</h2>
+  ${errorSummary(errors)}
+  <form class="dash-form" method="post" action="${action}/review" novalidate>
+    ${csrfField(ctx.viewer)}
+    <div class="field">
+      <label for="f-note">Note to the member (optional)</label>
+      <textarea id="f-note" name="note" maxlength="${APPEAL_REVIEW_NOTE_MAX}"${errors.note ? ' aria-invalid="true" aria-describedby="note-error"' : ""}>${esc(o.noteValue ?? "")}</textarea>
+      ${errors.note ? `<span class="field-error" id="note-error">${esc(errors.note)}</span>` : ""}
+      <span class="field-help">Up to ${APPEAL_REVIEW_NOTE_MAX} characters. Sent to them by DM with the decision, and posted to your log channel.</span>
+    </div>
+    <div class="btn-row review-buttons" id="f-decision">
+      <button class="btn" type="submit" name="decision" value="approved" data-confirm-button="Approve and unban this member?">Approve and unban</button>
+      <button class="btn danger" type="submit" name="decision" value="denied" data-confirm-button="Deny this appeal? The ban stays.">Deny</button>
+    </div>
+  </form>`
+    : `<h2>Decision</h2>
+  <dl class="detail-list">
+    <dt>Status</dt><dd>${appealTag(appeal.status)}</dd>
+    ${appeal.reviewedBy ? `<dt>Reviewed by</dt><dd>${person(ctx, appeal.reviewedBy)}</dd>` : ""}
+    ${appeal.reviewedAt ? `<dt>Reviewed</dt><dd>${esc(fmtDate(appeal.reviewedAt))}</dd>` : ""}
+    <dt>Note</dt><dd>${appeal.reviewNote ? esc(appeal.reviewNote) : `<span class="faint">None</span>`}</dd>
+  </dl>`;
+
+  return shell(cfg, {
+    title: `Appeal ${appeal.code}`,
+    path: action,
+    viewer: ctx.viewer,
+    body: `${head(`Appeal ${appeal.code}`, "", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Appeals", `/dashboard/${g.id}/appeals`], [appeal.code, null]])}
+  ${guildNav(g.id, "appeals")}
+  ${notice(o.noticeCode)}
+  ${permissionNote(o.missingPermission ?? null)}
+  <dl class="detail-list">
+    <dt>Code</dt><dd><code class="inline">${esc(appeal.code)}</code> ${appealTag(appeal.status)}</dd>
+    <dt>Member</dt><dd>${person(ctx, appeal.userId)} <a class="text-link" href="/dashboard/${esc(g.id)}/cases?user=${esc(appeal.userId)}">Their history</a></dd>
+    <dt>Banned by</dt><dd>${person(ctx, appeal.moderatorId)}</dd>
+    <dt>Filed</dt><dd>${esc(fmtDate(appeal.createdAt))}</dd>
+    <dt>Ban reason</dt><dd>${esc(appeal.banReason)}</dd>
+    <dt>Statement</dt><dd class="prewrap">${appeal.appealText ? esc(appeal.appealText) : `<span class="faint">Not submitted yet. They send it with /appeal submit.</span>`}</dd>
+  </dl>
+  ${review}`,
+  });
+}
+
+/* ── Panels ────────────────────────────────────────────────────────── */
+
+export interface PanelsState {
+  form: "ticket" | "verification" | null;
+  values: Values;
+  errors: Record<string, string>;
+}
+
+export function renderPanels(
+  cfg: SiteConfig,
+  ctx: GuildContext,
+  o: {
+    channels: ChannelOption[];
+    roles: RoleOption[];
+    rolePanels: RolePanelSummary[];
+    verificationSetUp: boolean;
+    state?: PanelsState;
+    noticeCode?: string | null;
+    missing: { tickets: string | null; roles: string | null };
+  },
+): string {
+  const g = ctx.guild;
+  const base = `/dashboard/${esc(g.id)}/panels`;
+  const state = o.state ?? { form: null, values: {}, errors: {} };
+  const formFor = (which: "ticket" | "verification", defaults: Values) =>
+    new Form(state.form === which ? { values: state.values, errors: state.errors } : { values: defaults, errors: {} }, `${which}-`);
+  const t = formFor("ticket", {});
+  const v = formFor("verification", { type: "button", kickUnverifiedMinutes: "0" });
+  const anyRole = [{ value: "", label: "No staff role" }].concat(o.roles.map(r => ({ value: r.id, label: `@${r.name}` })));
+  const summaryFor = (which: "ticket" | "verification") => (state.form === which ? errorSummary(state.errors, `f-${which}-`) : "");
+  const channelName = (id: string) => o.channels.find(c => c.id === id)?.name;
+
+  const rolePanels = o.rolePanels.length
+    ? `<ul class="panel-list">${o.rolePanels.map(p => `<li class="panel-item">
+        <div class="panel-meta"><strong>${esc(p.title)}</strong>
+          <span class="faint">${p.roleCount} role${p.roleCount === 1 ? "" : "s"}, ${esc(p.style)}, in ${channelName(p.channelId) ? `#${esc(channelName(p.channelId)!)}` : `<code class="inline">${esc(p.channelId)}</code>`}</span></div>
+        <form class="panel-repost" method="post" action="${base}/roles/${esc(p.id)}" novalidate>
+          ${csrfField(ctx.viewer)}
+          <div class="field"><label for="f-rp-${esc(p.id)}">Post to</label>
+            <select id="f-rp-${esc(p.id)}" name="channelId">${channelOptions(o.channels, "Pick a channel").map(c => `<option value="${esc(c.value)}"${c.value === p.channelId ? " selected" : ""}>${esc(c.label)}</option>`).join("")}</select></div>
+          <button class="btn ghost" type="submit">Re-post</button>
+        </form>
+      </li>`).join("")}</ul>`
+    : `<div class="empty-state"><strong>No role panels yet.</strong>Create one with <code class="inline">/rolepanel create</code> in Discord; it will show up here to re-post.</div>`;
+
+  return shell(cfg, {
+    title: `Panels in ${g.name}`,
+    path: `/dashboard/${g.id}/panels`,
+    viewer: ctx.viewer,
+    body: `${head("Panels", "Post the messages members click: the ticket button, the verification button and role panels. Each uses the same code as its slash command.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Panels", null]])}
+  ${guildNav(g.id, "panels")}
+  ${notice(o.noticeCode)}
+
+  <h2 id="tickets">Ticket panel</h2>
+  <p class="muted">Same as <code class="inline">/ticket setup</code>. Earlier Aegis ticket panels in the channel are removed first.</p>
+  ${permissionNote(o.missing.tickets)}
+  ${summaryFor("ticket")}
+  <form class="dash-form" method="post" action="${base}/tickets" novalidate>
+    ${csrfField(ctx.viewer)}
+    <fieldset><legend>Ticket panel</legend>
+      ${t.select("channelId", "Channel", channelOptions(o.channels, "Pick a channel"))}
+      ${t.select("staffRoleId", "Staff role to notify", anyRole, "Optional. Members of this role are added to each new ticket.")}
+      ${t.text("title", "Title", PANEL_TITLE_MAX, "Optional. Default: 🎫 Support Tickets")}
+      ${t.textarea("description", "Description", TICKET_PANEL_DESCRIPTION_MAX, "Optional. Default: Need assistance? Click the button below…")}
+    </fieldset>
+    <button class="btn" type="submit">Post ticket panel</button>
+  </form>
+
+  <h2 id="verification">Verification panel</h2>
+  <p class="muted">Same as <code class="inline">/verify setup</code>. ${o.verificationSetUp
+    ? "Verification is set up; posting again moves the panel or changes its text and turns verification on."
+    : "<strong>Verification is not set up yet.</strong> Posting the panel turns it on."} Earlier Aegis verification panels in the channel are removed first.</p>
+  ${permissionNote(o.missing.roles)}
+  ${summaryFor("verification")}
+  <form class="dash-form" method="post" action="${base}/verification" novalidate>
+    ${csrfField(ctx.viewer)}
+    <fieldset><legend>Verification panel</legend>
+      ${v.select("channelId", "Channel", channelOptions(o.channels, "Pick a channel"))}
+      ${v.select("verifiedRoleId", "Role given after verifying", roleOptions(o.roles, null), "Roles above Aegis's own role cannot be assigned and are greyed out.")}
+      ${v.select("type", "Challenge", [
+        { value: "button", label: "Button: one click" },
+        { value: "captcha", label: "Captcha: a short sum to solve" },
+      ])}
+      ${v.number("kickUnverifiedMinutes", "Kick members who have not verified after (minutes)", 0, MAX_KICK_UNVERIFIED_MINUTES, "0 turns auto-kick off.")}
+      ${v.text("title", "Title", PANEL_TITLE_MAX, "Optional. Default: 🛡️ Server Verification Required")}
+      ${v.textarea("description", "Description", VERIFY_PANEL_DESCRIPTION_MAX, "Optional. Default: Click the button below to verify your account…")}
+    </fieldset>
+    <button class="btn" type="submit">Post verification panel</button>
+  </form>
+
+  <h2 id="roles">Role panels</h2>
+  <p class="muted">Re-post a panel made with <code class="inline">/rolepanel create</code>, in the same channel or another one. The new message replaces the old one; the roles and options stay the same.</p>
+  ${permissionNote(o.missing.roles)}
+  ${rolePanels}`,
+  });
+}
+
+/* ── Activity ──────────────────────────────────────────────────────── */
+
+const AUDIT_LABELS: Record<string, string> = {
+  "case.reason": "Edited a case reason",
+  "case.revoke": "Revoked a case",
+  "case.revoke+unban": "Revoked a ban and unbanned",
+  "appeal.approved": "Approved an appeal",
+  "appeal.denied": "Denied an appeal",
+  "panel.ticket": "Posted the ticket panel",
+  "panel.verification": "Posted the verification panel",
+  "panel.role": "Re-posted a role panel",
+};
+
+export function auditLabel(action: string): string {
+  if (AUDIT_LABELS[action]) return AUDIT_LABELS[action];
+  const m = action.match(/^settings\.(\w+)$/);
+  if (m && (SETTINGS_SECTIONS as readonly string[]).includes(m[1])) return `Changed ${SECTION_TITLES[m[1] as SettingsSection].toLowerCase()} settings`;
+  return action;
+}
+
+export function renderActivity(
+  cfg: SiteConfig,
+  ctx: GuildContext,
+  page: number,
+  result: { items: AuditEntry[]; total: number },
+  perPage: number,
+): string {
+  const g = ctx.guild;
+  const base = `/dashboard/${esc(g.id)}/activity`;
+  const pages = Math.max(1, Math.ceil(result.total / perPage));
+  const current = Math.min(page, pages);
+  const rows = result.items.map(e => `<tr>
+      <td data-label="When">${esc(fmtDate(e.createdAt))}</td>
+      <td data-label="Who">${esc(e.username)} <span class="faint">${esc(e.userId)}</span></td>
+      <td data-label="What">${esc(auditLabel(e.action))}${e.target ? ` <code class="inline">${esc(e.target)}</code>` : ""}</td>
+      <td data-label="Details">${e.summary ? esc(e.summary) : `<span class="faint">No field changed</span>`}</td>
+    </tr>`).join("");
+
+  return shell(cfg, {
+    title: `Dashboard activity in ${g.name}`,
+    path: `/dashboard/${g.id}/activity`,
+    viewer: ctx.viewer,
+    body: `${head("Dashboard activity", "Every change made through this dashboard for this server, newest first. Kept for 180 days. Changes made with slash commands are in your log channel instead.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Activity", null]])}
+  ${guildNav(g.id, "activity")}
+  ${result.items.length ? `<div class="table-wrap"><table class="case-table">
+    <caption class="visually-hidden">Dashboard changes</caption>
+    <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Details</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>` : `<div class="empty-state"><strong>No dashboard changes yet.</strong>Saves, revokes, appeal decisions and posted panels show up here.</div>`}
+  ${pagerNav(base, p => (p > 1 ? `?page=${p}` : ""), current, pages, result.total, "change")}`,
   });
 }

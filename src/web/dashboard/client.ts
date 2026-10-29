@@ -1,7 +1,8 @@
 /**
  * Script served from /assets/dashboard.js. Plain ES5, progressive only: every
  * dashboard form works without it. It adds the live welcome preview, dims
- * unused timeout fields, asks before revoking, and focuses the error summary.
+ * unused timeout fields, asks before revoking or deciding an appeal, keeps
+ * checkbox-list counts current, and focuses the error summary.
  */
 export const dashboardScript = String.raw`
 (function () {
@@ -44,12 +45,34 @@ export const dashboardScript = String.raw`
     })(rows[i]);
   }
 
-  /* Ask before destructive actions. */
+  /* Ask before destructive actions. A clicked button's own data-confirm-button wins. */
+  var lastButton = null;
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    while (t && t !== document && !(t.tagName === 'BUTTON' && t.type === 'submit')) t = t.parentNode;
+    lastButton = t && t !== document ? t : null;
+  }, true);
   document.addEventListener('submit', function (e) {
     var form = e.target;
-    var message = form && form.getAttribute && form.getAttribute('data-confirm');
+    var button = e.submitter || lastButton;
+    var message = (button && button.form === form && button.getAttribute('data-confirm-button')) ||
+      (form && form.getAttribute && form.getAttribute('data-confirm'));
+    lastButton = null;
     if (message && !window.confirm(message)) e.preventDefault();
   });
+
+  /* Checkbox lists: keep the "(n picked)" count current. */
+  var lists = document.querySelectorAll('.pick-list');
+  for (var j = 0; j < lists.length; j++) {
+    (function (list) {
+      var count = list.querySelector('legend .faint');
+      if (!count) return;
+      var update = function () {
+        count.textContent = '(' + list.querySelectorAll('input[type="checkbox"]:checked').length + ' picked)';
+      };
+      list.addEventListener('change', update);
+    })(lists[j]);
+  }
 
   /* Move focus to the error summary so screen readers announce it. */
   var summary = document.querySelector('[data-error-summary]');

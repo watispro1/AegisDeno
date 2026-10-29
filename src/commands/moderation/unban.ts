@@ -11,8 +11,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { sendGuildLog } from "../../services/logging";
-import { addModerationCase } from "../../services/moderationCases";
+import { unbanMember } from "../../services/unban";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -106,41 +105,29 @@ export const command: Command = {
         }
 
         await i.deferUpdate();
-        try {
-          await interaction.guild!.members.unban(userId, `${reason} | Unbanned by ${interaction.user.tag}`);
-
-          await addModerationCase({
-            guildId,
-            userId,
-            moderatorId: interaction.user.id,
-            action: "unban",
-            reason,
-            details: `Original ban reason: ${banReason.slice(0, 200)}`,
+        const result = await unbanMember(interaction.guild!, userId, { id: interaction.user.id, tag: interaction.user.tag }, reason);
+        if (!result.ok) {
+          await i.editReply({
+            content: result.reason === "not_banned" ? "⚠️ That user is no longer banned." : "❌ Failed to unban the user. Check my permissions.",
+            embeds: [],
+            components: [],
           });
-
-          const resultEmbed = new EmbedBuilder()
-            .setColor(0x57F287)
-            .setTitle("🔓 User Unbanned")
-            .setThumbnail(ban.user.displayAvatarURL())
-            .addFields(
-              { name: "👤 User",         value: `${ban.user.tag} (<@${userId}>)`, inline: false },
-              { name: "📋 Was Banned For", value: banReason.slice(0, 512), inline: false },
-              { name: "📝 Unban Reason",  value: reason, inline: false },
-              { name: "🛡️ Unbanned By",  value: interaction.user.tag, inline: true },
-            )
-            .setTimestamp();
-
-          await i.editReply({ content: null, embeds: [resultEmbed], components: [] });
-
-          await sendGuildLog(interaction.client, guildId, {
-            title: "🔓 User Unbanned",
-            color: 0x57F287,
-            description: `**User:** ${ban.user.tag} (<@${userId}>)\n**Ban Reason:** ${banReason.slice(0, 300)}\n**Unban Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
-          });
-        } catch (err) {
-          logger.error(`Failed to unban user ${userId} in guild ${guildId}`, err);
-          await i.editReply({ content: "❌ Failed to unban the user. Check my permissions.", embeds: [], components: [] });
+          return;
         }
+
+        const resultEmbed = new EmbedBuilder()
+          .setColor(0x57F287)
+          .setTitle("🔓 User Unbanned")
+          .setThumbnail(ban.user.displayAvatarURL())
+          .addFields(
+            { name: "👤 User",         value: `${ban.user.tag} (<@${userId}>)`, inline: false },
+            { name: "📋 Was Banned For", value: banReason.slice(0, 512), inline: false },
+            { name: "📝 Unban Reason",  value: reason, inline: false },
+            { name: "🛡️ Unbanned By",  value: interaction.user.tag, inline: true },
+          )
+          .setTimestamp();
+
+        await i.editReply({ content: null, embeds: [resultEmbed], components: [] });
       });
 
       collector.on("end", async (_, stopReason) => {

@@ -11,8 +11,11 @@ import { PermissionFlagsBits } from "discord.js";
 import { createDashboardRouter } from "../src/web/dashboard/router";
 import { readDashboardConfig } from "../src/web/dashboard/config";
 import { memorySessionStore } from "../src/web/dashboard/sessions";
-import type { BotView } from "../src/web/dashboard/botView";
-import type { CaseRecord, DashboardData, SettingsSnapshot, SettingsValue } from "../src/web/dashboard/data";
+import type { BotView, DashboardPermission } from "../src/web/dashboard/botView";
+import type { AppealRecord, CaseRecord, DashboardData, SettingsSnapshot, SettingsValue } from "../src/web/dashboard/data";
+import { memoryAuditStore } from "../src/web/dashboard/audit";
+import type { RateLimitStore } from "../src/web/dashboard/rateLimitStore";
+import type { TicketPanelInput, VerificationPanelInput } from "../src/web/dashboard/validation";
 import type { SiteConfig } from "../src/web/pages";
 
 const USER = "900000000000000001";
@@ -20,7 +23,12 @@ const GUILD_OK = "800000000000000001";
 const GUILD_DEMOTED = "800000000000000002"; // listed as manageable at login, but the live check says no
 const GUILD_NO_BOT = "800000000000000003";
 const CHANNEL = "700000000000000001";
+const CHANNEL_2 = "700000000000000002";
 const ROLE = "600000000000000001";
+const ROLE_HIGH = "600000000000000002"; // exists, but Aegis cannot assign it
+const SAVED_ELSEWHERE = "700000000000000099"; // exempted with /automod, not a text channel the picker lists
+const APPEAL_CODE = "AGS-K7X2";
+const PANEL_ID = "panel-0a1b2c3d";
 const CASE_ID = "65a1b2c3d4e5f60718293a4b";
 const TOKEN = "fake-access-token-never-logged";
 
@@ -29,6 +37,14 @@ const site: SiteConfig = { inviteUrl: "https://discord.com/oauth2/authorize?clie
 const saved: SettingsValue[] = [];
 const edits: Array<{ id: string; reason: string; by: string }> = [];
 const revokes: string[] = [];
+const unbans: string[] = [];
+const reviews: Array<{ code: string; decision: string; note: string | null; by: string }> = [];
+const ticketPanels: TicketPanelInput[] = [];
+const verificationPanels: VerificationPanelInput[] = [];
+const rolePanelPosts: Array<{ id: string; channelId: string }> = [];
+/** Extra permissions the fake bot says the user has right now. */
+const granted = new Set<DashboardPermission>(["BanMembers", "ManageChannels", "ManageRoles"]);
+const audit = memoryAuditStore();
 let tokenExchanges = 0;
 let revokedTokens = 0;
 
@@ -42,8 +58,9 @@ const bot: BotView = {
   hasGuild: id => id === GUILD_OK || id === GUILD_DEMOTED,
   guild: id => (id === GUILD_OK || id === GUILD_DEMOTED ? { id, name: id === GUILD_OK ? "Test <b>Server</b>" : "Demoted", memberCount: 42 } : null),
   memberCanManage: async (guildId, userId) => guildId === GUILD_OK && userId === USER,
-  textChannels: () => [{ id: CHANNEL, name: "mod-log", parent: "Staff" }],
-  roles: () => [{ id: ROLE, name: "Verified", assignable: true }],
+  memberHasPermission: async (guildId, userId, permission) => guildId === GUILD_OK && userId === USER && granted.has(permission),
+  textChannels: () => [{ id: CHANNEL, name: "mod-log", parent: "Staff" }, { id: CHANNEL_2, name: "general", parent: null }],
+  roles: () => [{ id: ROLE_HIGH, name: "Admin", assignable: false }, { id: ROLE, name: "Verified", assignable: true }],
   userName: id => (id === USER ? "aj" : null),
 };
 
@@ -62,11 +79,17 @@ const snapshot: SettingsSnapshot = {
     mentions: { enabled: false, action: "timeout", threshold: 5 },
     spam: { enabled: false, action: "timeout", maxMessages: 5, windowSeconds: 5 },
     caps: { enabled: false, action: "delete", threshold: 80 },
-    exemptRoleIds: [], exemptChannelIds: [],
+    exemptRoleIds: [], exemptChannelIds: [SAVED_ELSEWHERE],
   },
   tickets: { logChannelId: null, autoCloseHours: 48, transcriptLogging: true },
   verification: null,
   starboard: { guildId: GUILD_OK, channelId: null, emoji: "⭐", threshold: 3, selfStar: false, ignoredChannels: [], ignoredRoles: [], enabled: true },
+};
+
+const appeal: AppealRecord = {
+  code: APPEAL_CODE, guildId: GUILD_OK, userId: "500000000000000001", moderatorId: USER, banReason: "Raiding",
+  appealText: "I was <b>hacked</b>, sorry.", status: "pending", reviewedBy: null, reviewNote: null, reviewedAt: null,
+  createdAt: new Date("Wed 2026-10-28 7:00 AM CDT (UTC-05:00)"),
 };
 
 const data: DashboardData = {
@@ -75,6 +98,21 @@ const data: DashboardData = {
   getCase: async (_g, id) => (id === CASE_ID ? record : null),
   editCaseReason: async (_g, id, reason, actor) => { edits.push({ id, reason, by: actor.userId }); return true; },
   revokeCase: async (_g, id) => { revokes.push(id); return true; },
+  unbanCaseMember: async (_g, rec) => { unbans.push(rec.userId); return "done"; },
+  listAppeals: async (_g, status) => ({ items: status === "pending" || status === "all" ? [appeal] : [], total: status === "pending" || status === "all" ? 1 : 0 }),
+  getAppeal: async (_g, code) => (code.toUpperCase() === APPEAL_CODE ? appeal : null),
+  reviewAppeal: async (_g, code, decision, note, actor) => {
+    reviews.push({ code, decision, note, by: actor.userId });
+    return { ok: true, unban: decision === "approved" ? "done" : null };
+  },
+  listRolePanels: async () => [{ id: PANEL_ID, title: "Pick <i>roles</i>", channelId: CHANNEL, roleCount: 3, style: "button", createdAt: new Date(0) }],
+  postTicketPanel: async (_g, input) => { ticketPanels.push(input); return "posted"; },
+  setupVerificationPanel: async (_g, input) => { verificationPanels.push(input); return "posted"; },
+  repostRolePanel: async (_g, id, channelId) => {
+    if (id !== PANEL_ID) return "not-found";
+    rolePanelPosts.push({ id, channelId });
+    return "posted";
+  },
   loadSettings: async () => snapshot,
   saveSettings: async (_g, input) => { saved.push(input); return input.section !== "verification"; },
 };
@@ -154,7 +192,7 @@ before(async () => {
   });
   assert.ok(config);
   const app = express();
-  app.use("/dashboard", createDashboardRouter({ site, config, bot, data, sessions, fetchImpl: fakeFetch as typeof fetch, limits: { auth: 40 } }));
+  app.use("/dashboard", createDashboardRouter({ site, config, bot, data, sessions, audit, fetchImpl: fakeFetch as typeof fetch, limits: { auth: 40, post: 1000, page: 2000 } }));
   server = app.listen(0);
   await new Promise(r => server.once("listening", r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -352,6 +390,297 @@ test("logout needs CSRF, deletes the session and revokes the token", async () =>
   assert.equal(after.status, 302);
 });
 
+/* ── v1.2.0: automod lists, starboard, appeals, panels, unban, activity ─ */
+
+function lastSaved<S extends SettingsValue["section"]>(section: S): Extract<SettingsValue, { section: S }>["value"] {
+  const hit = [...saved].reverse().find(v => v.section === section);
+  assert.ok(hit, `no ${section} save`);
+  return hit.value as Extract<SettingsValue, { section: S }>["value"];
+}
+
+const automodBase = {
+  words_action: "delete", links_action: "delete", mentions_action: "timeout", mentions_threshold: "5",
+  spam_action: "timeout", spam_maxMessages: "5", spam_windowSeconds: "5", caps_action: "delete", caps_threshold: "80",
+};
+
+test("automod page shows the word list and exemption pickers from the bot cache", async () => {
+  await login();
+  const html = await (await get(`/dashboard/${GUILD_OK}/settings/automod`)).text();
+  assert.match(html, /<textarea id="f-words_list" name="words_list"[^>]*>a<\/textarea>/);
+  assert.ok(html.includes(`name="exempt_channels" value="${CHANNEL}"`), "text channel offered");
+  assert.ok(html.includes(`name="exempt_roles" value="${ROLE_HIGH}"`), "any role can be exempt");
+  assert.match(html, new RegExp(`name="exempt_channels" value="${SAVED_ELSEWHERE}" checked`), "saved unknown channel still ticked");
+  assert.ok(!html.includes("edited with <code"), "old slash-only note gone");
+});
+
+test("automod POST saves the word list and exemptions, and validates them", async () => {
+  await login();
+  const path = `/dashboard/${GUILD_OK}/settings/automod`;
+  const csrf = await csrfFrom(path);
+  const before = saved.length;
+
+  const shortWord = await post(path, { _csrf: csrf, ...automodBase, words_list: "ok\nx" });
+  assert.equal(shortWord.status, 400);
+  assert.match(await shortWord.text(), /2 to 100 characters/);
+  const unknownRole = await post(path, { _csrf: csrf, ...automodBase, words_list: "spam", exempt_roles: "600000000000000777" });
+  assert.equal(unknownRole.status, 400);
+  const badId = await post(path, { _csrf: csrf, ...automodBase, exempt_channels: "<#1>" });
+  assert.equal(badId.status, 400);
+  assert.equal(saved.length, before, "nothing saved");
+
+  const body = new URLSearchParams({ _csrf: csrf, ...automodBase, words_enabled: "on", words_list: "Spam\nfree nitro\nspam\n\n" });
+  body.append("exempt_roles", ROLE_HIGH);
+  body.append("exempt_channels", CHANNEL);
+  body.append("exempt_channels", SAVED_ELSEWHERE);
+  const res = await fetch(base + path, {
+    method: "POST", redirect: "manual", body: body.toString(),
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ") },
+  });
+  assert.equal(res.status, 303);
+  const v = lastSaved("automod");
+  assert.deepEqual(v.words.list, ["spam", "free nitro"], "lower-cased, de-duplicated, blanks dropped");
+  assert.equal(v.words.enabled, true);
+  assert.deepEqual(v.exemptRoleIds, [ROLE_HIGH]);
+  assert.deepEqual(v.exemptChannelIds, [CHANNEL, SAVED_ELSEWHERE], "previously saved non-text channel kept");
+});
+
+test("starboard POST saves emoji and ignore lists; rejects a non-emoji", async () => {
+  await login();
+  const path = `/dashboard/${GUILD_OK}/settings/starboard`;
+  const csrf = await csrfFrom(path);
+  const page = await (await get(path)).text();
+  assert.match(page, /id="f-emoji"[^>]*value="⭐"/);
+  assert.ok(page.includes(`name="ignoredChannels" value="${CHANNEL_2}"`));
+
+  const bad = await post(path, { _csrf: csrf, threshold: "3", emoji: "star" });
+  assert.equal(bad.status, 400);
+  assert.match(await bad.text(), /Use one emoji/);
+  const custom = await post(path, { _csrf: csrf, threshold: "4", emoji: "<:aegis:123456789012345678>", ignoredChannels: CHANNEL_2, ignoredRoles: ROLE });
+  assert.equal(custom.status, 303);
+  const v = lastSaved("starboard");
+  assert.equal(v.emoji, "<:aegis:123456789012345678>");
+  assert.deepEqual(v.ignoredChannels, [CHANNEL_2]);
+  assert.deepEqual(v.ignoredRoles, [ROLE]);
+  assert.equal(v.threshold, 4);
+  const unicode = await post(path, { _csrf: csrf, threshold: "3", emoji: "🌟" });
+  assert.equal(unicode.status, 303);
+  assert.equal(lastSaved("starboard").emoji, "🌟");
+});
+
+test("verification page without setup links to the Panels page", async () => {
+  await login();
+  const html = await (await get(`/dashboard/${GUILD_OK}/settings/verification`)).text();
+  assert.match(html, /Verification is not set up yet/);
+  assert.ok(html.includes(`href="/dashboard/${GUILD_OK}/panels#verification"`));
+});
+
+test("appeals: list and detail pages, escaped statement, 404 for unknown codes", async () => {
+  await login();
+  const list = await get(`/dashboard/${GUILD_OK}/appeals`);
+  assert.equal(list.status, 200);
+  const html = await list.text();
+  assert.ok(html.includes(`href="/dashboard/${GUILD_OK}/appeals/${APPEAL_CODE}"`));
+  assert.ok(html.includes("I was &lt;b&gt;hacked&lt;/b&gt;"));
+  assert.ok(!html.includes("<b>hacked</b>"));
+  assert.equal((await get(`/dashboard/${GUILD_OK}/appeals?status=denied`)).status, 200);
+  const detail = await get(`/dashboard/${GUILD_OK}/appeals/${APPEAL_CODE.toLowerCase()}`);
+  assert.equal(detail.status, 200);
+  const dHtml = await detail.text();
+  assert.match(dHtml, /Approve and unban/);
+  assert.match(dHtml, /name="_csrf"/);
+  assert.equal((await get(`/dashboard/${GUILD_OK}/appeals/AGS-ZZZZ`)).status, 404);
+  assert.equal((await get(`/dashboard/${GUILD_DEMOTED}/appeals`)).status, 403);
+});
+
+test("appeal review: CSRF, Ban Members and a valid decision are required", async () => {
+  await login();
+  const path = `/dashboard/${GUILD_OK}/appeals/${APPEAL_CODE}/review`;
+  const csrf = await csrfFrom(`/dashboard/${GUILD_OK}/appeals/${APPEAL_CODE}`);
+  const before = reviews.length;
+
+  assert.equal((await post(path, { decision: "approved" })).status, 403, "no CSRF");
+  assert.equal((await post(path, { _csrf: csrf, decision: "approved" }, { Origin: "https://evil.example" })).status, 403, "cross-origin");
+
+  granted.delete("BanMembers");
+  try {
+    const refused = await post(path, { _csrf: csrf, decision: "approved" });
+    assert.equal(refused.status, 403);
+    assert.match(await refused.text(), /Ban Members/);
+    const page = await (await get(`/dashboard/${GUILD_OK}/appeals/${APPEAL_CODE}`)).text();
+    assert.match(page, /You need <strong>Ban Members<\/strong>/, "page warns before you try");
+  } finally {
+    granted.add("BanMembers");
+  }
+
+  const invalid = await post(path, { _csrf: csrf, decision: "maybe" });
+  assert.equal(invalid.status, 400);
+  assert.match(await invalid.text(), /Pick approve or deny/);
+  const longNote = await post(path, { _csrf: csrf, decision: "denied", note: "x".repeat(600) });
+  assert.equal(longNote.status, 400);
+  assert.equal(reviews.length, before, "nothing reviewed yet");
+
+  const ok = await post(path, { _csrf: csrf, decision: "approved", note: "Second chance" });
+  assert.equal(ok.status, 303);
+  assert.equal(ok.headers.get("location"), `/dashboard/${GUILD_OK}/appeals/${APPEAL_CODE}?notice=appeal-approved`);
+  assert.deepEqual(reviews[reviews.length - 1], { code: APPEAL_CODE, decision: "approved", note: "Second chance", by: USER });
+  const entry = audit.all().find(e => e.action === "appeal.approved");
+  assert.ok(entry && entry.target === APPEAL_CODE && entry.userId === USER);
+});
+
+test("revoking a ban case can also unban, and needs Ban Members for that", async () => {
+  await login();
+  const path = `/dashboard/${GUILD_OK}/cases/${CASE_ID}`;
+  const page = await (await get(path)).text();
+  assert.match(page, /name="unban"/, "unban option on ban cases");
+  const csrf = await csrfFrom(path);
+
+  granted.delete("BanMembers");
+  const revokesBefore = revokes.length;
+  try {
+    const refused = await post(`${path}/revoke`, { _csrf: csrf, unban: "on" });
+    assert.equal(refused.status, 403);
+    assert.equal(revokes.length, revokesBefore, "case left as it was");
+  } finally {
+    granted.add("BanMembers");
+  }
+
+  const unbansBefore = unbans.length;
+  const res = await post(`${path}/revoke`, { _csrf: csrf, unban: "on" });
+  assert.equal(res.status, 303);
+  assert.equal(res.headers.get("location"), `${path}?notice=revoked-unbanned`);
+  assert.equal(unbans.length, unbansBefore + 1);
+  assert.equal(unbans[unbans.length - 1], record.userId);
+  assert.equal((await post(`/dashboard/${GUILD_OK}/cases/000000000000000000000000/revoke`, { _csrf: csrf })).status, 404);
+});
+
+test("panels page and posting: CSRF, permissions, validation", async () => {
+  await login();
+  const pagePath = `/dashboard/${GUILD_OK}/panels`;
+  const page = await get(pagePath);
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  assert.match(html, /Post ticket panel/);
+  assert.match(html, /Post verification panel/);
+  assert.ok(html.includes("Pick &lt;i&gt;roles&lt;/i&gt;"), "role panel title escaped");
+  const csrf = await csrfFrom(pagePath);
+
+  // Tickets
+  assert.equal((await post(`${pagePath}/tickets`, { channelId: CHANNEL })).status, 403, "no CSRF");
+  const noChannel = await post(`${pagePath}/tickets`, { _csrf: csrf, channelId: "" });
+  assert.equal(noChannel.status, 400);
+  assert.match(await noChannel.text(), /Nothing was changed/);
+  const longTitle = await post(`${pagePath}/tickets`, { _csrf: csrf, channelId: CHANNEL, title: "t".repeat(101) });
+  assert.equal(longTitle.status, 400);
+  granted.delete("ManageChannels");
+  try {
+    assert.equal((await post(`${pagePath}/tickets`, { _csrf: csrf, channelId: CHANNEL })).status, 403);
+  } finally {
+    granted.add("ManageChannels");
+  }
+  assert.equal(ticketPanels.length, 0);
+  const ticket = await post(`${pagePath}/tickets`, { _csrf: csrf, channelId: CHANNEL, staffRoleId: ROLE_HIGH, title: "Help" });
+  assert.equal(ticket.status, 303);
+  assert.equal(ticket.headers.get("location"), `${pagePath}?notice=panel-posted#tickets`);
+  assert.deepEqual(ticketPanels[0], { channelId: CHANNEL, staffRoleId: ROLE_HIGH, title: "Help", description: null }, "staff role need not be assignable");
+
+  // Verification
+  const unassignable = await post(`${pagePath}/verification`, { _csrf: csrf, channelId: CHANNEL, verifiedRoleId: ROLE_HIGH, type: "button" });
+  assert.equal(unassignable.status, 400);
+  assert.match(await unassignable.text(), /Aegis cannot assign that role/);
+  granted.delete("ManageRoles");
+  try {
+    assert.equal((await post(`${pagePath}/verification`, { _csrf: csrf, channelId: CHANNEL, verifiedRoleId: ROLE, type: "button" })).status, 403);
+    assert.equal((await post(`${pagePath}/roles/${PANEL_ID}`, { _csrf: csrf, channelId: CHANNEL })).status, 403);
+  } finally {
+    granted.add("ManageRoles");
+  }
+  const verify = await post(`${pagePath}/verification`, { _csrf: csrf, channelId: CHANNEL, verifiedRoleId: ROLE, type: "captcha", kickUnverifiedMinutes: "30" });
+  assert.equal(verify.status, 303);
+  assert.equal(verify.headers.get("location"), `/dashboard/${GUILD_OK}/settings/verification?notice=verification-posted`);
+  assert.deepEqual(verificationPanels[0], { channelId: CHANNEL, verifiedRoleId: ROLE, type: "captcha", kickUnverifiedMinutes: 30, title: null, description: null });
+
+  // Role panels
+  const repost = await post(`${pagePath}/roles/${PANEL_ID}`, { _csrf: csrf, channelId: CHANNEL_2 });
+  assert.equal(repost.status, 303);
+  assert.equal(repost.headers.get("location"), `${pagePath}?notice=rolepanel-posted#roles`);
+  assert.deepEqual(rolePanelPosts[0], { id: PANEL_ID, channelId: CHANNEL_2 });
+  const gone = await post(`${pagePath}/roles/panel-gone`, { _csrf: csrf, channelId: CHANNEL });
+  assert.equal(gone.headers.get("location"), `${pagePath}?notice=panel-not-found#roles`);
+  assert.equal((await post(`${pagePath}/roles/..%2Fetc`, { _csrf: csrf, channelId: CHANNEL })).status, 404);
+  const badChannel = await post(`${pagePath}/roles/${PANEL_ID}`, { _csrf: csrf, channelId: "999999999999999999" });
+  assert.equal(badChannel.headers.get("location"), `${pagePath}?notice=panel-channel-missing#roles`);
+  assert.equal(rolePanelPosts.length, 1);
+  assert.equal((await post(`/dashboard/${GUILD_DEMOTED}/panels/tickets`, { _csrf: csrf, channelId: CHANNEL })).status, 403);
+});
+
+test("activity page lists dashboard changes for the server, escaped", async () => {
+  await login();
+  const path = `/dashboard/${GUILD_OK}/settings/logging`;
+  const csrf = await csrfFrom(path);
+  const before = audit.all().length;
+  await post(path, { _csrf: csrf, loggingEnabled: "on", loggingChannelId: CHANNEL });
+  assert.equal(audit.all().length, before + 1, "settings save recorded");
+  const entry = audit.all()[audit.all().length - 1];
+  assert.equal(entry.action, "settings.logging");
+  assert.equal(entry.guildId, GUILD_OK);
+  await audit.record({ guildId: GUILD_OK, userId: USER, username: "<script>x</script>", action: "case.revoke", target: CASE_ID, summary: "<img>" });
+
+  const res = await get(`/dashboard/${GUILD_OK}/activity`);
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  assert.match(html, /Changed logging settings/);
+  assert.match(html, /Approved an appeal/);
+  assert.ok(html.includes("&lt;script&gt;x&lt;/script&gt;") && !html.includes("<script>x</script>"));
+  assert.ok(html.includes("&lt;img&gt;"));
+  assert.equal((await get(`/dashboard/${GUILD_DEMOTED}/activity`)).status, 403);
+  assert.equal((await get(`/dashboard/${GUILD_OK}/activity?page=-1`)).status, 200);
+});
+
+test("every guild page carries the server nav and the dashboard version", async () => {
+  await login();
+  for (const path of ["", "/cases", "/appeals", "/panels", "/settings/automod", "/activity"]) {
+    const html = await (await get(`/dashboard/${GUILD_OK}${path}`)).text();
+    for (const section of ["cases", "appeals", "panels", "settings", "activity"]) {
+      assert.ok(html.includes(`href="/dashboard/${GUILD_OK}/${section}"`), `${path}: nav to ${section}`);
+    }
+    assert.match(html, /Dashboard v1\.2\.0/);
+  }
+});
+
+test("rate limits go through the injected shared store", async () => {
+  const calls: string[] = [];
+  const deny: RateLimitStore = {
+    async hit(bucket, _key, limit) {
+      calls.push(`${bucket}:${limit}`);
+      return { allowed: false, retryAfterSeconds: 17 };
+    },
+  };
+  const config = readDashboardConfig({
+    DISCORD_APPLICATION_ID: "123456789012345678",
+    DISCORD_CLIENT_SECRET: "test-client-secret",
+    DASHBOARD_SESSION_SECRET: "s".repeat(64),
+    DASHBOARD_REDIRECT_URI: "http://127.0.0.1/dashboard/callback",
+  });
+  const app = express();
+  app.use("/dashboard", createDashboardRouter({ site, config, bot, data, sessions, rateLimits: deny }));
+  const srv = app.listen(0);
+  await new Promise(r => srv.once("listening", r));
+  try {
+    const url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+    const page = await fetch(`${url}/dashboard`, { redirect: "manual" });
+    assert.equal(page.status, 429);
+    assert.equal(page.headers.get("retry-after"), "17");
+    const login = await fetch(`${url}/dashboard/login`, { redirect: "manual" });
+    assert.equal(login.status, 429);
+    const form = await fetch(`${url}/dashboard/logout`, { method: "POST", redirect: "manual" });
+    assert.equal(form.status, 429);
+    assert.deepEqual(calls, ["page:240", "auth:20", "post:30"], "default limits unchanged");
+  } finally {
+    srv.close();
+  }
+});
+
+// Runs last: it uses up the auth limit for this client.
 test("auth routes are rate limited", async () => {
   jar = {};
   let limited = false;

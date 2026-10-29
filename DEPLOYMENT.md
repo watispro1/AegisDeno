@@ -267,8 +267,20 @@ URL as a redirect in the portal. The two must match character for character.
   gateway connection, so losing Manage Server takes effect on the next click.
 - Changes made in the dashboard are posted to the server's log channel (if
   logging is on) with the dashboard user's mention, like slash command changes.
+- Changes made in the dashboard are also kept per server in the
+  `dashboardaudits` collection (TTL 180 days) and shown on its Activity page.
 - Rate limits per client IP (from `Fly-Client-IP`): 20 login requests, 30 form
-  posts and 240 page views per minute.
+  posts and 240 page views per minute. Counters live in the
+  `dashboardratelimits` collection (one document per client and minute, keyed
+  by a hash of the IP, removed by a TTL index), so they are shared by every
+  machine and survive restarts. If MongoDB is unreachable they fall back to
+  in-memory counts.
+- Both collections and their TTL indexes are created by Mongoose on start; no
+  new environment variables, scopes or gateway intents are needed.
+- Appeal reviews, unbans and posting panels from the dashboard need the same
+  member permission as their slash command (Ban Members, Manage Channels or
+  Manage Roles), and the bot needs Ban Members, Manage Roles, Send Messages,
+  Embed Links and Read Message History where it acts.
 - Local testing: set `DASHBOARD_REDIRECT_URI=http://localhost:3000/dashboard/callback`,
   add that redirect in the portal, and run `npm run dev`. Cookies drop the
   `Secure` flag only when the redirect URI is plain `http`.

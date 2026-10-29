@@ -30,6 +30,8 @@ import { readDashboardConfig, missingDashboardSettings } from "./dashboard/confi
 import { discordBotView } from "./dashboard/botView";
 import { mongoDashboardData } from "./dashboard/data";
 import { mongoSessionStore } from "./dashboard/sessions";
+import { mongoRateLimitStore } from "./dashboard/rateLimitStore";
+import { mongoAuditStore } from "./dashboard/audit";
 import { dashboardScript } from "./dashboard/client";
 
 const SITE_VERSION = VERSION;
@@ -398,6 +400,8 @@ export function startWebServer(client: Client) {
     bot: discordBotView(client),
     data: mongoDashboardData(client),
     sessions: mongoSessionStore(),
+    rateLimits: mongoRateLimitStore(),
+    audit: mongoAuditStore(),
   }));
 
   app.use((_req: Request, res: Response) => {
