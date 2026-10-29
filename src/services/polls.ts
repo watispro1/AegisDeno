@@ -27,9 +27,14 @@ import {
   applyPollVote,
   buildResultBar,
   pollLeaders,
+  pollVoteGuard,
+  renderPollResultsText,
   tallyPoll,
   type PollVotes,
 } from "./communityLogic";
+
+/** Compare-and-set attempts before a vote gives up (only reachable under heavy click spam). */
+const VOTE_ATTEMPTS = 5;
 
 export const NUMBER_EMOJIS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 
@@ -111,15 +116,6 @@ function renderResultsEmbed(poll: PollRecord, closedBy: string | null): EmbedBui
   const { counts, totalVotes, voters } = tallyPoll(votes, poll.options.length);
   const leaders = pollLeaders(counts);
 
-  const lines = poll.options.map((opt, i) => {
-    let line = `${NUMBER_EMOJIS[i]} **${opt}** — ${counts[i]} vote${counts[i] !== 1 ? "s" : ""}\n\`${buildResultBar(counts[i], totalVotes)}\``;
-    if (!poll.anonymous && counts[i] > 0) {
-      const who = Object.entries(votes).filter(([, picks]) => picks.includes(i)).map(([uid]) => `<@${uid}>`);
-      line += `\n${who.slice(0, 15).join(" ")}${who.length > 15 ? ` +${who.length - 15} more` : ""}`;
-    }
-    return line;
-  });
-
   const verdict = leaders.length === 0
     ? "No votes were cast."
     : leaders.length === 1
@@ -129,7 +125,7 @@ function renderResultsEmbed(poll: PollRecord, closedBy: string | null): EmbedBui
   return new EmbedBuilder()
     .setColor(0x57F287)
     .setTitle(`📊 Results: ${poll.question}`.slice(0, 256))
-    .setDescription(`${verdict}\n\n${lines.join("\n\n")}`.slice(0, 4096))
+    .setDescription(renderPollResultsText({ ...poll, votes }, counts, totalVotes, verdict, NUMBER_EMOJIS))
     .setFooter({ text: `${voters} voter${voters !== 1 ? "s" : ""}${closedBy ? ` · Closed by ${closedBy}` : " · Closed automatically"}` })
     .setTimestamp();
 }
@@ -279,17 +275,34 @@ export async function handlePollButton(interaction: ButtonInteraction): Promise<
   const optionIndex = Number(match[1]);
   if (optionIndex >= poll.options.length) return;
 
-  const current = (poll.votes ?? {})[interaction.user.id] ?? [];
-  const { choices, added } = applyPollVote(current, optionIndex, poll.multiselect);
-  const voteKey = `votes.${interaction.user.id}`;
-  const updated = await PollModel.findOneAndUpdate(
-    { guildId: interaction.guildId, messageId, ended: false },
-    choices.length ? { $set: { [voteKey]: choices } } : { $unset: { [voteKey]: "" } },
-    { new: true },
-  ).lean() as PollRecord | null;
+  // Compare-and-set on this user's picks: two quick clicks on a multi-select
+  // poll must both count, so each update only applies if the picks it was
+  // computed from are still the stored ones; otherwise re-read and retry.
+  let picks = (poll.votes ?? {})[interaction.user.id] ?? [];
+  let added = false;
+  let updated: PollRecord | null = null;
+  for (let attempt = 0; attempt < VOTE_ATTEMPTS && !updated; attempt++) {
+    const next = applyPollVote(picks, optionIndex, poll.multiselect);
+    added = next.added;
+    const voteKey = `votes.${interaction.user.id}`;
+    updated = await PollModel.findOneAndUpdate(
+      { guildId: interaction.guildId, messageId, ended: false, ...pollVoteGuard(interaction.user.id, picks) },
+      next.choices.length ? { $set: { [voteKey]: next.choices } } : { $unset: { [voteKey]: "" } },
+      { new: true },
+    ).lean() as PollRecord | null;
+    if (updated) break;
+
+    const fresh = await PollModel.findOne({ guildId: interaction.guildId, messageId }).select("votes ended").lean() as Pick<PollRecord, "votes" | "ended"> | null;
+    if (!fresh || fresh.ended) break;
+    picks = (fresh.votes ?? {})[interaction.user.id] ?? [];
+  }
 
   if (!updated) {
-    await interaction.reply({ content: "🔒 This poll just closed.", flags: MessageFlags.Ephemeral });
+    const stillOpen = await PollModel.exists({ guildId: interaction.guildId, messageId, ended: false });
+    await interaction.reply({
+      content: stillOpen ? "⏳ Too many clicks at once. Please try that vote again." : "🔒 This poll just closed.",
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
 
