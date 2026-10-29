@@ -63,6 +63,14 @@ Approve/Deny/Consider, welcome messages, personal reminders that can repeat
 (`/remindme`) and scheduled channel posts (`/automation`). Timed actions are
 stored in MongoDB and restored after a restart.
 
+**Web dashboard.** At [`/dashboard`](https://aegisdeno.fly.dev/dashboard),
+people with Manage Server or Administrator log in with Discord to see a server
+overview, browse and filter cases, edit a reason or revoke a case, and change
+logging, escalation, automod, welcome, ticket, verification and starboard
+settings. Everything it does is also available as a slash command. Self-hosters
+turn it on with `DISCORD_CLIENT_SECRET` and `DASHBOARD_SESSION_SECRET`; see the
+Web dashboard section of [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+
 ## Running it yourself
 
 The source is public so it can be read and reviewed, but it is **not open

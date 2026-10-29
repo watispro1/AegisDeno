@@ -173,7 +173,7 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
         <span>v${escapeHtml(cfg.version)}</span>
       </div>
       <h1 id="hero-title">A moderation bot for Discord, run from slash commands.</h1>
-      <p class="lead">Aegis handles warnings, timeouts, bans and the case log behind them, plus automod, ban appeals, tickets, verification and logging. There is no dashboard to sign in to. You type a command in your server and it does the thing.</p>
+      <p class="lead">Aegis handles warnings, timeouts, bans and the case log behind them, plus automod, ban appeals, tickets, verification and logging. You type a command in your server and it does the thing. Server managers can also review cases and change settings in the <a href="/dashboard">web dashboard</a>.</p>
       <div class="btn-row">
         <a class="btn" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
         <a class="text-link" href="/commands">See all ${cs.commands} commands &rarr;</a>
@@ -1267,7 +1267,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
   <div class="wrap">
     <div class="legal">
       <h2 id="summary">1. Summary</h2>
-      <p>Aegis stores the minimum needed to run moderation and logging in each server. It does not build advertising profiles, it does not sell data, and it does not share data between servers. This website sets no cookies and runs no trackers.</p>
+      <p>Aegis stores the minimum needed to run moderation and logging in each server. It does not build advertising profiles, it does not sell data, and it does not share data between servers. This website runs no trackers, and it sets cookies only when you log in to the dashboard.</p>
 
       <h2 id="controller">2. Who is responsible</h2>
       <p>The Aegis maintainers operate the service. Individual Discord servers that invite Aegis are separate controllers of the data they configure Aegis to process, and their own privacy policies apply to their members.</p>
@@ -1299,7 +1299,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
       <h2 id="not-collected">4. What we do not collect</h2>
       <ul>
         <li>Direct messages. Aegis is not built to act in DMs and does not store their contents.</li>
-        <li>Passwords, payment details, or any Discord account credentials. Aegis only ever holds its own bot token.</li>
+        <li>Passwords or payment details. Dashboard login goes through Discord; Aegis never sees your Discord password.</li>
         <li>Advertising identifiers, cross-site tracking data, or behavioural profiles.</li>
         <li>Data harvested from servers where Aegis has not been invited.</li>
       </ul>
@@ -1314,15 +1314,19 @@ export function renderPrivacy(cfg: SiteConfig): string {
       <p>Your data is never used for advertising, profiling, or model training.</p>
 
       <h2 id="website">6. Website privacy</h2>
-      <p>The pages on this site are static and self-contained. They set no cookies, embed no analytics or advertising scripts, and transmit nothing about you to us. The only personal data this site processes is standard web server request logs, such as IP address and user agent, retained briefly for security and diagnostics.</p>
+      <p>The public pages on this site are self-contained. They set no cookies, embed no analytics or advertising scripts, and transmit nothing about you to us. The only personal data this site processes is standard web server request logs, such as IP address and user agent, retained briefly for security and diagnostics.</p>
       <p>The site does store one local preference: your light or dark theme choice, kept in your browser's local storage. It is never transmitted and clearing site data removes it.</p>
       <p>The <a href="/health">status endpoint</a> returns bot metrics only and holds no requester data. <a href="/api/stats">/api/stats</a> does the same in JSON form.</p>
+
+      <h3>Dashboard login</h3>
+      <p>If you log in to the <a href="/dashboard">dashboard</a>, Aegis asks Discord for the <code class="inline">identify</code> and <code class="inline">guilds</code> scopes: your user ID, username and display name, and the list of servers you are in with your permissions in each. That, plus the Discord access token for this login, is kept in a session record on our server for up to 7 days and deleted when you log out or it expires. The token is never sent to your browser and is only used to read your server list. Two cookies are set, both only on <code class="inline">/dashboard</code>: a signed session cookie, and a short-lived one that protects the login step. Changes you make in the dashboard are recorded with your user ID, the same as a slash command.</p>
 
       <h2 id="retention">7. Data retention</h2>
       <ul>
         <li><strong>Configuration and automod rules:</strong> retained while Aegis is in the server, then deleted on removal or after a defined period.</li>
         <li><strong>Warnings, moderation cases, and staff notes:</strong> automatically expire after one year, or may be deleted earlier by an authorized moderator.</li>
         <li><strong>Audit log entries:</strong> written to your own Discord channel and governed by your message retention settings; we do not keep a separate copy.</li>
+        <li><strong>Dashboard sessions:</strong> deleted at logout, or automatically 7 days after login.</li>
         <li><strong>Operational logs:</strong> retained for a short period for debugging, then discarded.</li>
       </ul>
 
@@ -1400,10 +1404,6 @@ export function renderNotFound(cfg: SiteConfig): string {
 }
 
 /* ── Legacy routes ─────────────────────────────────────────────────── */
-
-export function renderDashboard(cfg: SiteConfig, _stats?: Stats, _online?: boolean): string {
-  return renderFeatures(cfg);
-}
 
 export function renderPlayground(cfg: SiteConfig): string {
   return renderFeatures(cfg);

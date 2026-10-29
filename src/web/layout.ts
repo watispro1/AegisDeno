@@ -174,7 +174,7 @@ ${o.body}
           <span class="brand-mark" aria-hidden="true">A</span>
           <span>Aegis</span>
         </a>
-        <p>A Discord moderation bot. Slash commands, no dashboard. Version ${esc(o.version)}.</p>
+        <p>A Discord moderation bot, run from slash commands, with a web dashboard for cases and settings. Version ${esc(o.version)}.</p>
       </div>
       <div class="footer-col">
         <h2 class="footer-title">Site</h2>
@@ -184,6 +184,7 @@ ${o.body}
           <li><a href="/docs">Documentation</a></li>
           <li><a href="/changelog">Changelog</a></li>
           <li><a href="/status">Status</a></li>
+          <li><a href="/dashboard">Dashboard</a></li>
         </ul>
       </div>
       <div class="footer-col">

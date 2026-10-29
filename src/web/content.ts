@@ -250,7 +250,7 @@ export const faqs: { q: string; a: string }[] = [
   },
   {
     q: "Is there a web dashboard?",
-    a: `<p>No. Everything is configured with slash commands and Discord forms, so the people who already have permissions in your server are the people who can change settings.</p>`,
+    a: `<p>Yes, at <a href="/dashboard">/dashboard</a>. Log in with Discord to see moderation cases, edit or revoke them, and change logging, escalation, automod, welcome, ticket, verification and starboard settings. It only lists servers where you have Manage Server or Administrator, and it re-checks that permission on every page. Slash commands still do everything the dashboard does, and more.</p>`,
   },
   {
     q: "Is data shared between servers?",

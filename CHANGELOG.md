@@ -12,6 +12,15 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 ## [Unreleased]
 
 ### Added
+- A web dashboard at `/dashboard`. Log in with Discord (`identify` and `guilds`
+  scopes) to pick a server where you have Manage Server or Administrator, see an
+  overview (members, cases and warnings over 7 and 30 days, recent cases, open
+  tickets, pending appeals), browse and filter cases, edit a case reason or
+  revoke a case or warning, and change logging, escalation, automod, welcome,
+  ticket, verification and starboard settings. Permissions are re-checked
+  through the bot on every request. It stays off until
+  `DISCORD_CLIENT_SECRET` and `DASHBOARD_SESSION_SECRET` are set; see
+  `DEPLOYMENT.md`.
 - A self-hosting section in the docs and the README, with the real setup steps,
   the intents the bot needs, and the licence terms. The site footer links to the
   source on GitHub.
@@ -19,6 +28,10 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
   ignore SVG, so shared links had no image before.
 
 ### Changed
+- `/dashboard` no longer redirects to `/features`. The site footer, home page,
+  FAQ and privacy policy now describe the dashboard and the login cookies it
+  sets.
+- `/case edit` and the dashboard share one `editCaseReason()` service function.
 - `/changelog` on the website is rendered from this file, so the site and the
   repository can no longer disagree. The Atom feed at `/changelog.xml` uses the
   same entries. The hand-written release list in `pages.ts` is gone.

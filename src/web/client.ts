@@ -57,6 +57,7 @@ export const clientScript = String.raw`
     { name: 'Features', detail: 'What each part of the bot does', href: '/features', icon: '#' },
     { name: 'Commands', detail: 'Every slash command with its options', href: '/commands', icon: '#' },
     { name: 'Docs', detail: 'Setup, configuration and permissions', href: '/docs', icon: '#' },
+    { name: 'Dashboard', detail: 'Log in with Discord to manage cases and settings', href: '/dashboard', icon: '#' },
     { name: 'Troubleshooting', detail: 'Missing permissions, missing commands and other fixes', href: '/troubleshooting', icon: '#' },
     { name: 'Changelog', detail: 'Release history', href: '/changelog', icon: '#' },
     { name: 'Status', detail: 'Gateway latency and uptime', href: '/status', icon: '#' },
