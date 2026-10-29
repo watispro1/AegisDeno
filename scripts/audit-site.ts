@@ -10,6 +10,7 @@ import { renderHome, renderFeatures, renderCommands, renderDocs, renderTroublesh
 import { styles } from "../src/web/theme";
 import { clientScript } from "../src/web/client";
 import { themeInitScript } from "../src/web/assets";
+import { dashboardAuditPages } from "./dashboard-fixtures";
 
 const cfg: SiteConfig = {
   inviteUrl: "https://discord.com/oauth2/authorize?client_id=123",
@@ -39,6 +40,7 @@ async function main() {
     ["/privacy", renderPrivacy(cfg)],
     ["/terms", renderTerms(cfg)],
     ["/404", renderNotFound(cfg)],
+    ...dashboardAuditPages(cfg),
   ];
 
   /* Degraded and offline variants, so conditionally applied classes such as
