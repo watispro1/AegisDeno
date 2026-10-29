@@ -204,7 +204,7 @@ export function renderPicker(
   ${notice(noticeCode)}
   ${list}
   ${invites}
-  <form method="post" action="/dashboard/refresh">
+  <form class="dash-action" method="post" action="/dashboard/refresh">
     ${csrfField(viewer)}
     <p class="muted">Added Aegis somewhere or got a new role? <button class="btn ghost sm" type="submit">Refresh the list</button></p>
   </form>`,
@@ -217,11 +217,11 @@ function caseRows(ctx: GuildContext, cases: CaseRecord[]): string {
   const g = esc(ctx.guild.id);
   return cases
     .map(c => `<tr>
-      <td>${esc(fmtDate(c.createdAt))}</td>
-      <td><a href="/dashboard/${g}/cases/${esc(c.id)}">${esc(c.action)}</a>${c.revoked ? ' <span class="tag warn">revoked</span>' : ""}</td>
-      <td>${person(ctx, c.userId)}</td>
-      <td>${person(ctx, c.moderatorId)}</td>
-      <td>${esc(c.reason.length > 120 ? c.reason.slice(0, 117) + "…" : c.reason)}</td>
+      <td data-label="When">${esc(fmtDate(c.createdAt))}</td>
+      <td data-label="Action"><a class="case-link" href="/dashboard/${g}/cases/${esc(c.id)}">${esc(c.action)}</a>${c.revoked ? ' <span class="tag warn">revoked</span>' : ""}</td>
+      <td data-label="Member">${person(ctx, c.userId)}</td>
+      <td data-label="Moderator">${person(ctx, c.moderatorId)}</td>
+      <td data-label="Reason">${esc(c.reason.length > 120 ? c.reason.slice(0, 117) + "…" : c.reason)}</td>
     </tr>`)
     .join("");
 }
@@ -340,7 +340,7 @@ export function renderCase(
 
   const revoke = record.revoked
     ? `<p class="muted">Revoked${record.revokedBy ? ` by ${person(ctx, record.revokedBy)}` : ""}${record.revokedAt ? `, ${esc(fmtDate(record.revokedAt))}` : ""}.</p>`
-    : `<form method="post" action="${action}/revoke" data-confirm="Revoke this ${kind.toLowerCase()}? It stays in the record but stops counting.">
+    : `<form class="dash-action" method="post" action="${action}/revoke" data-confirm="Revoke this ${kind.toLowerCase()}? It stays in the record but stops counting.">
       ${csrfField(ctx.viewer)}
       <p class="muted">Revoking keeps the record but stops it counting toward totals, escalation and the trust score. It does not lift a ban or timeout in Discord; use <code class="inline">/unban</code> or <code class="inline">/removetimeout</code> for that.</p>
       <button class="btn danger" type="submit">Revoke ${kind.toLowerCase()}</button>

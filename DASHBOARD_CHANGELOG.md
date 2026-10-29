@@ -60,6 +60,21 @@ are in `DEPLOYMENT.md` under Web dashboard.
     kicking members still unverified after a number of minutes (0 = off, up to
     7 days).
   - Starboard: on or off, channel, star threshold and whether self-stars count.
+- **Phone layout:** every page fits screens 360 to 414px wide without
+  scrolling sideways, and the page edges and header keep clear of notches and
+  rounded corners.
+- **Phone layout:** case lists on the overview and Cases pages turn into one
+  card per case, each line labelled (when, action, member, moderator, reason),
+  instead of a table you scroll sideways. Every column is shown, the moderator
+  included. On touch screens the action link that opens a case is 44px tall.
+- **Phone layout:** overview numbers sit two to a row. Filter, Save, Revoke
+  and pager buttons are full width or share the row, and the Revoke and Refresh
+  forms have space below them.
+- **Phone layout:** text fields, number fields, lists and the reason box use
+  16px text on small and touch screens, so iOS Safari does not zoom in when you
+  tap them.
+- **Phone layout:** settings boxes have less padding and can no longer be
+  pushed wider than the screen, and long IDs on the case page wrap.
 
 ### Security
 - **CSRF:** every form carries a token tied to your session (an HMAC of the
