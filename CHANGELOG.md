@@ -12,6 +12,8 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 ## [Unreleased]
 
 ### Added
+- A web dashboard at `/dashboard`. Its changes are listed separately in
+  `DASHBOARD_CHANGELOG.md` (on the site at `/dashboard/changelog`).
 - A self-hosting section in the docs and the README, with the real setup steps,
   the intents the bot needs, and the licence terms. The site footer links to the
   source on GitHub.
@@ -19,6 +21,10 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
   ignore SVG, so shared links had no image before.
 
 ### Changed
+- `/dashboard` no longer redirects to `/features`. The site footer, home page,
+  FAQ and privacy policy now describe the dashboard and the login cookies it
+  sets.
+- `/case edit` and the dashboard share one `editCaseReason()` service function.
 - `/changelog` on the website is rendered from this file, so the site and the
   repository can no longer disagree. The Atom feed at `/changelog.xml` uses the
   same entries. The hand-written release list in `pages.ts` is gone.
@@ -54,8 +60,8 @@ commands are re-registered on the next start.
 ### Added
 - **Role panels:** `/rolepanel create` takes `style` (buttons or a dropdown),
   `exclusive` (a member can hold only one role from the panel) and
-  `required_role` (only members with that role can use the panel). The roles
-  plugin's max-roles-per-panel setting is now enforced.
+  `required_role` (only members with that role can use the panel). The
+  per-server limit on roles per panel (25 by default) is now enforced.
 - **Tickets:** a staff-only Claim button; a ticket can only be claimed once and
   shows who claimed it. `/ticket claim` does the same.
 - **Tickets:** tickets with no messages for 48 hours close on their own. Change
@@ -249,10 +255,6 @@ Includes the changes earlier drafts listed as 3.3.1.
 
 ## [3.3.0] - 2026-10-17
 
-### Added
-- Plugin framework: a 30-second in-memory cache for plugin settings,
-  `onGuildLoaded` and guild-join hooks, and plugin dependency checks.
-
 ### Changed
 - Website restyled with frosted-glass panels.
 
@@ -260,15 +262,10 @@ Includes the changes earlier drafts listed as 3.3.1.
 - Leaving members that were not cached no longer crash the member-remove
   handler.
 - Welcome messages are delivered when the welcome channel is not in the cache.
-- Removed duplicate button handlers that the plugin router already covered.
 
 ## [3.2.0] - 2026-10-15
 
 ### Added
-- Plugin framework (`src/knub`): commands grouped into plugins with shared
-  permission, cooldown and guild-only checks, per-server enable/disable stored
-  in MongoDB, and `/plugins list|toggle|info`.
-- `/api/plugins` endpoint.
 - `/about` has a menu with overview, runtime, network and database views.
 
 ### Fixed

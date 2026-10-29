@@ -1,3 +1,4 @@
+import { isValidObjectId } from "mongoose";
 import { ModerationCaseModel, WarningModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 
@@ -59,6 +60,34 @@ export async function revokeModerationCase(guildId: string, caseId: string, revo
     logger.error(`Failed to revoke case ${caseId} in guild ${guildId}:`, error);
     return false;
   }
+}
+
+/**
+ * Change the reason on a moderation case or, if no case has that ID, on a
+ * warning (warnings live in their own collection). Shared by `/case edit` and
+ * the web dashboard. Returns what was changed, or null when nothing matched.
+ */
+export async function editCaseReason(
+  guildId: string,
+  caseId: string,
+  reason: string,
+): Promise<{ kind: "case" | "warning"; userId: string; previousReason: string } | null> {
+  if (!isValidObjectId(caseId)) return null;
+  // Return the old documents so callers can log the previous reason.
+  const record = await ModerationCaseModel.findOneAndUpdate(
+    { guildId, _id: caseId },
+    { $set: { reason } },
+    { returnDocument: "before" },
+  ).catch(() => null);
+  if (record) return { kind: "case", userId: record.userId, previousReason: record.reason };
+
+  const warning = await WarningModel.findOneAndUpdate(
+    { guildId, _id: caseId },
+    { $set: { reason } },
+    { returnDocument: "before" },
+  ).catch(() => null);
+  if (warning) return { kind: "warning", userId: warning.userId, previousReason: warning.reason };
+  return null;
 }
 
 // Alias used by the escalation service

@@ -28,9 +28,11 @@ const ROUTES: [string, number][] = [
   ["/docs", 200],
   ["/troubleshooting", 200],
   ["/changelog", 200],
+  ["/dashboard/changelog", 200],
   ["/status", 200],
   ["/privacy", 200],
   ["/terms", 200],
+  ["/dashboard", 200],
   ["/health", 200],
   ["/api/stats", 200],
   ["/api/commands", 200],
@@ -41,6 +43,7 @@ const ROUTES: [string, number][] = [
   ["/assets/site.css", 200],
   ["/assets/site.js", 200],
   ["/assets/theme-init.js", 200],
+  ["/assets/dashboard.js", 200],
   ["/assets/favicon.svg", 200],
   ["/assets/og.svg", 200],
   ["/assets/og.png", 200],
@@ -67,6 +70,8 @@ async function main() {
   process.env.SITE_URL = origin;
   process.env.DISCORD_APPLICATION_ID = "1234567890";
   process.env.CONTACT_EMAIL = "legal@example.com";
+  delete process.env.DISCORD_CLIENT_SECRET;
+  delete process.env.DASHBOARD_SESSION_SECRET;
 
   await loadCommands();
   startWebServer(fakeClient);
@@ -81,7 +86,6 @@ async function main() {
   console.log("\nRedirects");
   for (const [path, target] of [
     ["/guide", "/docs"],
-    ["/dashboard", "/features"],
     ["/playground", "/features"],
     ["/terms-of-service", "/terms"],
     ["/privacy-policy", "/privacy"],
@@ -92,6 +96,31 @@ async function main() {
     const res = await fetch(origin + path, { redirect: "manual" });
     check(`${path} -> ${target}`, res.headers.get("location") === target, `got ${res.headers.get("location")}`);
   }
+
+  console.log("\nDashboard (no env)");
+  // DISCORD_CLIENT_SECRET and DASHBOARD_SESSION_SECRET are not set here.
+  const dash = await fetch(origin + "/dashboard", { redirect: "manual" });
+  const dashHtml = await dash.text();
+  check("/dashboard 200 when not configured", dash.status === 200, String(dash.status));
+  check("/dashboard says not configured", dashHtml.includes("not configured"));
+  check("/dashboard no-store", dash.headers.get("cache-control") === "no-store", dash.headers.get("cache-control") ?? "");
+  check("/dashboard noindex", (dash.headers.get("x-robots-tag") ?? "").includes("noindex"));
+  check("/dashboard sets no cookie", dash.headers.get("set-cookie") === null);
+  check("/dashboard has no login link", !dashHtml.includes("/dashboard/login"));
+  const dashLogin = await fetch(origin + "/dashboard/login", { redirect: "manual" });
+  check("/dashboard/login does not redirect to Discord", dashLogin.status === 200 && !(dashLogin.headers.get("location") ?? "").includes("discord.com"));
+  const dashPost = await fetch(origin + "/dashboard/logout", { method: "POST" });
+  check("dashboard POST 503 when not configured", dashPost.status === 503, String(dashPost.status));
+  const dashJs = await (await fetch(origin + "/assets/dashboard.js")).text();
+  let dashJsParses = true;
+  try {
+    // eslint-disable-next-line no-new-func
+    new Function(dashJs);
+  } catch {
+    dashJsParses = false;
+  }
+  check("dashboard.js parses", dashJsParses);
+  check("robots disallows /dashboard", (await (await fetch(origin + "/robots.txt")).text()).includes("Disallow: /dashboard"));
 
   console.log("\nSecurity headers");
   const home = await fetch(origin + "/", { headers: { "Accept-Encoding": "gzip" } });
@@ -191,6 +220,19 @@ async function main() {
   check("/changelog shows every version", getChangelog().releases.every(r => changelogHtml.includes(`id="${r.id}"`)));
   check("/changelog shows Unreleased", changelogHtml.includes('id="unreleased"'));
   check("/changelog renders inline code", changelogHtml.includes('<code class="inline">/remindme set</code>'));
+  const dashLog = await fetch(origin + "/dashboard/changelog");
+  const dashLogHtml = await dashLog.text();
+  check("/dashboard/changelog 200 without dashboard config", dashLog.status === 200, String(dashLog.status));
+  check("/dashboard/changelog is not the not-configured page", !dashLogHtml.includes("The dashboard is not configured") && dashLogHtml.includes("<h1>Dashboard changelog</h1>"));
+  check("/dashboard/changelog shows Unreleased", dashLogHtml.includes('id="unreleased"'));
+  check("/dashboard/changelog sets no cookie", dashLog.headers.get("set-cookie") === null);
+  check("/dashboard/changelog is indexable", !(dashLog.headers.get("x-robots-tag") ?? "").includes("noindex") && !dashLogHtml.includes('content="noindex'));
+  check("/dashboard/changelog is publicly cacheable", (dashLog.headers.get("cache-control") ?? "").startsWith("public"));
+  check("/changelog links the dashboard changelog", changelogHtml.includes('href="/dashboard/changelog"'));
+  check("/dashboard links the dashboard changelog", dashHtml.includes('href="/dashboard/changelog"'));
+  const robots = await (await fetch(origin + "/robots.txt")).text();
+  check("robots allows /dashboard/changelog", robots.includes("Allow: /dashboard/changelog"));
+  check("sitemap lists /dashboard/changelog", sitemap.includes("/dashboard/changelog</loc>"));
   check("/changelog has no raw markdown", !/\]\(|\*\*|^- /m.test(changelogHtml.replace(/<pre[\s\S]*?<\/pre>/g, "")));
   check("atom has one entry per release", (feed.match(/<entry>/g) ?? []).length === releases.length);
 

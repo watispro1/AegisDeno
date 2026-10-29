@@ -1,6 +1,8 @@
 /**
- * Reads CHANGELOG.md and turns it into structured releases for /changelog and
- * /changelog.xml, so the site can't drift from the file in the repository.
+ * Reads a Keep a Changelog file and turns it into structured releases, so the
+ * site can't drift from the files in the repository. CHANGELOG.md feeds
+ * /changelog and /changelog.xml; DASHBOARD_CHANGELOG.md feeds
+ * /dashboard/changelog.
  *
  * The parser only understands the subset of Markdown the changelog uses:
  * `## [version] - date` release headings, `### Section` headings, paragraphs,
@@ -179,22 +181,50 @@ export function parseChangelog(md: string): Changelog {
 }
 
 const EMPTY: Changelog = { intro: [], releases: [] };
-let cached: Changelog | null = null;
+
+/** Bot changelog file name, at the repository root. */
+export const CHANGELOG_FILE = "CHANGELOG.md";
+/** Dashboard changelog file name, at the repository root. */
+export const DASHBOARD_CHANGELOG_FILE = "DASHBOARD_CHANGELOG.md";
+
+/** Parses one changelog file. A missing or unreadable file gives an empty changelog. */
+export function readChangelogFile(path: string): Changelog {
+  try {
+    return parseChangelog(readFileSync(path, "utf8"));
+  } catch {
+    return EMPTY;
+  }
+}
 
 /**
- * CHANGELOG.md sits at the repository root. From src/web (tsx) and dist/web
+ * Changelog files sit at the repository root. From src/web (tsx) and dist/web
  * (compiled) that is two levels up; the working directory is a fallback.
  */
-function changelogPath(): string | null {
-  const candidates = [join(__dirname, "..", "..", "CHANGELOG.md"), join(process.cwd(), "CHANGELOG.md")];
+export function repoFilePath(fileName: string): string | null {
+  const candidates = [join(__dirname, "..", "..", fileName), join(process.cwd(), fileName)];
   return candidates.find((p) => existsSync(p)) ?? null;
 }
 
+const cache = new Map<string, Changelog>();
+
+/** Parsed changelog for a root-level file, read once per process. */
+export function loadChangelog(fileName: string): Changelog {
+  const hit = cache.get(fileName);
+  if (hit) return hit;
+  const file = repoFilePath(fileName);
+  const log = file ? readChangelogFile(file) : EMPTY;
+  cache.set(fileName, log);
+  return log;
+}
+
+/** The bot changelog (CHANGELOG.md). */
 export function getChangelog(): Changelog {
-  if (cached) return cached;
-  const file = changelogPath();
-  cached = file ? parseChangelog(readFileSync(file, "utf8")) : EMPTY;
-  return cached;
+  return loadChangelog(CHANGELOG_FILE);
+}
+
+/** The dashboard changelog (DASHBOARD_CHANGELOG.md). */
+export function getDashboardChangelog(): Changelog {
+  return loadChangelog(DASHBOARD_CHANGELOG_FILE);
 }
 
 /** Released versions only (skips Unreleased), newest first. */
