@@ -4,10 +4,36 @@ Changes to the Aegis web dashboard at `/dashboard`, newest first. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Changes to the
 bot itself are in `CHANGELOG.md`.
 
-The dashboard has its own version numbers, separate from the bot's. Work on it
-was tracked as an unreleased 0.1.0; the first release is 1.2.0, which includes
-all of that work. The running version is shown at the bottom of every
-dashboard page.
+The dashboard has its own version numbers, separate from the bot's. The first
+release is 1.2.0. The running version is shown at the bottom of every dashboard
+page.
+
+## [1.2.1] - 2026-10-30
+
+Dashboard 1.2.1. Fixes from the review of 1.2.0, and handling for Discord's
+channel obfuscation. No new environment variables or Discord intents are
+needed.
+
+### Changed
+- **Hidden channels:** channels Discord hides from Aegis (it lacks View
+  Channel, so Discord sends them as `___hidden___`) are no longer offered in
+  any channel picker. A saved log, welcome, transcript, starboard, verification
+  or role panel channel that became hidden gets a warning on its page: "Aegis
+  can't see the saved … channel. Give Aegis the View Channel permission there,
+  or pick a new one." Picking a hidden channel is refused with the same advice.
+  Hidden channels already in an exempt or ignored list stay ticked, labelled as
+  hidden, so saving the form does not drop them.
+
+### Fixed
+- **Starboard emoji:** the emoji field accepted an emoji followed by other
+  text, such as `⭐1`. The whole value must now be one emoji (keycaps, flags,
+  skin tones and joined emoji such as 👨‍👩‍👧‍👦 included) or a custom emoji
+  written as `<:name:id>`.
+- **Blocked words:** a list at the advertised maximum (500 words of 100
+  characters) could not be saved: the text box stopped at 30,000 characters
+  and the form was refused as too large. The box now takes the full list, and
+  the automod settings form accepts up to 512 KB, enough for a full list in any
+  script. Every other dashboard form keeps the 32 KB limit.
 
 ## [1.2.0] - 2026-10-29
 

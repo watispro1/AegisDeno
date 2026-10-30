@@ -13,7 +13,7 @@ import {
   Client,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { isSendableChannel } from "../../utils/channels";
+import { isSendableChannel, isObfuscatedChannel } from "../../utils/channels";
 import { sendGuildLog } from "../../services/logging";
 import { GiveawayModel } from "../../database/mongo";
 import { MAX_TIMEOUT_MS } from "../../services/timedActions";
@@ -417,7 +417,7 @@ async function endGiveaway(
 
   const channel = (client.channels.cache.get(giveaway.channelId)
     ?? await client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;
-  if (channel) {
+  if (channel && !isObfuscatedChannel(channel)) {
     const winnerMentions = winners.length > 0
       ? winners.map((w: string) => `<@${w}>`).join(", ")
       : "No eligible entrants.";
@@ -498,7 +498,7 @@ export async function rerollGiveaway(
 
   const channel = (client.channels.cache.get(giveaway.channelId)
     ?? await client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;
-  if (channel) {
+  if (channel && !isObfuscatedChannel(channel)) {
     const winnerMentions = winners.map(w => `<@${w}>`).join(", ");
     await channel.send({
       content: `🎉 **Giveaway Rerolled!**\n\n🏆 New winner${winners.length !== 1 ? "s" : ""}: ${winnerMentions}\n\nPrize: **${giveaway.prize}**`,

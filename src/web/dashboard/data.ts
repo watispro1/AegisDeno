@@ -35,6 +35,7 @@ import type {
   VerificationSettingsInput,
   WelcomeSettings,
 } from "./validation";
+import { isObfuscatedChannel } from "../../utils/channels";
 
 export type { AppealRecord, AppealStatus } from "../../services/appeals";
 
@@ -173,7 +174,7 @@ export function mongoDashboardData(client: Client): DashboardData {
   /** A text or announcement channel from the bot's cache, or null. */
   const textChannel = (guildId: string, channelId: string): TextChannel | null => {
     const ch = client.guilds?.cache?.get(guildId)?.channels.cache.get(channelId);
-    if (!ch || (ch.type !== ChannelType.GuildText && ch.type !== ChannelType.GuildAnnouncement)) return null;
+    if (!ch || isObfuscatedChannel(ch) || (ch.type !== ChannelType.GuildText && ch.type !== ChannelType.GuildAnnouncement)) return null;
     return ch as TextChannel;
   };
 

@@ -22,11 +22,17 @@ import { createTask, deleteTask, getTasksForChannel } from "../../services/sched
 import { scheduleTask, cancelTask } from "../../services/schedulerRunner";
 import { encodeChannelUnlock } from "../../services/timedActions";
 import { LOCK_MESSAGE_MAX, buildLockNoticeText, shouldPostLockNotice } from "../../services/lockNotice";
+import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 
 type LockableChannel = Extract<GuildBasedChannel, { permissionOverwrites: unknown }>;
 
-function isLockable(ch: GuildBasedChannel | null | undefined): ch is LockableChannel {
-  return Boolean(ch && !ch.isThread() && ch.type !== ChannelType.GuildCategory && "permissionOverwrites" in ch);
+/**
+ * A channel Aegis may lock. Obfuscated channels (Aegis lacks View Channel) are
+ * never lockable: their overwrites are a placeholder, and editing them would
+ * clobber the channel's real permissions.
+ */
+export function isLockable(ch: GuildBasedChannel | null | undefined): ch is LockableChannel {
+  return Boolean(ch && !isObfuscatedChannel(ch) && !ch.isThread() && ch.type !== ChannelType.GuildCategory && "permissionOverwrites" in ch);
 }
 
 /** Channels inside a category that a lock applies to. */
@@ -188,6 +194,9 @@ export const command: Command = {
     // Status subcommand — check if channel is locked
     if (sub === "status") {
       const targetChannel = (interaction.options.getChannel("channel") ?? interaction.channel) as TextChannel | null;
+      if (targetChannel && (isObfuscatedChannel(targetChannel) || isObfuscatedChannel(guild.channels.cache.get(targetChannel.id)))) {
+        return interaction.reply({ content: `❌ ${hiddenChannelMessage(targetChannel.id)}`, flags: MessageFlags.Ephemeral });
+      }
       if (!targetChannel || !("permissionOverwrites" in targetChannel)) {
         return interaction.reply({ content: "❌ Invalid channel.", flags: MessageFlags.Ephemeral });
       }
@@ -274,7 +283,8 @@ export const command: Command = {
 
           let locked = 0;
           for (const [, ch] of channelCollection) {
-            if (ch && ch.isTextBased() && !ch.isThread?.() && "permissionOverwrites" in ch) {
+            // Skip channels hidden from Aegis: their overwrites are not real.
+            if (ch && !isObfuscatedChannel(ch) && ch.isTextBased() && !ch.isThread?.() && "permissionOverwrites" in ch) {
               await (ch as TextChannel).permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }).catch(() => null);
               locked++;
             }
@@ -378,6 +388,10 @@ export const command: Command = {
       const targetChannel = (picked ? guild.channels.cache.get(picked.id) ?? null : interaction.channel) as GuildBasedChannel | null;
       if (targetChannel?.isThread()) {
         await interaction.editReply("❌ Threads inherit permissions from their parent channel. Please lock the parent channel instead.");
+        return;
+      }
+      if (isObfuscatedChannel(targetChannel)) {
+        await interaction.editReply(`❌ ${hiddenChannelMessage(targetChannel!.id)}`);
         return;
       }
       if (!isLockable(targetChannel)) {

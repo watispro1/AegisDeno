@@ -14,6 +14,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
+import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 
 // ─── Slowmode presets ─────────────────────────────────────────────────────────
 
@@ -103,6 +104,9 @@ export const command: Command = {
 
     const targetChan = (interaction.options.getChannel("channel") ?? interaction.channel) as TextChannel | null;
 
+    if (targetChan && (isObfuscatedChannel(targetChan) || isObfuscatedChannel(interaction.guild?.channels.cache.get(targetChan.id)))) {
+      return interaction.reply({ content: `❌ ${hiddenChannelMessage(targetChan.id)}`, flags: MessageFlags.Ephemeral });
+    }
     if (!targetChan || !("setRateLimitPerUser" in targetChan)) {
       return interaction.reply({ content: "❌ Slowmode can only be set on text channels.", flags: MessageFlags.Ephemeral });
     }

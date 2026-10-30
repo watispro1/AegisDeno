@@ -21,7 +21,7 @@ import { PollModel } from "../database/mongo";
 import { createTask, deleteTask, type ScheduledTask } from "./scheduler";
 import { cancelTask, scheduleTask } from "./schedulerRunner";
 import { sendGuildLog } from "./logging";
-import { isSendableChannel } from "../utils/channels";
+import { isSendableChannel, isObfuscatedChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
 import {
   applyPollVote,
@@ -182,7 +182,7 @@ export async function closePoll(client: Client, guildId: string, messageId: stri
   }
 
   const channel = await client.channels.fetch(poll.channelId).catch(() => null);
-  if (channel && channel.isTextBased() && "messages" in channel) {
+  if (channel && !isObfuscatedChannel(channel) && channel.isTextBased() && "messages" in channel) {
     const msg = await channel.messages.fetch(messageId).catch(() => null);
     if (msg) {
       await msg.edit({

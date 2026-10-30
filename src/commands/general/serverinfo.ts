@@ -10,6 +10,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
+import { isObfuscatedChannel } from "../../utils/channels";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -22,7 +23,8 @@ export const command: Command = {
   execute: async (interaction: ChatInputCommandInteraction) => {
     const guild = interaction.guild!;
     const owner = await guild.fetchOwner().catch(() => null);
-    const channels = guild.channels.cache;
+    // Channels Discord has hidden from Aegis (obfuscated) are left out of the counts.
+    const channels = guild.channels.cache.filter(c => !isObfuscatedChannel(c));
 
     const textChannels = channels.filter(c => c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement).size;
     const voiceChannels = channels.filter(c => c.type === ChannelType.GuildVoice || c.type === ChannelType.GuildStageVoice).size;

@@ -9,9 +9,30 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
-## [Unreleased]
+## [3.6.0] - 2026-10-30
+
+Pull requests #8 onward. Includes dashboard 1.2.0 and 1.2.1, the removal of
+the plugin framework (see "Removed") and handling for Discord's channel
+obfuscation, which Discord turns on for every bot on 2026-11-16. Slash command
+definitions are unchanged.
 
 ### Added
+- **Hidden channels:** support for Discord's
+  [channel obfuscation](https://docs.discord.com/developers/resources/channel#channel-object-obfuscated-channels).
+  Channels Aegis lacks View Channel on now arrive named `___hidden___` with the
+  `CHANNEL_OBFUSCATED` flag and placeholder permissions. One shared check,
+  `isObfuscatedChannel()`, spots them (by the flag or the placeholder name).
+  Aegis leaves them out of channel pickers and channel counts (`/serverinfo`,
+  `/dashboard`, `/about`), never sends to them, and never edits their
+  permissions: `/lock server` and `/lock category` skip them, and `/lock`,
+  `/lock status`, `/slowmode`, timed auto-unlocks and ticket member changes
+  refuse them instead of overwriting the channel's real permissions with the
+  placeholder ones.
+- Where a configured channel has become hidden, Aegis says so: "Aegis can't
+  see this channel. Give Aegis the View Channel permission there." This shows
+  in `/diagnostics`, in `/suggest`, `/automation` and `/lock` replies, in the
+  bot's log for welcome messages and log entries it had to skip, and in the
+  dashboard settings and Panels pages.
 - A web dashboard at `/dashboard`. Its changes are listed separately in
   `DASHBOARD_CHANGELOG.md` (on the site at `/dashboard/changelog`).
 - A self-hosting section in the docs and the README, with the real setup steps,
@@ -433,7 +454,7 @@ First version.
 - MongoDB storage (the SQLite dependency was dropped the same day).
 - Express website and Fly.io config.
 
-[Unreleased]: https://github.com/watispro1/AegisDeno/compare/87e33cb...HEAD
+[3.6.0]: https://github.com/watispro1/AegisDeno/compare/87e33cb...main
 [3.5.0]: https://github.com/watispro1/AegisDeno/compare/6f05a0d...87e33cb
 [3.4.0]: https://github.com/watispro1/AegisDeno/compare/4c2a46a...6f05a0d
 [3.3.3]: https://github.com/watispro1/AegisDeno/compare/c87cfd5...4c2a46a

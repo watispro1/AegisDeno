@@ -21,6 +21,7 @@ import {
   WELCOME_MESSAGE_MAX,
   AUTOMOD_WORD_MAX,
   AUTOMOD_WORDS_MAX_COUNT,
+  AUTOMOD_WORDS_TEXT_MAX,
   APPEAL_FILTERS,
   APPEAL_REVIEW_NOTE_MAX,
   CASE_QUERY_MAX,
@@ -127,7 +128,7 @@ const NOTICES: Record<string, { text: string; bad?: boolean }> = {
   "panel-posted": { text: "Panel posted. Earlier Aegis panels of the same kind in that channel were removed." },
   "verification-posted": { text: "Verification panel posted and verification turned on. You can now change its settings here." },
   "rolepanel-posted": { text: "Role panel posted again. The old message was removed; members' roles are unchanged." },
-  "panel-channel-missing": { text: "Aegis cannot see that channel any more. Pick another one.", bad: true },
+  "panel-channel-missing": { text: "Aegis cannot see that channel any more. Give Aegis the View Channel permission there, or pick another one.", bad: true },
   "panel-not-found": { text: "That role panel no longer exists. It may have been deleted with /rolepanel.", bad: true },
   "panel-failed": { text: "Discord refused the message. Check that Aegis can view the channel, send messages, embed links and read message history there.", bad: true },
   refreshed: { text: "Server list refreshed from Discord." },
@@ -636,18 +637,31 @@ function roleOptions(roles: RoleOption[], noneLabel: string | null) {
   return opts;
 }
 
-function channelPicks(channels: ChannelOption[]) {
-  return channels.map(c => ({ value: c.id, label: `#${c.name}`, group: c.parent ?? "No category" }));
+function channelPicks(channels: ChannelOption[], hidden: ReadonlySet<string> = new Set(), saved = "") {
+  const opts: Array<{ value: string; label: string; group: string | null }> =
+    channels.map(c => ({ value: c.id, label: `#${c.name}`, group: c.parent ?? "No category" }));
+  // Saved channels Discord now hides from Aegis stay ticked, with the fix spelled out.
+  for (const id of saved.split(",").filter(Boolean)) {
+    if (hidden.has(id) && !opts.some(o => o.value === id)) {
+      opts.push({ value: id, label: `Hidden channel (${id}): give Aegis View Channel`, group: "Aegis can't see these channels" });
+    }
+  }
+  return opts;
 }
 
 function rolePicks(roles: RoleOption[]) {
   return roles.map(r => ({ value: r.id, label: `@${r.name}`, group: null }));
 }
 
-function missingNote(id: string, list: Array<{ id: string }>, what: string): string {
-  return id && !list.some(x => x.id === id)
-    ? `<p class="callout warn">The saved ${what} (<code class="inline">${esc(id)}</code>) no longer exists or Aegis cannot see it. Pick a new one.</p>`
-    : "";
+/** Shown where a saved channel is one Discord now hides from Aegis (obfuscated). */
+export function hiddenChannelNote(id: string, what: string): string {
+  return `<p class="callout warn" data-hidden-channel>Aegis can't see the saved ${what} (<code class="inline">${esc(id)}</code>). Give Aegis the <strong>View Channel</strong> permission there, or pick a new one.</p>`;
+}
+
+function missingNote(id: string, list: Array<{ id: string }>, what: string, hidden: ReadonlySet<string> = new Set()): string {
+  if (!id || list.some(x => x.id === id)) return "";
+  if (hidden.has(id)) return hiddenChannelNote(id, what);
+  return `<p class="callout warn">The saved ${what} (<code class="inline">${esc(id)}</code>) no longer exists or Aegis cannot see it. Pick a new one.</p>`;
 }
 
 const ACTION_OPTIONS = AUTOMOD_ACTIONS.map(a => ({ value: a, label: a === "delete" ? "Delete the message" : a === "warn" ? "Delete and warn" : "Delete and time out" }));
@@ -659,10 +673,11 @@ function sectionForm(
   channels: ChannelOption[],
   roles: RoleOption[],
   snapshot: SettingsSnapshot,
+  hidden: ReadonlySet<string> = new Set(),
 ): string {
   switch (section) {
     case "logging":
-      return `${missingNote(f.str("loggingChannelId"), channels, "log channel")}
+      return `${missingNote(f.str("loggingChannelId"), channels, "log channel", hidden)}
       <fieldset><legend>Audit log</legend>
         ${f.checkbox("loggingEnabled", "Post moderation and server events to a log channel")}
         ${f.select("loggingChannelId", "Log channel", channelOptions(channels, "No channel"), "Aegis needs View Channel, Send Messages and Embed Links there.")}
@@ -696,7 +711,7 @@ function sectionForm(
       return `<fieldset><legend>Blocked words</legend>
         ${f.checkbox("words_enabled", "Filter blocked words")}
         ${f.select("words_action", "When it matches", ACTION_OPTIONS)}
-        ${f.textarea("words_list", "Blocked words", 30_000,
+        ${f.textarea("words_list", "Blocked words", AUTOMOD_WORDS_TEXT_MAX,
           `One word or phrase per line, 2 to ${AUTOMOD_WORD_MAX} characters, up to ${AUTOMOD_WORDS_MAX_COUNT}. Matching ignores case. Same list as <code class="inline">/automod words add</code>.`,
           ' spellcheck="false" autocapitalize="off"')}
       </fieldset>
@@ -725,11 +740,11 @@ function sectionForm(
       <h2 class="section-title">Exemptions</h2>
       <p class="muted">Members with an exempt role, and messages in an exempt channel, skip every automod rule.</p>
       ${f.multi("exempt_roles", "Exempt roles", rolePicks(roles))}
-      ${f.multi("exempt_channels", "Exempt channels", channelPicks(channels), "Text and announcement channels are listed. Other channels exempted with /automod stay exempt and show as Unknown.")}`;
+      ${f.multi("exempt_channels", "Exempt channels", channelPicks(channels, hidden, f.str("exempt_channels")), "Text and announcement channels are listed. Other channels exempted with /automod stay exempt and show as Unknown.")}`;
 
     case "welcome": {
       const sample = { username: ctx.viewer.username, serverName: ctx.guild.name, memberCount: ctx.guild.memberCount };
-      return `${missingNote(f.str("welcomeChannelId"), channels, "welcome channel")}
+      return `${missingNote(f.str("welcomeChannelId"), channels, "welcome channel", hidden)}
       <fieldset><legend>Welcome message</legend>
         ${f.checkbox("welcomeEnabled", "Post a message when someone joins")}
         ${f.select("welcomeChannelId", "Channel", channelOptions(channels, "No channel"))}
@@ -745,7 +760,7 @@ function sectionForm(
     }
 
     case "tickets":
-      return `${missingNote(f.str("logChannelId"), channels, "transcript channel")}
+      return `${missingNote(f.str("logChannelId"), channels, "transcript channel", hidden)}
       <fieldset><legend>Transcripts</legend>
         ${f.checkbox("transcriptLogging", "Post a transcript to a staff channel when a ticket closes", "The member who opened the ticket also gets one by DM if their DMs are open.")}
         ${f.select("logChannelId", "Transcript channel", channelOptions(channels, "No channel"))}
@@ -770,10 +785,11 @@ function sectionForm(
         ], "Changing this takes effect on the next click; the posted panel does not need re-posting.")}
         ${f.number("kickUnverifiedMinutes", "Kick members who have not verified after (minutes)", 0, MAX_KICK_UNVERIFIED_MINUTES, "0 turns auto-kick off. Applies to members who join after you save.")}
       </fieldset>
+      ${snapshot.verification.channelId && hidden.has(snapshot.verification.channelId) ? hiddenChannelNote(snapshot.verification.channelId, "verification panel channel") : ""}
       <p class="muted">The panel is in ${snapshot.verification.channelId ? `<code class="inline">#${esc(channels.find(c => c.id === snapshot.verification?.channelId)?.name ?? snapshot.verification.channelId)}</code>` : "an unknown channel"}. To move it or change its text, <a href="/dashboard/${esc(ctx.guild.id)}/panels#verification">post it again from Panels</a>.</p>`;
 
     case "starboard":
-      return `${missingNote(f.str("channelId"), channels, "starboard channel")}
+      return `${missingNote(f.str("channelId"), channels, "starboard channel", hidden)}
       <fieldset><legend>Starboard</legend>
         ${f.checkbox("enabled", "Starboard is on")}
         ${f.select("channelId", "Starboard channel", channelOptions(channels, "No channel"))}
@@ -783,7 +799,7 @@ function sectionForm(
       </fieldset>
       <h2 class="section-title">Ignored</h2>
       <p class="muted">Messages in ignored channels, or from members with an ignored role, are never posted to the starboard.</p>
-      ${f.multi("ignoredChannels", "Ignored channels", channelPicks(channels))}
+      ${f.multi("ignoredChannels", "Ignored channels", channelPicks(channels, hidden, f.str("ignoredChannels")))}
       ${f.multi("ignoredRoles", "Ignored roles", rolePicks(roles))}`;
   }
 }
@@ -797,6 +813,7 @@ export function renderSettings(
   channels: ChannelOption[],
   roles: RoleOption[],
   noticeCode: string | null,
+  hiddenChannelIds: ReadonlySet<string> = new Set(),
 ): string {
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}/settings`;
@@ -823,7 +840,7 @@ export function renderSettings(
   ${summary}
   <form class="dash-form" method="post" action="${base}/${section}" novalidate>
     ${csrfField(ctx.viewer)}
-    ${sectionForm(section, f, ctx, channels, roles, snapshot)}
+    ${sectionForm(section, f, ctx, channels, roles, snapshot, hiddenChannelIds)}
     ${canSave ? `<button class="btn" type="submit">Save ${SECTION_TITLES[section].toLowerCase()} settings</button>` : ""}
   </form>`,
   });
@@ -989,8 +1006,11 @@ export function renderPanels(
     state?: PanelsState;
     noticeCode?: string | null;
     missing: { tickets: string | null; roles: string | null };
+    /** Channels Discord hides from Aegis (obfuscated); see BotView.hiddenChannelIds. */
+    hiddenChannelIds?: ReadonlySet<string>;
   },
 ): string {
+  const hidden = o.hiddenChannelIds ?? new Set<string>();
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}/panels`;
   const state = o.state ?? { form: null, values: {}, errors: {} };
@@ -1006,6 +1026,7 @@ export function renderPanels(
     ? `<ul class="panel-list">${o.rolePanels.map(p => `<li class="panel-item">
         <div class="panel-meta"><strong>${esc(p.title)}</strong>
           <span class="faint">${p.roleCount} role${p.roleCount === 1 ? "" : "s"}, ${esc(p.style)}, in ${channelName(p.channelId) ? `#${esc(channelName(p.channelId)!)}` : `<code class="inline">${esc(p.channelId)}</code>`}</span></div>
+        ${hidden.has(p.channelId) ? hiddenChannelNote(p.channelId, "role panel channel") : ""}
         <form class="panel-repost" method="post" action="${base}/roles/${esc(p.id)}" novalidate>
           ${csrfField(ctx.viewer)}
           <div class="field"><label for="f-rp-${esc(p.id)}">Post to</label>

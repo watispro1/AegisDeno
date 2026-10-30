@@ -16,6 +16,7 @@ import {
 import { getStarboardConfig, handleStarReaction } from "../../services/starboard";
 import { starEmojiMatches } from "../../services/communityLogic";
 import { logger } from "../../utils/logger";
+import { isObfuscatedChannel } from "../../utils/channels";
 
 /**
  * Reactions on one message are handled one at a time. Without this, two stars
@@ -56,7 +57,7 @@ async function onStarReaction(reaction: MessageReaction | PartialMessageReaction
   }
 
   const starboardChannel = message.guild.channels.cache.get(config.channelId) as TextChannel | undefined;
-  if (!starboardChannel || !starboardChannel.isTextBased()) return;
+  if (!starboardChannel || !starboardChannel.isTextBased() || isObfuscatedChannel(starboardChannel)) return;
 
   await handleStarReaction(message as Message, guildId, config, starboardChannel);
 }

@@ -77,6 +77,14 @@ import {
 export const CASES_PER_PAGE = 25;
 export const APPEALS_PER_PAGE = 25;
 export const AUDIT_PER_PAGE = 50;
+/** Body limit for ordinary dashboard forms. */
+export const DASHBOARD_FORM_LIMIT = "32kb";
+/**
+ * Body limit for the automod settings form. A full blocked word list (500 × 100
+ * characters) URL-encodes to at most about 450 KB when every character is
+ * multi-byte; ASCII lists are around 55 KB. Still bounded.
+ */
+export const AUTOMOD_FORM_LIMIT = "512kb";
 /** Re-fetch the user's guild list on the picker when it is older than this. */
 const GUILD_LIST_MAX_AGE_MS = 10 * 60 * 1000;
 
@@ -161,7 +169,11 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   const authLimit = limit(store, "auth", deps.limits?.auth ?? 20, deps);
   const postLimit = limit(store, "post", deps.limits?.post ?? 30, deps);
   const pageLimit = limit(store, "page", deps.limits?.page ?? 240, deps);
-  const form = express.urlencoded({ extended: false, limit: "32kb", parameterLimit: 200 });
+  const form = express.urlencoded({ extended: false, limit: DASHBOARD_FORM_LIMIT, parameterLimit: 200 });
+  // The automod page carries the blocked word list, which may be up to 500 × 100 characters.
+  const automodForm = express.urlencoded({ extended: false, limit: AUTOMOD_FORM_LIMIT, parameterLimit: 200 });
+  const settingsForm = (req: Request, res: Response, next: NextFunction) =>
+    (req.params.section === "automod" ? automodForm : form)(req, res, next);
 
   const send = (res: Response, html: string, status = 200) => res.status(status).type("html").send(html);
   const fail = (res: Response, status: number, title: string, message: string, viewer?: Viewer) =>
@@ -386,6 +398,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
 
   const guildGet = [pageLimit, requireSession, requireGuild];
   const guildPost = [postLimit, form, requireSession, requireCsrf, requireGuild];
+  const settingsPost = [postLimit, settingsForm, requireSession, requireCsrf, requireGuild];
 
   router.get("/:guildId", ...guildGet, async (_req, res, next) => {
     try {
@@ -528,6 +541,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
     ]);
     return renderPanels(deps.site, ctx, {
       channels: deps.bot.textChannels(ctx.guild.id),
+      hiddenChannelIds: deps.bot.hiddenChannelIds(ctx.guild.id),
       roles: deps.bot.roles(ctx.guild.id),
       rolePanels,
       verificationSetUp: snapshot.verification !== null,
@@ -620,6 +634,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   function validationContext(guildId: string): ValidationContext {
     return {
       textChannelIds: new Set(deps.bot.textChannels(guildId).map(c => c.id)),
+      hiddenChannelIds: deps.bot.hiddenChannelIds(guildId),
       roles: new Map(deps.bot.roles(guildId).map(r => [r.id, { assignable: r.assignable }])),
     };
   }
@@ -646,14 +661,14 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
       send(res, renderSettings(
         deps.site, ctx, section, snapshot,
         { values: settingsValues(section, snapshot), errors: {} },
-        deps.bot.textChannels(ctx.guild.id), deps.bot.roles(ctx.guild.id), noticeParam(req),
+        deps.bot.textChannels(ctx.guild.id), deps.bot.roles(ctx.guild.id), noticeParam(req), deps.bot.hiddenChannelIds(ctx.guild.id),
       ));
     } catch (err) {
       next(err);
     }
   });
 
-  router.post("/:guildId/settings/:section", ...guildPost, async (req, res, next) => {
+  router.post("/:guildId/settings/:section", ...settingsPost, async (req, res, next) => {
     try {
       const { ctx } = res.locals.dash as GuildLocals;
       const section = req.params.section;
@@ -670,7 +685,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
         for (const key of MULTI_FIELDS[section] ?? []) if (!(key in body)) values[key] = "";
         return send(res, renderSettings(
           deps.site, ctx, section, before, { values, errors: parsed.errors },
-          deps.bot.textChannels(ctx.guild.id), deps.bot.roles(ctx.guild.id), null,
+          deps.bot.textChannels(ctx.guild.id), deps.bot.roles(ctx.guild.id), null, deps.bot.hiddenChannelIds(ctx.guild.id),
         ), 400);
       }
       const saved = await deps.data.saveSettings(ctx.guild.id, parsed.value, actorOf(ctx));

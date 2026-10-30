@@ -32,6 +32,7 @@ import {
 } from "../services/watchlistService";
 import { recordMemberMessage } from "../services/memberActivity";
 import { touchTicketActivity } from "../services/ticketActivity";
+import { isObfuscatedChannel } from "../utils/channels";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -252,7 +253,9 @@ export function setupEvents(client: Client): void {
       if (!channel) {
         channel = (await member.guild.channels.fetch(config.welcomeChannelId).catch(() => null)) as TextChannel | null ?? undefined;
       }
-      if (channel) {
+      if (channel && isObfuscatedChannel(channel)) {
+        logger.warn(`Welcome channel ${config.welcomeChannelId} in ${member.guild.id} is hidden from Aegis (no View Channel); skipping the welcome message.`);
+      } else if (channel) {
         const msg = config.welcomeMessage
           .replace(/{user}/g, `<@${member.user.id}>`)
           .replace(/{username}/g, member.user.username)

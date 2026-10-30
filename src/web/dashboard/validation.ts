@@ -15,6 +15,8 @@ export type Parsed<T> = { ok: true; value: T } | { ok: false; errors: Record<str
 
 export interface ValidationContext {
   textChannelIds: ReadonlySet<string>;
+  /** Channels Discord hides from Aegis (obfuscated, no View Channel). Never valid picks. */
+  hiddenChannelIds?: ReadonlySet<string>;
   /** Role ID → whether the bot can assign it. */
   roles: ReadonlyMap<string, { assignable: boolean }>;
 }
@@ -98,6 +100,10 @@ function channel(body: FormBody, key: string, ctx: ValidationContext, errors: Er
   const raw = field(body, key);
   if (raw === "") {
     if (required) errors.add(key, `Pick a ${label}.`);
+    return null;
+  }
+  if (ctx.hiddenChannelIds?.has(raw)) {
+    errors.add(key, `Aegis can't see that ${label}. Give Aegis the View Channel permission there, or pick another one.`);
     return null;
   }
   if (!ctx.textChannelIds.has(raw)) {
@@ -199,6 +205,11 @@ export interface AutomodSettings {
 export const AUTOMOD_WORD_MIN = 2;
 export const AUTOMOD_WORD_MAX = 100;
 export const AUTOMOD_WORDS_MAX_COUNT = 500;
+/**
+ * Longest blocked-word text the dashboard accepts: the advertised maximum list
+ * (500 entries of 100 characters) plus a CRLF line break after each one.
+ */
+export const AUTOMOD_WORDS_TEXT_MAX = AUTOMOD_WORDS_MAX_COUNT * (AUTOMOD_WORD_MAX + 2);
 
 /**
  * The blocked word list as typed: one word or phrase per line.
@@ -257,7 +268,9 @@ export function parseAutomod(
 ): Parsed<AutomodSettings> {
   const errors = new Errors();
   const rawWords = typeof body?.words_list === "string" ? body.words_list : "";
-  const words = parseWordList(rawWords);
+  const words = rawWords.length > AUTOMOD_WORDS_TEXT_MAX
+    ? { list: [] as string[], error: `The blocked word list is too long. Keep it to ${AUTOMOD_WORDS_MAX_COUNT} words of up to ${AUTOMOD_WORD_MAX} characters.` }
+    : parseWordList(rawWords);
   if (words.error) errors.add("words_list", words.error);
   const value: AutomodSettings = {
     words: { enabled: checkbox(body, "words_enabled"), action: automodAction(body, "words_action", errors), list: words.list },
@@ -363,9 +376,22 @@ export interface StarboardSettingsInput {
 /** A custom emoji (<:name:id> or <a:name:id>) or one Unicode emoji, as `/starboard emoji` takes. */
 export function isStarboardEmoji(value: string): boolean {
   if (/^<a?:\w{2,32}:\d{17,20}>$/.test(value)) return true;
-  if (value.length === 0 || value.length > 16 || /\s/.test(value)) return false;
-  return /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[#*0-9]\uFE0F?\u20E3)/u.test(value) && !/[A-Za-z<>]/.test(value);
+  if (value.length === 0 || value.length > 32) return false;
+  // The whole value must be exactly one emoji sequence, so "⭐1" or "⭐x" is refused.
+  return SINGLE_EMOJI.test(value);
 }
+
+/** One pictograph with optional variation selector / skin tone. */
+const EMOJI_PART = String.raw`\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?`;
+/**
+ * Exactly one Unicode emoji sequence: a keycap, a flag (one or two regional
+ * indicators), or pictographs joined by ZWJ with an optional tag sequence
+ * (subdivision flags such as England).
+ */
+const SINGLE_EMOJI = new RegExp(
+  String.raw`^(?:[#*0-9]\uFE0F?\u20E3|\p{Regional_Indicator}{1,2}|${EMOJI_PART}(?:\u200D${EMOJI_PART})*(?:[\u{E0020}-\u{E007E}]+\u{E007F})?)$`,
+  "u",
+);
 
 export function parseStarboard(
   body: FormBody,
