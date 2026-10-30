@@ -14,6 +14,7 @@ import {
   TextInputStyle,
   MessageFlags,
 } from "discord.js";
+import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid, isBotHierarchyValid } from "../../permissions/hierarchy";
@@ -142,7 +143,7 @@ export const command: Command = {
 
       if (i.customId === "kick_edit_reason") {
         const modal = new ModalBuilder()
-          .setCustomId("kick_reason_modal")
+          .setCustomId(scopedModalId("kick_reason_modal", i.id))
           .setTitle("Edit Kick Reason");
         const reasonInput = new TextInputBuilder()
           .setCustomId("kick_reason_input")
@@ -154,7 +155,7 @@ export const command: Command = {
         modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(reasonInput));
         await i.showModal(modal);
 
-        const modalResponse = await i.awaitModalSubmit({ time: 60_000, filter: (m) => m.user.id === interaction.user.id }).catch(() => null);
+        const modalResponse = await i.awaitModalSubmit({ time: 60_000, filter: (m) => m.user.id === interaction.user.id && m.customId === scopedModalId("kick_reason_modal", i.id) }).catch(() => null);
         if (modalResponse && !handled) {
           finalReason = modalResponse.fields.getTextInputValue("kick_reason_input");
           const updatedEmbed = EmbedBuilder.from(confirmEmbed).spliceFields(1, 1, { name: "📝 Reason", value: finalReason, inline: false });

@@ -332,11 +332,14 @@ export async function closeTicket(
       return false;
     }
 
-    ticket.status = "closed";
-    ticket.closedBy = closedByUserId;
-    ticket.closedAt = new Date();
-    ticket.reason = reason;
-    await ticket.save();
+    // Claim the close atomically: the Close button, /ticket close and the
+    // auto-close check can race, and only one of them may post the notice,
+    // send the transcript and delete the channel.
+    const claimed = await TicketModel.updateOne(
+      { _id: ticket._id, status: "open" },
+      { $set: { status: "closed", closedBy: closedByUserId, closedAt: new Date(), reason } },
+    );
+    if (claimed.modifiedCount === 0) return false;
 
     await clearAutoCloseChecks(guild.id, channelId);
 

@@ -13,6 +13,9 @@ import {
   TextInputStyle,
   MessageFlags,
 } from "discord.js";
+import { scopedModalId } from "../../utils/modal";
+import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
+import { memberTopRolePosition, roleAboveActor } from "../../permissions/hierarchy";
 import type { Command } from "../../types/discord";
 import { createRolePanel, getRolePanels, deleteRolePanel } from "../../services/rolePanelService";
 import { normalizePanelStyle } from "../../services/rolePanelLogic";
@@ -91,9 +94,30 @@ export const command: Command = {
         await interaction.reply({ content: "❌ The required role cannot also be one of the panel's roles.", flags: MessageFlags.Ephemeral });
         return;
       }
+      // Never post to a channel Aegis cannot see.
+      if (isObfuscatedChannel(channel) || isObfuscatedChannel(interaction.guild.channels.cache.get(channel.id))) {
+        await interaction.reply({ content: `❌ ${hiddenChannelMessage(channel.id)}`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      // Anyone can take a panel role by clicking, the creator included, so each
+      // must be below the creator's own highest role (as Discord requires for
+      // assigning roles by hand).
+      const tooHigh = roleAboveActor({
+        ownerId: interaction.guild.ownerId,
+        actorId: interaction.user.id,
+        actorTopPosition: await memberTopRolePosition(interaction.guild, interaction.user.id),
+        roles: picked,
+      });
+      if (tooHigh) {
+        await interaction.reply({
+          content: `❌ You can't put <@&${tooHigh.id}> on a role panel: it is equal to or above your highest role.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
 
       const modal = new ModalBuilder()
-        .setCustomId("rolepanel_create_modal")
+        .setCustomId(scopedModalId("rolepanel_create_modal", interaction.id))
         .setTitle("Role Panel Details");
 
       const titleInput = new TextInputBuilder()
@@ -154,7 +178,7 @@ export const command: Command = {
 
       const modalResponse = await interaction.awaitModalSubmit({
         time: 300_000,
-        filter: (m) => m.user.id === interaction.user.id && m.customId === "rolepanel_create_modal",
+        filter: (m) => m.user.id === interaction.user.id && m.customId === scopedModalId("rolepanel_create_modal", interaction.id),
       }).catch(() => null);
 
       if (!modalResponse) return;

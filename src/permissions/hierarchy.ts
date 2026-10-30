@@ -1,4 +1,4 @@
-import { Client, GuildMember } from "discord.js";
+import { Client, Guild, GuildMember } from "discord.js";
 
 /**
  * Pure hierarchy rule behind isRoleHierarchyValid(): nobody can act on
@@ -62,4 +62,32 @@ export async function isBotHierarchyValid(
 ): Promise<boolean> {
   if (!client.user) return false;
   return isRoleHierarchyValid(client, guildId, client.user.id, targetId);
+}
+
+/**
+ * The first role a member may not hand out through a self-service panel
+ * (role panel or verification), or null when every role is fine. Like
+ * Discord's own rule for assigning roles, a role must sit strictly below the
+ * member's highest role; the server owner may use any role. Without this, a
+ * member with Manage Roles could put a role above their own on a panel and
+ * then take it by clicking the button.
+ */
+export function roleAboveActor<R extends { id: string; position: number }>(input: {
+  ownerId: string;
+  actorId: string;
+  /** Position of the actor's highest role, or null when the actor could not be resolved. */
+  actorTopPosition: number | null;
+  roles: readonly R[];
+}): R | null {
+  if (input.actorId === input.ownerId) return null;
+  for (const role of input.roles) {
+    if (input.actorTopPosition === null || role.position >= input.actorTopPosition) return role;
+  }
+  return null;
+}
+
+/** Position of a member's highest role (cache first), or null when they cannot be fetched. */
+export async function memberTopRolePosition(guild: Guild, userId: string): Promise<number | null> {
+  const member = guild.members.cache.get(userId) ?? await guild.members.fetch(userId).catch(() => null);
+  return member ? member.roles.highest.position : null;
 }

@@ -170,7 +170,7 @@ export function renderDocs(cfg: SiteConfig): string {
 /verify user target:@member
 /verify autokick minutes:30
 /verify disable`)}
-      <p>Set your other channels so that only the verified role can see them. The Aegis role has to sit above the verified role to grant it.</p>
+      <p>Set your other channels so that only the verified role can see them. The Aegis role has to sit above the verified role to grant it, and the verified role must be below your own highest role (the server owner is exempt).</p>
       <p>CAPTCHA mode asks a small math question in a pop-up form before granting the role. Auto-kick is off by default; with <code>/verify autokick</code> (needs Kick Members) or the <code>kick_unverified_minutes</code> option on setup, members who have not verified in time are kicked, even if the bot restarted in between. <code>/verify user</code> verifies someone by hand and needs Manage Roles.</p>
 
       ${docHeading("community", "Community tools")}
@@ -202,7 +202,7 @@ export function renderDocs(cfg: SiteConfig): string {
 /rolepanel create channel:#colors role1:@Red role2:@Blue style:Dropdown menu exclusive:true required_role:@Member
 /rolepanel list
 /rolepanel delete id:panel-id`)}
-      <p>A panel offers up to three roles as buttons or a dropdown menu. With <code>exclusive:true</code> a member can hold only one role from the panel, and <code>required_role</code> limits the panel to members who already have that role. Creating and deleting panels needs Manage Roles, and the Aegis role must sit above every role on the panel.</p>
+      <p>A panel offers up to three roles as buttons or a dropdown menu. With <code>exclusive:true</code> a member can hold only one role from the panel, and <code>required_role</code> limits the panel to members who already have that role. Creating and deleting panels needs Manage Roles, and the Aegis role must sit above every role on the panel. Each role on a panel must also be below your own highest role (the server owner is exempt), since anyone, you included, can take it by clicking.</p>
       ${docHeading("autoresponder", "Auto-responder", 3)}
       ${cmdBlock(`/autoresponder add trigger:how do i verify response:Read the pinned message in {channel} match_type:Contains Keyword
 /autoresponder list
