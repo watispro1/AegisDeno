@@ -11,11 +11,38 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 
 ## [3.6.1] - 2026-10-30
 
-Website, legal pages and repository docs. The bot's commands, data and Discord
-permissions are unchanged. Includes dashboard 1.2.2 (see
+Website, legal pages and repository docs, a rebuilt command reference and docs
+page, safer and easier moderation commands, and two fixes for hidden channels.
+Discord permissions, intents and environment variables are unchanged. Slash
+command definitions changed (`/warnings`, `/case`, `/autoresponder`); they are
+re-registered automatically when the bot starts. Includes dashboard 1.2.2 (see
 `DASHBOARD_CHANGELOG.md`).
 
 ### Added
+- **Commands page:** each command opens to a summary of who can run it, what
+  Aegis needs, its cooldown and whether it works in DMs, all read from the
+  command definitions. Every subcommand has its own block with its options
+  (type, required, choices, ranges, length limits, autocomplete), a link
+  anchor such as `/commands#cmd-automod-words-add`, and examples you can copy.
+  Hand-written examples are checked against the definitions by the tests;
+  commands without them get generated ones. A sticky search and category bar,
+  a "Jump to" list, Copy link and Expand all buttons, and a "Did you mean"
+  suggestion with a Clear button when nothing matches. Keyboard: `/` focuses
+  the search, Enter opens the first match, the arrow keys move through results
+  and Escape clears. The search is kept in the address bar (`?q=`) as you type.
+- **Docs page:** reorganised into Getting started, Guides, Reference and Help,
+  with a grouped table of contents (collapsible on phones) and a copyable link
+  on every heading. New sections: a step-by-step setup, the web dashboard,
+  hidden channels and how to fix them, auto-responder, permissions checked
+  inside subcommands, the permissions Aegis itself needs, an FAQ and links into
+  the troubleshooting page. Existing section links still work.
+- Troubleshooting has an entry for "Aegis can't see this channel".
+- `/case`: the `case_id` option on view, edit and delete suggests the server's
+  recent cases as you type (action, age and reason). Only members with
+  Moderate Members get suggestions.
+- `/autoresponder`: the `id` option on remove and delete suggests your
+  triggers as you type (Manage Server only).
+- `/warnings` has an `ephemeral` option.
 - A `/security` page and an RFC 9116 `/.well-known/security.txt` (with
   `/security.txt` redirecting to it) explaining how to report a vulnerability
   privately through GitHub. Both are linked from the footer and listed in the
@@ -29,6 +56,28 @@ permissions are unchanged. Includes dashboard 1.2.2 (see
   `CONTRIBUTING.md`, and issue and pull request templates in `.github/`.
 
 ### Changed
+- `/warnings` pages through every active warning, five at a time with Prev and
+  Next buttons, instead of showing only the newest five, and shows each
+  warning's ID for `/case edit`. Only you see it unless you set
+  `ephemeral:false`.
+- `/case delete` shows the case and asks you to confirm before deleting it,
+  then posts the deletion to the log channel. `/case` errors for a wrong or
+  unknown ID say where to find IDs.
+- `/clearwarnings` shows how many warnings it will delete and asks you to
+  confirm. It now works for members who have left the server, and refuses to
+  clear your own warnings.
+- `/escalation clear` lists the thresholds and asks you to confirm; with none
+  set it says so.
+- `/autoresponder add` refuses an empty trigger or one that already exists
+  with the same match type, limits triggers to 100 characters and responses to
+  2,000, and `/autoresponder list` stays inside one message (the first 20, then
+  a count).
+- Confirmation prompts are shared by these commands: ephemeral, only the
+  person who ran the command can answer, and Cancel or a 30-second timeout
+  changes nothing.
+- Permission names on the site and in `/api/commands` use Discord's wording:
+  "Manage Server" instead of "Manage Guild". Each command in `/api/commands`
+  also lists its `cooldownSeconds`.
 - The Terms of Service and Privacy Policy are rewritten in plain language and
   dated October 30, 2026. The privacy policy now lists every kind of record
   Aegis stores and how long each is kept, as the code does it: one year for
@@ -50,6 +99,18 @@ permissions are unchanged. Includes dashboard 1.2.2 (see
   environment variable, Fly.io deploys, tests and the new repository docs.
 
 ### Fixed
+- Hidden channels are detected from Discord's `CHANNEL_OBFUSCATED` flag only.
+  A real channel named `___hidden___` was treated as hidden: left out of
+  pickers and refused by send and moderation commands.
+- A ticket whose channel became hidden from Aegis could be closed by the
+  inactivity check, because Aegis stops seeing its messages. The check now
+  waits a full auto-close window and tries again while the channel is hidden,
+  and closing (by command, button or timer) refuses a hidden ticket channel
+  before changing the ticket's record, with a message saying to give Aegis View
+  Channel there.
+- The docs said warn asks for confirmation (it applies straight away; timeout,
+  kick and ban confirm) and showed a suggestion ID as `12` (IDs are long codes
+  shown in the suggestion's footer).
 - The privacy policy said configuration is deleted when Aegis is removed from
   a server and that no copy of audit records is kept. Nothing is deleted on
   removal, and the dashboard keeps its own activity log for 180 days; both are

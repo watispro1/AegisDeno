@@ -10,8 +10,8 @@ page.
 
 ## [1.2.2] - 2026-10-30
 
-Dashboard 1.2.2. Wording only; no new environment variables, Discord intents
-or OAuth scopes.
+Dashboard 1.2.2. Wording and one hidden-channel fix; no new environment
+variables, Discord intents or OAuth scopes.
 
 ### Changed
 - The login page says exactly how permissions are checked: every page checks
@@ -20,6 +20,11 @@ or OAuth scopes.
   Activity page for 180 days, and links the privacy policy and terms.
 - Dashboard pages share the site's updated footer, which now links Security,
   Report a problem and this changelog.
+
+### Fixed
+- A real channel named `___hidden___` was left out of the channel pickers and
+  reported as hidden. Only channels Discord marks as hidden (its
+  `CHANNEL_OBFUSCATED` flag) are treated that way now.
 
 ## [1.2.1] - 2026-10-30
 
