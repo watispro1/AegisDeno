@@ -245,7 +245,7 @@ test("/clearwarnings: self, outranked and departed members", async () => {
   assert.equal(clearWarningsBlock({ actorId: "a", targetId: "b", targetInServer: false, outranksTarget: false }), null, "members who left can be cleared");
 });
 
-test("/clearwarnings asks first and deletes nothing when cancelled", async () => {
+test("/clearwarnings defers before the lookups, asks first and deletes nothing when cancelled", async () => {
   const { command } = await import("../src/commands/moderation/clearwarnings");
   const { WarningModel } = await import("../src/database/mongo");
   const find = mock.method(WarningModel, "find", () => query([{ _id: "w1", reason: "r", moderatorId: MOD, createdAt: new Date() }]) as never);
@@ -254,11 +254,71 @@ test("/clearwarnings asks first and deletes nothing when cancelled", async () =>
     const { interaction, calls } = fakeInteraction({ click: "no", users: { user: { id: TARGET, tag: "t#1" } }, memberInGuild: false });
     await command.execute(interaction as never);
     assert.equal(deleteMany.mock.callCount(), 0);
-    assert.match(text(calls[0].payload), /Clear \*\*1\*\* warning/);
+    assert.equal(calls[0].method, "deferReply", "acknowledged before the slow lookups");
+    assert.ok((calls[0].payload as { flags?: number }).flags, "deferred ephemerally so the prompt stays private");
+    assert.equal(calls[1].method, "editReply", "the prompt edits the deferred reply");
+    assert.match(text(calls[1].payload), /Clear \*\*1\*\* warning/);
+    assert.ok(!calls.some(c => c.method === "reply"), "never replies to an already-deferred interaction");
   } finally {
     find.mock.restore();
     deleteMany.mock.restore();
   }
+});
+
+test("/clearwarnings: blocked moderators get the reason on the deferred reply", async () => {
+  const { command } = await import("../src/commands/moderation/clearwarnings");
+  const { interaction, calls } = fakeInteraction({ users: { user: { id: MOD, tag: "mod#0001" } } });
+  await command.execute(interaction as never);
+  assert.deepEqual(calls.map(c => c.method), ["deferReply", "editReply"]);
+  assert.match(text(calls[1].payload), /your own/);
+});
+
+test("/clearwarnings: prompt, case and deletion cover the same records, revoked ones included", async () => {
+  const { command } = await import("../src/commands/moderation/clearwarnings");
+  const { WarningModel, ModerationCaseModel } = await import("../src/database/mongo");
+  const records = [
+    { _id: "w1", reason: "a", moderatorId: MOD, createdAt: new Date() },
+    { _id: "w2", reason: "b", moderatorId: MOD, createdAt: new Date() },
+    { _id: "w3", reason: "c", moderatorId: MOD, createdAt: new Date(), revoked: true },
+  ];
+  const find = mock.method(WarningModel, "find", () => query(records) as never);
+  const deleteMany = mock.method(WarningModel, "deleteMany", () => Promise.resolve({ deletedCount: 3 }) as never);
+  const createCase = mock.method(ModerationCaseModel, "create", async (doc: unknown) => ({ ...(doc as object), _id: "c1" }) as never);
+  const { mongoGuildConfigStore, invalidateGuildConfig } = await import("../src/services/configuration");
+  const load = mock.method(mongoGuildConfigStore, "load", async () => ({ guildId: GUILD, loggingEnabled: false }) as never);
+  const legacy = mock.method(mongoGuildConfigStore, "loadLegacy", async () => []);
+  const save = mock.method(mongoGuildConfigStore, "save", async (_id: string, set: Record<string, unknown>) => ({ guildId: GUILD, ...set }) as never);
+  invalidateGuildConfig(GUILD);
+  try {
+    const { interaction, calls } = fakeInteraction({ click: "yes", users: { user: { id: TARGET, tag: "t#1" } }, memberInGuild: false });
+    await command.execute(interaction as never);
+    const findFilter = find.mock.calls[0].arguments[0] as Record<string, unknown>;
+    assert.ok(!("revoked" in findFilter), "the prompt counts revoked records too");
+    assert.match(text(calls[1].payload), /\*\*3\*\* warning record\(s\) \(\*\*2\*\* active, \*\*1\*\* revoked\)/);
+    const delFilter = deleteMany.mock.calls[0].arguments[0] as { _id: { $in: string[] } };
+    assert.deepEqual(delFilter._id.$in, ["w1", "w2", "w3"], "deletes exactly the records shown");
+    const caseDoc = createCase.mock.calls[0].arguments[0] as { details?: string };
+    assert.equal(caseDoc.details, "Cleared 3 warning record(s) (2 active, 1 revoked).", "the case logs the same set");
+    assert.match(text(calls.at(-1)!.payload), /3 warning record\(s\) \(2 active, 1 revoked\)/);
+  } finally {
+    find.mock.restore();
+    deleteMany.mock.restore();
+    createCase.mock.restore();
+    load.mock.restore();
+    legacy.mock.restore();
+    save.mock.restore();
+    invalidateGuildConfig(GUILD);
+  }
+});
+
+test("/clearwarnings summary wording", async () => {
+  const { clearedSummary } = await import("../src/commands/moderation/clearwarnings");
+  const { countWarningRecords, describeWarningRecords } = await import("../src/services/warnings");
+  assert.deepEqual(countWarningRecords([{}, { revoked: false }, { revoked: true }]), { active: 2, revoked: 1, total: 3 });
+  assert.equal(describeWarningRecords({ active: 2, revoked: 0, total: 2 }), "**2** warning(s)");
+  assert.equal(describeWarningRecords({ active: 0, revoked: 2, total: 2 }, false), "2 revoked warning record(s)");
+  assert.equal(clearedSummary({ active: 2, revoked: 1, total: 3 }, 3), "3 warning record(s) (2 active, 1 revoked)");
+  assert.equal(clearedSummary({ active: 2, revoked: 0, total: 2 }, 1), "2 warning(s); 1 of 2 were still there to delete");
 });
 
 /* ── /escalation clear ─────────────────────────────────────────────── */
