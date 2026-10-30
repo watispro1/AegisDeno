@@ -23,6 +23,7 @@ import {
   renderTranscriptHtml,
   type TranscriptMessage,
 } from "./ticketTranscript";
+import { isObfuscatedChannel } from "../utils/channels";
 
 export type { TicketSettings } from "./configuration";
 
@@ -435,7 +436,7 @@ async function deliverCloseTranscript(
 
   if (settings.transcriptLogging && settings.logChannelId) {
     const logChannel = await guild.channels.fetch(settings.logChannelId).catch(() => null);
-    if (logChannel && logChannel.isTextBased() && "send" in logChannel) {
+    if (logChannel && !isObfuscatedChannel(logChannel) && logChannel.isTextBased() && "send" in logChannel) {
       await logChannel.send({ embeds: [summary], files: [file] }).catch(err =>
         logger.warn(`Ticket ${meta.ticketId}: could not post transcript to log channel`, err),
       );
@@ -505,6 +506,8 @@ export async function runTicketAutoClose(client: Client, task: ScheduledTask): P
 }
 
 export async function addUserToTicket(channel: TextChannel, userId: string): Promise<boolean> {
+  // Never edit overwrites on a channel hidden from Aegis: they are a placeholder.
+  if (isObfuscatedChannel(channel)) return false;
   try {
     await channel.permissionOverwrites.edit(userId, {
       ViewChannel: true,
@@ -518,6 +521,7 @@ export async function addUserToTicket(channel: TextChannel, userId: string): Pro
 }
 
 export async function removeUserFromTicket(channel: TextChannel, userId: string): Promise<boolean> {
+  if (isObfuscatedChannel(channel)) return false;
   try {
     await channel.permissionOverwrites.delete(userId);
     return true;

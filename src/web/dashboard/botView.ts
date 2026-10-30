@@ -5,6 +5,7 @@
 import { ChannelType, PermissionFlagsBits, type Client, type Guild } from "discord.js";
 import { logger } from "../../utils/logger";
 import { canManageGuild } from "./permissions";
+import { isObfuscatedChannel } from "../../utils/channels";
 
 export interface GuildSummary {
   id: string;
@@ -49,8 +50,16 @@ export interface BotView {
    * Administrator always pass. Fails closed on any error.
    */
   memberHasPermission(guildId: string, userId: string, permission: DashboardPermission): Promise<boolean>;
-  /** Text and announcement channels, in server order. */
+  /**
+   * Text and announcement channels Aegis can see, in server order. Channels
+   * Discord has obfuscated (Aegis lacks View Channel) are left out.
+   */
   textChannels(guildId: string): ChannelOption[];
+  /**
+   * IDs of channels Discord has obfuscated for Aegis (it lacks View Channel),
+   * so a saved channel that became hidden can be told apart from a deleted one.
+   */
+  hiddenChannelIds(guildId: string): ReadonlySet<string>;
   /** Roles from highest to lowest, without @everyone. */
   roles(guildId: string): RoleOption[];
   /** A username from the bot's user cache, for showing names next to IDs. */
@@ -59,7 +68,7 @@ export interface BotView {
 
 function sortChannels(guild: Guild) {
   return [...guild.channels.cache.values()]
-    .filter(c => c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement)
+    .filter(c => !isObfuscatedChannel(c) && (c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement))
     .sort((a, b) => {
       const pa = "parent" in a && a.parent ? a.parent.position : -1;
       const pb = "parent" in b && b.parent ? b.parent.position : -1;
@@ -116,6 +125,12 @@ export function discordBotView(client: Client): BotView {
         name: c.name,
         parent: "parent" in c && c.parent ? c.parent.name : null,
       }));
+    },
+
+    hiddenChannelIds(guildId) {
+      const g = get(guildId);
+      if (!g) return new Set<string>();
+      return new Set([...g.channels.cache.values()].filter(c => isObfuscatedChannel(c)).map(c => c.id));
     },
 
     roles(guildId) {

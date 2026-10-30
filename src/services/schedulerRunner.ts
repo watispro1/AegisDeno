@@ -8,7 +8,7 @@ import {
   SNOOZE_OPTIONS_MINUTES,
 } from "./timedActions";
 import { sendGuildLog } from "./logging";
-import { isSendableChannel } from "../utils/channels";
+import { isSendableChannel, isObfuscatedChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
 
 const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -93,6 +93,11 @@ async function performChannelUnlock(client: Client, task: ScheduledTask): Promis
     logger.error(`Task ${task.id}: unlock target ${task.channelId} is not in guild ${task.guildId} — removing task.`);
     return;
   }
+  if (isObfuscatedChannel(channel)) {
+    // Its overwrites are a placeholder; editing them would clobber the real ones.
+    // Throw so the normal retry path runs in case View Channel is given back.
+    throw new Error(`Unlock target ${task.channelId} is hidden from Aegis (no View Channel); not editing its permissions.`);
+  }
 
   await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { SendMessages: null });
 
@@ -163,6 +168,11 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
         logger.error(`Task ${taskId}: failed to delete undeliverable task`, err)
       );
       return;
+    }
+
+    if (isObfuscatedChannel(channel)) {
+      // Keep the task: the send fails and the normal retry path runs, in case View Channel is given back.
+      throw new Error(`Channel ${task.channelId} is hidden from Aegis (no View Channel).`);
     }
 
     if (!(channel instanceof TextChannel)) {

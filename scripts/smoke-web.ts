@@ -78,10 +78,16 @@ async function main() {
   await new Promise(r => setTimeout(r, 400));
 
   console.log("\nRoutes");
+  const saysUnreleased: string[] = [];
   for (const [path, expected] of ROUTES) {
     const res = await fetch(origin + path);
     check(`${path} -> ${expected}`, res.status === expected, `got ${res.status}`);
+    if (/unreleased/i.test(await res.text())) saysUnreleased.push(path);
   }
+  for (const path of ["/changelog.xml", "/dashboard/changelog"]) {
+    if (/unreleased/i.test(await (await fetch(origin + path)).text())) saysUnreleased.push(path);
+  }
+  check("no rendered page says Unreleased", saysUnreleased.length === 0, saysUnreleased.join(", "));
 
   console.log("\nRedirects");
   for (const [path, target] of [
@@ -216,13 +222,14 @@ async function main() {
   check("releases are newest first", releases.every((r, i) => i === 0 || (r.date ?? "") <= (releases[i - 1].date ?? "")));
   const changelogHtml = await (await fetch(origin + "/changelog")).text();
   check("/changelog shows every version", getChangelog().releases.every(r => changelogHtml.includes(`id="${r.id}"`)));
-  check("/changelog shows Unreleased", changelogHtml.includes('id="unreleased"'));
+  check("/changelog shows the v3.6.0 release", changelogHtml.includes('id="v3.6.0"'));
+  check("/changelog has no Unreleased section", !changelogHtml.includes('id="unreleased"') && !changelogHtml.includes("Not released yet"));
   check("/changelog renders inline code", changelogHtml.includes('<code class="inline">/remindme set</code>'));
   const dashLog = await fetch(origin + "/dashboard/changelog");
   const dashLogHtml = await dashLog.text();
   check("/dashboard/changelog 200 without dashboard config", dashLog.status === 200, String(dashLog.status));
   check("/dashboard/changelog is not the not-configured page", !dashLogHtml.includes("The dashboard is not configured") && dashLogHtml.includes("<h1>Dashboard changelog</h1>"));
-  check("/dashboard/changelog shows the v1.2.0 release", dashLogHtml.includes('id="v1.2.0"') && dashLogHtml.includes(">v1.2.0<"));
+  check("/dashboard/changelog shows the v1.2.1 and v1.2.0 releases", dashLogHtml.includes('id="v1.2.1"') && dashLogHtml.includes(">v1.2.1<") && dashLogHtml.includes('id="v1.2.0"'));
   check("/dashboard/changelog has no Unreleased section", !dashLogHtml.includes('id="unreleased"') && !dashLogHtml.includes("Not released yet"));
   check("/dashboard/changelog renders nested lists", /<li>[^<]*<strong>Settings<\/strong>[\s\S]*?<ul><li>Logging:/.test(dashLogHtml));
   check("/dashboard/changelog sets no cookie", dashLog.headers.get("set-cookie") === null);

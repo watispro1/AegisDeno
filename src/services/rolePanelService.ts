@@ -20,6 +20,7 @@ import {
   type RolePanelMode,
   type RolePanelStyle,
 } from "./rolePanelLogic";
+import { isObfuscatedChannel } from "../utils/channels";
 
 export interface RolePanelOptions {
   /** "button" (default) or "dropdown" (select menu). */
@@ -222,7 +223,7 @@ export async function deleteRolePanel(guild: Guild, id: string): Promise<boolean
 
     if (doc.channelId && doc.messageId) {
       const channel = (guild.channels.cache.get(doc.channelId) || (await guild.channels.fetch(doc.channelId).catch(() => null))) as TextChannel | null;
-      if (channel) {
+      if (channel && !isObfuscatedChannel(channel)) {
         const msg = await channel.messages.fetch(doc.messageId).catch(() => null);
         if (msg) await msg.delete().catch(() => null);
       }

@@ -229,6 +229,9 @@ test("automod exemptions accept visible IDs and previously saved ones only", () 
 test("starboard emoji: one Unicode emoji or a custom emoji", () => {
   for (const e of ["⭐", "🌟", "❤️", "👍🏽", "🇺🇸", "<:aegis:123456789012345678>", "<a:spin:123456789012345678>"]) assert.ok(isStarboardEmoji(e), e);
   for (const e of ["", "star", ":star:", "⭐ ⭐", "<script>", "<:x:1>", "a⭐"]) assert.ok(!isStarboardEmoji(e), e);
+  // The whole value must be one emoji sequence (Codex review on PR #12).
+  for (const e of ["⭐1", "⭐⭐", "🌟x", "❤️!", "👍🏽👍", "1", "#", "<:aegis:123456789012345678>x", "⭐\u200b"]) assert.ok(!isStarboardEmoji(e), e);
+  for (const e of ["1️⃣", "#️⃣", "👨‍👩‍👧‍👦", "🏳️‍🌈", "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "🧑🏽‍💻"]) assert.ok(isStarboardEmoji(e), e);
   const s = parseStarboard({ threshold: "3", emoji: "", ignoredChannels: CH2, ignoredRoles: [ROLE, HIGH_ROLE] }, ctx);
   assert.ok(s.ok && s.value.emoji === "⭐", "blank emoji falls back to the default");
   assert.ok(s.ok && s.value.ignoredRoles.length === 2);

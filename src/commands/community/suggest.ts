@@ -32,6 +32,7 @@ import {
 } from "../../services/communityLogic";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 import { logger } from "../../utils/logger";
+import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 
 const STATUS_COLORS: Record<string, number> = {
   pending:    0x5865F2,
@@ -122,7 +123,7 @@ export async function applySuggestionReview(
 
   if (suggestion.channelId && suggestion.messageId) {
     const channel = await guild.channels.fetch(suggestion.channelId).catch(() => null);
-    if (channel?.isTextBased()) {
+    if (channel?.isTextBased() && !isObfuscatedChannel(channel)) {
       const msg = await channel.messages.fetch(suggestion.messageId).catch(() => null);
       if (msg && msg.embeds.length > 0) {
         const embed = EmbedBuilder.from(msg.embeds[0]).setColor(color);
@@ -314,6 +315,10 @@ export const command: Command = {
 
       try {
         const channel = await interaction.guild!.channels.fetch(config.suggestionsChannelId).catch(() => null);
+        if (isObfuscatedChannel(channel) || isObfuscatedChannel(interaction.guild!.channels.cache.get(config.suggestionsChannelId))) {
+          await modalResponse.editReply(`❌ The suggestions channel is set, but ${hiddenChannelMessage(config.suggestionsChannelId)}`);
+          return;
+        }
         if (!(channel instanceof TextChannel)) {
           await modalResponse.editReply("❌ The configured suggestions channel is invalid or missing.");
           return;

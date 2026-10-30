@@ -3,6 +3,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, 
 import { Command } from "../../types/discord";
 import { createTask, getTasksForGuild, deleteTask, AUTOMATION_TASK_TYPES } from "../../services/scheduler";
 import { scheduleTask, cancelTask, getActiveTaskIds } from "../../services/schedulerRunner";
+import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 
 const MAX_REMINDER_MS = 28 * 24 * 60 * 60 * 1000;
 
@@ -125,6 +126,10 @@ export const command: Command = {
         }
 
         const channel = await interaction.guild!.channels.fetch(selected.id).catch(() => null);
+        if (isObfuscatedChannel(channel) || isObfuscatedChannel(interaction.guild!.channels.cache.get(selected.id))) {
+          await interaction.editReply(`❌ ${hiddenChannelMessage(selected.id)}`);
+          return;
+        }
         const me = interaction.guild!.members.me ?? await interaction.guild!.members.fetchMe().catch(() => null);
 
         if (
@@ -168,6 +173,10 @@ export const command: Command = {
         }
 
         const channel = await interaction.guild!.channels.fetch(selected.id).catch(() => null);
+        if (isObfuscatedChannel(channel) || isObfuscatedChannel(interaction.guild!.channels.cache.get(selected.id))) {
+          await interaction.editReply(`❌ ${hiddenChannelMessage(selected.id)}`);
+          return;
+        }
         const me = interaction.guild!.members.me ?? await interaction.guild!.members.fetchMe().catch(() => null);
 
         if (

@@ -7,7 +7,7 @@
  */
 
 import { Client, EmbedBuilder, GuildMember, Message, PartialGuildMember, VoiceState } from "discord.js";
-import { isSendableChannel } from "../utils/channels";
+import { isSendableChannel, channelDisplayName } from "../utils/channels";
 import { WatchlistEntryModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 
@@ -372,7 +372,7 @@ export async function watchlistOnVoiceJoin(client: Client, voiceState: VoiceStat
     const embed = new EmbedBuilder()
       .setColor(0x2ECC71)
       .setAuthor({ name: "🕵️ Ghost Watch Alert — Joined Voice 🎙️", iconURL: voiceState.member.user.displayAvatarURL() })
-      .setDescription(`**${voiceState.member.user.tag}** joined voice channel <#${channel.id}> (${channel.name}) in **${voiceState.guild.name}**.`)
+      .setDescription(`**${voiceState.member.user.tag}** joined voice channel <#${channel.id}> (${channelDisplayName(channel)}) in **${voiceState.guild.name}**.`)
       .addFields(
         { name: "👤 User",    value: `${voiceState.member.user.tag} (<@${voiceState.member.id}>)`, inline: true },
         { name: "🎙️ Channel", value: `<#${channel.id}>`, inline: true },

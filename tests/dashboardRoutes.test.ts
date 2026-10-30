@@ -26,6 +26,7 @@ const CHANNEL = "700000000000000001";
 const CHANNEL_2 = "700000000000000002";
 const ROLE = "600000000000000001";
 const ROLE_HIGH = "600000000000000002"; // exists, but Aegis cannot assign it
+const HIDDEN_CHANNEL = "700000000000000050"; // exists, but Discord obfuscates it for Aegis (no View Channel)
 const SAVED_ELSEWHERE = "700000000000000099"; // exempted with /automod, not a text channel the picker lists
 const APPEAL_CODE = "AGS-K7X2";
 const PANEL_ID = "panel-0a1b2c3d";
@@ -60,6 +61,7 @@ const bot: BotView = {
   memberCanManage: async (guildId, userId) => guildId === GUILD_OK && userId === USER,
   memberHasPermission: async (guildId, userId, permission) => guildId === GUILD_OK && userId === USER && granted.has(permission),
   textChannels: () => [{ id: CHANNEL, name: "mod-log", parent: "Staff" }, { id: CHANNEL_2, name: "general", parent: null }],
+  hiddenChannelIds: () => new Set([HIDDEN_CHANNEL]),
   roles: () => [{ id: ROLE_HIGH, name: "Admin", assignable: false }, { id: ROLE, name: "Verified", assignable: true }],
   userName: id => (id === USER ? "aj" : null),
 };
@@ -455,6 +457,9 @@ test("starboard POST saves emoji and ignore lists; rejects a non-emoji", async (
   const bad = await post(path, { _csrf: csrf, threshold: "3", emoji: "star" });
   assert.equal(bad.status, 400);
   assert.match(await bad.text(), /Use one emoji/);
+  for (const emoji of ["⭐1", "⭐⭐", "🌟a"]) {
+    assert.equal((await post(path, { _csrf: csrf, threshold: "3", emoji })).status, 400, `${emoji} is refused: one emoji only`);
+  }
   const custom = await post(path, { _csrf: csrf, threshold: "4", emoji: "<:aegis:123456789012345678>", ignoredChannels: CHANNEL_2, ignoredRoles: ROLE });
   assert.equal(custom.status, 303);
   const v = lastSaved("starboard");
@@ -643,7 +648,7 @@ test("every guild page carries the server nav and the dashboard version", async 
     for (const section of ["cases", "appeals", "panels", "settings", "activity"]) {
       assert.ok(html.includes(`href="/dashboard/${GUILD_OK}/${section}"`), `${path}: nav to ${section}`);
     }
-    assert.match(html, /Dashboard v1\.2\.0/);
+    assert.match(html, /Dashboard v1\.2\.1/);
   }
 });
 
@@ -678,6 +683,59 @@ test("rate limits go through the injected shared store", async () => {
   } finally {
     srv.close();
   }
+});
+
+test("hidden (obfuscated) channels: never offered, saved ones explained, picks refused", async () => {
+  await login();
+  const path = `/dashboard/${GUILD_OK}/settings/logging`;
+  const previous = snapshot.guild.loggingChannelId;
+  snapshot.guild.loggingChannelId = HIDDEN_CHANNEL;
+  try {
+    const html = await (await get(path)).text();
+    assert.ok(!html.includes(`value="${HIDDEN_CHANNEL}"`), "hidden channel is not a picker option");
+    assert.ok(!html.includes("___hidden___"));
+    assert.match(html, /Aegis can&#39;t see the saved log channel|Aegis can't see the saved log channel/);
+    assert.match(html, /View Channel/);
+  } finally {
+    snapshot.guild.loggingChannelId = previous;
+  }
+  const csrf = await csrfFrom(path);
+  const before = saved.length;
+  const refused = await post(path, { _csrf: csrf, loggingEnabled: "on", loggingChannelId: HIDDEN_CHANNEL });
+  assert.equal(refused.status, 400);
+  assert.match(await refused.text(), /give Aegis the View Channel permission there/i);
+  assert.equal(saved.length, before, "nothing saved");
+});
+
+test("automod POST accepts the advertised maximum word list (500 × 100 characters)", async () => {
+  await login();
+  const path = `/dashboard/${GUILD_OK}/settings/automod`;
+  const page = await (await get(path)).text();
+  const max = Number(page.match(/<textarea id="f-words_list" name="words_list" maxlength="(\d+)"/)?.[1]);
+  assert.ok(max >= 500 * 100 + 499, `textarea maxlength ${max} fits the full list`);
+  const csrf = await csrfFrom(path);
+
+  const word = (i: number, fill: string) => `w${i}`.padEnd(100, fill);
+  const ascii = Array.from({ length: 500 }, (_, i) => word(i, "x")).join("\r\n");
+  const okAscii = await post(path, { _csrf: csrf, ...automodBase, words_enabled: "on", words_list: ascii });
+  assert.equal(okAscii.status, 303, "ASCII list saves");
+  assert.equal(lastSaved("automod").words.list.length, 500);
+
+  // Multi-byte text URL-encodes to several bytes per character; the full list must still fit.
+  const accented = Array.from({ length: 500 }, (_, i) => word(i, "é")).join("\r\n");
+  const okAccented = await post(path, { _csrf: csrf, ...automodBase, words_enabled: "on", words_list: accented });
+  assert.equal(okAccented.status, 303, "multi-byte list saves");
+  assert.equal(lastSaved("automod").words.list.length, 500);
+
+  const tooMany = await post(path, { _csrf: csrf, ...automodBase, words_list: Array.from({ length: 501 }, (_, i) => word(i, "x")).join("\n") });
+  assert.equal(tooMany.status, 400);
+
+  // Still bounded: a body far over the limit is refused before parsing.
+  const huge = await post(path, { _csrf: csrf, ...automodBase, words_list: "ab\n".repeat(400_000) });
+  assert.equal(huge.status, 413);
+  // Other dashboard forms keep the small limit.
+  const bigLogging = await post(`/dashboard/${GUILD_OK}/settings/logging`, { _csrf: csrf, loggingChannelId: CHANNEL, pad: "x".repeat(40_000) });
+  assert.equal(bigLogging.status, 413);
 });
 
 // Runs last: it uses up the auth limit for this client.

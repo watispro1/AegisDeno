@@ -20,6 +20,7 @@ import {
 } from "../database/mongo";
 import { effectiveStarCount, pickStarboardMedia } from "./communityLogic";
 import { TtlCache } from "../utils/ttlCache";
+import { channelDisplayName } from "../utils/channels";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -137,7 +138,7 @@ export function buildStarboardEmbed(
       iconURL: author.displayAvatarURL({ size: 64 }),
     })
     .setTimestamp(message.createdAt)
-    .setFooter({ text: `#${"name" in channel ? channel.name : "unknown"}  ·  ID: ${message.id}` });
+    .setFooter({ text: `#${channelDisplayName(channel)}  ·  ID: ${message.id}` });
 
   // Pick the image to show (first non-spoiler image attachment, else an embed
   // image/thumbnail), list other files as links, and fall back to the source
