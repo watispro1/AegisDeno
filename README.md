@@ -3,20 +3,36 @@
 Aegis is a moderation bot for Discord, run from slash commands. It handles
 warnings, timeouts, bans and the case log behind them, plus automod, ban
 appeals, tickets, verification, logging, a staff watchlist and per-member trust
-scores.
+scores. Server managers can also review cases and change settings in a web
+dashboard.
 
-- Website and command reference: https://aegisdeno.fly.dev
-- Changelog: [CHANGELOG.md](./CHANGELOG.md) (also at https://aegisdeno.fly.dev/changelog)
-- Current version: 3.5.0
+| | |
+| --- | --- |
+| Website | https://aegisdeno.fly.dev |
+| Add to Discord | the **Add to Discord** button on the website |
+| Command reference | https://aegisdeno.fly.dev/commands |
+| Web dashboard | https://aegisdeno.fly.dev/dashboard |
+| Status | https://aegisdeno.fly.dev/status |
+| Current version | bot 3.6.1, dashboard 1.2.2 |
 
 Despite the repository name, Aegis is a **Node.js** app (TypeScript,
 discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
+
+## Contents
+
+- [What it does](#what-it-does)
+- [Running it yourself](#running-it-yourself)
+- [Deploying to Fly.io](#deploying-to-flyio)
+- [Development and tests](#development-and-tests)
+- [Project documents](#project-documents)
+- [Licence](#licence)
 
 ## What it does
 
 Every command, option and permission is listed on the
 [commands page](https://aegisdeno.fly.dev/commands), which is generated from the
-command definitions in `src/commands`. In short:
+command definitions in `src/commands`, so it always matches what the bot
+registers. In short:
 
 **Moderation.** `/warn`, `/timeout`, `/kick`, `/ban` and `/unban` check role
 hierarchy, ask for confirmation and write a numbered case. The `reason` option
@@ -33,17 +49,16 @@ ignore warnings older than a set number of days.
 with its own action (delete, delete and warn, delete and timeout), plus role and
 channel exemptions.
 
-**Trust score.** `/trustscore` gives a 0 to 100 number from account age (up to
-25), time in the server (up to 25), a long-tenure bonus (up to 20), active
-warnings (−5 each, down to −30), timeouts, kicks and bans that were not undone
-(−4 each, down to −20), and message activity (up to 15: points at 10, 50, 250
-and 1,000 messages, plus a bonus for posting in the last week or month). Only a
-message count and a last-active time are stored, never message content. The
-score is informational: nothing happens automatically when it is low.
+**Trust score.** `/trustscore` gives a 0 to 100 number from account age, time
+in the server, a long-tenure bonus, active warnings, timeouts, kicks and bans
+that were not undone, and message activity. Only a message count and a
+last-active time are stored, never message content. The score is
+informational: nothing happens automatically when it is low.
 
 **Ban appeals.** `/ban` DMs the member a code like `AGS-K7X2`. They file an
 appeal with `/appeal submit` from any server Aegis shares with them; staff
-review it with `/appeal list|view|review`, and approving it unbans them.
+review it with `/appeal list|view|review` or in the dashboard, and approving it
+unbans them.
 
 **Watchlist.** `/watchlist add` quietly watches a member and DMs the moderator
 when they post, edit or delete a message, join or leave, have their roles
@@ -64,12 +79,16 @@ Approve/Deny/Consider, welcome messages, personal reminders that can repeat
 stored in MongoDB and restored after a restart.
 
 **Web dashboard.** At [`/dashboard`](https://aegisdeno.fly.dev/dashboard),
-people with Manage Server or Administrator log in with Discord to see a server
-overview, browse and filter cases, edit a reason or revoke a case, and change
-logging, escalation, automod, welcome, ticket, verification and starboard
-settings. Everything it does is also available as a slash command. Self-hosters
-turn it on with `DISCORD_CLIENT_SECRET` and `DASHBOARD_SESSION_SECRET`; see the
-Web dashboard section of [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+people with Manage Server or Administrator log in with Discord (`identify` and
+`guilds` scopes only) to see a server overview, browse and filter cases, edit a
+reason or revoke a case, review ban appeals, post the ticket, verification and
+role panels, and change logging, escalation, automod, welcome, ticket,
+verification and starboard settings. An Activity page shows who changed what.
+Everything it does is also available as a slash command.
+
+What the bot and dashboard store, and for how long, is in the
+[privacy policy](https://aegisdeno.fly.dev/privacy). The rules for using them
+are in the [terms of service](https://aegisdeno.fly.dev/terms).
 
 ## Running it yourself
 
@@ -77,8 +96,8 @@ The source is public so it can be read and reviewed, but it is **not open
 source** (see [Licence](#licence)). Ask the author before running your own copy.
 With permission, you need:
 
-- Node.js 20 or newer (CI and the Docker image use Node 22)
-- A MongoDB database (Atlas or local)
+- Node.js 20 or newer (CI and the Docker image use Node 22).
+- A MongoDB database (Atlas or local).
 - A Discord application with a bot user. Under **Bot** in the Developer Portal,
   turn on the Server Members, Message Content and Presence intents; the bot
   requests all three.
@@ -90,17 +109,31 @@ npm ci
 cp .env.example .env
 ```
 
-Fill in `.env`. The required values are `DISCORD_TOKEN`,
-`DISCORD_APPLICATION_ID` and `MONGO_URI`. Useful extras:
+Fill in `.env`. Every variable the code reads:
 
-| Variable | What it does |
-| --- | --- |
-| `DISCORD_TEST_GUILD_ID` | Register commands to one server only (instant, for testing). Leave empty for global commands. |
-| `DISCORD_OWNER_ID` | Your user ID, for the developer commands. |
-| `SITE_URL` | Public origin of the website, used for canonical URLs, Open Graph tags and the sitemap. |
-| `PORT` | Website port. Defaults to 3000. |
-| `BOT_INVITE_URL`, `SUPPORT_SERVER_URL` | Links shown on the website. |
-| `TOPGG_TOKEN`, `TOPGG_WEBHOOK_AUTH` | Optional Top.gg integration. The webhook stays off until the auth value is set. |
+| Variable | Required | What it does |
+| --- | --- | --- |
+| `DISCORD_TOKEN` | yes | Bot token. The bot exits at startup without it. |
+| `DISCORD_APPLICATION_ID` | yes | Application (client) ID. Also used to build the invite link and as the dashboard's OAuth client ID. |
+| `MONGO_URI` | yes | MongoDB connection string, e.g. `mongodb+srv://user:password@cluster/db`. |
+| `DISCORD_TEST_GUILD_ID` | no | Register commands to one server only (instant, for testing). Leave empty for global commands. |
+| `DISCORD_CLEAR_GUILD_IDS` | no | Comma-separated server IDs whose guild-scoped commands are cleared at startup, so a command does not appear twice after testing. |
+| `DISCORD_OWNER_ID` | no | Your user ID, for the developer commands. |
+| `BOT_ENV` | no | Read into the config but not used by any feature yet. |
+| `LOG_LEVEL` | no | `info` (default) or `debug`. |
+| `SITE_URL` | in production | Public origin of the website, no trailing slash. Used for canonical URLs, Open Graph tags, `sitemap.xml` and `security.txt`. |
+| `PORT` | no | Website port. Defaults to 3000, which is what `fly.toml` exposes. |
+| `BOT_INVITE_URL` | no | Base invite URL; the client ID, computed permissions and scopes are added to it. |
+| `SUPPORT_SERVER_URL` | no | Support server link shown on the website and legal pages. |
+| `CONTACT_EMAIL` | no | Email shown on the terms and privacy pages. Without it they point to GitHub issues only. |
+| `DISCORD_CLIENT_SECRET` | for the dashboard | OAuth2 client secret from the Developer Portal. |
+| `DASHBOARD_SESSION_SECRET` | for the dashboard | At least 32 characters; signs session cookies and CSRF tokens. Generate with `openssl rand -hex 32`. |
+| `DASHBOARD_REDIRECT_URI` | no | Must match a redirect under OAuth2 in the Developer Portal. Defaults to `https://aegisdeno.fly.dev/dashboard/callback`; locally use `http://localhost:3000/dashboard/callback`. |
+| `TOPGG_TOKEN` | no | Posts the server count to Top.gg every 30 minutes. |
+| `TOPGG_WEBHOOK_AUTH` | no | Shared secret for the Top.gg vote webhook. The webhook answers 503 until it is set. |
+
+The dashboard stays off, and `/dashboard` says so, until `DISCORD_CLIENT_SECRET`
+and a long enough `DASHBOARD_SESSION_SECRET` are both set.
 
 Then:
 
@@ -109,46 +142,69 @@ npm run dev                 # run from source with tsx
 npm run build && npm start  # compiled
 ```
 
-Slash commands are registered every time the bot starts. The website is served
-by the same process.
+Slash commands are registered every time the bot starts. The website and the
+dashboard are served by the same process.
 
-### Deploying to Fly.io
+## Deploying to Fly.io
 
-`fly.toml` and the `Dockerfile` are set up for Fly.io. Pushes to `main` deploy
-automatically from GitHub Actions once the checks pass (this needs a
-`FLY_API_TOKEN` repository secret). To deploy by hand:
+`fly.toml` and the `Dockerfile` are set up for Fly.io (app `aegisdeno`, primary
+region `dfw`, one always-on machine). Pushes to `main` deploy automatically from
+GitHub Actions once the checks pass; this needs a `FLY_API_TOKEN` repository
+secret. To deploy by hand:
 
 ```bash
 fly secrets set DISCORD_TOKEN="..." DISCORD_APPLICATION_ID="..." MONGO_URI="..." SITE_URL="https://your-app.fly.dev"
 fly deploy
 ```
 
-[`DEPLOYMENT.md`](./DEPLOYMENT.md), [`OPERATIONAL.md`](./OPERATIONAL.md) and
+[`DEPLOYMENT.md`](./DEPLOYMENT.md) (including the Web dashboard section),
+[`OPERATIONAL.md`](./OPERATIONAL.md) and
 [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) have more detail.
 
-## Development
+## Development and tests
 
 ```bash
 npm run typecheck              # tsc --noEmit
+npm run test:unit              # unit tests only (node:test via tsx)
 npm test                       # unit tests, build, then a smoke test of every web route
+npx tsx scripts/smoke-web.ts   # the smoke test on its own (after a build)
 npx tsx scripts/audit-site.ts  # links, ids, heading count, unstyled classes, dead CSS
 npm run preview:site           # static copy of the site in dist/site
 ```
 
 CI runs `npm ci`, the typecheck and `npm test` on Node 22 for every push and
-pull request.
+pull request. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening a pull
+request: commits need a `Signed-off-by:` line, and user-facing changes need a
+changelog entry.
 
 The website lives in `src/web/`: pages are TypeScript template strings rendered
 by Express, with no framework and no build step for the front end.
 
-- `pages.ts`: page bodies. `layout.ts`: the shared shell, nav and footer.
+- `pages.ts`: page bodies, including the terms, privacy and security pages.
+  `layout.ts`: the shared shell, nav and footer.
 - `content.ts`: feature and FAQ copy. Every claim there should trace back to a
   command in `src/commands`.
 - `catalog.ts`: builds the command reference from the registered command
   definitions, so `/commands` cannot drift from the bot.
-- `changelog.ts`: parses `CHANGELOG.md` for `/changelog` and `/changelog.xml`.
+- `changelog.ts`: parses `CHANGELOG.md` and `DASHBOARD_CHANGELOG.md` for
+  `/changelog`, `/dashboard/changelog` and `/changelog.xml`.
+- `notFound.ts` (404 suggestions), `wellKnown.ts` (`security.txt`).
 - `theme.ts` (stylesheet), `client.ts` (small progressive-enhancement script),
   `assets.ts` (favicon, social image, manifest).
+- `dashboard/`: the web dashboard (OAuth, sessions, views, validation).
+
+## Project documents
+
+- [`CHANGELOG.md`](./CHANGELOG.md): bot releases (also at
+  https://aegisdeno.fly.dev/changelog and as an Atom feed at `/changelog.xml`).
+- [`DASHBOARD_CHANGELOG.md`](./DASHBOARD_CHANGELOG.md): dashboard releases
+  (https://aegisdeno.fly.dev/dashboard/changelog).
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md): setup, branches, sign-off, tests and
+  changelog rules.
+- [`SECURITY.md`](./SECURITY.md): how to report a vulnerability privately.
+- [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md): Contributor Covenant 2.1.
+- [Terms of Service](https://aegisdeno.fly.dev/terms) and
+  [Privacy Policy](https://aegisdeno.fly.dev/privacy).
 
 ## Licence
 
