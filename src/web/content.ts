@@ -250,7 +250,7 @@ export const faqs: { q: string; a: string }[] = [
   },
   {
     q: "Is there a web dashboard?",
-    a: `<p>Yes, at <a href="/dashboard">/dashboard</a>. Log in with Discord to see moderation cases, edit or revoke them (and unban when revoking a ban), review ban appeals, post the ticket, verification and role panels, and change logging, escalation, automod (word list and exemptions included), welcome, ticket, verification and starboard settings. An Activity page shows who changed what. It only lists servers where you have Manage Server or Administrator, and it re-checks that permission on every page. Slash commands still do everything the dashboard does, and more.</p>`,
+    a: `<p>Yes, at <a href="/dashboard">/dashboard</a>. Log in with Discord to see moderation cases, edit or revoke them (and unban when revoking a ban), review ban appeals, post the ticket, verification and role panels, and change logging, escalation, automod (word list and exemptions included), welcome, ticket, verification and starboard settings. An Activity page shows who changed what. It only lists servers where you have Manage Server or Administrator, and it checks that permission on every page. Slash commands still do everything the dashboard does, and more.</p>`,
   },
   {
     q: "Is data shared between servers?",

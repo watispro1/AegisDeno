@@ -1,4 +1,5 @@
-import { layout } from "./layout";
+import { layout, REPO_URL } from "./layout";
+import { DASHBOARD_VERSION } from "../version";
 import {
   buildCatalog,
   groupByCategory,
@@ -11,7 +12,7 @@ import { features, faqs, quickstart } from "./content";
 import { getChangelog, getDashboardChangelog, type ChangelogRelease } from "./changelog";
 
 /** Public source repository (readable; proprietary licence). */
-const REPO_URL = "https://github.com/watispro1/AegisDeno";
+export { REPO_URL };
 
 export interface SiteConfig {
   inviteUrl: string;
@@ -792,10 +793,11 @@ cd AegisDeno
 npm ci
 cp .env.example .env    # set DISCORD_TOKEN, DISCORD_APPLICATION_ID, MONGO_URI
 npm run dev             # or: npm run build && npm start`)}
-      <p>Slash commands are registered every time the bot starts. Set <code>DISCORD_TEST_GUILD_ID</code> to register them to one server while testing, and <code>DISCORD_OWNER_ID</code> to your own user ID for the developer commands. The website is served by the same process on <code>PORT</code> (3000 by default). <code>fly.toml</code> and <code>DEPLOYMENT.md</code> in the repository cover deploying to Fly.io.</p>
+      <p>Slash commands are registered every time the bot starts. Set <code>DISCORD_TEST_GUILD_ID</code> to register them to one server while testing, and <code>DISCORD_OWNER_ID</code> to your own user ID for the developer commands. The website is served by the same process on <code>PORT</code> (3000 by default). Set <code>SITE_URL</code> to the public address so canonical links, social previews and the sitemap are correct.</p>
+      <p>The web dashboard stays off until <code>DISCORD_CLIENT_SECRET</code> and <code>DASHBOARD_SESSION_SECRET</code> are both set; <code>DASHBOARD_REDIRECT_URI</code> must match a redirect added under OAuth2 in the Developer Portal. <code>fly.toml</code> and <code>DEPLOYMENT.md</code> in the repository cover deploying to Fly.io, and <a href="${REPO_URL}/blob/main/CONTRIBUTING.md" rel="noopener noreferrer">CONTRIBUTING.md</a> covers the tests and the pull request rules.</p>
 
       <h2 id="data">Data and storage</h2>
-      <p>Settings, cases, warnings, tickets and appeals are stored in MongoDB, keyed by server ID. Warnings, cases and staff notes expire after one year. Audit logs live only in your log channel. The <a href="/privacy">privacy policy</a> has the full list.</p>
+      <p>Settings, cases, warnings, tickets, appeals and the other records Aegis needs are stored in MongoDB, keyed by server ID. Warnings, cases and staff notes are deleted automatically after one year, and the dashboard's Activity log after 180 days. Log entries and ticket transcripts are posted to your channels rather than kept in the database. Removing Aegis does not delete a server's records on its own. The <a href="/privacy#stored">privacy policy</a> lists every kind of record and how long it is kept.</p>
     </article>
   </div>
 </div>`;
@@ -1180,234 +1182,396 @@ export function renderStatus(cfg: SiteConfig, stats: Stats, online: boolean, sta
 
 /* ── Legal ─────────────────────────────────────────────────────────── */
 
-const EFFECTIVE_DATE = "October 1, 2026";
+/** Shown on /terms and /privacy. Change both pages together. */
+export const LEGAL_LAST_UPDATED = "October 30, 2026";
+const LEGAL_LAST_UPDATED_ISO = "2026-10-30";
 
+/** How to reach the maintainer, built only from what is actually configured. */
+function contactLine(cfg: SiteConfig, topic: string): string {
+  const ways = [
+    `open an issue on <a href="${REPO_URL}/issues" rel="noopener noreferrer">GitHub</a> (issues are public, so leave out personal details and ask for a private follow-up if you need one)`,
+  ];
+  if (cfg.supportUrl) ways.push(`ask in the <a href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">support server</a>`);
+  if (cfg.contactEmail) ways.push(`email <a href="mailto:${escapeHtml(cfg.contactEmail)}">${escapeHtml(cfg.contactEmail)}</a>`);
+  const list = ways.length === 1 ? ways[0] : `${ways.slice(0, -1).join(", ")} or ${ways[ways.length - 1]}`;
+  return `<p>For ${topic}, ${list}. To report a security problem, follow the <a href="/security">security policy</a> instead of filing a public issue.</p>`;
+}
 
-export function renderTerms(cfg: SiteConfig): string {
-  const support = cfg.supportUrl
-    ? `<a href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">support server</a>`
-    : "support server";
-
+function legalPage(cfg: SiteConfig, o: {
+  crumb: string;
+  title: string;
+  lead: string;
+  glance: string[];
+  sections: { id: string; title: string; html: string }[];
+  path: string;
+  metaTitle: string;
+  description: string;
+}): string {
+  const toc = o.sections.map(s => `<li><a href="#${s.id}">${escapeHtml(s.title)}</a></li>`).join("\n        ");
   const body = `
 <div class="wrap">
-  ${breadcrumb("Terms")}
+  ${breadcrumb(o.crumb)}
   <div class="page-head">
-    <h1>Terms of Service</h1>
-    <p class="lead">These terms govern your use of the Aegis Discord bot and this website. By adding Aegis to a server or using this site, you agree to them.</p>
-    <p class="faint">Effective ${EFFECTIVE_DATE}.</p>
+    <h1>${escapeHtml(o.title)}</h1>
+    <p class="lead">${o.lead}</p>
+    <p class="faint legal-meta"><span>Last updated: <time datetime="${LEGAL_LAST_UPDATED_ISO}">${LEGAL_LAST_UPDATED}</time></span><span>Applies to Aegis ${escapeHtml(cfg.version)} and the dashboard</span></p>
   </div>
-</div>
+  <section class="at-a-glance" aria-labelledby="glance-title">
+    <h2 id="glance-title">At a glance</h2>
+    <ul>
+      ${o.glance.map(g => `<li>${g}</li>`).join("\n      ")}
+    </ul>
+  </section>
 
-<section>
-  <div class="wrap">
+  <details class="toc-mobile">
+    <summary>Jump to a section</summary>
+    <ul>
+      ${toc}
+    </ul>
+  </details>
+
+  <div class="split">
+    <aside class="toc" aria-label="Sections">
+      <p class="side-title">On this page</p>
+      <ul>
+        ${toc}
+      </ul>
+    </aside>
     <div class="legal">
-      <h2 id="acceptance">1. Acceptance of terms</h2>
-      <p>These Terms of Service ("Terms") form a binding agreement between you and the Aegis maintainers ("we", "us"). If you do not agree with these Terms, do not invite Aegis to your server or otherwise use the service.</p>
-
-      <h2 id="service">2. What Aegis is</h2>
-      <p>Aegis is a software service delivered as a Discord application. It provides moderation, auto moderation, audit logging, welcome messaging, community, and automation tooling. Aegis is not affiliated with, endorsed by, or sponsored by Discord Inc.</p>
-
-      <h2 id="eligibility">3. Eligibility and account responsibility</h2>
-      <p>You must meet Discord's minimum age requirement to use Discord, and therefore to use Aegis. You are responsible for all activity that occurs under your Discord account, including any action Aegis takes that you or your server's moderators trigger.</p>
-
-      <h2 id="acceptable-use">4. Acceptable use</h2>
-      <p>You agree not to use Aegis to:</p>
-      <ul>
-        <li>Violate Discord's Terms of Service or Community Guidelines.</li>
-        <li>Abuse, harass, threaten, or target any person, group, or the Discord platform.</li>
-        <li>Conduct automated spam, mass mentions, or unsolicited advertising through the bot.</li>
-        <li>Attempt to gain unauthorized access to the service, its host, or its data.</li>
-        <li>Interfere with, overload, or disrupt the service or its infrastructure.</li>
-        <li>Use the service to store or process content that is unlawful in your jurisdiction.</li>
-      </ul>
-
-      <h2 id="permissions">5. Server permissions and responsibility</h2>
-      <p>Aegis acts strictly under the permissions and authority granted to it by each server. You are solely responsible for:</p>
-      <ul>
-        <li>Reviewing the permission list on the OAuth2 authorization screen before inviting Aegis.</li>
-        <li>Placing Aegis' role at an appropriate height in your server's role hierarchy.</li>
-        <li>Configuring moderation rules, blocked word lists, and log channels.</li>
-        <li>Reviewing and appealing moderation actions taken by your moderators.</li>
-      </ul>
-      <p>Aegis is a tool. Decisions about who to punish, and how, remain with your server's moderation team.</p>
-
-      <h2 id="availability">6. Availability</h2>
-      <p>The service is provided "as is" and "as available". We do not guarantee uninterrupted, timely, or error-free operation. Scheduled maintenance, upstream Discord API changes, network failures, and events beyond our reasonable control may cause downtime. The <a href="/status">status page</a> reflects current availability but is not a service level agreement.</p>
-
-      <h2 id="ip">7. Intellectual property</h2>
-      <p>Aegis, including its source code, name, branding, and documentation, is owned by the maintainers and protected by applicable intellectual property law. These Terms grant you a limited, revocable, non-exclusive, non-transferable license to use the service as intended. Reverse engineering, reselling, or redistributing the service is not permitted.</p>
-
-      <h2 id="third-party">8. Third-party services</h2>
-      <p>Aegis depends on Discord, and may depend on infrastructure providers such as Fly.io. Your use of those services is governed by their own terms, over which we have no control. We are not responsible for the content, availability, or practices of any third party.</p>
-
-      <h2 id="warranty">9. Disclaimer of warranties</h2>
-      <p>To the maximum extent permitted by law, the service is provided without warranties of any kind, whether express or implied, including implied warranties of merchantability, fitness for a particular purpose, title, and non-infringement. We do not warrant that the service will be uninterrupted, secure, or error-free.</p>
-
-      <h2 id="liability">10. Limitation of liability</h2>
-      <p>To the maximum extent permitted by law, the maintainers shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or for any loss of profits, data, goodwill, or server activity, arising out of or related to your use of the service. This includes losses resulting from misconfigured automod rules, unintended moderation actions, or reliance on the service as your sole moderation safeguard.</p>
-      <p>Where liability cannot be excluded by law, it is limited to the greater of the amount you paid for the service (which is zero) or USD 50.</p>
-
-      <h2 id="indemnity">11. Indemnification</h2>
-      <p>You agree to indemnify and hold harmless the maintainers from any claim or demand, including reasonable legal fees, arising from your use of the service, your violation of these Terms, or your violation of Discord's policies.</p>
-
-      <h2 id="changes">12. Modifications</h2>
-      <p>We may update these Terms to reflect changes in the service or applicable law. The effective date at the top of this page indicates the current version. Continuing to use Aegis after an update constitutes acceptance of the revised Terms.</p>
-
-      <h2 id="termination">13. Termination</h2>
-      <p>You may stop using Aegis at any time by removing it from your server. We may suspend or terminate access, with or without notice, if you breach these Terms, if required by law, or if continued operation poses a security or abuse risk. Terminating access does not delete data already stored; see the <a href="/privacy">Privacy Policy</a> for retention.</p>
-
-      <h2 id="governing-law">14. Severability and governing law</h2>
-      <p>If any provision of these Terms is found unenforceable, the remaining provisions remain in effect. These Terms are governed by the laws applicable in the maintainers' principal place of operation, without regard to conflict of law rules. Any dispute will be handled through good-faith negotiation, and where that fails, through the courts of that jurisdiction.</p>
-
-      <h2 id="contact">15. Contact</h2>
-      <p>Questions about these Terms can be raised on our ${support} or by email at <a href="mailto:${escapeHtml(cfg.contactEmail)}">${escapeHtml(cfg.contactEmail)}</a>.</p>
+      ${o.sections.map((s, i) => `<h2 id="${s.id}">${i + 1}. ${escapeHtml(s.title)}</h2>\n      ${s.html}`).join("\n\n      ")}
     </div>
   </div>
-</section>`;
+</div>`;
 
   return page(cfg, {
-    title: "Terms of Service | Aegis",
-    description: "Terms governing use of the Aegis Discord bot and this website.",
-    path: "/terms",
+    title: o.metaTitle,
+    description: o.description,
+    path: o.path,
     body,
+  });
+}
+
+export function renderTerms(cfg: SiteConfig): string {
+  return legalPage(cfg, {
+    crumb: "Terms",
+    title: "Terms of Service",
+    lead: "The rules for using the Aegis Discord bot, its web dashboard and this website, in plain language.",
+    path: "/terms",
+    metaTitle: "Terms of Service | Aegis",
+    description: "The terms for using the Aegis Discord bot, its web dashboard and the aegisdeno.fly.dev website.",
+    glance: [
+      "Aegis is free. There is no paid tier and nothing to buy.",
+      "You must be old enough to use Discord, and you must follow Discord's own terms.",
+      "Server staff decide how Aegis is used in their server and are responsible for the actions they take with it.",
+      "Aegis is provided as is, without a guaranteed uptime.",
+      `What Aegis stores is described in the <a href="/privacy">Privacy Policy</a>.`,
+    ],
+    sections: [
+      {
+        id: "about",
+        title: "About these terms",
+        html: `<p>These terms cover the Aegis bot on Discord, the web dashboard at <a href="/dashboard">/dashboard</a>, and this website (together, "Aegis"). Aegis is run by its maintainer ("we", "us"). It is not made, endorsed or sponsored by Discord Inc.</p>
+      <p>By adding Aegis to a server, using its commands, logging in to the dashboard or using this website, you agree to these terms. If you do not agree, do not use Aegis, and remove it from any server you manage.</p>
+      <p>These terms apply to the copy of Aegis we run. Someone running their own copy from the source code is responsible for that copy.</p>`,
+      },
+      {
+        id: "eligibility",
+        title: "Who can use Aegis",
+        html: `<p>You must meet Discord's minimum age, which is 13 in most countries and higher in some, and you must follow Discord's <a href="https://discord.com/terms" rel="noopener noreferrer">Terms of Service</a> and <a href="https://discord.com/guidelines" rel="noopener noreferrer">Community Guidelines</a>. You are responsible for what happens through your Discord account, including actions Aegis carries out because you ran a command or changed a setting.</p>`,
+      },
+      {
+        id: "server-staff",
+        title: "Your server, your decisions",
+        html: `<p>Aegis acts only with the permissions a server gives it, and only on commands and rules that server's staff set up. If you add or manage Aegis in a server, you are responsible for:</p>
+      <ul>
+        <li>Reviewing the permissions on Discord's authorization screen before inviting Aegis, and placing its role correctly in the role list.</li>
+        <li>The rules you configure, such as automod filters, escalation thresholds, verification auto-kick and ticket auto-close, and the actions they take automatically.</li>
+        <li>Moderation decisions: who is warned, timed out, kicked or banned, and why. Aegis is a tool; the decisions stay with your staff.</li>
+        <li>Using logging, ticket transcripts and the staff watchlist in line with Discord's policies, your own server rules and any law that applies to you. Logging can copy deleted and edited messages into a channel, and the watchlist sends staff alerts about a member without telling them.</li>
+      </ul>`,
+      },
+      {
+        id: "dashboard",
+        title: "The web dashboard",
+        html: `<p>You log in to the dashboard with Discord. It only lets you manage servers where you have the Manage Server or Administrator permission, and it re-reads your permissions from Discord while you use it. Changes you make there have the same effect as the matching slash command, and each one is recorded on that server's Activity page with your Discord user ID and username. Do not share your session or try to reach servers you do not manage.</p>`,
+      },
+      {
+        id: "acceptable-use",
+        title: "Acceptable use",
+        html: `<p>Do not use Aegis to:</p>
+      <ul>
+        <li>Break Discord's terms or guidelines, or the law.</li>
+        <li>Harass, threaten, dox or target anyone, including through the watchlist, logging or direct messages Aegis sends.</li>
+        <li>Send spam, mass mentions or unsolicited advertising.</li>
+        <li>Try to get into data, servers or dashboard pages you are not allowed to see, or probe Aegis for weaknesses outside the <a href="/security">security policy</a>.</li>
+        <li>Overload or disrupt Aegis, this website or the services it relies on, for example by scripting requests to the dashboard or API.</li>
+      </ul>
+      <p>We may stop Aegis from working for a user or a server that breaks these rules.</p>`,
+      },
+      {
+        id: "availability",
+        title: "Availability and changes",
+        html: `<p>Aegis is offered free of charge, "as is" and "as available". It can go down for maintenance, because of Discord or hosting problems, or for other reasons, and we do not promise any level of uptime. The <a href="/status">status page</a> shows what the bot reports about itself; it is not a service level agreement.</p>
+      <p>Commands and features can be added, changed or removed. Notable changes are listed in the <a href="/changelog">changelog</a> and the <a href="/dashboard/changelog">dashboard changelog</a>.</p>`,
+      },
+      {
+        id: "source",
+        title: "Source code and licence",
+        html: `<p>The source code is published on <a href="${REPO_URL}" rel="noopener noreferrer">GitHub</a> so it can be read and reviewed. It is not open source: it is proprietary and all rights are reserved. Copying, modifying, redistributing or running your own copy needs written permission from the maintainer, as the README explains. Using the bot in your server does not give you any rights to the code, name or branding.</p>`,
+      },
+      {
+        id: "third-parties",
+        title: "Services Aegis relies on",
+        html: `<p>Aegis runs on Discord and depends on other providers to host it and store its data, such as Fly.io and a MongoDB database host. Your use of Discord is covered by Discord's own terms. We are not responsible for the availability or practices of those services. The <a href="/privacy#sharing">Privacy Policy</a> lists what each one receives.</p>`,
+      },
+      {
+        id: "disclaimer",
+        title: "No warranty",
+        html: `<p>As far as the law allows, Aegis comes without warranties of any kind, express or implied, including that it is fit for a particular purpose, accurate, secure, or free of errors and interruptions. Do not rely on Aegis as your only moderation safeguard.</p>`,
+      },
+      {
+        id: "liability",
+        title: "Limitation of liability",
+        html: `<p>As far as the law allows, we are not liable for indirect, incidental, special or consequential losses, or for lost data, members, messages or goodwill, arising from your use of Aegis. That includes losses caused by misconfigured rules, unintended moderation actions, downtime or Discord changes. Where liability cannot be excluded, it is limited to the amount you paid to use Aegis, which is nothing, or USD 50, whichever is greater.</p>
+      <p>You agree to cover claims brought against the maintainer that arise from how you or your server's staff used Aegis, or from your breach of these terms or Discord's policies.</p>`,
+      },
+      {
+        id: "ending",
+        title: "Stopping and suspension",
+        html: `<p>You can stop using Aegis at any time by removing it from your server and logging out of the dashboard. We may suspend or end access for a user or server, with or without notice, if these terms are broken, if the law requires it, or to protect Aegis and its users.</p>
+      <p>Removing Aegis does not delete what it has already stored. Some records expire on their own and the rest can be deleted on request; see <a href="/privacy#retention">how long data is kept</a> and <a href="/privacy#deletion">how to ask for deletion</a>.</p>`,
+      },
+      {
+        id: "changes",
+        title: "Changes to these terms",
+        html: `<p>We may update these terms when Aegis changes. The "Last updated" date at the top shows the current version, and changes are noted in the <a href="/changelog">changelog</a>. If you keep using Aegis after an update, the new terms apply. If you do not agree with them, stop using Aegis.</p>`,
+      },
+      {
+        id: "general",
+        title: "General",
+        html: `<p>If part of these terms cannot be enforced, the rest still applies. These terms are governed by the law of the place where the maintainer is based, without regard to conflict-of-law rules. We will try to settle any disagreement informally first.</p>`,
+      },
+      {
+        id: "contact",
+        title: "Contact",
+        html: contactLine(cfg, "questions about these terms"),
+      },
+    ],
   });
 }
 
 export function renderPrivacy(cfg: SiteConfig): string {
-  const support = cfg.supportUrl
-    ? `<a href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">support server</a>`
-    : "support server";
+  const row = (what: string, details: string, kept: string) =>
+    `<tr><td><strong>${what}</strong></td><td>${details}</td><td>${kept}</td></tr>`;
 
+  return legalPage(cfg, {
+    crumb: "Privacy",
+    title: "Privacy Policy",
+    lead: "What the Aegis bot, its dashboard and this website collect, why, how long it is kept, and how to get it deleted.",
+    path: "/privacy",
+    metaTitle: "Privacy Policy | Aegis",
+    description: "What data the Aegis Discord bot and dashboard collect, how it is used, how long it is kept and how to request deletion.",
+    glance: [
+      "Aegis stores what its features need, such as server settings, moderation records, tickets and appeals, keyed by server.",
+      "It does not sell data, show ads, build profiles or train models on your messages.",
+      "Warnings, cases and staff notes are deleted automatically after one year; dashboard activity after 180 days; dashboard sessions after 7 days.",
+      "The public website has no analytics and no cookies. The dashboard sets two login cookies.",
+      `You can ask for data to be deleted; see <a href="#deletion">how</a>.`,
+    ],
+    sections: [
+      {
+        id: "scope",
+        title: "Who this covers",
+        html: `<p>This policy covers the copy of Aegis run by its maintainer ("we", "us"): the bot on Discord, the dashboard at <a href="/dashboard">/dashboard</a> and this website. Server staff choose which Aegis features to turn on in their server, so they also decide much of what is collected about that server's members. Someone running their own copy from the source code is responsible for the data in that copy.</p>`,
+      },
+      {
+        id: "from-discord",
+        title: "What Aegis receives from Discord",
+        html: `<p>Like any Discord bot, Aegis receives events from Discord for the servers it is in. It asks Discord for server, member, member presence, message, message content, reaction and voice state events. That means it can see:</p>
+      <ul>
+        <li>Server, channel and role details, and member details such as user ID, username, roles, join date and account age.</li>
+        <li>Messages and their content in channels it can view, plus edits, deletions and reactions.</li>
+        <li>Voice channel joins and leaves.</li>
+      </ul>
+      <p>Most of this is used in memory as it arrives, for example to check a message against automod rules or auto-responders, to post a log entry, to send a watchlist alert, or to count messages for the trust score, and is not written to the database. Only the items listed in the next section are stored. Aegis does not ask Discord for direct message events, so it does not read DMs sent to it.</p>`,
+      },
+      {
+        id: "stored",
+        title: "What Aegis stores",
+        html: `<p>Aegis keeps its records in a MongoDB database. Every record is tied to a server ID, and one server's records are never shown in another server.</p>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>What is in it</th><th>How long it is kept</th></tr></thead>
+        <tbody>
+          ${row("Server settings", "Logging, welcome, escalation, ticket, verification, starboard and automod settings, including blocked word lists and exempt roles and channels; auto-responders; role panels.", "Until staff change or remove them, or deletion is requested. Not removed automatically when Aegis leaves a server.")}
+          ${row("Warnings", "Member's user ID, moderator's user ID, reason, optional proof link, and whether it was revoked.", "Deleted automatically one year after it was issued, or earlier with <code class=\"inline\">/clearwarnings</code>.")}
+          ${row("Moderation cases", "Timeouts, kicks, bans, unbans and similar: member and moderator IDs, action, reason, details, optional proof link, revoked state.", "Deleted automatically after one year. Revoking a case keeps it, marked revoked.")}
+          ${row("Staff notes", "Member and moderator IDs and the note text.", "Deleted automatically after one year, or earlier with <code class=\"inline\">/note delete</code> or <code class=\"inline\">/note clear</code>.")}
+          ${row("Ban appeals", "Appeal code, member and moderator IDs, ban reason, the appeal text the member submits, and the staff decision and note.", "No automatic expiry.")}
+          ${row("Automod hits", "Member and channel IDs, the rule and action, and the first 200 characters of the message that triggered it. Used for <code class=\"inline\">/modreport</code>.", "No automatic expiry.")}
+          ${row("Tickets", "Opener's user ID, ticket channel, category, who claimed and closed it, close reason and timestamps.", "No automatic expiry. Transcripts are not stored in the database (see below).")}
+          ${row("Watchlist entries", "Watched member's ID, moderator's ID, reason, chosen events, alert count and optional alert channel.", "Until staff remove the entry or its set expiry passes.")}
+          ${row("Member activity", "Per member and server: a message count and the time of their last message. No message content.", "No automatic expiry.")}
+          ${row("Community features", "Suggestions (author ID, text, voter IDs, staff review); giveaways (host, entrant and winner IDs); polls (creator, question, and each voter's choice by user ID, including for anonymous polls, where votes are hidden from members but still stored to count them); starboard entries.", "No automatic expiry.")}
+          ${row("Reminders and scheduled posts", "Creator's user ID, channel, message text and timing.", "Until they run, or until cancelled if they repeat.")}
+          ${row("Dashboard sessions", "Your Discord user ID, username, display name, the Discord access token for this login, and your server list with your permissions in each. Only a hash of the session ID is stored.", "7 days after login, or when you log out.")}
+          ${row("Dashboard activity", "Server ID, your user ID and username, what you changed, and when. Shown on the server's Activity page.", "Deleted automatically after 180 days.")}
+          ${row("Dashboard rate limits", "A SHA-256 hash of your IP address and a request count for a one-minute window. The address itself is not stored.", "Deleted about a minute after the window ends.")}
+        </tbody>
+      </table>
+      </div>
+      <h3>Things posted in Discord rather than stored by Aegis</h3>
+      <ul>
+        <li><strong>Log entries.</strong> With logging on, Aegis posts moderation actions, joins and leaves, role and channel changes, and the content of edited and deleted messages (up to 200 characters) to the server's log channel.</li>
+        <li><strong>Ticket transcripts.</strong> When a ticket closes, Aegis builds an HTML transcript of the channel. It is posted to the ticket log channel if transcript logging is on, and sent to the ticket opener by DM. Aegis does not keep a copy.</li>
+        <li><strong>Direct messages.</strong> Aegis may DM members about a ban and how to appeal it, an appeal decision, a suggestion's status, their own reminders, or a ticket transcript. Watchlist alerts are DMed to the moderator who set the watch, and can include part of the watched member's messages.</li>
+      </ul>
+      <p>Messages Aegis posts in Discord are kept by Discord and can be deleted by the server's staff. How long they last is up to the server.</p>
+      <h3>Logs</h3>
+      <p>The bot writes operational logs, such as errors, startup messages and Top.gg vote notices, which can include server and user IDs. They are kept by our hosting provider's logging system and are not sent to any analytics service. Aegis itself does not log the IP addresses of website visitors. The public API's rate limit keeps addresses in memory for one minute and never writes them to the database.</p>`,
+      },
+      {
+        id: "website",
+        title: "This website and cookies",
+        html: `<p>The public pages load no analytics, advertising or third-party scripts or fonts, and set no cookies. Your light or dark theme choice is saved in your browser's local storage under <code class="inline">aegis-theme</code> and never sent to us.</p>
+      <p>The dashboard sets two cookies, both limited to <code class="inline">/dashboard</code>, marked HttpOnly and SameSite=Lax, and sent only over HTTPS on the live site:</p>
+      <ul>
+        <li><code class="inline">aegis_dash</code>: a signed, random session ID that keeps you logged in for up to 7 days.</li>
+        <li><code class="inline">aegis_oauth</code>: protects the Discord login step against forgery and expires after 10 minutes.</li>
+      </ul>
+      <p>Both are needed for login to work, so there is no option to turn them off other than not using the dashboard.</p>`,
+      },
+      {
+        id: "discord-login",
+        title: "Logging in with Discord",
+        html: `<p>The dashboard asks Discord for two permissions (OAuth2 scopes): <code class="inline">identify</code>, for your user ID, username and display name, and <code class="inline">guilds</code>, for the list of servers you are in and your permissions in each. It does not ask for your email address, cannot read your messages and cannot act as you. Aegis never sees your Discord password.</p>
+      <p>The access token Discord issues is kept on the server in your session record, never sent to your browser, and used only to read your server list. Logging out deletes the session.</p>`,
+      },
+      {
+        id: "use",
+        title: "How data is used",
+        html: `<ul>
+        <li>To run the features a server has turned on: moderation, automod, escalation, appeals, tickets, verification, logging, the watchlist, reports and community tools.</li>
+        <li>To show server staff their records, in Discord and in the dashboard.</li>
+        <li>To protect Aegis from abuse, for example with rate limits.</li>
+        <li>To show totals such as server and member counts on the home and status pages.</li>
+      </ul>
+      <p>We do not sell or rent data, use it for advertising, build profiles across servers, or use it to train AI models.</p>`,
+      },
+      {
+        id: "sharing",
+        title: "Who receives data",
+        html: `<ul>
+        <li><strong>Discord</strong>, which Aegis runs on. Everything Aegis does in a server goes through Discord and is covered by <a href="https://discord.com/privacy" rel="noopener noreferrer">Discord's Privacy Policy</a>.</li>
+        <li><strong>Fly.io</strong>, which hosts the bot and this website. The app's primary region is Dallas, United States.</li>
+        <li><strong>Our MongoDB database host</strong>, which stores the records listed above.</li>
+        <li><strong>Top.gg</strong>, which receives only Aegis's total server count, when that integration is turned on.</li>
+        <li>Anyone we are legally required to disclose data to, or where disclosure is needed to protect people or Aegis from harm.</li>
+      </ul>
+      <p>Hosting providers process data on our behalf to run Aegis. Your data may be stored and processed in the United States or other countries where these providers operate.</p>`,
+      },
+      {
+        id: "security",
+        title: "How data is protected",
+        html: `<p>Secrets such as the bot token and database password are kept in environment variables, never in the source code or on this website. Dashboard session IDs are stored only as hashes, Discord access tokens stay on the server, forms are protected against cross-site request forgery, and the site sends a strict content security policy. No system is perfectly secure, and we cannot promise that data will never be exposed. To report a problem, see the <a href="/security">security policy</a>.</p>`,
+      },
+      {
+        id: "retention",
+        title: "How long data is kept",
+        html: `<p>The table above gives the period for each kind of record. In short: warnings, cases and staff notes are deleted after one year, dashboard activity after 180 days, dashboard sessions after 7 days and rate-limit records within minutes. Other records are kept until server staff delete them, until deletion is requested, or until Aegis no longer needs them. Removing Aegis from a server does not delete that server's records automatically.</p>`,
+      },
+      {
+        id: "deletion",
+        title: "Deleting data and your choices",
+        html: `<p><strong>Server staff</strong> can delete much of it directly: <code class="inline">/clearwarnings</code> for warnings, <code class="inline">/note delete</code> and <code class="inline">/note clear</code> for staff notes, the relevant commands or dashboard pages for settings, watchlist entries, auto-responders and role panels, and Discord itself for anything Aegis posted.</p>
+      <p><strong>Members</strong> should usually start with the staff of the server concerned, since they decide how Aegis is used there.</p>
+      <p><strong>To ask us</strong> to delete a server's records, or records about you, use one of the contact options below. We will need to confirm that you manage the server or own the Discord account before deleting anything, and we will tell you if something cannot be deleted, for example because a server needs it to handle an open appeal. Depending on where you live, you may have other rights over your data, such as access or correction; ask the same way.</p>`,
+      },
+      {
+        id: "children",
+        title: "Children",
+        html: `<p>Aegis is for people who meet Discord's minimum age, which is 13 in most countries and higher in some. It is not directed at children below that age, and we do not knowingly collect their data. If you think a child under that age has used Aegis, contact us and we will delete what we hold about them.</p>`,
+      },
+      {
+        id: "changes",
+        title: "Changes to this policy",
+        html: `<p>We will update this policy when Aegis starts or stops collecting something, or changes how long it keeps it. The "Last updated" date at the top shows the current version, and changes are noted in the <a href="/changelog">changelog</a>.</p>`,
+      },
+      {
+        id: "contact",
+        title: "Contact",
+        html: contactLine(cfg, "privacy questions and deletion requests"),
+      },
+    ],
+  });
+}
+
+/* ── Security ──────────────────────────────────────────────────────── */
+
+export function renderSecurity(cfg: SiteConfig): string {
   const body = `
 <div class="wrap">
-  ${breadcrumb("Privacy")}
+  ${breadcrumb("Security")}
   <div class="page-head">
-    <h1>Privacy Policy</h1>
-    <p class="lead">What Aegis collects, why it collects it, and what it never does with it.</p>
-    <p class="faint">Effective ${EFFECTIVE_DATE}.</p>
+    <h1>Security</h1>
+    <p class="lead">How to report a vulnerability in Aegis, and what is in scope. The full policy is <a href="${REPO_URL}/blob/main/SECURITY.md" rel="noopener noreferrer">SECURITY.md</a> in the repository.</p>
   </div>
-</div>
+  <div class="legal">
+    <h2 id="report">Reporting a vulnerability</h2>
+    <p>Please report it privately, not in a public issue, Discord message or pull request.</p>
+    <ol>
+      <li>Open the repository's <a href="${REPO_URL}/security" rel="noopener noreferrer">Security tab</a> on GitHub.</li>
+      <li>Choose <strong>Report a vulnerability</strong>. This opens a private advisory that only the maintainers can see.</li>
+      <li>Describe the problem, the steps to reproduce it, the version (shown in the site footer and in <code class="inline">/about</code>) and what an attacker could do with it.</li>
+    </ol>
+    <p>If the Report a vulnerability button is not available, open a public issue that says only that you have a security report and would like a private way to send it. Do not include any details.</p>
 
-<section>
-  <div class="wrap">
-    <div class="legal">
-      <h2 id="summary">1. Summary</h2>
-      <p>Aegis stores the minimum needed to run moderation and logging in each server. It does not build advertising profiles, it does not sell data, and it does not share data between servers. This website runs no trackers, and it sets cookies only when you log in to the dashboard.</p>
+    <h2 id="scope">Scope</h2>
+    <ul>
+      <li>The Aegis bot and its slash commands.</li>
+      <li>This website, its API under <code class="inline">/api</code>, and the dashboard under <code class="inline">/dashboard</code>.</li>
+      <li>The source code in the <a href="${REPO_URL}" rel="noopener noreferrer">repository</a>.</li>
+    </ul>
+    <p>Discord itself, Fly.io and MongoDB are out of scope; report problems with them to those companies. Please do not run denial-of-service tests, spam servers, or access or change data that is not yours. Use your own test server.</p>
 
-      <h2 id="controller">2. Who is responsible</h2>
-      <p>The Aegis maintainers operate the service. Individual Discord servers that invite Aegis are separate controllers of the data they configure Aegis to process, and their own privacy policies apply to their members.</p>
+    <h2 id="supported">Supported versions</h2>
+    <p>Only the latest release gets security fixes: bot ${escapeHtml(cfg.version)} and dashboard ${escapeHtml(DASHBOARD_VERSION)} at the moment. Older versions are not patched.</p>
 
-      <h2 id="collected">3. Data we collect</h2>
-      <p>Data is collected only as a consequence of a server owner or moderator configuring or using Aegis.</p>
-
-      <h3>Server configuration</h3>
-      <ul>
-        <li>Guild ID, and the channel IDs selected for logging and welcome messages.</li>
-        <li>Settings toggles: logging enabled, welcome enabled, automod rule states, slowmode, and similar.</li>
-        <li>Blocked word and link filter lists, which you control.</li>
-        <li>Scheduled automation jobs, including the channel, content, and interval.</li>
-      </ul>
-
-      <h3>Moderation records</h3>
-      <ul>
-        <li>User IDs of warned members, the warning reason, the moderator who issued it, and the timestamp.</li>
-        <li>Details of moderation actions in audit log channels, including the moderator, target, and reason.</li>
-        <li>Message content, but only when a moderation action deletes that message or an automod rule matches it, and only as needed to enforce the rule.</li>
-      </ul>
-
-      <h3>Operational data</h3>
-      <ul>
-        <li>Uptime and gateway latency, used for the <a href="/status">status page</a> and the homepage counters.</li>
-        <li>Server logs containing error messages, used to diagnose faults.</li>
-      </ul>
-
-      <h2 id="not-collected">4. What we do not collect</h2>
-      <ul>
-        <li>Direct messages. Aegis is not built to act in DMs and does not store their contents.</li>
-        <li>Passwords or payment details. Dashboard login goes through Discord; Aegis never sees your Discord password.</li>
-        <li>Advertising identifiers, cross-site tracking data, or behavioural profiles.</li>
-        <li>Data harvested from servers where Aegis has not been invited.</li>
-      </ul>
-
-      <h2 id="use">5. How data is used</h2>
-      <ul>
-        <li>To execute the moderation, logging, and automation features a server has enabled.</li>
-        <li>To maintain guild, member, and channel caches required for role hierarchy checks and routing.</li>
-        <li>To detect and respond to abuse, including rate limit and permission errors.</li>
-        <li>To publish aggregate counts on the homepage and status page, such as total servers and total members.</li>
-      </ul>
-      <p>Your data is never used for advertising, profiling, or model training.</p>
-
-      <h2 id="website">6. Website privacy</h2>
-      <p>The public pages on this site are self-contained. They set no cookies, embed no analytics or advertising scripts, and transmit nothing about you to us. The only personal data this site processes is standard web server request logs, such as IP address and user agent, retained briefly for security and diagnostics.</p>
-      <p>The site does store one local preference: your light or dark theme choice, kept in your browser's local storage. It is never transmitted and clearing site data removes it.</p>
-      <p>The <a href="/health">status endpoint</a> returns bot metrics only and holds no requester data. <a href="/api/stats">/api/stats</a> does the same in JSON form.</p>
-
-      <h3>Dashboard login</h3>
-      <p>If you log in to the <a href="/dashboard">dashboard</a>, Aegis asks Discord for the <code class="inline">identify</code> and <code class="inline">guilds</code> scopes: your user ID, username and display name, and the list of servers you are in with your permissions in each. That, plus the Discord access token for this login, is kept in a session record on our server for up to 7 days and deleted when you log out or it expires. The token is never sent to your browser and is only used to read your server list. Two cookies are set, both only on <code class="inline">/dashboard</code>: a signed session cookie, and a short-lived one that protects the login step. Changes you make in the dashboard are recorded with your user ID, the same as a slash command.</p>
-
-      <h2 id="retention">7. Data retention</h2>
-      <ul>
-        <li><strong>Configuration and automod rules:</strong> retained while Aegis is in the server, then deleted on removal or after a defined period.</li>
-        <li><strong>Warnings, moderation cases, and staff notes:</strong> automatically expire after one year, or may be deleted earlier by an authorized moderator.</li>
-        <li><strong>Audit log entries:</strong> written to your own Discord channel and governed by your message retention settings; we do not keep a separate copy.</li>
-        <li><strong>Dashboard sessions:</strong> deleted at logout, or automatically 7 days after login.</li>
-        <li><strong>Operational logs:</strong> retained for a short period for debugging, then discarded.</li>
-      </ul>
-
-      <h2 id="isolation">8. Data isolation between servers</h2>
-      <p>All stored records are keyed by guild ID. Configuration, warnings, and rules in one server are never visible to, or mixed with, another server. This isolation is enforced in the application layer and is a design requirement, not a configuration option.</p>
-
-      <h2 id="sharing">9. Sharing and disclosure</h2>
-      <p>We do not sell, rent, or trade your data. We disclose data only in these cases:</p>
-      <ul>
-        <li>To Discord, as required to operate the service. Discord receives commands, messages, and member events under its own privacy policy.</li>
-        <li>To infrastructure providers, such as Fly.io, strictly to host and run the service under our instructions.</li>
-        <li>When required by law, or in good faith to protect the rights, safety, and integrity of the service, its users, or the public.</li>
-      </ul>
-
-      <h2 id="security">10. Security</h2>
-      <p>Secrets are held in environment variables and are never written to source control, logs, or this website. Access to production systems is limited to the maintainers. No system is perfectly secure, so we do not claim that data held in connection with the service can be guaranteed breach-free.</p>
-
-      <h2 id="rights">11. Your rights</h2>
-      <p>Because the relevant data is largely held by Discord servers rather than by us, most requests are best directed at the server operator. A server moderator can remove data by clearing warnings, resetting configuration, or removing Aegis entirely.</p>
-      <p>If you are a Discord user and want data removed concerning you, contact the operator of the relevant server, or reach us and we will assist where the data sits with us.</p>
-
-      <h2 id="children">12. Children</h2>
-      <p>The service is not directed at children under Discord's minimum age, and we do not knowingly collect personal information from them.</p>
-
-      <h2 id="transfers">13. International transfers</h2>
-      <p>The service is hosted on infrastructure that may be located outside your country. By using it you consent to the transfer and processing of data in those locations under the safeguards described here.</p>
-
-      <h2 id="policy-changes">14. Changes to this policy</h2>
-      <p>We may revise this policy as the service changes. The effective date at the top of this page indicates the current version, and material changes will be announced in the support server and on the <a href="/changelog">changelog</a>.</p>
-
-      <h2 id="contact">15. Contact</h2>
-      <p>Privacy questions and data requests can go to our ${support} or to <a href="mailto:${escapeHtml(cfg.contactEmail)}">${escapeHtml(cfg.contactEmail)}</a>.</p>
-    </div>
+    <h2 id="response">What happens next</h2>
+    <p>The maintainer will acknowledge your report, look into it, and keep you updated in the advisory. Aegis is maintained in spare time, so there are no guaranteed response times. Fixes ship through the normal <a href="/changelog">changelog</a>, and you will be credited in the advisory if you would like to be.</p>
+    <p>Machine-readable contact details are at <a href="/.well-known/security.txt">/.well-known/security.txt</a>.</p>
   </div>
-</section>`;
+</div>`;
 
   return page(cfg, {
-    title: "Privacy Policy | Aegis",
-    description: "What data the Aegis Discord bot collects, how it is used, and how it is retained.",
-    path: "/privacy",
+    title: "Security | Aegis",
+    description: "How to report a security vulnerability in the Aegis Discord bot, website or dashboard.",
+    path: "/security",
     body,
   });
 }
 
 /* ── 404 ───────────────────────────────────────────────────────────── */
 
-/* ── 404 ───────────────────────────────────────────────────────────── */
-
-export function renderNotFound(cfg: SiteConfig): string {
+export function renderNotFound(cfg: SiteConfig, suggestions: { href: string; label: string }[] = []): string {
+  const suggest = suggestions.length
+    ? `<p class="suggest">Did you mean ${suggestions
+        .map(s => `<a href="${safeUrl(s.href)}">${escapeHtml(s.label)}</a>`)
+        .join(", ")}?</p>`
+    : "";
   const body = `
 <div class="wrap">
   <div class="page-head">
     <p class="eyebrow">404</p>
     <h1>There is no page at this address.</h1>
-    <p class="lead">It may have moved, or the link has a typo. If a link on this site brought you here, that is a bug; the support server is the place to report it.</p>
+    <p class="lead">It may have moved, or the link has a typo. If a link on this site brought you here, please <a href="${REPO_URL}/issues" rel="noopener noreferrer">report it on GitHub</a>.</p>
   </div>
+  ${suggest}
+  <form class="notfound-search" role="search" action="/commands" method="get">
+    <label class="visually-hidden" for="notfound-q">Search commands</label>
+    <input id="notfound-q" name="q" type="search" placeholder="Search commands, e.g. ban" autocomplete="off" spellcheck="false" maxlength="100">
+    <button class="btn" type="submit">Search commands</button>
+  </form>
   <ul class="notes">
     <li><a href="/commands">Commands</a>: every slash command with its options, searchable.</li>
     <li><a href="/docs">Docs</a>: setup, configuration and permissions.</li>

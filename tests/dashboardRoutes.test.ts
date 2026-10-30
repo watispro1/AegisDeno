@@ -2,6 +2,7 @@
  * End-to-end run of the /dashboard router with a fake bot, in-memory sessions
  * and a mocked Discord OAuth API. No network, no Mongo.
  */
+import { DASHBOARD_VERSION } from "../src/version";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
@@ -648,7 +649,7 @@ test("every guild page carries the server nav and the dashboard version", async 
     for (const section of ["cases", "appeals", "panels", "settings", "activity"]) {
       assert.ok(html.includes(`href="/dashboard/${GUILD_OK}/${section}"`), `${path}: nav to ${section}`);
     }
-    assert.match(html, /Dashboard v1\.2\.1/);
+    assert.ok(html.includes(`Dashboard v${DASHBOARD_VERSION}`), `${path}: dashboard version`);
   }
 });
 

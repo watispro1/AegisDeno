@@ -588,11 +588,25 @@ main { display: block; min-height: 60vh; }
 .legal h2 { font-size: 1.15rem; margin-top: 2rem; }
 .legal h3 { font-size: 1rem; margin-top: 1.25rem; }
 .legal p, .legal li { color: var(--text-2); }
+.legal h2[id], .legal h3[id] { scroll-margin-top: 5rem; }
+.legal table { width: 100%; }
+.legal-meta { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+.at-a-glance { border: 1px solid var(--border); border-radius: var(--r); padding: 1rem 1.25rem; background: var(--bg-sunk); margin: 1rem 0 0; max-width: 72ch; }
+.at-a-glance h2 { font-size: 1rem; margin: 0 0 .5rem; }
+.at-a-glance ul { margin: 0; padding-left: 1.2rem; }
+.at-a-glance li { color: var(--text-2); }
+/* 404 suggestions and search */
+.suggest { margin: 1rem 0 1.5rem; }
+.suggest a { font-weight: 500; }
+.notfound-search { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; max-width: 36rem; margin: 1rem 0 1.5rem; }
+.notfound-search input { flex: 1 1 14rem; min-width: 0; min-height: 44px; padding: .5rem .75rem; border: 1px solid var(--border-strong); border-radius: var(--r); background: var(--bg); color: var(--text); font: inherit; }
+@media (max-width: 860px), (pointer: coarse) { .notfound-search input { font-size: 16px; } }
 
 /* ── Footer ─────────────────────────────────────────────────────────── */
 footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.5rem 0 calc(1.5rem + env(safe-area-inset-bottom)); font-size: .88rem; background: var(--bg-sunk); }
 .footer-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 2rem; }
 .footer-brand p { color: var(--muted); max-width: 36ch; margin-top: .6rem; }
+.footer-meta a { color: var(--text-2); }
 .footer-title { font: 500 .75rem/1.4 var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6rem; }
 .footer-col ul { list-style: none; padding: 0; margin: 0; }
 .footer-col li { margin: 0; }
@@ -605,7 +619,7 @@ footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.
 /* Touch screens: give list links a 44px target. */
 @media (pointer: coarse) {
   .toc a, .toc-mobile a { display: flex; align-items: center; min-height: 44px; padding-top: .25rem; padding-bottom: .25rem; }
-  .footer-col a, .footer-bottom a, .breadcrumbs a, .text-link, .ref-row h3 a, .case-link, .release-title a, .release-diff {
+  .footer-col a, .footer-bottom a, .footer-meta a, .breadcrumbs a, .suggest a, .text-link, .ref-row h3 a, .case-link, .release-title a, .release-diff {
     display: inline-flex; align-items: center; min-height: 44px;
   }
   .footer-col a { padding: 0; }

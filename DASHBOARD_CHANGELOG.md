@@ -8,6 +8,19 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.2.2] - 2026-10-30
+
+Dashboard 1.2.2. Wording only; no new environment variables, Discord intents
+or OAuth scopes.
+
+### Changed
+- The login page says exactly how permissions are checked: every page checks
+  for Manage Server or Administrator, using a server list re-read from Discord
+  at least every 10 minutes. It also says that changes are recorded on the
+  Activity page for 180 days, and links the privacy policy and terms.
+- Dashboard pages share the site's updated footer, which now links Security,
+  Report a problem and this changelog.
+
 ## [1.2.1] - 2026-10-30
 
 Dashboard 1.2.1. Fixes from the review of 1.2.0, and handling for Discord's

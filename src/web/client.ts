@@ -62,7 +62,8 @@ export const clientScript = String.raw`
     { name: 'Changelog', detail: 'Release history', href: '/changelog', icon: '#' },
     { name: 'Status', detail: 'Gateway latency and uptime', href: '/status', icon: '#' },
     { name: 'Privacy', detail: 'What is stored and for how long', href: '/privacy', icon: '#' },
-    { name: 'Terms', detail: 'Terms of service', href: '/terms', icon: '#' }
+    { name: 'Terms', detail: 'Terms of service', href: '/terms', icon: '#' },
+    { name: 'Security', detail: 'Report a vulnerability', href: '/security', icon: '#' }
   ];
 
   function closeSiteSearch() {
@@ -334,6 +335,14 @@ export const clientScript = String.raw`
       card.classList.add('flash');
       setTimeout(function () { card.classList.remove('flash'); }, 1600);
     };
+
+    /* ?q=ban (from the 404 page or a shared link) pre-fills the filter. */
+    var initialQuery = '';
+    try { initialQuery = new URLSearchParams(window.location.search).get('q') || ''; } catch (e) {}
+    if (initialQuery) {
+      search.value = initialQuery.slice(0, 100);
+      apply();
+    }
 
     if (window.location.hash.indexOf('#cmd-') === 0) {
       var target = document.getElementById(window.location.hash.slice(1));

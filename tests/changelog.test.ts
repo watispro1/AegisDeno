@@ -72,14 +72,17 @@ test("CHANGELOG.md parses and its newest release matches src/version.ts", () => 
   }
 });
 
-test("DASHBOARD_CHANGELOG.md parses into a released 1.2.1 that matches DASHBOARD_VERSION", () => {
+test("DASHBOARD_CHANGELOG.md: newest release matches DASHBOARD_VERSION; 1.2.1 and 1.2.0 stay intact", () => {
   const path = join(__dirname, "..", "DASHBOARD_CHANGELOG.md");
   const log = readChangelogFile(path);
   assert.ok(log.intro.length > 0, "intro paragraphs");
   assert.ok(log.releases.length >= 1);
-  const [latest, first] = log.releases;
-  assert.equal(latest.version, DASHBOARD_VERSION);
-  assert.equal(latest.version, "1.2.1");
+  assert.equal(log.releases[0].version, DASHBOARD_VERSION);
+  assert.equal(log.releases[0].id, `v${DASHBOARD_VERSION}`);
+  assert.ok(log.releases[0].notes.some((n) => n.includes(`Dashboard ${DASHBOARD_VERSION}`)), "newest version label note");
+  const latest = log.releases.find((r) => r.version === "1.2.1")!;
+  const first = log.releases.find((r) => r.version === "1.2.0")!;
+  assert.ok(latest && first);
   assert.equal(latest.date, "2026-10-30");
   assert.equal(latest.id, "v1.2.1");
   assert.ok(latest.notes.some((n) => n.includes("Dashboard 1.2.1")), "version label note");
@@ -148,14 +151,14 @@ test("readChangelogFile returns an empty changelog for a missing file", () => {
   assert.deepEqual(readChangelogFile(join(__dirname, "no-such-changelog.md")), { intro: [], releases: [] });
 });
 
-test("CHANGELOG.md: 3.6.0 records the /plugins removal, hidden channels, and points at the dashboard changelog", () => {
+test("CHANGELOG.md: newest release matches VERSION; 3.6.0 records the /plugins removal, hidden channels, and points at the dashboard changelog", () => {
   const md = readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8");
   const releases = parseChangelog(md).releases;
   assert.ok(!releases.some((r) => r.date === null || r.version === "Unreleased"), "no Unreleased section");
   assert.ok(!/unreleased/i.test(md), "the word unreleased is gone");
-  const latest = releases[0];
-  assert.equal(latest.version, "3.6.0");
-  assert.equal(latest.version, VERSION);
+  assert.equal(releases[0].version, VERSION);
+  const latest = releases.find((r) => r.version === "3.6.0")!;
+  assert.ok(latest, "3.6.0 is still listed");
   assert.equal(latest.date, "2026-10-30");
   assert.ok(latest.sections.some((s) => s.items.some((i) => i.includes("DASHBOARD_CHANGELOG.md"))));
   assert.ok(latest.sections.some((s) => s.items.some((i) => i.includes("isObfuscatedChannel"))), "channel obfuscation listed");
@@ -163,7 +166,7 @@ test("CHANGELOG.md: 3.6.0 records the /plugins removal, hidden channels, and poi
   assert.ok(removed, "3.6.0 has a Removed section");
   assert.ok(removed.items.some((i) => i.includes("/plugins") && i.includes("/api/plugins")));
   // No release before 3.6.0 ever shipped a plugin framework entry.
-  for (const release of parseChangelog(md).releases.slice(1)) {
+  for (const release of parseChangelog(md).releases.slice(releases.indexOf(latest) + 1)) {
     for (const section of release.sections) {
       for (const item of section.items) assert.ok(!/\/plugins list|\/api\/plugins|plugin router/.test(item), item);
     }

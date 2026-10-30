@@ -1,6 +1,6 @@
 {
   "name": "aegisdeno",
-  "version": "3.6.0",
+  "version": "3.6.1",
   "description": "Aegis - Discord moderation bot",
   "main": "dist/main.js",
   "private": true,
