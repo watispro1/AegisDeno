@@ -9,7 +9,11 @@ import type { SendableChannels } from "discord.js";
  */
 export const CHANNEL_OBFUSCATED_FLAG = 1 << 17;
 
-/** The placeholder name Discord gives an obfuscated channel. */
+/**
+ * The placeholder name Discord gives an obfuscated channel. Informational only:
+ * a server can create a real channel with this name, so detection uses the
+ * CHANNEL_OBFUSCATED flag alone, as Discord's docs instruct.
+ */
 export const OBFUSCATED_CHANNEL_NAME = "___hidden___";
 
 /** Shown wherever a saved or picked channel turns out to be hidden from Aegis. */
@@ -33,18 +37,19 @@ function flagBits(flags: unknown): number | bigint | null {
 
 /**
  * True for a channel whose metadata Discord has obfuscated because Aegis lacks
- * View Channel on it: the CHANNEL_OBFUSCATED flag is set, or the name is the
- * `___hidden___` placeholder. Such a channel's name, topic and permission
- * overwrites are not real. Never list it, count it, or edit it.
+ * View Channel on it, read from the CHANNEL_OBFUSCATED flag only. The
+ * `___hidden___` name is not a signal: a real channel can carry it. An
+ * obfuscated channel's name, topic and permission overwrites are not real.
+ * Never list it, count it, or edit it.
  * Accepts discord.js channels and raw API channel objects; anything else is false.
  */
 export function isObfuscatedChannel(channel: unknown): boolean {
   if (typeof channel !== "object" || channel === null) return false;
   const bits = flagBits((channel as { flags?: unknown }).flags);
-  if (bits !== null) {
-    if (typeof bits === "bigint" ? (bits & BigInt(CHANNEL_OBFUSCATED_FLAG)) !== 0n : (bits & CHANNEL_OBFUSCATED_FLAG) !== 0) return true;
-  }
-  return (channel as { name?: unknown }).name === OBFUSCATED_CHANNEL_NAME;
+  if (bits === null) return false;
+  return typeof bits === "bigint"
+    ? (bits & BigInt(CHANNEL_OBFUSCATED_FLAG)) !== 0n
+    : (bits & CHANNEL_OBFUSCATED_FLAG) !== 0;
 }
 
 /** The channels Aegis can actually see, in the order given. */

@@ -2,6 +2,7 @@ import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
 import { MAX_WARN_EXPIRY_DAYS, getGuildConfig, updateGuildConfig } from "../../services/configuration";
+import { requestConfirmation } from "../../utils/confirmation";
 
 const ACTION_LABELS: Record<string, string> = { timeout: "Timeout", kick: "Kick", ban: "Ban" };
 
@@ -135,6 +136,19 @@ export const command: Command = {
       }
 
       if (sub === "clear") {
+        if (escalation.thresholds.length === 0) {
+          await interaction.editReply("ℹ️ There are no escalation thresholds to clear.");
+          return;
+        }
+        const summary = [...escalation.thresholds]
+          .sort((a, b) => a.atWarnings - b.atWarnings)
+          .map(t => `• ${t.atWarnings} warnings → ${ACTION_LABELS[t.action] ?? t.action}`)
+          .join("\n");
+        const answer = await requestConfirmation(interaction, {
+          content: `Remove all **${escalation.thresholds.length}** escalation threshold(s)?\n${summary}\n\nWarnings will no longer trigger automatic actions until you add new ones.`,
+          confirmLabel: "Clear thresholds",
+        });
+        if (answer !== "confirmed") return;
         await updateGuildConfig(guildId, { escalation: { ...escalation, thresholds: [] } } as any);
         await interaction.editReply("✅ All escalation thresholds cleared.");
         return;

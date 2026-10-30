@@ -5,7 +5,49 @@ import {
   MessageFlags,
 } from "discord.js";
 import type { Command } from "../../types/discord";
-import { addAutoResponder, removeAutoResponder, getAutoResponders } from "../../services/autoResponderService";
+import { addAutoResponder, removeAutoResponder, getAutoResponders, type AutoResponder } from "../../services/autoResponderService";
+import { rankChoices, type AutocompleteItem } from "../../utils/autocomplete";
+
+export const MAX_TRIGGER_LENGTH = 100;
+/** Discord's message limit; a longer response could never be sent. */
+export const MAX_RESPONSE_LENGTH = 2000;
+/** Lines shown by /autoresponder list before "and N more", to stay inside one embed. */
+export const LIST_LIMIT = 20;
+
+const MATCH_LABELS: Record<string, string> = { contains: "contains", exact: "exact", startsWith: "starts with" };
+
+/** Why a new trigger is rejected, or null when it is fine. Matching is case-insensitive. */
+export function validateTrigger(
+  trigger: string,
+  matchType: string,
+  existing: Pick<AutoResponder, "trigger" | "matchType">[],
+): string | null {
+  const t = trigger.trim().toLowerCase();
+  if (!t) return "❌ The trigger can't be empty.";
+  if (t.length > MAX_TRIGGER_LENGTH) return `❌ Keep the trigger under ${MAX_TRIGGER_LENGTH} characters.`;
+  if (existing.some(ar => ar.trigger.toLowerCase() === t && ar.matchType === matchType)) {
+    return `❌ There is already a \`${MATCH_LABELS[matchType] ?? matchType}\` autoresponder for \`${t}\`. Remove it first or pick another trigger.`;
+  }
+  return null;
+}
+
+/** Autocomplete entry: shows the trigger and match type, sends the ID. */
+export function responderChoice(ar: Pick<AutoResponder, "id" | "trigger" | "matchType" | "response">): AutocompleteItem {
+  return {
+    name: `"${ar.trigger}" (${MATCH_LABELS[ar.matchType] ?? ar.matchType}) → ${ar.response}`,
+    value: ar.id,
+    keywords: ar.response,
+  };
+}
+
+/** The list embed body, capped so it never exceeds Discord's 4096-character description. */
+export function formatResponderList(list: Pick<AutoResponder, "id" | "trigger" | "matchType" | "response">[]): string {
+  const lines = list.slice(0, LIST_LIMIT).map(
+    ar => `• \`${ar.trigger.slice(0, 60)}\` (${MATCH_LABELS[ar.matchType] ?? ar.matchType}) · ID \`${ar.id}\`\n  ${ar.response.replace(/\s+/g, " ").slice(0, 80)}`,
+  );
+  if (list.length > LIST_LIMIT) lines.push(`…and ${list.length - LIST_LIMIT} more. Type in the \`id\` option of \`/autoresponder remove\` to search them all.`);
+  return lines.join("\n\n").slice(0, 4000);
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -16,8 +58,8 @@ export const command: Command = {
       sub
         .setName("add")
         .setDescription("Add a new auto-reply trigger.")
-        .addStringOption(opt => opt.setName("trigger").setDescription("Text or keyword to trigger on").setRequired(true))
-        .addStringOption(opt => opt.setName("response").setDescription("Bot response message (supports {user}, {server}, {channel})").setRequired(true))
+        .addStringOption(opt => opt.setName("trigger").setDescription("Text or keyword to trigger on").setRequired(true).setMaxLength(MAX_TRIGGER_LENGTH))
+        .addStringOption(opt => opt.setName("response").setDescription("Bot response message (supports {user}, {server}, {channel})").setRequired(true).setMaxLength(MAX_RESPONSE_LENGTH))
         .addStringOption(opt =>
           opt
             .setName("match_type")
@@ -34,8 +76,8 @@ export const command: Command = {
       sub
         .setName("create")
         .setDescription("Create a new auto-reply trigger.")
-        .addStringOption(opt => opt.setName("trigger").setDescription("Text or keyword to trigger on").setRequired(true))
-        .addStringOption(opt => opt.setName("response").setDescription("Bot response message").setRequired(true))
+        .addStringOption(opt => opt.setName("trigger").setDescription("Text or keyword to trigger on").setRequired(true).setMaxLength(MAX_TRIGGER_LENGTH))
+        .addStringOption(opt => opt.setName("response").setDescription("Bot response message (supports {user}, {server}, {channel})").setRequired(true).setMaxLength(MAX_RESPONSE_LENGTH))
         .addStringOption(opt =>
           opt
             .setName("match_type")
@@ -52,13 +94,13 @@ export const command: Command = {
       sub
         .setName("remove")
         .setDescription("Remove an auto-reply trigger.")
-        .addStringOption(opt => opt.setName("id").setDescription("Autoresponder ID (from /autoresponder list)").setRequired(true))
+        .addStringOption(opt => opt.setName("id").setDescription("Autoresponder; start typing its trigger to pick it").setRequired(true).setAutocomplete(true))
     )
     .addSubcommand(sub =>
       sub
         .setName("delete")
         .setDescription("Delete an auto-reply trigger.")
-        .addStringOption(opt => opt.setName("id").setDescription("Autoresponder ID (from /autoresponder list)").setRequired(true))
+        .addStringOption(opt => opt.setName("id").setDescription("Autoresponder; start typing its trigger to pick it").setRequired(true).setAutocomplete(true))
     )
     .addSubcommand(sub =>
       sub
@@ -68,6 +110,21 @@ export const command: Command = {
 
   category: "autoresponder",
   guildOnly: true,
+
+  async autocomplete(interaction) {
+    // Autocomplete is not permission-checked by the executor; only managers may browse IDs.
+    if (!interaction.guildId || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      await interaction.respond([]);
+      return;
+    }
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== "id") {
+      await interaction.respond([]);
+      return;
+    }
+    const list = await getAutoResponders(interaction.guildId);
+    await interaction.respond(rankChoices(list.map(responderChoice), String(focused.value)));
+  },
 
   async execute(interaction) {
     if (!interaction.guild) return;
@@ -83,6 +140,12 @@ export const command: Command = {
       const response = interaction.options.getString("response", true);
       const matchType = (interaction.options.getString("match_type") || "contains") as "exact" | "contains" | "startsWith";
 
+      const problem = validateTrigger(trigger, matchType, await getAutoResponders(interaction.guild.id));
+      if (problem) {
+        await interaction.reply({ content: problem, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
       const ar = await addAutoResponder({
         guildId: interaction.guild.id,
         trigger,
@@ -93,7 +156,7 @@ export const command: Command = {
 
       if (ar) {
         await interaction.reply({
-          content: `✅ Autoresponder created!\n**ID:** \`${ar.id}\` | **Trigger:** \`${ar.trigger}\` | **Match:** \`${ar.matchType}\``,
+          content: `✅ Autoresponder created. Aegis now replies when a message ${matchType === "exact" ? "is exactly" : matchType === "startsWith" ? "starts with" : "contains"} \`${ar.trigger}\`.\n**ID:** \`${ar.id}\``,
           flags: MessageFlags.Ephemeral,
         });
       } else {
@@ -114,7 +177,7 @@ export const command: Command = {
       if (deleted) {
         await interaction.reply({ content: `✅ Removed autoresponder \`${id}\`.`, flags: MessageFlags.Ephemeral });
       } else {
-        await interaction.reply({ content: `❌ Autoresponder \`${id}\` was not found.`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: `❌ No autoresponder \`${id.slice(0, 60)}\` in this server. Start typing in the \`id\` option to pick one, or run \`/autoresponder list\`.`, flags: MessageFlags.Ephemeral });
       }
       return;
     }
@@ -129,14 +192,7 @@ export const command: Command = {
       const embed = new EmbedBuilder()
         .setTitle("🤖 Server Autoresponders")
         .setColor(0x34495E)
-        .setDescription(
-          list
-            .map(
-              ar =>
-                `• **ID:** \`${ar.id}\` | **Trigger:** \`${ar.trigger}\` (\`${ar.matchType}\`)\n  **Response:** ${ar.response.substring(0, 80)}`
-            )
-            .join("\n\n")
-        )
+        .setDescription(formatResponderList(list))
         .setFooter({ text: `Total: ${list.length} autoresponder(s)` });
 
       await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
