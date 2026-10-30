@@ -24,6 +24,7 @@ import {
   Stats,
 } from "./pages";
 import { atomFeed } from "./changelog";
+import { buildInviteUrl, guildInviteUrl } from "./invite";
 import { suggestPages } from "./notFound";
 import { securityTxt } from "./wellKnown";
 import { commands } from "../commands/loader";
@@ -79,25 +80,7 @@ function apiRateLimit(req: Request, res: Response, next: NextFunction): void {
 function siteConfig(): SiteConfig {
   const appId = process.env.DISCORD_APPLICATION_ID?.trim();
   const permissions = botPermissionBitfield().toString();
-  const configuredInviteUrl = process.env.BOT_INVITE_URL?.trim();
-  let inviteUrl = configuredInviteUrl || "#";
-
-  if (appId) {
-    const baseUrl = configuredInviteUrl && /^https?:\/\//i.test(configuredInviteUrl)
-      ? configuredInviteUrl
-      : "https://discord.com/oauth2/authorize";
-
-    let invite: URL;
-    try {
-      invite = new URL(baseUrl);
-    } catch {
-      invite = new URL("https://discord.com/oauth2/authorize");
-    }
-    invite.searchParams.set("client_id", appId);
-    invite.searchParams.set("permissions", permissions);
-    invite.searchParams.set("scope", "bot applications.commands");
-    inviteUrl = invite.toString();
-  }
+  const inviteUrl = buildInviteUrl({ appId, permissions, configured: process.env.BOT_INVITE_URL });
 
   return {
     inviteUrl,
@@ -386,6 +369,15 @@ export function startWebServer(client: Client) {
     res.type("application/atom+xml").send(atomFeed(origin || ""));
   });
 
+  // Stable, shareable invite link: /invite or /invite?guild_id=<server id>.
+  // A plain 302 to Discord's https authorize page; no app deep link.
+  app.get("/invite", (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (cfg.inviteUrl === "#") return res.redirect(302, "/docs#quickstart");
+    const guildId = typeof req.query.guild_id === "string" ? req.query.guild_id : "";
+    res.redirect(302, (guildId && guildInviteUrl(cfg.inviteUrl, guildId)) || cfg.inviteUrl);
+  });
+  app.get("/add", (_req, res) => res.redirect(301, "/invite"));
   app.get("/command", (_req, res) => res.redirect(302, "/commands"));
   app.get("/commands/:name", (req, res) => res.redirect(301, `/commands#cmd-${String(req.params.name ?? "")}`));
   app.get("/playground", (_req, res) => res.redirect(301, "/features"));

@@ -100,10 +100,32 @@ async function main() {
     ["/status.json", "/health"],
     ["/command", "/commands"],
     ["/commands/ban", "/commands#cmd-ban"],
+    ["/add", "/invite"],
   ] as [string, string][]) {
     const res = await fetch(origin + path, { redirect: "manual" });
     check(`${path} -> ${target}`, res.headers.get("location") === target, `got ${res.headers.get("location")}`);
   }
+
+  console.log("\nInvite");
+  const inviteHomeHtml = await (await fetch(origin + "/")).text();
+  const hrefs = Array.from(inviteHomeHtml.matchAll(/href="(https:\/\/discord\.com\/oauth2\/authorize[^"]*)"/g)).map(m => m[1].replace(/&amp;/g, "&"));
+  check("home has an https invite link", hrefs.length > 0);
+  check("no discord:// links on the home page", !inviteHomeHtml.includes("discord://"));
+  for (const href of new Set(hrefs)) {
+    const u = new URL(href);
+    check(`invite link ${href}`, u.searchParams.get("client_id") === "1234567890"
+      && u.searchParams.get("scope") === "bot applications.commands"
+      && u.searchParams.get("integration_type") === "0"
+      && /^\d+$/.test(u.searchParams.get("permissions") ?? "")
+      && href.includes("scope=bot%20applications.commands"));
+  }
+  const inv = await fetch(origin + "/invite", { redirect: "manual" });
+  check("/invite -> 302 Discord authorize", inv.status === 302 && (inv.headers.get("location") ?? "").startsWith("https://discord.com/oauth2/authorize?"), `${inv.status} ${inv.headers.get("location")}`);
+  const invG = await fetch(origin + "/invite?guild_id=100000000000000001", { redirect: "manual" });
+  const invGLoc = new URL(invG.headers.get("location") ?? "http://x");
+  check("/invite?guild_id preselects the server", invGLoc.searchParams.get("guild_id") === "100000000000000001" && invGLoc.searchParams.get("disable_guild_select") === "true");
+  const invBad = await fetch(origin + "/invite?guild_id=javascript:alert(1)", { redirect: "manual" });
+  check("/invite ignores a bad guild_id", !(invBad.headers.get("location") ?? "").includes("guild_id"));
 
   console.log("\nDashboard (no env)");
   // DISCORD_CLIENT_SECRET and DASHBOARD_SESSION_SECRET are not set here.

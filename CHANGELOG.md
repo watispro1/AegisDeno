@@ -99,6 +99,20 @@ re-registered automatically when the bot starts. Includes dashboard 1.2.2 (see
   environment variable, Fly.io deploys, tests and the new repository docs.
 
 ### Fixed
+- **Add to Discord could hang on "Opening Discord app".** Aegis also allows
+  user installs, so an invite link without an install type sent Discord into
+  its "Add App" flow, which hands off to the Discord app and can spin forever
+  when the app does not take it. Every invite button (site header, mobile menu,
+  home page, docs and the dashboard) now links straight to Discord's https
+  authorize page with `integration_type=0` (add to a server), the `bot` and
+  `applications.commands` scopes (written `bot%20applications.commands`) and the
+  computed permissions, so it opens in the browser on desktop and phones and
+  Discord offers the app from there. It is a plain link: no script, nothing for
+  the CSP or a popup blocker to stop. `BOT_INVITE_URL` is only used when it is
+  an https discord.com link (a `discord://` or mistyped value falls back to the
+  standard URL), and `response_type`/`redirect_uri` are removed from it. New
+  `/invite` link (and `/invite?guild_id=<server id>`) redirects to the same
+  invite, so it can be shared; `/add` points to it.
 - Hidden channels are detected from Discord's `CHANNEL_OBFUSCATED` flag only.
   A real channel named `___hidden___` was treated as hidden: left out of
   pickers and refused by send and moderation commands.

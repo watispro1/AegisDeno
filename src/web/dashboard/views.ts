@@ -223,9 +223,12 @@ export function renderPicker(
   <p class="muted">You manage these, but Aegis is not in them.</p>
   <ul class="guild-list">${invitable
         .map(({ guild, inviteUrl }) => `<li><div class="guild-item"><span class="name">${esc(guild.name)}</span>${
-          inviteUrl ? `<a class="btn ghost sm" href="${esc(inviteUrl)}" rel="noopener noreferrer">Add Aegis<span class="visually-hidden"> to ${esc(guild.name)}</span></a>` : ""
+          inviteUrl
+            ? `<span class="guild-actions"><a class="btn ghost sm" href="${esc(inviteUrl)}" rel="noopener noreferrer">Add Aegis<span class="visually-hidden"> to ${esc(guild.name)}</span></a> <button class="copy-btn" type="button" data-copy="${esc(inviteUrl)}" aria-label="Copy the invite link for ${esc(guild.name)}">Copy link</button></span>`
+            : ""
         }</div></li>`)
-        .join("")}</ul>`
+        .join("")}</ul>
+  <p class="muted invite-help">The button opens Discord's own page in your browser, where you pick the permissions and confirm. Discord may offer to open its app; if that stalls, choose to continue in the browser, or copy the link and open it in a browser where you are signed in to discord.com. When you are done, come back and refresh the list below.</p>`
     : "";
 
   return shell(cfg, {
