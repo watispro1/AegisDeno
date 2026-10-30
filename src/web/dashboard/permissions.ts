@@ -54,15 +54,4 @@ export function partitionGuilds(guilds: readonly OAuthGuild[], botHasGuild: (id:
   return { manageable: manageable.sort(byName), invitable: invitable.sort(byName) };
 }
 
-/** Invite URL preselecting one server. Returns null when no base invite is configured. */
-export function guildInviteUrl(baseInviteUrl: string, guildId: string): string | null {
-  if (!baseInviteUrl || baseInviteUrl === "#") return null;
-  try {
-    const url = new URL(baseInviteUrl);
-    url.searchParams.set("guild_id", guildId);
-    url.searchParams.set("disable_guild_select", "true");
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
+export { guildInviteUrl } from "../invite";

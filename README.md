@@ -123,7 +123,7 @@ Fill in `.env`. Every variable the code reads:
 | `LOG_LEVEL` | no | `info` (default) or `debug`. |
 | `SITE_URL` | in production | Public origin of the website, no trailing slash. Used for canonical URLs, Open Graph tags, `sitemap.xml` and `security.txt`. |
 | `PORT` | no | Website port. Defaults to 3000, which is what `fly.toml` exposes. |
-| `BOT_INVITE_URL` | no | Base invite URL; the client ID, computed permissions and scopes are added to it. |
+| `BOT_INVITE_URL` | no | Base invite URL (must be an https discord.com link, otherwise it is ignored); the client ID, computed permissions, scopes and `integration_type=0` are added to it. |
 | `SUPPORT_SERVER_URL` | no | Support server link shown on the website and legal pages. |
 | `CONTACT_EMAIL` | no | Email shown on the terms and privacy pages. Without it they point to GitHub issues only. |
 | `DISCORD_CLIENT_SECRET` | for the dashboard | OAuth2 client secret from the Developer Portal. |

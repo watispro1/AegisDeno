@@ -22,6 +22,13 @@ variables, Discord intents or OAuth scopes.
   Report a problem and this changelog.
 
 ### Fixed
+- **"Add Aegis" could hang on "Opening Discord app".** The buttons under
+  "Servers without Aegis" now open Discord's https authorize page with the
+  server already chosen (`guild_id` and `disable_guild_select=true`) and
+  `integration_type=0`, so Discord adds the bot to that server instead of
+  starting its app hand-off. Each server also has a Copy link button, with a
+  note on continuing in the browser if Discord's app prompt stalls and on
+  refreshing the list once Aegis has joined.
 - A real channel named `___hidden___` was left out of the channel pickers and
   reported as hidden. Only channels Discord marks as hidden (its
   `CHANNEL_OBFUSCATED` flag) are treated that way now.

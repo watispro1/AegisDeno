@@ -693,6 +693,8 @@ footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.
 }
 a.guild-item:hover { border-color: var(--accent); color: var(--text); }
 .guild-item .name { font-weight: 500; overflow-wrap: anywhere; }
+.guild-actions { display: inline-flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: flex-end; }
+.invite-help { margin-top: .75rem; font-size: .875rem; }
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr)); gap: .75rem; margin: 0 0 2rem; padding: 0; }
 .stat { border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); padding: .8rem 1rem; margin: 0; }
 .stat dt { font-size: .82rem; color: var(--muted); }
