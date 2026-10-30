@@ -320,16 +320,23 @@ export async function closeTicket(
     const ticket = await TicketModel.findOne({ guildId: guild.id, channelId, status: "open" });
     if (!ticket) return false;
 
+    let channel = guild.channels.cache.get(channelId) as TextChannel | undefined;
+    if (!channel) {
+      channel = (await guild.channels.fetch(channelId).catch(() => null)) as TextChannel | null ?? undefined;
+    }
+
+    // Leave a ticket Aegis cannot see open: it could not post the notice,
+    // build the transcript or delete the channel, and members may still use it.
+    if (channel && isObfuscatedChannel(channel)) {
+      logger.warn(`Ticket ${ticket.id}: not closing, channel ${channelId} is hidden from Aegis.`);
+      return false;
+    }
+
     ticket.status = "closed";
     ticket.closedBy = closedByUserId;
     ticket.closedAt = new Date();
     ticket.reason = reason;
     await ticket.save();
-
-    let channel = guild.channels.cache.get(channelId) as TextChannel | undefined;
-    if (!channel) {
-      channel = (await guild.channels.fetch(channelId).catch(() => null)) as TextChannel | null ?? undefined;
-    }
 
     await clearAutoCloseChecks(guild.id, channelId);
 
@@ -493,9 +500,25 @@ export async function runTicketAutoClose(client: Client, task: ScheduledTask): P
 
   const settings = await getTicketSettings(task.guildId);
   const lastActivity = new Date(ticket.lastActivityAt ?? ticket.createdAt ?? Date.now()).getTime();
-  const decision = autoCloseDecision(lastActivity, settings.autoCloseHours, Date.now());
+  // A ticket channel hidden from Aegis gets no activity writes, so its stored
+  // time is stale. Check visibility before touching ticket state.
+  const channel = guild.channels.cache.get(ticket.channelId)
+    ?? await guild.channels.fetch(ticket.channelId).catch(() => null);
+  const now = Date.now();
+  const decision = autoCloseDecision(lastActivity, settings.autoCloseHours, now, {
+    channelHidden: isObfuscatedChannel(channel),
+  });
 
   if (decision.action === "disabled") return;
+  if (decision.action === "defer") {
+    await TicketModel.updateOne(
+      { id: ticket.id, guildId: task.guildId, status: "open" },
+      { $set: { lastActivityAt: new Date(now) } },
+    ).catch(err => logger.warn(`Ticket ${ticket.id}: could not refresh activity while hidden`, err));
+    logger.info(`Ticket ${ticket.id}: channel hidden from Aegis, auto-close deferred.`);
+    await scheduleAutoCloseCheck(client, task.guildId, ticket.channelId, ticket.id, new Date(decision.at));
+    return;
+  }
   if (decision.action === "recheck") {
     await scheduleAutoCloseCheck(client, task.guildId, ticket.channelId, ticket.id, new Date(decision.at));
     return;

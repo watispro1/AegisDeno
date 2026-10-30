@@ -27,8 +27,7 @@ test("the raw flag matches Discord's CHANNEL_OBFUSCATED bit", () => {
   if (fromTypes !== undefined) assert.equal(fromTypes, CHANNEL_OBFUSCATED_FLAG);
 });
 
-test("isObfuscatedChannel: flag (number, bigint, bitfield) or placeholder name", () => {
-  assert.ok(isObfuscatedChannel({ id: HIDDEN, name: OBFUSCATED_CHANNEL_NAME, flags: 0 }));
+test("isObfuscatedChannel: the CHANNEL_OBFUSCATED flag (number, bigint, bitfield)", () => {
   assert.ok(isObfuscatedChannel({ id: HIDDEN, name: "renamed", flags: CHANNEL_OBFUSCATED_FLAG }));
   assert.ok(isObfuscatedChannel({ id: HIDDEN, flags: CHANNEL_OBFUSCATED_FLAG | 2 }));
   assert.ok(isObfuscatedChannel({ id: HIDDEN, flags: BigInt(CHANNEL_OBFUSCATED_FLAG) }));
@@ -41,6 +40,16 @@ test("isObfuscatedChannel: flag (number, bigint, bitfield) or placeholder name",
   assert.ok(!isObfuscatedChannel(null));
   assert.ok(!isObfuscatedChannel(undefined));
   assert.ok(!isObfuscatedChannel("___hidden___"));
+});
+
+test("Codex #13: a real channel named ___hidden___ without the flag is visible", () => {
+  const real = { id: VISIBLE, name: OBFUSCATED_CHANNEL_NAME, flags: 0 };
+  assert.ok(!isObfuscatedChannel(real));
+  assert.ok(!isObfuscatedChannel({ ...real, flags: new ChannelFlagsBitField(0) }));
+  assert.ok(!isObfuscatedChannel({ id: VISIBLE, name: OBFUSCATED_CHANNEL_NAME }), "no flags at all is not obfuscated");
+  assert.deepEqual(visibleChannels([real]).map(c => c.id), [VISIBLE]);
+  assert.equal(channelDisplayName(real), OBFUSCATED_CHANNEL_NAME);
+  assert.ok(isSendableChannel({ ...real, send: async () => undefined }));
 });
 
 test("helpers: filtering, display names, the hint, and sendability", () => {

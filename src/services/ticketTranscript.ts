@@ -119,13 +119,18 @@ export function normalizeAutoCloseHours(value: unknown): number {
  * - `disabled`: auto-close is off, drop the check.
  * - `close`: the ticket has been quiet for the full window.
  * - `recheck`: there was activity since; check again at `at`.
+ * - `defer`: the channel is hidden from Aegis (no View Channel), so its activity
+ *   cannot be seen and the stored time is stale. Treat it as active now and
+ *   check again a full window later; never close a ticket Aegis cannot see.
  */
 export function autoCloseDecision(
   lastActivityAtMs: number,
   autoCloseHours: number,
   nowMs: number,
-): { action: "disabled" } | { action: "close" } | { action: "recheck"; at: number } {
+  opts: { channelHidden?: boolean } = {},
+): { action: "disabled" } | { action: "close" } | { action: "recheck"; at: number } | { action: "defer"; at: number } {
   if (autoCloseHours <= 0) return { action: "disabled" };
+  if (opts.channelHidden) return { action: "defer", at: nowMs + autoCloseHours * HOUR_MS };
   const dueAt = lastActivityAtMs + autoCloseHours * HOUR_MS;
   if (dueAt <= nowMs) return { action: "close" };
   return { action: "recheck", at: dueAt };

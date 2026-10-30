@@ -15,8 +15,34 @@ import { ModerationCaseModel, WarningModel } from "../../database/mongo";
 import { sendGuildLog } from "../../services/logging";
 import { editCaseReason } from "../../services/moderationCases";
 import { MAX_CASES_BROWSABLE, pageInfo, stepPage } from "../../services/casePaging";
+import { rankChoices, shortAge, type AutocompleteItem } from "../../utils/autocomplete";
+import { requestConfirmation } from "../../utils/confirmation";
 
 const MAX_EXPORT_CASES = 5_000;
+/** How many recent cases the case_id autocomplete searches. */
+export const CASE_AUTOCOMPLETE_SCAN = 200;
+
+/** Shown when a case ID is malformed or unknown, pointing at where IDs come from. */
+export function caseIdHelp(caseId: string, problem: "invalid" | "missing"): string {
+  const shown = caseId.length > 40 ? `${caseId.slice(0, 40)}…` : caseId;
+  return problem === "invalid"
+    ? `❌ \`${shown}\` is not a case ID. Pick one from the list as you type, or find it with \`/case user\`.`
+    : `❌ No case \`${shown}\` in this server. It may have been deleted or expired; \`/case user\` lists a member's cases.`;
+}
+
+/** One autocomplete entry for a case: action, reason and age, with the full ID as the value. */
+export function caseChoice(
+  record: { _id: unknown; action: string; reason?: string | null; userId: string; createdAt: Date | string },
+  now = Date.now(),
+): AutocompleteItem {
+  const id = String(record._id);
+  const reason = (record.reason || "No reason").replace(/\s+/g, " ");
+  return {
+    name: `${record.action.toUpperCase()} · ${shortAge(record.createdAt, now)} · ${reason.slice(0, 48)} · …${id.slice(-6)}`,
+    value: id,
+    keywords: `${record.userId} ${reason}`,
+  };
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -27,7 +53,7 @@ export const command: Command = {
       sub
         .setName("view")
         .setDescription("View details of a specific moderation case.")
-        .addStringOption(opt => opt.setName("case_id").setDescription("Database ID of the case").setRequired(true))
+        .addStringOption(opt => opt.setName("case_id").setDescription("Case ID; start typing to pick a recent case").setRequired(true).setAutocomplete(true))
     )
     .addSubcommand(sub =>
       sub
@@ -39,14 +65,14 @@ export const command: Command = {
       sub
         .setName("edit")
         .setDescription("Edit the reason on a moderation case.")
-        .addStringOption(opt => opt.setName("case_id").setDescription("Database ID of the case").setRequired(true))
+        .addStringOption(opt => opt.setName("case_id").setDescription("Case ID; start typing to pick a recent case").setRequired(true).setAutocomplete(true))
         .addStringOption(opt => opt.setName("reason").setDescription("New updated reason").setRequired(true).setMaxLength(512))
     )
     .addSubcommand(sub =>
       sub
         .setName("delete")
         .setDescription("Delete a moderation case record.")
-        .addStringOption(opt => opt.setName("case_id").setDescription("Database ID of the case").setRequired(true))
+        .addStringOption(opt => opt.setName("case_id").setDescription("Case ID; start typing to pick a recent case").setRequired(true).setAutocomplete(true))
     )
     .addSubcommand(sub =>
       sub
@@ -58,6 +84,28 @@ export const command: Command = {
   category: "moderation",
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ModerateMembers],
+
+  async autocomplete(interaction) {
+    // Autocomplete skips the executor's permission check, so check here:
+    // case reasons are staff-only.
+    if (!interaction.guildId || !interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
+      await interaction.respond([]);
+      return;
+    }
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== "case_id") {
+      await interaction.respond([]);
+      return;
+    }
+    const records = await ModerationCaseModel.find({ guildId: interaction.guildId })
+      .select("_id action reason userId createdAt")
+      .sort({ createdAt: -1 })
+      .limit(CASE_AUTOCOMPLETE_SCAN)
+      .lean()
+      .catch(() => []);
+    const now = Date.now();
+    await interaction.respond(rankChoices(records.map(r => caseChoice(r, now)), String(focused.value)));
+  },
 
   async execute(interaction) {
     if (!interaction.guild) return;
@@ -83,13 +131,13 @@ export const command: Command = {
 
       const caseId = interaction.options.getString("case_id", true);
       if (!isValidObjectId(caseId)) {
-        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: caseIdHelp(caseId, "invalid"), flags: MessageFlags.Ephemeral });
         return;
       }
       const record = await ModerationCaseModel.findOne({ guildId: interaction.guild.id, _id: caseId }).catch(() => null);
 
       if (!record) {
-        await interaction.reply({ content: `❌ Moderation case \`${caseId}\` was not found.`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: caseIdHelp(caseId, "missing"), flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -190,7 +238,7 @@ export const command: Command = {
 
       const caseId = interaction.options.getString("case_id", true);
       if (!isValidObjectId(caseId)) {
-        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: caseIdHelp(caseId, "invalid"), flags: MessageFlags.Ephemeral });
         return;
       }
       const newReason = interaction.options.getString("reason", true);
@@ -198,7 +246,7 @@ export const command: Command = {
       const edited = await editCaseReason(interaction.guild.id, caseId, newReason);
 
       if (!edited) {
-        await interaction.reply({ content: `❌ Case \`${caseId}\` not found.`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: caseIdHelp(caseId, "missing"), flags: MessageFlags.Ephemeral });
         return;
       }
       const warning = edited.kind === "warning";
@@ -221,16 +269,43 @@ export const command: Command = {
 
       const caseId = interaction.options.getString("case_id", true);
       if (!isValidObjectId(caseId)) {
-        await interaction.reply({ content: `❌ \`${caseId}\` is not a valid case ID.`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: caseIdHelp(caseId, "invalid"), flags: MessageFlags.Ephemeral });
         return;
       }
-      const res = await ModerationCaseModel.deleteOne({ guildId: interaction.guild.id, _id: caseId }).catch(() => null);
-
-      if (res && res.deletedCount > 0) {
-        await interaction.reply({ content: `🗑️ Moderation case \`${caseId}\` deleted.`, flags: MessageFlags.Ephemeral });
-      } else {
-        await interaction.reply({ content: `❌ Case \`${caseId}\` not found.`, flags: MessageFlags.Ephemeral });
+      const record = await ModerationCaseModel.findOne({ guildId: interaction.guild.id, _id: caseId }).lean().catch(() => null);
+      if (!record) {
+        await interaction.reply({ content: caseIdHelp(caseId, "missing"), flags: MessageFlags.Ephemeral });
+        return;
       }
+
+      const icon = ACTION_ICONS[record.action.toLowerCase()] ?? "📜";
+      const answer = await requestConfirmation(interaction, {
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xED4245)
+            .setTitle("Delete this case?")
+            .setDescription(
+              `${icon} \`${record.action.toUpperCase()}\` on <@${record.userId}> by <@${record.moderatorId}>, <t:${Math.floor(new Date(record.createdAt).getTime() / 1000)}:R>\n` +
+              `**Reason:** ${(record.reason || "No reason provided").slice(0, 900)}\n\n` +
+              "The record is removed for good. It does not undo the action itself.",
+            )
+            .setFooter({ text: `Case ${caseId}` }),
+        ],
+        confirmLabel: "Delete case",
+      });
+      if (answer !== "confirmed") return;
+
+      const res = await ModerationCaseModel.deleteOne({ guildId: interaction.guild.id, _id: caseId }).catch(() => null);
+      if (!res || res.deletedCount === 0) {
+        await interaction.editReply({ content: caseIdHelp(caseId, "missing"), embeds: [] });
+        return;
+      }
+      await interaction.editReply({ content: `🗑️ Case \`${caseId}\` deleted.`, embeds: [] });
+      await sendGuildLog(interaction.client, interaction.guild.id, {
+        title: "🗑️ Case Deleted",
+        color: 0xED4245,
+        description: `**Case:** \`${caseId}\`\n**Action:** ${record.action.toUpperCase()} on <@${record.userId}>\n**Reason was:** ${(record.reason || "None").slice(0, 500)}\n**Deleted by:** ${interaction.user.tag}`,
+      }).catch(() => null);
       return;
     }
 

@@ -24,6 +24,7 @@ import {
   postTicketPanel,
 } from "../../services/ticketService";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../services/ticketTranscript";
+import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -119,6 +120,11 @@ export const command: Command = {
 
       if (!await canCloseTicket(interaction.guild, interaction.channelId, interaction.user.id)) {
         await interaction.editReply("❌ Only the ticket opener or support staff can close this ticket.");
+        return;
+      }
+
+      if (isObfuscatedChannel(interaction.channel)) {
+        await interaction.editReply(`❌ ${hiddenChannelMessage(interaction.channelId)} The ticket stays open until then.`);
         return;
       }
 

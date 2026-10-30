@@ -12,6 +12,7 @@ import {
   closeTicket,
   createTicketChannel,
 } from "../../services/ticketService";
+import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
 
 export const ticketRoutes: ComponentRoute[] = [
   {
@@ -81,6 +82,11 @@ export const ticketRoutes: ComponentRoute[] = [
 
       if (!(await canCloseTicket(interaction.guild, interaction.channelId, interaction.user.id))) {
         await interaction.editReply({ content: "❌ Only the ticket opener or support staff can close this ticket." });
+        return;
+      }
+
+      if (isObfuscatedChannel(interaction.channel)) {
+        await interaction.editReply({ content: `❌ ${hiddenChannelMessage(interaction.channelId)} The ticket stays open until then.` });
         return;
       }
 

@@ -1,6 +1,7 @@
 import { PermissionsBitField, PermissionFlagsBits } from "discord.js";
 import type { APIApplicationCommandOption, PermissionResolvable } from "discord.js";
 import { commands, COMMAND_CATEGORIES, type CommandCategory } from "../commands/loader";
+import { DEFAULT_COOLDOWN_MS } from "../commands/executor";
 
 export interface OptionInfo {
   name: string;
@@ -12,6 +13,9 @@ export interface OptionInfo {
   autocomplete: boolean;
   min?: number;
   max?: number;
+  /** Text length limits for string options. */
+  minLength?: number;
+  maxLength?: number;
 }
 
 export interface SubcommandInfo {
@@ -32,6 +36,8 @@ export interface CommandInfo {
   enforcedPermissions: string[];
   /** Permissions the bot itself needs to run this command. */
   botPermissions: string[];
+  /** Per-member wait between uses, in seconds (0 = none), as the executor applies it. */
+  cooldownSeconds: number;
   subcommands: SubcommandInfo[];
   options: OptionInfo[];
 }
@@ -126,7 +132,7 @@ function parseOptions(rawOptions: readonly APIApplicationCommandOption[] | undef
 
 function toOptionInfo(opt: APIApplicationCommandOption): OptionInfo {
   const type = typeOf(opt);
-  const raw = opt as Partial<Record<"min_value" | "max_value" | "autocomplete", unknown>> & {
+  const raw = opt as Partial<Record<"min_value" | "max_value" | "min_length" | "max_length" | "autocomplete", unknown>> & {
     choices?: Array<{ name?: string } | string>;
   };
 
@@ -147,6 +153,8 @@ function toOptionInfo(opt: APIApplicationCommandOption): OptionInfo {
 
   if (typeof raw.min_value === "number") info.min = raw.min_value;
   if (typeof raw.max_value === "number") info.max = raw.max_value;
+  if (typeof raw.min_length === "number") info.minLength = raw.min_length;
+  if (typeof raw.max_length === "number") info.maxLength = raw.max_length;
 
   return info;
 }
@@ -175,7 +183,11 @@ function resolvePermissions(bitfield: unknown): string[] {
   }
 }
 
+/** Flags whose name in Discord's UI differs from the API name. */
+const UI_NAMES: Record<string, string> = { ManageGuild: "Manage Server" };
+
 function permissionLabel(flag: string): string {
+  if (UI_NAMES[flag]) return UI_NAMES[flag];
   return flag
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/^./, (char) => char.toUpperCase());
@@ -247,6 +259,7 @@ export function buildCatalog(): CommandInfo[] {
       declaredPermissions: normalise(permissionLabels(json.default_member_permissions)),
       enforcedPermissions: enforcedLabels(cmd.userPermissions),
       botPermissions: enforcedLabels(cmd.botPermissions),
+      cooldownSeconds: Math.max(0, (cmd.cooldownMs ?? DEFAULT_COOLDOWN_MS) / 1000),
       subcommands,
       options,
     });
@@ -373,6 +386,28 @@ export function botPermissionBitfield(): bigint {
   bits &= ~PermissionFlagsBits.Administrator;
 
   return bits;
+}
+
+/**
+ * Each permission in the invite bitfield, with the commands that declare it.
+ * The implicit channel permissions have no commands listed.
+ */
+export function botPermissionRows(): { permission: string; commands: string[] }[] {
+  const bits = botPermissionBitfield();
+  const rows: { permission: string; commands: string[] }[] = [];
+  for (const flag of new PermissionsBitField(bits).toArray()) {
+    const bit = (PermissionFlagsBits as Record<string, bigint | undefined>)[flag];
+    const users: string[] = [];
+    for (const cmd of commands.values()) {
+      const declared = new PermissionsBitField();
+      for (const p of cmd.botPermissions ?? []) {
+        try { declared.add(p as PermissionResolvable); } catch { /* ignore unresolvable permissions */ }
+      }
+      if (bit !== undefined && declared.has(bit)) users.push(`/${cmd.data.name}`);
+    }
+    rows.push({ permission: permissionLabel(flag), commands: users.sort() });
+  }
+  return rows.sort((a, b) => a.permission.localeCompare(b.permission));
 }
 
 export function catalogStats(): {
