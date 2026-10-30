@@ -63,9 +63,10 @@ re-registered automatically when the bot starts. Includes dashboard 1.2.2 (see
 - `/case delete` shows the case and asks you to confirm before deleting it,
   then posts the deletion to the log channel. `/case` errors for a wrong or
   unknown ID say where to find IDs.
-- `/clearwarnings` shows how many warnings it will delete and asks you to
-  confirm. It now works for members who have left the server, and refuses to
-  clear your own warnings.
+- `/clearwarnings` shows how many warning records it will delete, active and
+  revoked (for example "3 warning record(s) (2 active, 1 revoked)"), and asks
+  you to confirm. It now works for members who have left the server, and
+  refuses to clear your own warnings.
 - `/escalation clear` lists the thresholds and asks you to confirm; with none
   set it says so.
 - `/autoresponder add` refuses an empty trigger or one that already exists
@@ -97,6 +98,10 @@ re-registered automatically when the bot starts. Includes dashboard 1.2.2 (see
   self-hosting section covers `SITE_URL` and the dashboard settings.
 - README rewritten around the current release: features, links, every
   environment variable, Fly.io deploys, tests and the new repository docs.
+- The website code is split into smaller modules (one per page for the site
+  and the dashboard, the dashboard routes by section, and the stylesheet and
+  site script by area). Every page, the stylesheet and the script are
+  byte-for-byte the same as before.
 
 ### Fixed
 - **Add to Discord could hang on "Opening Discord app".** Aegis also allows
@@ -129,6 +134,28 @@ re-registered automatically when the bot starts. Includes dashboard 1.2.2 (see
   a server and that no copy of audit records is kept. Nothing is deleted on
   removal, and the dashboard keeps its own activity log for 180 days; both are
   now stated correctly.
+- `/clearwarnings` could show "This interaction failed" on a slow lookup: it
+  now acknowledges the command before checking the member, role order and
+  warnings, then shows the confirmation in that reply.
+- `/clearwarnings` counted only active warnings but deleted revoked ones too,
+  so the prompt, the logged case and what was deleted disagreed. The prompt
+  now lists every record it will delete, exactly those records are deleted (a
+  warning issued while the prompt is open is kept), and the reply, the case
+  and the log channel all give the same count.
+- Forms opened by a command (`/suggest submit`, `/rolepanel create`, `/verify
+  setup` and `batch`, `/welcome message`, `/note add`, `/appeal`, the `/embed`
+  and announcement editors, and the kick reason editor) could be answered by
+  the wrong run: after closing a form and running the command again, one
+  submit was picked up by both runs, so the old run acted on its old options
+  (for example posting a role panel with the previous roles) and the new run
+  failed. Each form now only answers the run that opened it.
+- `/rolepanel create` and `/verify setup` accepted roles at or above your own
+  highest role, which anyone, you included, could then take by clicking. They
+  now refuse those roles (the server owner is exempt), and refuse a channel
+  Aegis cannot see before opening the form.
+- A ticket closed at the same moment by the Close button, `/ticket close` or
+  the inactivity check could be closed twice, posting the notice and
+  transcript twice. Only the first close goes through now.
 
 ## [3.6.0] - 2026-10-30
 
