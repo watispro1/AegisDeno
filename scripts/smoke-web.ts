@@ -32,6 +32,8 @@ const ROUTES: [string, number][] = [
   ["/status", 200],
   ["/privacy", 200],
   ["/terms", 200],
+  ["/security", 200],
+  ["/.well-known/security.txt", 200],
   ["/dashboard", 200],
   ["/health", 200],
   ["/api/stats", 200],
@@ -212,7 +214,36 @@ async function main() {
   check("sitemap has lastmod", sitemap.includes("<lastmod>"));
   check("home has JSON-LD", (await (await fetch(origin + "/")).text()).includes("application/ld+json"));
 
-  console.log("\nChangelog");
+  console.log("\nSecurity, legal and 404");
+  const secTxtRes = await fetch(origin + "/.well-known/security.txt");
+  const secTxt = await secTxtRes.text();
+  check("security.txt is text/plain", (secTxtRes.headers.get("content-type") ?? "").startsWith("text/plain"));
+  check("security.txt has Contact", /^Contact: https:\/\//m.test(secTxt));
+  const expiresMatch = secTxt.match(/^Expires: (.+)$/m);
+  check("security.txt Expires is in the future", Boolean(expiresMatch) && Date.parse(expiresMatch![1]) > Date.now());
+  const secRedirect = await fetch(origin + "/security.txt", { redirect: "manual" });
+  check("/security.txt -> /.well-known/security.txt", secRedirect.headers.get("location") === "/.well-known/security.txt");
+  check("sitemap lists /security", sitemap.includes("/security</loc>"));
+  check("footer links /security", homeHtml.includes('href="/security"'));
+  const termsHtml = await (await fetch(origin + "/terms")).text();
+  const privacyHtml = await (await fetch(origin + "/privacy")).text();
+  for (const [name, html] of [["terms", termsHtml], ["privacy", privacyHtml]] as [string, string][]) {
+    check(`${name} last updated October 30, 2026`, html.includes("Last updated: <time datetime=\"2026-10-30\">October 30, 2026</time>"));
+    check(`${name} uses CONTACT_EMAIL when set`, html.includes("mailto:legal@example.com"));
+    check(`${name} has no invented fly.dev inbox`, !html.includes("support@aegisdeno.fly.dev"));
+  }
+  check("privacy lists the dashboard audit retention", privacyHtml.includes("180 days"));
+  const typo = await fetch(origin + "/comands");
+  const typoHtml = await typo.text();
+  check("404 suggests /commands for /comands", typo.status === 404 && /class="suggest"[^]*href="\/commands"/.test(typoHtml));
+  const cmdTypo = await (await fetch(origin + "/ban")).text();
+  check("404 suggests the command for /ban", cmdTypo.includes('href="/commands#cmd-ban"'));
+  check("404 has a command search form", typoHtml.includes('action="/commands" method="get"'));
+  const reflected = await (await fetch(origin + "/%3Cscript%3Ealert(1)%3C%2Fscript%3E")).text();
+  check("404 does not reflect the path", !reflected.includes("<script>alert(1)"));
+  check("/commands?q= serves the page", (await fetch(origin + "/commands?q=ban")).status === 200);
+
+
   const { VERSION } = await import("../src/version");
   const { getChangelog, getReleases } = await import("../src/web/changelog");
   const releases = getReleases();

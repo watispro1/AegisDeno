@@ -184,9 +184,11 @@ export function renderLanding(cfg: SiteConfig, error: string | null): string {
   <h2 class="section-title">What it can see</h2>
   <ul class="notes">
     <li>Your Discord username and the list of servers you are in. Aegis asks for the <code class="inline">identify</code> and <code class="inline">guilds</code> scopes only. It cannot read your messages or act as you.</li>
-    <li>A session cookie keeps you signed in for up to 7 days. Logging out deletes it.</li>
-    <li>Every page re-checks with Discord that you still have Manage Server in that server.</li>
-  </ul>`,
+    <li>A session cookie keeps you signed in for up to 7 days. Logging out deletes the session.</li>
+    <li>Every page checks that you have Manage Server or Administrator in that server, using a server list re-read from Discord at least every 10 minutes.</li>
+    <li>Changes you make are recorded on the server's Activity page for 180 days.</li>
+  </ul>
+  <p class="muted">Details are in the <a href="/privacy#discord-login">privacy policy</a>. By logging in you accept the <a href="/terms">terms</a>.</p>`,
   });
 }
 

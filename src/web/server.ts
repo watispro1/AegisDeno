@@ -18,11 +18,14 @@ import {
   renderStatus,
   renderTerms,
   renderPrivacy,
+  renderSecurity,
   renderNotFound,
   SiteConfig,
   Stats,
 } from "./pages";
 import { atomFeed } from "./changelog";
+import { suggestPages } from "./notFound";
+import { securityTxt } from "./wellKnown";
 import { commands } from "../commands/loader";
 import { VERSION } from "../version";
 import { createDashboardRouter } from "./dashboard/router";
@@ -100,7 +103,8 @@ function siteConfig(): SiteConfig {
     inviteUrl,
     supportUrl: process.env.SUPPORT_SERVER_URL || "",
     version: SITE_VERSION,
-    contactEmail: process.env.CONTACT_EMAIL || "support@aegisdeno.fly.dev",
+    // Optional. Without it the legal pages point to GitHub instead of an inbox.
+    contactEmail: process.env.CONTACT_EMAIL?.trim() || "",
     assetVersion: ASSET_VERSION,
   };
 }
@@ -195,7 +199,23 @@ const ROUTES: RouteDef[] = [
   { path: "/status", render: (c, x) => renderStatus(c, x.stats, x.online, x.startedAt), priority: "0.6", live: true },
   { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },
   { path: "/terms", render: c => renderTerms(c), priority: "0.4" },
+  { path: "/security", render: c => renderSecurity(c), priority: "0.3" },
 ];
+
+/** Pages offered on the 404 page when an address is a typo away from one. */
+const SUGGESTABLE = [
+  { href: "/features", label: "Features" },
+  { href: "/commands", label: "Commands" },
+  { href: "/docs", label: "Docs" },
+  { href: "/troubleshooting", label: "Troubleshooting" },
+  { href: "/changelog", label: "Changelog" },
+  { href: "/status", label: "Status" },
+  { href: "/privacy", label: "Privacy Policy" },
+  { href: "/terms", label: "Terms of Service" },
+  { href: "/security", label: "Security" },
+  { href: "/dashboard", label: "Dashboard" },
+];
+
 
 function xmlEscape(s: string): string {
   return s
@@ -355,6 +375,12 @@ export function startWebServer(client: Client) {
       );
   });
 
+  app.get("/.well-known/security.txt", (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.type("text/plain").send(securityTxt(origin));
+  });
+  app.get("/security.txt", (_req, res) => res.redirect(301, "/.well-known/security.txt"));
+
   app.get("/changelog.xml", (_req, res) => {
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.type("application/atom+xml").send(atomFeed(origin || ""));
@@ -404,8 +430,9 @@ export function startWebServer(client: Client) {
     audit: mongoAuditStore(),
   }));
 
-  app.use((_req: Request, res: Response) => {
-    send(res, renderNotFound(cfg), 404, "no-store");
+  app.use((req: Request, res: Response) => {
+    const suggestions = suggestPages(req.path, SUGGESTABLE, Array.from(commands.keys()));
+    send(res, renderNotFound(cfg, suggestions), 404, "no-store");
   });
 
   app.listen(PORT, () => {

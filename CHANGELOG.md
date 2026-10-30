@@ -9,6 +9,52 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.6.1] - 2026-10-30
+
+Website, legal pages and repository docs. The bot's commands, data and Discord
+permissions are unchanged. Includes dashboard 1.2.2 (see
+`DASHBOARD_CHANGELOG.md`).
+
+### Added
+- A `/security` page and an RFC 9116 `/.well-known/security.txt` (with
+  `/security.txt` redirecting to it) explaining how to report a vulnerability
+  privately through GitHub. Both are linked from the footer and listed in the
+  sitemap and the site search.
+- The 404 page suggests the page you probably meant (`/comands` offers
+  Commands, `/ban` offers the `/ban` command) and has a command search box. The
+  requested path is never echoed back.
+- `/commands?q=ban` opens the command reference already filtered, so searches
+  can be shared and the 404 search box lands on results.
+- `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1),
+  `CONTRIBUTING.md`, and issue and pull request templates in `.github/`.
+
+### Changed
+- The Terms of Service and Privacy Policy are rewritten in plain language and
+  dated October 30, 2026. The privacy policy now lists every kind of record
+  Aegis stores and how long each is kept, as the code does it: one year for
+  warnings, cases and staff notes, 180 days for dashboard activity, 7 days for
+  dashboard sessions, about a minute for hashed rate-limit records, and no
+  automatic expiry for appeals, tickets, automod hits, member activity and
+  community records. It names the dashboard's OAuth scopes and cookies, the
+  services that receive data, how to ask for deletion, and Discord's minimum
+  age. Both pages have a summary and a table of contents.
+- The legal pages no longer show `support@aegisdeno.fly.dev`, which was only a
+  fallback and not a working inbox. Contact goes through GitHub issues, the
+  support server when `SUPPORT_SERVER_URL` is set, and an email address only
+  when `CONTACT_EMAIL` is set.
+- The footer links Security, Report a problem (GitHub issues), the release
+  notes for the running version and the dashboard changelog.
+- The docs "Data and storage" section matches the privacy policy, and the
+  self-hosting section covers `SITE_URL` and the dashboard settings.
+- README rewritten around the current release: features, links, every
+  environment variable, Fly.io deploys, tests and the new repository docs.
+
+### Fixed
+- The privacy policy said configuration is deleted when Aegis is removed from
+  a server and that no copy of audit records is kept. Nothing is deleted on
+  removal, and the dashboard keeps its own activity log for 180 days; both are
+  now stated correctly.
+
 ## [3.6.0] - 2026-10-30
 
 Pull requests #8 onward. Includes dashboard 1.2.0 and 1.2.1, the removal of
@@ -454,7 +500,8 @@ First version.
 - MongoDB storage (the SQLite dependency was dropped the same day).
 - Express website and Fly.io config.
 
-[3.6.0]: https://github.com/watispro1/AegisDeno/compare/87e33cb...main
+[3.6.1]: https://github.com/watispro1/AegisDeno/compare/b292b9f...main
+[3.6.0]: https://github.com/watispro1/AegisDeno/compare/87e33cb...b292b9f
 [3.5.0]: https://github.com/watispro1/AegisDeno/compare/6f05a0d...87e33cb
 [3.4.0]: https://github.com/watispro1/AegisDeno/compare/4c2a46a...6f05a0d
 [3.3.3]: https://github.com/watispro1/AegisDeno/compare/c87cfd5...4c2a46a

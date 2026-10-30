@@ -26,6 +26,9 @@ export interface LayoutOptions {
   assetVersion?: string;
 }
 
+/** Public source repository. */
+export const REPO_URL = "https://github.com/watispro1/AegisDeno";
+
 export const NAV: NavLink[] = [
   { label: "Features", href: "/features" },
   { label: "Commands", href: "/commands" },
@@ -174,7 +177,8 @@ ${o.body}
           <span class="brand-mark" aria-hidden="true">A</span>
           <span>Aegis</span>
         </a>
-        <p>A Discord moderation bot, run from slash commands, with a web dashboard for cases and settings. Version ${esc(o.version)}.</p>
+        <p>A Discord moderation bot, run from slash commands, with a web dashboard for cases and settings.</p>
+        <p class="footer-meta"><a href="/changelog#v${esc(o.version)}">Version ${esc(o.version)}</a> · <a href="/dashboard/changelog">Dashboard changelog</a></p>
       </div>
       <div class="footer-col">
         <h2 class="footer-title">Site</h2>
@@ -199,11 +203,13 @@ ${o.body}
         </ul>
       </div>
       <div class="footer-col">
-        <h2 class="footer-title">Legal</h2>
+        <h2 class="footer-title">Legal and project</h2>
         <ul>
-          <li><a href="/terms">Terms</a></li>
-          <li><a href="/privacy">Privacy</a></li>
-          <li><a href="https://github.com/watispro1/AegisDeno" rel="noopener noreferrer">Source on GitHub</a></li>
+          <li><a href="/terms">Terms of Service</a></li>
+          <li><a href="/privacy">Privacy Policy</a></li>
+          <li><a href="/security">Security</a></li>
+          <li><a href="${REPO_URL}" rel="noopener noreferrer">Source on GitHub</a></li>
+          <li><a href="${REPO_URL}/issues" rel="noopener noreferrer">Report a problem</a></li>
           ${o.supportUrl ? `<li><a href="${supportUrl}" rel="noopener noreferrer">Support server</a></li>` : ""}
         </ul>
       </div>
@@ -213,6 +219,7 @@ ${o.body}
       <nav aria-label="Footer">
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
+        <a href="/security">Security</a>
         <a href="/status">Status</a>
         <a href="/api/stats">API</a>
         <a href="/changelog.xml">Feed</a>
