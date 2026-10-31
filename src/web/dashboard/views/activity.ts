@@ -2,7 +2,7 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { AuditEntry } from "../audit";
 import { SECTION_TITLES, SETTINGS_SECTIONS, type SettingsSection } from "../validation";
 import { type GuildContext, fmtDate, head, shell } from "./layout";
-import { pagerNav } from "./parts";
+import { pagerNav, tableFilter } from "./parts";
 
 /* ── Activity ──────────────────────────────────────────────────────── */
 
@@ -15,6 +15,20 @@ const AUDIT_LABELS: Record<string, string> = {
   "panel.ticket": "Posted the ticket panel",
   "panel.verification": "Posted the verification panel",
   "panel.role": "Re-posted a role panel",
+  "autoresponder.add": "Added an autoresponder",
+  "autoresponder.toggle": "Turned an autoresponder on or off",
+  "autoresponder.remove": "Deleted an autoresponder",
+  "module.autoresponders": "Switched autoresponders on or off",
+  "module.suggestions": "Changed the suggestions channel",
+  "automation.create": "Scheduled a message",
+  "automation.cancel": "Cancelled a scheduled message",
+  "announce.post": "Posted an announcement",
+  "giveaway.end": "Ended a giveaway early",
+  "giveaway.reroll": "Rerolled a giveaway",
+  "suggestion.approve": "Approved a suggestion",
+  "suggestion.deny": "Denied a suggestion",
+  "suggestion.consider": "Marked a suggestion as considered",
+  "watchlist.remove": "Removed a member from their Ghost Watch list",
 };
 
 export function auditLabel(action: string): string {
@@ -49,7 +63,7 @@ export function renderActivity(
     guild: ctx,
     active: "activity",
     body: `${head("Dashboard activity", "Every change made through this dashboard for this server, newest first. Kept for 180 days. Changes made with slash commands are in your log channel instead.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Activity", null]])}
-  ${result.items.length ? `<div class="table-wrap"><table class="case-table">
+  ${result.items.length ? `${tableFilter("audit-table", "Filter this page by person, action or detail")}<div class="table-wrap"><table class="case-table" id="audit-table" data-filterable>
     <caption class="visually-hidden">Dashboard changes</caption>
     <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Details</th></tr></thead>
     <tbody>${rows}</tbody>

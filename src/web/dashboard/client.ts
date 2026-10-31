@@ -23,8 +23,9 @@ const baseScript = String.raw`
       count: input.getAttribute('data-sample-count') || '?'
     };
     values.member_count = values.count;
+    values.memberCount = values.count;
     var render = function () {
-      preview.textContent = input.value.replace(/\{(user|username|server|count|member_count)\}/g, function (_, key) {
+      preview.textContent = input.value.replace(/\{(user|username|server|count|member_count|memberCount)\}/g, function (_, key) {
         return values[key];
       });
     };

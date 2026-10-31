@@ -12,15 +12,33 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 ## [3.6.2] - 2026-10-31
 
 Bug fixes, security hardening across the bot, website and dashboard, upgrades
-to `/ban`, `/timeout`, `/giveaway` and `/suggest`, a dashboard role-hierarchy
-fix and dashboard improvements, and the website code split into smaller
-modules. Discord permissions, intents and environment variables are unchanged,
+to `/ban`, `/timeout`, `/giveaway`, `/suggest`, `/autoresponder`, `/lock` and
+`/starboard`, goodbye messages, a redesigned module-based dashboard with a
+role-hierarchy fix, and the website code split into smaller modules. Discord permissions, intents and environment variables are unchanged,
 and the command count is the same; a few commands gained optional options
 (listed below), so slash commands are re-registered on deploy. Existing options
 keep their names and still work. Includes dashboard 1.2.3 (see
 `DASHBOARD_CHANGELOG.md`).
 
 ### Added
+- **Goodbye messages:** Aegis can post a message when a member leaves (off
+  until turned on in the dashboard). It never pings anyone. Welcome and
+  goodbye messages can also send an embed, and understand `{memberCount}`
+  as well as `{count}` and `{member_count}`.
+- **Log channel per event type:** each log category can be sent to its own
+  channel (set in the dashboard); categories without one use the log channel.
+- **Server-wide autoresponder switch:** autoresponders can be switched off for
+  a whole server without deleting them (dashboard). On by default.
+- `/autoresponder toggle id: [enabled:]` turns one autoresponder on or off
+  without deleting it (leave `enabled` empty to flip it). `/autoresponder list`
+  marks switched-off ones and shows when they are off server-wide.
+- `/lock channel` and `/lock category` take `duration:` as well as
+  `duration_minutes:`: `90m`, `6h`, `1d 12h`, up to 7 days. Giving both is
+  refused rather than guessing.
+- The web dashboard was redesigned around modules, with new pages for
+  autoresponders, scheduled messages, announcements (embed builder),
+  giveaways, suggestions, Ghost Watch and goodbye messages. See dashboard
+  1.2.3 in `DASHBOARD_CHANGELOG.md`.
 - `/ban duration:` makes a **temporary ban**: type `12h`, `7d`, `2 weeks` or
   `1d 12h` (one minute to one year; empty means permanent, as before). Aegis
   lifts the ban when it runs out, also after a restart, logs it and records an
@@ -42,6 +60,13 @@ keep their names and still work. Includes dashboard 1.2.3 (see
   title as you type `id` (review choices only for staff with Manage Server).
 
 ### Changed
+- `/starboard setup` refuses a channel Aegis can't see and names the
+  permissions it is missing there (View Channel, Send Messages, Embed Links)
+  instead of saving a channel it can't post to; the reply shows the threshold
+  and warns when the starboard is switched off.
+- `/autoresponder add` stops at 50 autoresponders per server (the dashboard
+  uses the same limit).
+- Welcome messages only ever ping the member who joined.
 - `/ban`: says when the member is already banned (with the existing reason)
   instead of asking to ban again; shows the ban length in the confirmation,
   result and log; and checks role positions again when you press Confirm, in
