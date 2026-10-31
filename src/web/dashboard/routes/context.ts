@@ -11,7 +11,8 @@ import type { DashboardConfig } from "../config";
 import type { DashboardData } from "../data";
 import { type FetchLike } from "../discordOAuth";
 import { guildInviteUrl, isSnowflake } from "../permissions";
-import { SESSION_COOKIE, csrfToken, originAllowed, parseCookies, serializeCookie, verifyCsrf, verifySessionCookie } from "../security";
+import { SESSION_COOKIE, SESSION_TTL_MS, cookieNames, csrfToken, originAllowed, parseCookies, serializeCookie, verifyCsrf, verifySessionCookie } from "../security";
+import { hasOperatorKeys } from "../../../utils/mongoSafe";
 import type { SessionData, SessionStore } from "../sessions";
 import { type FormBody, type ValidationContext } from "../validation";
 import { renderError, type GuildContext, type Viewer } from "../views";
@@ -132,11 +133,46 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
   const fail = (res: Response, status: number, title: string, message: string, viewer?: Viewer) =>
     send(res, renderError(deps.site, { status, title, message, viewer }), status);
 
+  const names = cookieNames(cfg.secureCookies);
   const cookie = (name: string, value: string, maxAgeMs: number) =>
-    serializeCookie(name, value, { maxAgeSeconds: maxAgeMs / 1000, secure: cfg.secureCookies });
+    serializeCookie(name, value, { maxAgeSeconds: maxAgeMs / 1000, secure: cfg.secureCookies, path: names.path });
+  /** Expire the pre-__Host- session cookie (Path=/dashboard). Only meaningful on https. */
+  const clearLegacySession = () =>
+    serializeCookie(SESSION_COOKIE, "", { maxAgeSeconds: 0, secure: cfg.secureCookies, path: "/dashboard" });
+
+  /**
+   * One-time move of a signed-in browser from the old `aegis_dash` cookie to
+   * `__Host-aegis_dash`, so the rename does not sign anybody out. The value is
+   * the same signed session ID; a bad signature just clears the old cookie.
+   */
+  const migrateLegacyCookie = (req: Request, res: Response, next: NextFunction) => {
+    if (!cfg.secureCookies) return next();
+    const jar = parseCookies(req.headers.cookie);
+    const legacy = jar[SESSION_COOKIE];
+    if (legacy === undefined) return next();
+    res.append("Set-Cookie", clearLegacySession());
+    if (!jar[names.session] && verifySessionCookie(secret, legacy)) {
+      res.append("Set-Cookie", cookie(names.session, legacy, SESSION_TTL_MS));
+      req.headers.cookie = `${req.headers.cookie ?? ""}; ${names.session}=${encodeURIComponent(legacy)}`;
+    }
+    next();
+  };
+
+  /**
+   * Refuse query strings or form bodies with Mongo-operator keys ("$ne",
+   * "a.b") outright. Dashboard parsers only produce strings, so this is
+   * defence in depth against a parser change turning a value into an operator.
+   */
+  const rejectOperatorInput = (req: Request, res: Response, next: NextFunction) => {
+    if (hasOperatorKeys(req.query) || hasOperatorKeys(req.body)) {
+      logger.warn(`Dashboard: refused operator-looking input on ${req.method} ${req.path}`);
+      return fail(res, 400, "Bad request", "That request contained characters the dashboard does not accept.");
+    }
+    next();
+  };
 
   async function loadSession(req: Request): Promise<Authed | null> {
-    const sessionId = verifySessionCookie(secret, parseCookies(req.headers.cookie)[SESSION_COOKIE]);
+    const sessionId = verifySessionCookie(secret, parseCookies(req.headers.cookie)[names.session]);
     if (!sessionId) return null;
     const session = await deps.sessions.get(sessionId, now()).catch((err) => {
       // A database outage is not a sign-out: surface it (503) rather than
@@ -178,7 +214,11 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
     const authed = res.locals.dash as Authed;
     const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;
     const body = (req.body ?? {}) as FormBody;
+    if (hasOperatorKeys(req.body)) {
+      return fail(res, 400, "Bad request", "That form contained characters the dashboard does not accept.", authed.viewer);
+    }
     if (!originAllowed(origin, cfg.origin) || !verifyCsrf(secret, authed.sessionId, body._csrf)) {
+      logger.warn(`Dashboard: CSRF/origin check failed for ${req.method} ${req.path} (user ${authed.session.userId})`);
       return fail(res, 403, "Form expired", "That form was opened in another session or has expired. Reload the page and try again.", authed.viewer);
     }
     next();
@@ -271,7 +311,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
   return {
     deps, cfg, now, fetchImpl, secret, audit,
     authLimit, postLimit, pageLimit, form, settingsForm,
-    send, fail, cookie, loadSession,
+    send, fail, cookie, names, clearLegacySession, migrateLegacyCookie, rejectOperatorInput, loadSession,
     requireSession, requireCsrf, requireGuild, missingPermission, requirePermission,
     actorOf, logAudit, noticeParam, validationContext, rolesFor,
     guildGet, guildPost, settingsPost,

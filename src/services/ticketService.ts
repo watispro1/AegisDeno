@@ -285,7 +285,13 @@ export async function createTicketChannel(
 
     const row = buildTicketControls(ticketId);
 
-    await channel.send({ content: `<@${userId}> ${staffRoleId ? `<@&${staffRoleId}>` : ""}`, embeds: [embed], components: [row] });
+    await channel.send({
+      content: `<@${userId}> ${staffRoleId ? `<@&${staffRoleId}>` : ""}`,
+      embeds: [embed],
+      components: [row],
+      // Ping exactly the opener and the configured staff role, nothing else.
+      allowedMentions: { users: [userId], roles: staffRoleId ? [staffRoleId] : [] },
+    });
 
     if (settings.autoCloseHours > 0) {
       const decision = autoCloseDecision(Date.now(), settings.autoCloseHours, Date.now());

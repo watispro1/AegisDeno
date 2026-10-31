@@ -234,6 +234,8 @@ export const command: Command = {
           const sent = await channel.send({
             content: pingContent || undefined,
             embeds: [currentEmbed],
+            // The client default blocks @everyone/@here; this announcement asked for it.
+            allowedMentions: { parse: pingContent ? ["everyone"] : [] },
           });
 
           // Crosspost if announcement channel

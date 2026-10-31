@@ -256,10 +256,10 @@ export function renderPrivacy(cfg: SiteConfig): string {
         id: "website",
         title: "This website and cookies",
         html: `<p>The public pages load no analytics, advertising or third-party scripts or fonts, and set no cookies. Your light or dark theme choice is saved in your browser's local storage under <code class="inline">aegis-theme</code> and never sent to us.</p>
-      <p>The dashboard sets two cookies, both limited to <code class="inline">/dashboard</code>, marked HttpOnly and SameSite=Lax, and sent only over HTTPS on the live site:</p>
+      <p>The dashboard sets two cookies, both marked HttpOnly and SameSite=Lax. On the live site they carry the <code class="inline">__Host-</code> prefix, so the browser only accepts them over HTTPS from this exact host; a local test copy on plain http uses the names without the prefix, limited to <code class="inline">/dashboard</code>:</p>
       <ul>
-        <li><code class="inline">aegis_dash</code>: a signed, random session ID that keeps you logged in for up to 7 days.</li>
-        <li><code class="inline">aegis_oauth</code>: protects the Discord login step against forgery and expires after 10 minutes.</li>
+        <li><code class="inline">__Host-aegis_dash</code> (<code class="inline">aegis_dash</code> locally): a signed, random session ID that keeps you logged in for up to 7 days. A new one is issued every time you log in.</li>
+        <li><code class="inline">__Host-aegis_oauth</code> (<code class="inline">aegis_oauth</code> locally): protects the Discord login step against forgery and expires after 10 minutes.</li>
       </ul>
       <p>Both are needed for login to work, so there is no option to turn them off other than not using the dashboard.</p>`,
       },

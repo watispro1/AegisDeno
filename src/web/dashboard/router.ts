@@ -51,6 +51,8 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   }
 
   const kit = createRouteKit(deps, cfg);
+  router.use(kit.migrateLegacyCookie);
+  router.use(kit.rejectOperatorInput);
   registerAuthRoutes(router, kit);
   registerPickerRoutes(router, kit);
   registerCaseRoutes(router, kit);

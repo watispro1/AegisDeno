@@ -5,8 +5,29 @@
  */
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
+/** Cookie names on plain-http (local) dashboards, and the legacy https name migrated on first visit. */
 export const SESSION_COOKIE = "aegis_dash";
 export const STATE_COOKIE = "aegis_oauth";
+/**
+ * Cookie names over https. The __Host- prefix makes the browser refuse the
+ * cookie unless it is Secure, has Path=/ and no Domain, so a sibling subdomain
+ * or a plain-http response can never set or shadow it.
+ */
+export const HOST_SESSION_COOKIE = "__Host-aegis_dash";
+export const HOST_STATE_COOKIE = "__Host-aegis_oauth";
+
+export interface CookieNames {
+  session: string;
+  state: string;
+  path: string;
+}
+
+/** Which cookie names and path the dashboard uses: __Host- names on https, plain names under /dashboard on http. */
+export function cookieNames(secure: boolean): CookieNames {
+  return secure
+    ? { session: HOST_SESSION_COOKIE, state: HOST_STATE_COOKIE, path: "/" }
+    : { session: SESSION_COOKIE, state: STATE_COOKIE, path: "/dashboard" };
+}
 /** Absolute session lifetime. The Mongo TTL index uses the same value. */
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** How long a login attempt may take between /login and /callback. */

@@ -14,15 +14,17 @@ COPY src ./src
 RUN npm run build
 
 # ── Runtime: compiled JS + production node_modules, as a non-root user ──────
+# Files stay owned by root and are only readable by the `node` user, so a
+# compromised process cannot rewrite the app or its dependencies.
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --chown=node:node package.json ./
-COPY --from=deps --chown=node:node /app/node_modules ./node_modules
-COPY --from=builder --chown=node:node /app/dist ./dist
+COPY package.json ./
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 # The website renders /changelog and /dashboard/changelog from these files at runtime.
-COPY --chown=node:node CHANGELOG.md DASHBOARD_CHANGELOG.md ./
+COPY CHANGELOG.md DASHBOARD_CHANGELOG.md ./
 
 USER node
 
