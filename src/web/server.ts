@@ -37,6 +37,28 @@ import { mongoSessionStore } from "./dashboard/sessions";
 import { mongoRateLimitStore } from "./dashboard/rateLimitStore";
 import { mongoAuditStore } from "./dashboard/audit";
 import { dashboardScript } from "./dashboard/client";
+import { clientIp, secretMatches, securityHeaders } from "./securityHeaders";
+
+/** Largest request body the site accepts at all; route parsers set tighter limits. */
+const MAX_REQUEST_BYTES = 600 * 1024;
+
+/**
+ * Final Express error handler: logs the error server-side and answers with a
+ * generic message (JSON under /api, plain text elsewhere). Never echoes the
+ * error, its message or a stack trace.
+ */
+export function siteErrorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
+  const status = typeof (err as { status?: unknown })?.status === "number" ? (err as { status: number }).status : 500;
+  const code = status >= 400 && status < 600 ? status : 500;
+  if (code >= 500) logger.error(`Web error on ${req.method} ${req.path}:`, err instanceof Error ? err.message : err);
+  if (res.headersSent) return;
+  res.setHeader("Cache-Control", "no-store");
+  if (req.path.startsWith("/api/")) {
+    res.status(code).json({ error: code === 413 ? "payload_too_large" : code === 400 ? "bad_request" : "server_error" });
+    return;
+  }
+  res.status(code).type("text/plain").send(code === 413 ? "Request too large" : code === 400 ? "Bad request" : "Something went wrong");
+}
 
 const SITE_VERSION = VERSION;
 const STARTED_AT = Date.now();
@@ -57,7 +79,8 @@ const requestCounts = new Map<string, { count: number; windowStartedAt: number }
 
 function apiRateLimit(req: Request, res: Response, next: NextFunction): void {
   const now = Date.now();
-  const key = req.ip || req.socket.remoteAddress || "unknown";
+  // Behind Fly's proxy req.ip is the proxy, so every visitor shared one bucket.
+  const key = clientIp(req);
   const current = requestCounts.get(key);
   const entry = !current || now - current.windowStartedAt >= RATE_WINDOW_MS
     ? { count: 0, windowStartedAt: now }
@@ -103,27 +126,8 @@ function collectStats(client: Client | undefined): Stats {
   };
 }
 
-function applySecurityHeaders(res: Response): void {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=(), interest-cohort=()");
-  res.setHeader(
-    "Content-Security-Policy",
-    [
-      "default-src 'self'",
-      "style-src 'self' 'unsafe-inline'",
-      "font-src 'self'",
-      "img-src 'self' data:",
-      "script-src 'self'",
-      "connect-src 'self'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      "frame-ancestors 'none'",
-      "object-src 'none'",
-    ].join("; ")
-  );
+function applySecurityHeaders(req: Request, res: Response): void {
+  for (const [name, value] of Object.entries(securityHeaders(req.path))) res.setHeader(name, value);
 }
 
 /** Gzip text responses. Fly terminates TLS and does not compress upstream. */
@@ -215,8 +219,19 @@ export function startWebServer(client: Client) {
   const origin = (process.env.SITE_URL || "").replace(/\/$/, "");
 
   app.disable("x-powered-by");
-  app.use((_req: Request, res: Response, next: NextFunction) => {
-    applySecurityHeaders(res);
+  // Query strings are parsed flat (no nested objects), so a value is a string or a list of strings.
+  app.set("query parser", "simple");
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    applySecurityHeaders(req, res);
+    next();
+  });
+  // Only GET/HEAD (and the Top.gg webhook and dashboard forms, which bound their own bodies) are served.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const length = Number(req.headers["content-length"] ?? 0);
+    if (Number.isFinite(length) && length > MAX_REQUEST_BYTES) {
+      res.status(413).type("text/plain").send("Request too large");
+      return;
+    }
     next();
   });
   app.use(compression);
@@ -287,23 +302,24 @@ export function startWebServer(client: Client) {
       res.status(503).json({ error: "webhook_not_configured" });
       return;
     }
-    if (req.headers.authorization !== auth) {
+    if (!secretMatches(req.headers.authorization, auth)) {
       res.status(401).json({ error: "unauthorized" });
       return;
     }
 
-    const { user, type, isWeekend, guild } = req.body ?? {};
-    logger.info(`👍 Top.gg Vote Received: User ${user} (Type: ${type}, Weekend: ${isWeekend}, Guild: ${guild ?? "N/A"})`);
+    const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, unknown>;
+    const field = (v: unknown) => (typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v).slice(0, 40).replace(/[^\w.-]/g, "") : "?");
+    logger.info(`👍 Top.gg Vote Received: User ${field(body.user)} (Type: ${field(body.type)}, Weekend: ${field(body.isWeekend)}, Guild: ${body.guild ? field(body.guild) : "N/A"})`);
     res.json({ status: "ok" });
   });
 
   app.get("/api/commands/:name", (req, res) => {
-    const name = String(req.params.name ?? "").replace(/^\//, "");
+    const name = String(req.params.name ?? "").replace(/^\//, "").slice(0, 64);
     const found = getCommand(name);
 
     if (!found) {
       res.setHeader("Cache-Control", "no-store");
-      res.status(404).json({ error: "unknown_command", name });
+      res.status(404).json({ error: "unknown_command", name: name.replace(/[^a-z0-9_-]/gi, "") });
       return;
     }
 
@@ -379,7 +395,10 @@ export function startWebServer(client: Client) {
   });
   app.get("/add", (_req, res) => res.redirect(301, "/invite"));
   app.get("/command", (_req, res) => res.redirect(302, "/commands"));
-  app.get("/commands/:name", (req, res) => res.redirect(301, `/commands#cmd-${String(req.params.name ?? "")}`));
+  app.get("/commands/:name", (req, res) => {
+    const name = String(req.params.name ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32);
+    res.redirect(301, name ? `/commands#cmd-${name}` : "/commands");
+  });
   app.get("/playground", (_req, res) => res.redirect(301, "/features"));
   app.get("/privacy-policy", (_req, res) => res.redirect(301, "/privacy"));
   app.get("/terms-of-service", (_req, res) => res.redirect(301, "/terms"));
@@ -426,6 +445,9 @@ export function startWebServer(client: Client) {
     const suggestions = suggestPages(req.path, SUGGESTABLE, Array.from(commands.keys()));
     send(res, renderNotFound(cfg, suggestions), 404, "no-store");
   });
+
+  // Last resort: never send a stack trace or error message to the client.
+  app.use(siteErrorHandler);
 
   app.listen(PORT, () => {
     logger.info(`Website listening on port ${PORT} (${ROUTES.length} pages, build ${ASSET_VERSION})`);

@@ -1,3 +1,4 @@
+import { auditReason } from "../utils/safeText";
 import { Client, GuildMember } from "discord.js";
 import { getGuildConfig, type GuildConfig } from "./configuration";
 import { getTotalWarningCount } from "./warnings";
@@ -72,7 +73,7 @@ export async function checkEscalation(
 
     if (threshold.action === "timeout" && member) {
       const durationMs = (threshold.durationMinutes ?? 60) * 60 * 1000;
-      await member.timeout(durationMs, reason);
+      await member.timeout(durationMs, auditReason(reason));
       await createModerationCase({ guildId, userId, moderatorId, action: "timeout", reason, details: `Auto-escalation at ${totalWarnings} warnings. Duration: ${threshold.durationMinutes ?? 60}m` });
       await sendGuildLog(client, guildId, {
         title: "⚡ Auto-Escalation: Timeout",
@@ -80,7 +81,7 @@ export async function checkEscalation(
         description: `**User:** <@${userId}>\n**Reason:** ${reason}\n**Duration:** ${threshold.durationMinutes ?? 60} minutes\n**Triggered at:** ${totalWarnings} warnings`,
       });
     } else if (threshold.action === "kick" && member) {
-      await member.kick(reason);
+      await member.kick(auditReason(reason));
       await createModerationCase({ guildId, userId, moderatorId, action: "kick", reason, details: `Auto-escalation at ${totalWarnings} warnings` });
       await sendGuildLog(client, guildId, {
         title: "⚡ Auto-Escalation: Kick",

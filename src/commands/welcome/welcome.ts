@@ -13,6 +13,7 @@ import {
   TextInputStyle,
   MessageFlags,
 } from "discord.js";
+import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 import { renderWelcomeTemplate } from "../../services/communityLogic";
@@ -226,7 +227,7 @@ export const command: Command = {
     // ── MESSAGE ───────────────────────────────────────────────────────────────
     if (sub === "message") {
       const modal = new ModalBuilder()
-        .setCustomId("welcome_msg_modal")
+        .setCustomId(scopedModalId("welcome_msg_modal", interaction.id))
         .setTitle("Welcome Message Editor");
 
       const msgInput = new TextInputBuilder()
@@ -254,7 +255,7 @@ export const command: Command = {
 
       const modalResponse = await interaction.awaitModalSubmit({
         time: 300_000,
-        filter: (m) => m.user.id === interaction.user.id && m.customId === "welcome_msg_modal",
+        filter: (m) => m.user.id === interaction.user.id && m.customId === scopedModalId("welcome_msg_modal", interaction.id),
       }).catch(() => null);
 
       if (!modalResponse) return;

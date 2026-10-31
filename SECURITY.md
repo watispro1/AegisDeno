@@ -74,6 +74,22 @@ Fixes ship as a normal release and are listed in
 advisory may be published, and you will be credited there if you would like to
 be.
 
+## How Aegis protects servers and visitors
+
+- Bot messages never ping @everyone, @here or roles unless the feature is meant
+  to (an `/announce` ping, the ticket staff-role ping); user-supplied text can't
+  trigger a mass ping.
+- Every moderation action checks the moderator's and Aegis's role positions,
+  again at confirmation time for timeouts and bans.
+- The website and dashboard send a strict Content Security Policy (no inline
+  scripts or styles), HSTS, `nosniff`, frame denial and cross-origin isolation
+  headers, and never return error details or stack traces.
+- Dashboard sessions use `__Host-` cookies (HttpOnly, Secure, SameSite=Lax), a
+  new session on every login, a CSRF token and Origin check on every form,
+  live permission checks on every request, rate limits stored in the database,
+  bounded request bodies, and refuse Mongo-operator-like input.
+- Logs redact tokens, secrets and database credentials.
+
 Machine-readable contact details are served at
 https://aegisdeno.fly.dev/.well-known/security.txt, and a short version of this
 policy is at https://aegisdeno.fly.dev/security.

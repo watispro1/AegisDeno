@@ -29,10 +29,14 @@ import {
   watchlistOnMessageDelete,
   watchlistOnRoleChange,
   watchlistOnVoiceJoin,
+  startWatchlistSync,
 } from "../services/watchlistService";
 import { recordMemberMessage } from "../services/memberActivity";
 import { touchTicketActivity } from "../services/ticketActivity";
 import { isObfuscatedChannel } from "../utils/channels";
+import { DEFAULT_ALLOWED_MENTIONS } from "./mentions";
+import { isContentEdit } from "./eventFilters";
+import { codeBlock } from "../utils/safeText";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -54,6 +58,10 @@ export function createClient(): Client {
     // Message, Channel and Reaction partials deliver reactions on messages that
     // are not in the cache (anything sent before the bot last started).
     partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.GuildMember],
+    // Safe default for every message, reply and webhook: user mentions ping,
+    // but @everyone, @here and role mentions inside user-supplied text never do.
+    // Features that are meant to ping a role or everyone opt in per message.
+    allowedMentions: DEFAULT_ALLOWED_MENTIONS,
   });
 
   // Attach commands collection to client for easy access
@@ -74,6 +82,7 @@ export function setupEvents(client: Client): void {
     logger.info(`📡 Serving ${c.guilds.cache.size} guild(s).`);
 
     applyPresence(c);
+    startWatchlistSync();
   });
 
   // Discord drops a presence that is not refreshed, so re-send it periodically.
@@ -156,14 +165,7 @@ export function setupEvents(client: Client): void {
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.guildId) return;
 
-    // 1. Autoresponder check
-    const responded = await processAutoResponders(message).catch(err => {
-      logger.error("Autoresponder error:", err);
-      return false;
-    });
-    if (responded) return;
-
-    // 2. Ghost Watch — alert watchers on message
+    // Activity, ticket and Ghost Watch bookkeeping run for every message.
     // Track message count / last active (debounced, no content) & first message of the day
     const isFirstToday = await recordMemberMessage(message.guildId, message.author.id).catch(() => false);
 
@@ -174,15 +176,28 @@ export function setupEvents(client: Client): void {
       logger.warn("Watchlist message error:", err)
     );
 
-    // 3. Automod check
-    await processAutomod(client, message).catch(err =>
-      logger.error("Automod error (create):", err)
-    );
+    // Automod runs before the autoresponder. Previously a message that matched
+    // an autoresponder trigger returned early and skipped automod (and Ghost
+    // Watch), so a blocked word next to a trigger phrase went through.
+    const removed = await processAutomod(client, message).catch(err => {
+      logger.error("Automod error (create):", err);
+      return false;
+    });
+    if (removed) return;
+
+    await processAutoResponders(message).catch(err => {
+      logger.error("Autoresponder error:", err);
+      return false;
+    });
   });
 
   // ─── Automod (edited messages) ────────────────────────────────────────────
-  client.on(Events.MessageUpdate, async (_old, newMessage) => {
+  client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
     if (!newMessage.guildId) return;
+    // Discord also sends an update when it attaches a link preview or the
+    // message is pinned. Only a real content change counts as an edit; before
+    // this, a link preview re-ran automod and sent a Ghost Watch "edited" alert.
+    if (!isContentEdit(oldMessage, newMessage)) return;
     // Fetch partial to get full content
     const msg = newMessage.partial ? await newMessage.fetch().catch(() => null) : newMessage;
     if (!msg || msg.author?.bot) return;
@@ -212,9 +227,9 @@ export function setupEvents(client: Client): void {
       title: "🗑️ Message Deleted",
       color: 0xE74C3C,
       description: [
-        `**Author:** ${message.author?.tag ?? "Unknown"} (<@${message.author?.id}>)`,
+        `**Author:** ${message.author ? `${message.author.tag} (<@${message.author.id}>)` : "Unknown (message was not cached)"}`,
         `**Channel:** <#${message.channelId}>`,
-        message.content ? `\n**Content:**\n\`\`\`\n${message.content.substring(0, 900)}\`\`\`` : "",
+        message.content ? `\n**Content:**\n${codeBlock(message.content, 920)}` : "",
       ].join("\n"),
     }, "messageDeletes");
   });

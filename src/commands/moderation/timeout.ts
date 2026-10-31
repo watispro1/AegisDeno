@@ -18,6 +18,40 @@ import { addModerationCase, revokeModerationCase } from "../../services/moderati
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
 import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
 import { ModerationCaseModel } from "../../database/mongo";
+import { buildDurationSuggestions } from "../../utils/moderationPresets";
+import { formatDurationLong, parseFriendlyDuration } from "../../utils/duration";
+import { auditReason, truncate } from "../../utils/safeText";
+import type { AutocompleteInteraction } from "discord.js";
+
+/** Discord's longest timeout: 28 days. */
+export const MAX_TIMEOUT_SECONDS = 28 * 86_400;
+
+/**
+ * The timeout length from `/timeout`: the `custom_duration` text when given
+ * (e.g. "90m", "1d 12h", "2 weeks"), otherwise the `duration` choice. One of
+ * the two is required; the result is 1 minute to 28 days.
+ */
+export function resolveTimeoutSeconds(choice: number | null, custom: string | null): { ok: true; seconds: number } | { ok: false; error: string } {
+  const text = custom?.trim() ?? "";
+  if (text) {
+    const seconds = parseFriendlyDuration(text);
+    if (seconds === null) return { ok: false, error: "❌ I couldn't read that duration. Try `90m`, `2h`, `1d 12h` or `2 weeks`." };
+    if (seconds < 60 || seconds > MAX_TIMEOUT_SECONDS) return { ok: false, error: "❌ A timeout must last between 1 minute and 28 days (Discord's limit)." };
+    return { ok: true, seconds };
+  }
+  if (choice === null || !Number.isInteger(choice) || choice <= 0) {
+    return { ok: false, error: "❌ Pick a `duration`, or type one in `custom_duration` (e.g. `90m`, `1d 12h`)." };
+  }
+  return { ok: true, seconds: Math.min(choice, MAX_TIMEOUT_SECONDS) };
+}
+
+const CUSTOM_DURATION_PRESETS = [
+  { name: "15 minutes", value: "15m" },
+  { name: "2 hours", value: "2h" },
+  { name: "1 day 12 hours", value: "1d 12h" },
+  { name: "2 weeks", value: "2w" },
+  { name: "28 days (maximum)", value: "28d" },
+] as const;
 
 const DURATION_CHOICES = [
   { name: "60 seconds",  value: 60 },
@@ -50,8 +84,8 @@ export const command: Command = {
     .addIntegerOption(opt =>
       opt
         .setName("duration")
-        .setDescription("Timeout duration")
-        .setRequired(true)
+        .setDescription("Timeout duration (or type any length in custom_duration)")
+        .setRequired(false)
         .addChoices(...DURATION_CHOICES)
     )
     .addStringOption(opt =>
@@ -76,13 +110,23 @@ export const command: Command = {
     .addAttachmentOption(opt =>
       opt.setName("proof").setDescription("Optional screenshot or proof, stored with the case").setRequired(false)
     )
+    .addStringOption(opt =>
+      opt.setName("custom_duration").setDescription("Any length up to 28 days, e.g. 90m, 1d 12h, 2 weeks (overrides duration)").setAutocomplete(true).setMaxLength(64).setRequired(false)
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ModerateMembers],
   botPermissions:  [PermissionFlagsBits.ModerateMembers],
 
-  autocomplete: handleReasonAutocomplete,
+  autocomplete: async (interaction: AutocompleteInteraction) => {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name === "custom_duration") {
+      await interaction.respond(buildDurationSuggestions(String(focused.value ?? ""), CUSTOM_DURATION_PRESETS, { minSeconds: 60, maxSeconds: MAX_TIMEOUT_SECONDS }));
+      return;
+    }
+    await handleReasonAutocomplete(interaction);
+  },
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     let target = interaction.options.getMember("user") as GuildMember | null;
@@ -92,7 +136,11 @@ export const command: Command = {
         target = await interaction.guild.members.fetch(user.id).catch(() => null);
       }
     }
-    const durationSec  = interaction.options.getInteger("duration", true);
+    const resolved     = resolveTimeoutSeconds(interaction.options.getInteger("duration"), interaction.options.getString("custom_duration"));
+    if (!resolved.ok) {
+      return interaction.reply({ content: resolved.error, flags: MessageFlags.Ephemeral });
+    }
+    const durationSec  = resolved.seconds;
     const durationMs   = durationSec * 1000;
     const preset       = interaction.options.getString("preset");
     const customReason = interaction.options.getString("reason");
@@ -124,8 +172,8 @@ export const command: Command = {
       return interaction.reply({ content: "❌ You cannot timeout this member — they have a higher or equal role.", flags: MessageFlags.Ephemeral });
     }
 
-    const until = new Date(Date.now() + durationMs);
-    const durationLabel = formatDuration(durationSec);
+    let until = new Date(Date.now() + durationMs);
+    const durationLabel = DURATION_CHOICES.some(c => c.value === durationSec) ? formatDuration(durationSec) : formatDurationLong(durationSec);
     const alreadyTimedOut = target.communicationDisabledUntil && target.communicationDisabledUntil > new Date();
 
     const confirmEmbed = new EmbedBuilder()
@@ -183,7 +231,16 @@ export const command: Command = {
 
       await i.deferUpdate();
       try {
-        await target.timeout(durationMs, `${reason} | By ${interaction.user.tag}`);
+        // Roles can change during the 30-second confirmation: check again.
+        const stillOk = await isRoleHierarchyValid(interaction.client, guildId, interaction.user.id, target.id);
+        const fresh = await interaction.guild!.members.fetch(target.id).catch(() => null);
+        if (!stillOk || !fresh || !fresh.moderatable) {
+          await i.editReply({ content: !fresh ? "❌ That member left the server while you were confirming. Nothing was done." : "❌ The member's roles changed while you were confirming, and they can no longer be timed out. Nothing was done.", embeds: [], components: [] });
+          return;
+        }
+        await fresh.timeout(durationMs, auditReason(`${reason} | By ${interaction.user.tag}`));
+        // The timeout runs from now, not from when the command was typed.
+        until = new Date(Date.now() + durationMs);
 
         const appliedAt = Date.now();
         const caseId = await addModerationCase({
@@ -285,7 +342,7 @@ export const command: Command = {
               return;
             }
             try {
-              await refreshedMember.timeout(null, `Timeout undone by ${bi.user.tag}`);
+              await refreshedMember.timeout(null, auditReason(`Timeout undone by ${bi.user.tag}`));
             } catch (undoErr) {
               logger.warn(`Undo timeout failed for ${target.id} in ${guildId}`, undoErr);
               await bi.followUp({ content: "❌ Could not lift the timeout. Check my permissions.", flags: MessageFlags.Ephemeral });
@@ -317,7 +374,12 @@ export const command: Command = {
             const durationMs = Math.max(newExpiryMs - Date.now(), 60_000);
             const newUntil = new Date(newExpiryMs);
 
-            await refreshedMember.timeout(durationMs, `Timeout extended +1h by ${bi.user.tag}`).catch(() => null);
+            const extended = await refreshedMember.timeout(durationMs, auditReason(`Timeout extended +1h by ${bi.user.tag}`)).then(() => true).catch(() => false);
+            if (!extended) {
+              // Don't record or log an extension that did not happen.
+              await bi.followUp({ content: "❌ Could not extend the timeout. Check my permissions and role position.", flags: MessageFlags.Ephemeral });
+              return;
+            }
             await addModerationCase({
               guildId,
               userId: target.id,
@@ -344,7 +406,7 @@ export const command: Command = {
               await bi.reply({ content: `✅ <@${target.id}> has no prior moderation cases recorded.`, flags: MessageFlags.Ephemeral });
             } else {
               const lines = cases.map((c, idx) =>
-                `**${idx + 1}.** \`${c.action.toUpperCase()}\`${c.revoked ? " *(revoked)*" : ""} — ${c.reason} (<t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>)`
+                `**${idx + 1}.** \`${c.action.toUpperCase()}\`${c.revoked ? " *(revoked)*" : ""} — ${truncate(String(c.reason ?? ""), 250)} (<t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>)`
               );
               await bi.reply({
                 content: `📜 **Recent Moderation Cases for <@${target.id}> (${cases.length}):**\n${lines.join("\n")}`,

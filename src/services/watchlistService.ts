@@ -6,8 +6,9 @@
  * takes a monitored action. The watched member is never notified.
  */
 
-import { Client, EmbedBuilder, GuildMember, Message, PartialGuildMember, VoiceState } from "discord.js";
-import { isSendableChannel, channelDisplayName } from "../utils/channels";
+import { Client, EmbedBuilder, Guild, GuildMember, Message, PartialGuildMember, PermissionFlagsBits, VoiceState } from "discord.js";
+import { isSendableChannel, channelDisplayName, isObfuscatedChannel } from "../utils/channels";
+import { codeBlock } from "../utils/safeText";
 import { WatchlistEntryModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 
@@ -48,15 +49,61 @@ export function watchesVoice(events: readonly string[]): boolean {
 
 // ─── Fast In-Memory Watch Cache ───────────────────────────────────────────────
 
-interface CachedWatch {
+export interface CachedWatch {
   moderatorId: string;
   events: string[];
   expiresAt: Date | null;
   alertChannelId?: string | null;
 }
 
-const activeWatchKeys = new Set<string>(); // key: `${guildId}:${targetId}`
-const watchCache = new Map<string, CachedWatch[]>(); // key: `${guildId}:${targetId}`
+/** One row the periodic sync reads from Mongo. */
+export interface WatchRow {
+  guildId: string;
+  targetId: string;
+  moderatorId: string;
+  events: string[];
+  expiresAt?: Date | null;
+  alertChannelId?: string | null;
+}
+
+type CacheMutation =
+  | { kind: "upsert"; guildId: string; targetId: string; watch: CachedWatch }
+  | { kind: "remove"; guildId: string; targetId: string; moderatorId: string };
+
+let activeWatchKeys = new Set<string>(); // key: `${guildId}:${targetId}`
+let watchCache = new Map<string, CachedWatch[]>(); // key: `${guildId}:${targetId}`
+/**
+ * Mutations made while a sync is reading Mongo. The sync's snapshot may
+ * predate them, so they are replayed onto the rebuilt cache; without this a
+ * watch added during the read was dropped (until the next sync a minute later)
+ * and a removed one came back.
+ */
+let pendingMutations: CacheMutation[] | null = null;
+let syncInFlight: Promise<void> | null = null;
+
+function applyMutation(keys: Set<string>, cache: Map<string, CachedWatch[]>, m: CacheMutation): void {
+  const key = `${m.guildId}:${m.targetId}`;
+  const list = cache.get(key) ?? [];
+  if (m.kind === "upsert") {
+    const idx = list.findIndex(w => w.moderatorId === m.watch.moderatorId);
+    if (idx >= 0) list[idx] = m.watch; else list.push(m.watch);
+    cache.set(key, list);
+    keys.add(key);
+    return;
+  }
+  const filtered = list.filter(w => w.moderatorId !== m.moderatorId);
+  if (filtered.length === 0) {
+    keys.delete(key);
+    cache.delete(key);
+  } else {
+    cache.set(key, filtered);
+  }
+}
+
+function mutate(m: CacheMutation): void {
+  applyMutation(activeWatchKeys, watchCache, m);
+  pendingMutations?.push(m);
+}
 
 export function updateWatchCache(
   guildId: string,
@@ -66,16 +113,7 @@ export function updateWatchCache(
   expiresAt: Date | null,
   alertChannelId: string | null = null,
 ): void {
-  const key = `${guildId}:${targetId}`;
-  activeWatchKeys.add(key);
-  const list = watchCache.get(key) ?? [];
-  const idx = list.findIndex(w => w.moderatorId === moderatorId);
-  if (idx >= 0) {
-    list[idx] = { moderatorId, events, expiresAt, alertChannelId };
-  } else {
-    list.push({ moderatorId, events, expiresAt, alertChannelId });
-  }
-  watchCache.set(key, list);
+  mutate({ kind: "upsert", guildId, targetId, watch: { moderatorId, events, expiresAt, alertChannelId } });
 }
 
 export function removeWatchFromCache(
@@ -83,87 +121,170 @@ export function removeWatchFromCache(
   targetId: string,
   moderatorId: string,
 ): void {
-  const key = `${guildId}:${targetId}`;
-  const list = watchCache.get(key);
-  if (!list) return;
-  const filtered = list.filter(w => w.moderatorId !== moderatorId);
-  if (filtered.length === 0) {
-    activeWatchKeys.delete(key);
-    watchCache.delete(key);
-  } else {
-    watchCache.set(key, filtered);
-  }
+  mutate({ kind: "remove", guildId, targetId, moderatorId });
 }
 
-export async function syncActiveWatches(): Promise<void> {
-  try {
-    const now = new Date();
-    const entries = await WatchlistEntryModel.find({
-      $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
-    }).select("guildId targetId moderatorId events expiresAt alertChannelId").lean();
+/** The cached watches for one member (a copy). Exposed for tests and diagnostics. */
+export function cachedWatches(guildId: string, targetId: string): CachedWatch[] {
+  return [...(watchCache.get(`${guildId}:${targetId}`) ?? [])];
+}
 
-    activeWatchKeys.clear();
-    watchCache.clear();
+async function loadActiveWatchRows(): Promise<WatchRow[]> {
+  const now = new Date();
+  const rows = await WatchlistEntryModel.find({
+    $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+  }).select("guildId targetId moderatorId events expiresAt alertChannelId").lean();
+  return rows as unknown as WatchRow[];
+}
 
-    for (const entry of entries as any[]) {
-      const key = `${entry.guildId}:${entry.targetId}`;
-      activeWatchKeys.add(key);
-      const list = watchCache.get(key) ?? [];
-      list.push({
-        moderatorId: entry.moderatorId,
-        events: entry.events,
-        expiresAt: entry.expiresAt ?? null,
-        alertChannelId: entry.alertChannelId ?? null,
-      });
-      watchCache.set(key, list);
+/**
+ * Rebuild the cache from Mongo. Concurrent calls share one read. Watches added
+ * or removed while the read is in flight are replayed on top of it.
+ */
+export function syncActiveWatches(load: () => Promise<WatchRow[]> = loadActiveWatchRows): Promise<void> {
+  if (syncInFlight) return syncInFlight;
+  syncInFlight = (async () => {
+    pendingMutations = [];
+    try {
+      const entries = await load();
+      const keys = new Set<string>();
+      const cache = new Map<string, CachedWatch[]>();
+      for (const entry of entries) {
+        applyMutation(keys, cache, {
+          kind: "upsert",
+          guildId: entry.guildId,
+          targetId: entry.targetId,
+          watch: {
+            moderatorId: entry.moderatorId,
+            events: entry.events,
+            expiresAt: entry.expiresAt ?? null,
+            alertChannelId: entry.alertChannelId ?? null,
+          },
+        });
+      }
+      for (const m of pendingMutations) applyMutation(keys, cache, m);
+      activeWatchKeys = keys;
+      watchCache = cache;
+    } catch (err) {
+      // Keep the cache we have; a failed read must not drop every watch.
+      logger.warn("Failed to synchronize active ghost watches:", err);
+    } finally {
+      pendingMutations = null;
+      syncInFlight = null;
     }
-  } catch (err) {
-    logger.warn("Failed to synchronize active ghost watches:", err);
+  })();
+  return syncInFlight;
+}
+
+let syncTimer: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Start the background sync (prunes expired watches, picks up changes made on
+ * other instances). Called once the client is ready; idempotent. Not started
+ * on import, so tests and scripts that import this module touch no database.
+ */
+export function startWatchlistSync(): void {
+  if (syncTimer) return;
+  void syncActiveWatches();
+  syncTimer = setInterval(() => {
+    void syncActiveWatches();
+  }, 60_000);
+  syncTimer.unref?.();
+}
+
+// ─── Privacy gate ─────────────────────────────────────────────────────────────
+
+/** Where an alert came from: a channel for message and voice events, none for joins, leaves and roles. */
+export interface AlertSource {
+  guild: Guild;
+  channelId?: string | null;
+}
+
+/**
+ * Whether a watcher may still receive an alert: they are still in the server,
+ * still hold Moderate Members (the permission /watchlist needs), and, for an
+ * event that happened in a channel, can currently view that channel.
+ * Anything that cannot be confirmed counts as "no".
+ */
+export async function watcherMayReceive(source: AlertSource, moderatorId: string): Promise<boolean> {
+  try {
+    const member = source.guild.members.cache.get(moderatorId)
+      ?? await source.guild.members.fetch(moderatorId).catch(() => null);
+    if (!member) return false;
+    if (!member.permissions.has(PermissionFlagsBits.ModerateMembers)) return false;
+    if (!source.channelId) return true;
+    const channel = source.guild.channels.cache.get(source.channelId)
+      ?? await source.guild.channels.fetch(source.channelId).catch(() => null);
+    if (!channel || isObfuscatedChannel(channel)) return false;
+    const perms = channel.permissionsFor(member);
+    return Boolean(perms?.has(PermissionFlagsBits.ViewChannel));
+  } catch {
+    return false;
   }
 }
 
-// Background sync interval (prunes expired watches and syncs from DB)
-const sweepInterval = setInterval(() => {
-  syncActiveWatches().catch(() => null);
-}, 60_000);
-sweepInterval.unref?.();
+/**
+ * Whether the staff alert channel post should leave out what was said and
+ * where: when the source channel is private (its @everyone cannot view it),
+ * people in the alert channel may not be allowed to read it.
+ */
+export function sourceIsPrivate(source: AlertSource): boolean {
+  if (!source.channelId) return false;
+  const channel = source.guild.channels.cache.get(source.channelId);
+  if (!channel || isObfuscatedChannel(channel)) return true;
+  const perms = channel.permissionsFor(source.guild.roles.everyone);
+  return !perms?.has(PermissionFlagsBits.ViewChannel);
+}
 
-// Trigger initial sync shortly after startup
-setTimeout(() => {
-  syncActiveWatches().catch(() => null);
-}, 2_000).unref?.();
+/** A copy of an alert embed without message content or jump links, for alert channels. */
+export function redactAlertEmbed(embed: EmbedBuilder): EmbedBuilder {
+  const copy = EmbedBuilder.from(embed.toJSON());
+  const fields = (copy.data.fields ?? []).filter(f => !/Content|Jump/i.test(f.name));
+  copy.setFields(fields);
+  copy.addFields({ name: "🔒 Redacted", value: "This happened in a private channel, so the content is only in the watcher's DM.", inline: false });
+  return copy;
+}
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 /**
  * DM the watching moderator and, if the watch has one, post to its staff alert
- * channel. `postedChannels` de-duplicates channel posts when several
+ * channel. Nothing is sent unless the watcher still qualifies (see
+ * watcherMayReceive). `postedChannels` de-duplicates channel posts when several
  * moderators watching the same member share a channel.
+ * Returns whether anything was delivered.
  */
 async function sendWatchAlert(
   client: Client,
+  source: AlertSource,
   watch: CachedWatch,
   embed: EmbedBuilder,
   postedChannels?: Set<string>,
-): Promise<void> {
+): Promise<boolean> {
+  if (!(await watcherMayReceive(source, watch.moderatorId))) {
+    logger.debug(`Ghost Watch: skipped alert for ${watch.moderatorId} in ${source.guild.id} (no longer a moderator or cannot view the source channel)`);
+    return false;
+  }
   try {
     const mod = client.users.cache.get(watch.moderatorId) ?? await client.users.fetch(watch.moderatorId);
-    await mod.send({ embeds: [embed] });
+    await mod.send({ embeds: [embed], allowedMentions: { parse: [] } });
   } catch {
     // DMs closed or user not found — silently skip
   }
 
   const channelId = watch.alertChannelId;
-  if (!channelId || postedChannels?.has(channelId)) return;
+  if (!channelId || postedChannels?.has(channelId)) return true;
   postedChannels?.add(channelId);
   try {
     const channel = client.channels.cache.get(channelId) ?? await client.channels.fetch(channelId);
-    if (isSendableChannel(channel)) {
-      await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+    if (isSendableChannel(channel) && "guildId" in channel && channel.guildId === source.guild.id) {
+      const posted = sourceIsPrivate(source) ? redactAlertEmbed(embed) : embed;
+      await channel.send({ embeds: [posted], allowedMentions: { parse: [] } });
     }
   } catch {
     // Channel deleted or no access — skip
   }
+  return true;
 }
 
 async function getWatches(guildId: string, targetId: string): Promise<CachedWatch[]> {
@@ -217,8 +338,7 @@ export async function watchlistOnJoin(client: Client, member: GuildMember): Prom
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w, embed, posted);
-    await incrementAlertCount(member.guild.id, member.id, w.moderatorId);
+    if (await sendWatchAlert(client, { guild: member.guild }, w, embed, posted)) await incrementAlertCount(member.guild.id, member.id, w.moderatorId);
   }
 }
 
@@ -240,14 +360,13 @@ export async function watchlistOnLeave(client: Client, member: GuildMember | Par
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w, embed, posted);
-    await incrementAlertCount(member.guild.id, member.id, w.moderatorId);
+    if (await sendWatchAlert(client, { guild: member.guild }, w, embed, posted)) await incrementAlertCount(member.guild.id, member.id, w.moderatorId);
   }
 }
 
 /** Called from MessageCreate */
 export async function watchlistOnMessage(client: Client, message: Message, isFirstOfDay = false): Promise<void> {
-  if (!message.guildId || message.author.bot) return;
+  if (!message.guildId || !message.guild || message.author.bot) return;
   const watches = await getWatches(message.guildId, message.author.id);
   const posted = new Set<string>();
   for (const w of watches) {
@@ -263,18 +382,17 @@ export async function watchlistOnMessage(client: Client, message: Message, isFir
         { name: "👤 User",     value: `${message.author.tag} (<@${message.author.id}>)`, inline: true },
         { name: "📺 Channel",  value: `<#${message.channelId}>`, inline: true },
         { name: "🔗 Jump",     value: `[Open Message](${message.url})`, inline: true },
-        { name: "💬 Content",  value: `\`\`\`\n${preview}\n\`\`\``, inline: false },
+        { name: "💬 Content",  value: codeBlock(preview), inline: false },
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w, embed, posted);
-    await incrementAlertCount(message.guildId, message.author.id, w.moderatorId);
+    if (await sendWatchAlert(client, { guild: message.guild!, channelId: message.channelId }, w, embed, posted)) await incrementAlertCount(message.guildId, message.author.id, w.moderatorId);
   }
 }
 
 /** Called from MessageUpdate */
 export async function watchlistOnMessageEdit(client: Client, message: Message): Promise<void> {
-  if (!message.guildId || message.author?.bot) return;
+  if (!message.guildId || !message.guild || !message.author || message.author.bot) return;
   const watches = await getWatches(message.guildId, message.author.id);
   const posted = new Set<string>();
   for (const w of watches) {
@@ -288,18 +406,17 @@ export async function watchlistOnMessageEdit(client: Client, message: Message): 
         { name: "👤 User",     value: `${message.author.tag} (<@${message.author.id}>)`, inline: true },
         { name: "📺 Channel",  value: `<#${message.channelId}>`, inline: true },
         { name: "🔗 Jump",     value: `[Open Message](${message.url})`, inline: true },
-        { name: "💬 New Content", value: `\`\`\`\n${preview}\n\`\`\``, inline: false },
+        { name: "💬 New Content", value: codeBlock(preview), inline: false },
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w, embed, posted);
-    await incrementAlertCount(message.guildId, message.author.id, w.moderatorId);
+    if (await sendWatchAlert(client, { guild: message.guild!, channelId: message.channelId }, w, embed, posted)) await incrementAlertCount(message.guildId, message.author.id, w.moderatorId);
   }
 }
 
 /** Called from MessageDelete */
 export async function watchlistOnMessageDelete(client: Client, message: Message): Promise<void> {
-  if (!message.guildId || !message.author || message.author.bot) return;
+  if (!message.guildId || !message.guild || !message.author || message.author.bot) return;
   const watches = await getWatches(message.guildId, message.author.id);
   const posted = new Set<string>();
   for (const w of watches) {
@@ -312,12 +429,11 @@ export async function watchlistOnMessageDelete(client: Client, message: Message)
       .addFields(
         { name: "👤 User",    value: `${message.author.tag} (<@${message.author.id}>)`, inline: true },
         { name: "📺 Channel", value: `<#${message.channelId}>`, inline: true },
-        { name: "💬 Deleted Content", value: `\`\`\`\n${preview}\n\`\`\``, inline: false },
+        { name: "💬 Deleted Content", value: codeBlock(preview), inline: false },
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w, embed, posted);
-    await incrementAlertCount(message.guildId, message.author.id, w.moderatorId);
+    if (await sendWatchAlert(client, { guild: message.guild!, channelId: message.channelId }, w, embed, posted)) await incrementAlertCount(message.guildId, message.author.id, w.moderatorId);
   }
 }
 
@@ -353,8 +469,7 @@ export async function watchlistOnRoleChange(client: Client, oldMember: GuildMemb
       )
       .setFooter({ text: `Ghost Watch • You are watching this member` })
       .setTimestamp();
-    await sendWatchAlert(client, w, embed, posted);
-    await incrementAlertCount(newMember.guild.id, newMember.id, w.moderatorId);
+    if (await sendWatchAlert(client, { guild: newMember.guild }, w, embed, posted)) await incrementAlertCount(newMember.guild.id, newMember.id, w.moderatorId);
   }
 }
 
@@ -381,7 +496,6 @@ export async function watchlistOnVoiceJoin(client: Client, voiceState: VoiceStat
       .setFooter({ text: "Ghost Watch • You are watching this member" })
       .setTimestamp();
 
-    await sendWatchAlert(client, w, embed, posted);
-    await incrementAlertCount(voiceState.guild.id, voiceState.member.id, w.moderatorId);
+    if (await sendWatchAlert(client, { guild: voiceState.guild, channelId: channel.id }, w, embed, posted)) await incrementAlertCount(voiceState.guild.id, voiceState.member.id, w.moderatorId);
   }
 }

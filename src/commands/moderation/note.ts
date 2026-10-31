@@ -13,6 +13,7 @@ import {
   TextInputStyle,
   MessageFlags,
 } from "discord.js";
+import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { StaffNoteModel } from "../../database/mongo";
 
@@ -72,7 +73,7 @@ export const command: Command = {
       }
 
       const modal = new ModalBuilder()
-        .setCustomId(`note_add_modal_${target.id}`)
+        .setCustomId(scopedModalId(`note_add_modal_${target.id}`, interaction.id))
         .setTitle(`Add Note — ${target.username}`);
 
       const noteInput = new TextInputBuilder()
@@ -88,7 +89,7 @@ export const command: Command = {
 
       const modalResponse = await interaction.awaitModalSubmit({
         time: 300_000,
-        filter: (m) => m.user.id === interaction.user.id && m.customId === `note_add_modal_${target.id}`,
+        filter: (m) => m.user.id === interaction.user.id && m.customId === scopedModalId(`note_add_modal_${target.id}`, interaction.id),
       }).catch(() => null);
 
       if (!modalResponse) return;

@@ -9,6 +9,187 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.6.2] - 2026-10-31
+
+Bug fixes, security hardening across the bot, website and dashboard, upgrades
+to `/ban`, `/timeout`, `/giveaway` and `/suggest`, a dashboard role-hierarchy
+fix and dashboard improvements, and the website code split into smaller
+modules. Discord permissions, intents and environment variables are unchanged,
+and the command count is the same; a few commands gained optional options
+(listed below), so slash commands are re-registered on deploy. Existing options
+keep their names and still work. Includes dashboard 1.2.3 (see
+`DASHBOARD_CHANGELOG.md`).
+
+### Added
+- `/ban duration:` makes a **temporary ban**: type `12h`, `7d`, `2 weeks` or
+  `1d 12h` (one minute to one year; empty means permanent, as before). Aegis
+  lifts the ban when it runs out, also after a restart, logs it and records an
+  unban case. A new ban, `/unban`, the Undo button or an approved appeal
+  cancels a pending automatic unban, so an old temporary ban can never lift a
+  later permanent one. The ban reason starts with a `[temp:…]` marker and the
+  automatic unban only lifts a ban that still carries it, so a member who was
+  unbanned and banned again outside Aegis (for example in Discord's member
+  menu) stays banned. If Discord can't be reached when the ban runs out, the
+  unban is retried instead of dropped. The option suggests lengths and shows
+  how what you typed reads ("1d12h → 1 day 12 hours").
+- `/timeout custom_duration:` takes any length up to Discord's 28-day limit
+  (`90m`, `1d 12h`, `2 weeks`), with the same suggestions. The `duration`
+  presets still work; one of the two is needed.
+- `/giveaway end` and `/giveaway reroll` suggest the server's running or
+  ended giveaways by prize as you type `message_id`, and accept a pasted
+  message link as well as an ID.
+- `/suggest approve`, `deny`, `consider` and `info` suggest suggestions by
+  title as you type `id` (review choices only for staff with Manage Server).
+
+### Changed
+- `/ban`: says when the member is already banned (with the existing reason)
+  instead of asking to ban again; shows the ban length in the confirmation,
+  result and log; and checks role positions again when you press Confirm, in
+  case they changed during the 30 seconds.
+- `/timeout`: the expiry is counted from when you confirm, not from when you
+  typed the command, and role positions are checked again on Confirm. The
+  case-history button shortens long reasons so the list always fits.
+- `/giveaway start`: `duration` also takes forms like `1d 12h` or `3 days`;
+  the channel picker only offers text and announcement channels; Aegis checks
+  it can view, send and embed links in that channel before posting; a managed
+  (integration) role is refused as the required role. The required-role
+  message names the role, and `/giveaway list` shows the entry count.
+- `/suggest setup` only accepts text and announcement channels (the picker
+  filters them, and the command checks again), refuses a channel Aegis can't
+  see, and says which permission is missing (View Channel, Send Messages or
+  Embed Links) before saving. Suggestions can now be posted in an
+  announcement channel.
+- `/purge` checks View Channel, Read Message History and Manage Messages in
+  the channel itself (not just server-wide) before scanning.
+- Automod no longer acts on members with Administrator or Manage Server (the
+  same staff Discord's own AutoMod exempts), and its mention-spam rule counts
+  role mentions and @everyone/@here as well as users.
+- Ghost Watch only sends an alert to a watcher who is still in the server,
+  still has Moderate Members and, for message and voice events, can view that
+  channel at that moment; otherwise the alert is skipped and not counted.
+  When the event happened in a private channel, the copy posted to a staff
+  alert channel leaves out the message text and link (the watcher's DM keeps
+  them).
+- The website code is split into smaller modules (one per page for the site
+  and the dashboard, the dashboard routes by section, and the stylesheet and
+  site script by area). The split itself changed no page; the dashboard
+  changes below are listed separately.
+
+### Fixed
+- **A message that matched an auto-responder skipped automod and Ghost
+  Watch.** The auto-responder ran first and stopped all further checks, so a
+  blocked word or link next to a trigger phrase went through. Automod now
+  runs first, and the auto-responder only answers messages automod left up.
+- A link preview or pin counted as an edit: Discord's update re-ran automod
+  on the message and sent a Ghost Watch "edited" alert. Only real text
+  changes count now. Edits also no longer count toward the spam-rate rule.
+- Ghost Watch could lose a watch added (or bring back one removed) during
+  its once-a-minute refresh; changes made while the refresh reads the
+  database are now kept. A failed refresh keeps the current watches instead
+  of dropping them.
+- Pressing a giveaway's Enter button twice quickly said "You are entered"
+  both times. Entry is now one atomic step: the second press says you are
+  already entered. The button also acknowledges before looking you up, so it
+  no longer shows "This interaction failed" on a slow lookup.
+- Two Reroll presses at once could draw and announce winners twice; only one
+  reroll goes through now.
+- A giveaway prize longer than about 240 characters made the post fail
+  (embed titles are limited to 256); the title is shortened instead.
+- `/suggest setup` accepted any channel (voice, category, forum), so
+  submissions failed later. If posting a suggestion fails, the stored
+  suggestion is removed instead of being left without a post.
+- `/ban silent:true` still sent the appeal-code DM; silent now means no DMs.
+- Moderation actions with a long reason could fail: Discord limits audit-log
+  reasons to 512 characters, and Aegis appended the moderator's name. Reasons
+  sent to Discord are now shortened to fit (the case keeps the full text).
+  Covers ban, kick, timeout, unban, appeal unbans, escalation and warn quick
+  actions.
+- The timeout Extend (+1h) button recorded a case and logged an extension
+  even when the timeout change failed; it now reports the failure instead.
+- A recurring `/automation` post whose channel was briefly unavailable was
+  deleted for good after three failed tries. It now skips that run and keeps
+  its schedule.
+- Task listings (`/automation list`, `/remindme list`, auto-unlock lookups)
+  are capped at 200 rows instead of reading every row.
+- The deleted-message log showed a broken author mention for messages Aegis
+  had not cached; it now says the author is unknown. Message text in logs and Ghost
+  Watch alerts can no longer break out of its code block (a ``` inside the
+  message ended it early), and auto-responder replies are cut to Discord's
+  2,000-character limit.
+
+- **Dashboard role choices ignored your own role position.** The verified
+  role, the join role and role panel re-posts only checked Aegis's role, so
+  someone with Manage Server could pick a role above their own and then take
+  it. The dashboard now applies the same rule as `/rolepanel create` and
+  `/verify setup`: roles must be below your highest role (the server owner is
+  exempt; Administrator is not). See dashboard 1.2.3.
+- `/clearwarnings` could show "This interaction failed" on a slow lookup: it
+  now acknowledges the command before checking the member, role order and
+  warnings, then shows the confirmation in that reply.
+- `/clearwarnings` counted only active warnings but deleted revoked ones too,
+  so the prompt, the logged case and what was deleted disagreed. The prompt
+  now lists every record it will delete, exactly those records are deleted (a
+  warning issued while the prompt is open is kept), and the reply, the case
+  and the log channel all give the same count.
+- `/case edit` and `/case delete` could show "This interaction failed" on a
+  slow database: both now acknowledge the command before looking up the case,
+  and `/case delete` shows its confirmation in that reply.
+- Forms opened by a command (`/suggest submit`, `/rolepanel create`, `/verify
+  setup` and `batch`, `/welcome message`, `/note add`, `/appeal`, the `/embed`
+  and announcement editors, and the kick reason editor) could be answered by
+  the wrong run: after closing a form and running the command again, one
+  submit was picked up by both runs, so the old run acted on its old options
+  (for example posting a role panel with the previous roles) and the new run
+  failed. Each form now only answers the run that opened it.
+- `/rolepanel create` and `/verify setup` accepted roles at or above your own
+  highest role, which anyone, you included, could then take by clicking. They
+  now refuse those roles (the server owner is exempt), and refuse a channel
+  Aegis cannot see before opening the form.
+- A ticket closed at the same moment by the Close button, `/ticket close` or
+  the inactivity check could be closed twice, posting the notice and
+  transcript twice. Only the first close goes through now.
+
+### Security
+- **Mentions are safe by default.** Every message, reply and webhook Aegis
+  sends now blocks @everyone, @here and role pings unless that message is
+  meant to ping: `/announce` with a ping choice and the ticket staff-role
+  ping opt in. Before, text from members or configuration (a reminder, an
+  auto-response, a suggestion, a giveaway prize, a welcome message with a
+  server name) could ping everyone if Aegis had Mention Everyone. User
+  mentions still ping.
+- Website and dashboard headers: the Content Security Policy no longer allows
+  inline styles (no page needs them), and adds `base-uri 'none'`,
+  `frame-src 'none'`, `worker-src 'none'`, `media-src 'none'` and
+  `manifest-src 'self'`; HSTS is two years; `Cross-Origin-Opener-Policy`,
+  `Cross-Origin-Resource-Policy` (cross-origin only for the public API and
+  share images), `X-Permitted-Cross-Domain-Policies`, `Origin-Agent-Cluster`
+  and `X-DNS-Prefetch-Control` are set; the deprecated `interest-cohort`
+  directive is replaced.
+- Dashboard cookies use the `__Host-` prefix on the live site
+  (`__Host-aegis_dash`, `__Host-aegis_oauth`), so only this host, over HTTPS,
+  can set them. Signed-in browsers are moved from the old `aegis_dash` cookie
+  on their next visit without being signed out. See dashboard 1.2.3.
+- Logging in now ends the browser's previous dashboard session (session
+  rotation), so a session someone planted in your browser can't carry over.
+- Dashboard requests whose query string or form contains Mongo-operator-like
+  keys (`$where`, `user[$ne]`, dotted keys) are refused before any database
+  call, and failed CSRF/origin checks are logged.
+- The public API rate limit counted every visitor as one, because behind
+  Fly's proxy it keyed on the proxy's address. It now uses the visitor's
+  address (`Fly-Client-IP`).
+- Requests larger than 600 KB are refused before parsing, and a final error
+  handler answers with a generic message: no error text or stack trace is
+  ever sent to the browser.
+- The Top.gg webhook secret is compared in constant time, and the vote log
+  line only includes plain, shortened fields from the request.
+- `/commands/<name>` redirects only keep letters, digits, `-` and `_`.
+- Logs redact secrets: the bot token, client secret, session secret, database
+  URL, Top.gg secrets, passwords inside connection strings, Discord tokens
+  and Authorization header values.
+- The Docker image's app files are owned by root and only readable by the
+  `node` user the bot runs as.
+- `npm audit` reports no known vulnerabilities; no dependency changed.
+
 ## [3.6.1] - 2026-10-30
 
 Website, legal pages and repository docs, a rebuilt command reference and docs
@@ -575,7 +756,8 @@ First version.
 - MongoDB storage (the SQLite dependency was dropped the same day).
 - Express website and Fly.io config.
 
-[3.6.1]: https://github.com/watispro1/AegisDeno/compare/b292b9f...main
+[3.6.2]: https://github.com/watispro1/AegisDeno/compare/18611d0...main
+[3.6.1]: https://github.com/watispro1/AegisDeno/compare/b292b9f...18611d0
 [3.6.0]: https://github.com/watispro1/AegisDeno/compare/87e33cb...b292b9f
 [3.5.0]: https://github.com/watispro1/AegisDeno/compare/6f05a0d...87e33cb
 [3.4.0]: https://github.com/watispro1/AegisDeno/compare/4c2a46a...6f05a0d

@@ -14,6 +14,7 @@ import {
   ModalSubmitInteraction,
   MessageFlags,
 } from "discord.js";
+import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { BanAppealModel } from "../../database/mongo";
 import { APPEAL_STATUS_LABELS, reviewBanAppeal } from "../../services/appeals";
@@ -261,7 +262,7 @@ export const command: Command = {
 
       // Show a modal for the appeal text
       const modal = new ModalBuilder()
-        .setCustomId(`appeal_modal_${code}`)
+        .setCustomId(scopedModalId(`appeal_modal_${code}`, interaction.id))
         .setTitle("Submit Your Ban Appeal");
 
       const appealInput = new TextInputBuilder()
@@ -284,7 +285,7 @@ export const command: Command = {
       try {
         const modalSubmit: ModalSubmitInteraction = await interaction.awaitModalSubmit({
           time: 5 * 60_000,
-          filter: (i) => i.customId === `appeal_modal_${code}` && i.user.id === interaction.user.id,
+          filter: (i) => i.customId === scopedModalId(`appeal_modal_${code}`, interaction.id) && i.user.id === interaction.user.id,
         });
 
         const appealText = modalSubmit.fields.getTextInputValue("appeal_text").trim();

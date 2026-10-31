@@ -163,6 +163,21 @@ async function main() {
   check("gzip applied", home.headers.get("content-encoding") === "gzip", home.headers.get("content-encoding") ?? "none");
   check("Vary set", (home.headers.get("vary") ?? "").includes("Accept-Encoding"));
   check("no x-powered-by", home.headers.get("x-powered-by") === null);
+  check("CSP has no unsafe-inline", !csp.includes("unsafe-inline"), csp);
+  check("CSP blocks framing and plugins", csp.includes("frame-ancestors 'none'") && csp.includes("object-src 'none'") && csp.includes("base-uri 'none'"));
+  check("Referrer-Policy", home.headers.get("referrer-policy") === "strict-origin-when-cross-origin");
+  check("Permissions-Policy", (home.headers.get("permissions-policy") ?? "").includes("camera=()"));
+  check("COOP same-origin", home.headers.get("cross-origin-opener-policy") === "same-origin");
+  check("CORP same-origin on pages", home.headers.get("cross-origin-resource-policy") === "same-origin");
+  const dashHeaders = await fetch(origin + "/dashboard");
+  check("dashboard has the same CSP", dashHeaders.headers.get("content-security-policy") === csp);
+  const sneaky = await fetch(origin + "/commands/%2F%2Fevil.example", { redirect: "manual" });
+  check("command redirect stays on site", (sneaky.headers.get("location") ?? "").startsWith("/commands"), sneaky.headers.get("location") ?? "");
+  const bigBody = await fetch(origin + "/api/topgg/webhook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ x: "y".repeat(700 * 1024) }) });
+  check("oversized request refused", bigBody.status === 413, String(bigBody.status));
+  const badJson = await fetch(origin + "/api/topgg/webhook", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "x" }, body: "{not json" });
+  const badText = await badJson.text();
+  check("bad JSON gets no stack trace", !badText.includes("at ") && !badText.includes("SyntaxError"), badText.slice(0, 120));
 
   console.log("\nCache policy");
   const liveHome = await fetch(origin + "/");
