@@ -46,6 +46,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   lock: [
     "/lock channel channel:#general duration_minutes:15 message:Back in 15 minutes",
     "/lock category category:Events duration_minutes:30",
+    "/lock channel channel:#announcements duration:2d reason:Raid cleanup",
     "/lock unlock channel:#general",
   ],
   slowmode: ["/slowmode set duration:10 seconds", "/slowmode custom seconds:45 channel:#general"],
@@ -113,6 +114,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   ],
   autoresponder: [
     "/autoresponder add trigger:how do i verify response:Read the pinned message in {channel} match_type:Contains Keyword",
+    "/autoresponder toggle id:ar-1a2b enabled:False",
     "/autoresponder list",
   ],
   announce: ["/announce channel:#announcements message:Server maintenance at 9pm title:Heads up ping:@here"],

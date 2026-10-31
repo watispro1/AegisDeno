@@ -27,6 +27,19 @@ import {
   updateStarboardConfig,
   listStarboardEntries,
 } from "../../services/starboard";
+import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
+
+/** What Aegis needs in the starboard channel to post there. */
+const STARBOARD_CHANNEL_PERMISSIONS: ReadonlyArray<[bigint, string]> = [
+  [PermissionFlagsBits.ViewChannel, "View Channel"],
+  [PermissionFlagsBits.SendMessages, "Send Messages"],
+  [PermissionFlagsBits.EmbedLinks, "Embed Links"],
+];
+
+/** The permissions from the list above that `has` says Aegis lacks, as labels. */
+export function missingStarboardPermissions(has: (flag: bigint) => boolean): string[] {
+  return STARBOARD_CHANNEL_PERMISSIONS.filter(([flag]) => !has(flag)).map(([, label]) => label);
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -172,10 +185,29 @@ export const command: Command = {
 
     // ── /starboard setup ──────────────────────────────────────────────────
     if (sub === "setup") {
-      const channel = interaction.options.getChannel("channel", true) as TextChannel;
-      await updateStarboardConfig(guildId, { channelId: channel.id });
+      const picked = interaction.options.getChannel("channel", true);
+      const channel = (interaction.guild?.channels.cache.get(picked.id)
+        ?? await interaction.guild?.channels.fetch(picked.id).catch(() => null)) as TextChannel | null | undefined;
+      // A channel Aegis can't see (Discord obfuscates it) can never receive starboard posts.
+      if (isObfuscatedChannel(channel) || isObfuscatedChannel(picked)) {
+        await interaction.reply({ content: `❌ ${hiddenChannelMessage(picked.id)}`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const me = interaction.guild?.members.me ?? null;
+      const perms = channel && me && "permissionsFor" in channel ? channel.permissionsFor(me) : null;
+      const missing = perms ? missingStarboardPermissions(flag => perms.has(flag)) : [];
+      if (missing.length) {
+        await interaction.reply({
+          content: `❌ I need **${missing.join("**, **")}** in <#${picked.id}> to post starred messages there. Give my role those permissions in the channel, then run this again.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      await updateStarboardConfig(guildId, { channelId: picked.id });
+      const config = await getStarboardConfig(guildId);
       await interaction.reply({
-        content: `⭐ Starboard channel set to ${channel}. Messages that hit the reaction threshold will be reposted there.`,
+        content: `⭐ Starboard channel set to <#${picked.id}>. Messages that reach **${config.threshold}** ${config.emoji} will be reposted there.` +
+          (config.enabled ? "" : "\n⚠️ The starboard is switched off; turn it on with `/starboard toggle enabled:true` or on the dashboard."),
         flags: MessageFlags.Ephemeral,
       });
       return;
