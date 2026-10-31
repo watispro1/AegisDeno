@@ -12,6 +12,7 @@ import { cssBase } from "./base";
 import { cssChrome } from "./chrome";
 import { cssPages } from "./pages";
 import { cssDashboard } from "./dashboard";
+import { cssDashboardApp } from "./dashboardApp";
 import { cssResponsive } from "./responsive";
 
 /* The parts are concatenated in this order; the result is byte-for-byte the
@@ -21,4 +22,5 @@ export const styles =
   cssChrome +
   cssPages +
   cssDashboard +
+  cssDashboardApp +
   cssResponsive;

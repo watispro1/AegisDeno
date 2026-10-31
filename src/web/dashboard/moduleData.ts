@@ -13,6 +13,7 @@ import { cancelTask, scheduleTask } from "../../services/schedulerRunner";
 import { removeWatchFromCache } from "../../services/watchlistService";
 import { buildEmbedFromSpec, type EmbedSpec } from "../../services/embedSpec";
 import { sendGuildLog } from "../../services/logging";
+import { updateGuildConfig } from "../../services/configuration";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { logger } from "../../utils/logger";
 import type { Actor, PanelResult } from "./data";
@@ -104,6 +105,13 @@ export interface ModuleData {
   listWatches(guildId: string, moderatorId: string): Promise<WatchView[]>;
   removeWatch(guildId: string, targetId: string, moderatorId: string): Promise<boolean>;
   postEmbed(guildId: string, channelId: string, content: string | null, embed: EmbedSpec, actor: Actor): Promise<PanelResult>;
+  /** Module switches and channels kept on the guild config that have no settings section of their own. */
+  saveModuleConfig(guildId: string, patch: ModuleConfigPatch, actor: Actor): Promise<void>;
+}
+
+export interface ModuleConfigPatch {
+  suggestionsChannelId?: string | null;
+  autorespondersEnabled?: boolean;
 }
 
 export const MAX_AUTORESPONDERS = 50;
@@ -265,6 +273,11 @@ export function mongoModuleData(client: Client): ModuleData {
       }
       await log(guildId, "📣 Announcement Posted", `**Channel:** <#${channel.id}>\n**Posted by:** <@${actor.userId}> on the web dashboard`);
       return "posted";
+    },
+    async saveModuleConfig(guildId, patch, actor) {
+      await updateGuildConfig(guildId, patch);
+      logger.info(`Dashboard: module settings ${Object.keys(patch).join(", ")} saved for guild ${guildId} by user ${actor.userId}`);
+      await log(guildId, "⚙️ Settings Changed", `**Changed:** ${Object.keys(patch).join(", ")}\n**Changed by:** <@${actor.userId}> on the web dashboard`);
     },
   };
 }

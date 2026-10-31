@@ -5,7 +5,7 @@
  */
 import type { EmbedSpec } from "../../services/embedSpec";
 import type { PanelResult } from "./data";
-import { MAX_AUTORESPONDERS, type AutoResponderRow, type AutomationRow, type GiveawayRow, type ModuleData, type SuggestionRow, type WatchView } from "./moduleData";
+import { MAX_AUTORESPONDERS, type AutoResponderRow, type AutomationRow, type GiveawayRow, type ModuleConfigPatch, type ModuleData, type SuggestionRow, type WatchView } from "./moduleData";
 
 export interface MemoryModuleData extends ModuleData {
   responders: AutoResponderRow[];
@@ -17,6 +17,7 @@ export interface MemoryModuleData extends ModuleData {
   calls: string[];
   /** Channels postEmbed/createAutomation treat as present; empty means any. */
   channels: Set<string>;
+  config: ModuleConfigPatch;
 }
 
 export function memoryModuleData(seed: Partial<Pick<MemoryModuleData, "responders" | "automations" | "giveaways" | "suggestions">> = {}): MemoryModuleData {
@@ -29,6 +30,11 @@ export function memoryModuleData(seed: Partial<Pick<MemoryModuleData, "responder
     posts: [],
     calls: [],
     channels: new Set(),
+    config: {},
+    async saveModuleConfig(_g, patch) {
+      Object.assign(m.config, patch);
+      m.calls.push(`config:${Object.keys(patch).join(",")}`);
+    },
     async overviewExtras() {
       return {
         casesPerDay: Array.from({ length: 30 }, (_, i) => (i * 7) % 5),

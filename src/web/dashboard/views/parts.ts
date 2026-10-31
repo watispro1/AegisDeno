@@ -1,3 +1,4 @@
+import { head, shell } from "./layout";
 import { escapeHtml as esc } from "../../pages";
 
 /* ── Shared bits for the newer pages ───────────────────────────────── */
@@ -27,4 +28,37 @@ export function pagerNav(base: string, query: (page: number) => string, page: nu
         ${page < pages ? `<a class="btn ghost sm" href="${base}${esc(query(page + 1))}" rel="next">Older</a>` : ""}
       </span>
     </nav>`;
+}
+
+/** A module page inside the sidebar shell, with the usual breadcrumb. */
+export function modulePage(
+  cfg: import("../../pages").SiteConfig,
+  ctx: import("./layout").GuildContext,
+  o: { active: import("./layout").GuildSection; title: string; lead: string; path: string; body: string },
+): string {
+  const g = ctx.guild;
+  return shell(cfg, {
+    title: `${o.title}, ${g.name}`,
+    path: o.path,
+    viewer: ctx.viewer,
+    guild: ctx,
+    active: o.active,
+    body: `${head(o.title, o.lead, [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], [o.title, null]])}${o.body}`,
+  });
+}
+
+/** A search box that filters the rows of table #id as you type (dashboard.js); harmless without JavaScript. */
+export function tableFilter(id: string, label: string): string {
+  return `<div class="table-tools"><label class="visually-hidden" for="filter-${esc(id)}">${esc(label)}</label>
+    <input class="table-search" type="search" id="filter-${esc(id)}" placeholder="${esc(label)}" data-filter-target="${esc(id)}" autocomplete="off">
+    <span class="faint" data-filter-count="${esc(id)}" aria-live="polite"></span></div>`;
+}
+
+/** A one-button POST form (toggle, delete, end…), optionally confirmed in a dialog. */
+export function actionButton(action: string, csrf: string, label: string, o: { confirm?: string; danger?: boolean; fields?: Record<string, string>; ghost?: boolean } = {}): string {
+  const hidden = Object.entries(o.fields ?? {}).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join("");
+  return `<form class="inline-form" method="post" action="${esc(action)}"${o.confirm ? ` data-confirm="${esc(o.confirm)}"` : ""}>
+    <input type="hidden" name="_csrf" value="${esc(csrf)}">${hidden}
+    <button class="btn sm${o.danger ? " danger" : o.ghost === false ? "" : " ghost"}" type="submit">${esc(label)}</button>
+  </form>`;
 }

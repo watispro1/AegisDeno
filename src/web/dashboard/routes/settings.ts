@@ -12,10 +12,7 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
 
   /* ── Settings ────────────────────────────────────────────────────── */
 
-  router.get("/:guildId/settings", ...guildGet, (_req, res) => {
-    const { ctx } = res.locals.dash as GuildLocals;
-    res.redirect(302, `/dashboard/${ctx.guild.id}/settings/logging`);
-  });
+  // GET /:guildId/settings (every module) lives in routes/community.ts.
 
   function parseSection(section: SettingsSection, body: FormBody, vctx: ValidationContext, current: SettingsSnapshot): Parsed<SettingsValue> {
     const wrap = <T>(p: Parsed<T>, make: (v: T) => SettingsValue): Parsed<SettingsValue> => (p.ok ? { ok: true, value: make(p.value) } : p);

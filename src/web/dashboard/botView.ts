@@ -49,12 +49,14 @@ export interface ViewerRoleLimit {
 }
 
 /** Extra permissions some dashboard actions need, matching their slash commands. */
-export type DashboardPermission = "BanMembers" | "ManageChannels" | "ManageRoles";
+export type DashboardPermission = "BanMembers" | "ManageChannels" | "ManageRoles" | "ManageMessages" | "ModerateMembers";
 
 export const DASHBOARD_PERMISSION_LABELS: Record<DashboardPermission, string> = {
   BanMembers: "Ban Members",
   ManageChannels: "Manage Channels",
   ManageRoles: "Manage Roles",
+  ManageMessages: "Manage Messages",
+  ModerateMembers: "Moderate Members",
 };
 
 export interface BotView {
@@ -90,7 +92,27 @@ export interface BotView {
   viewerRoleLimit(guildId: string, userId: string): Promise<ViewerRoleLimit>;
   /** A username from the bot's user cache, for showing names next to IDs. */
   userName(userId: string): string | null;
+  /**
+   * Server-wide permissions Aegis's own role lacks (labels, the same list
+   * /diagnostics checks). Optional so test fakes need not implement it.
+   */
+  botMissingPermissions?(guildId: string): string[];
 }
+
+/** What /diagnostics checks, in its order. */
+export const BOT_PERMISSION_CHECKS: ReadonlyArray<[keyof typeof PermissionFlagsBits, string]> = [
+  ["ViewChannel", "View Channels"],
+  ["SendMessages", "Send Messages"],
+  ["EmbedLinks", "Embed Links"],
+  ["ManageMessages", "Manage Messages"],
+  ["ModerateMembers", "Moderate Members"],
+  ["BanMembers", "Ban Members"],
+  ["KickMembers", "Kick Members"],
+  ["ViewAuditLog", "View Audit Log"],
+  ["ManageChannels", "Manage Channels"],
+  ["ManageRoles", "Manage Roles"],
+  ["ReadMessageHistory", "Read Message History"],
+];
 
 function sortChannels(guild: Guild) {
   return [...guild.channels.cache.values()]
@@ -189,6 +211,13 @@ export function discordBotView(client: Client): BotView {
 
     userName(userId) {
       return client?.users?.cache?.get(userId)?.username ?? null;
+    },
+
+    botMissingPermissions(guildId) {
+      const me = get(guildId)?.members.me;
+      if (!me) return [];
+      if (me.permissions.has(PermissionFlagsBits.Administrator)) return [];
+      return BOT_PERMISSION_CHECKS.filter(([flag]) => !me.permissions.has(PermissionFlagsBits[flag])).map(([, label]) => label);
     },
   };
 }
