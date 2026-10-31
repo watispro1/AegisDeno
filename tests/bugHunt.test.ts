@@ -1,5 +1,5 @@
 /**
- * Bug-hunt fixes (3.6.1): interaction-scoped modal IDs, role-panel and
+ * Bug-hunt fixes (3.6.2): interaction-scoped modal IDs, role-panel and
  * verification role hierarchy, hidden-channel checks before posting, and the
  * atomic ticket close. Discord and Mongo are faked; no network.
  */
