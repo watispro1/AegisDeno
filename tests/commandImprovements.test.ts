@@ -205,10 +205,35 @@ test("/case delete asks first and deletes nothing when cancelled", async () => {
     (interaction as { guild: Record<string, unknown> }).guild.name = "G";
     await command.execute(interaction as never);
     assert.equal(deleteOne.mock.callCount(), 0, "cancel keeps the case");
-    assert.match(text(calls[0].payload), /Delete this case\?/);
+    assert.equal(calls[0].method, "deferReply", "acknowledged before the lookup (3.6.2)");
+    assert.equal(calls[1].method, "editReply", "the prompt edits the deferred reply");
+    assert.match(text(calls[1].payload), /Delete this case\?/);
+    assert.ok(!calls.some(c => c.method === "reply"), "never replies to an already-deferred interaction");
   } finally {
     findOne.mock.restore();
     deleteOne.mock.restore();
+  }
+});
+
+test("/case edit defers before writing, then edits the reply (unknown case too)", async () => {
+  const { command } = await import("../src/commands/moderation/case");
+  const { ModerationCaseModel, WarningModel } = await import("../src/database/mongo");
+  const caseFind = mock.method(ModerationCaseModel, "findOneAndUpdate", () => query(null) as never);
+  const warnFind = mock.method(WarningModel, "findOneAndUpdate", () => query(null) as never);
+  try {
+    const { interaction, calls } = fakeInteraction({
+      subcommand: "edit",
+      perms: PermissionFlagsBits.ModerateMembers,
+      strings: { case_id: "65f0c0ffee0000000000abcd", reason: "new reason" },
+    });
+    await command.execute(interaction as never);
+    assert.equal(calls[0].method, "deferReply");
+    assert.ok((calls[0].payload as { flags?: number }).flags, "ephemeral");
+    assert.deepEqual(calls.slice(1).map(c => c.method), ["editReply"]);
+    assert.ok(!calls.some(c => c.method === "reply"));
+  } finally {
+    caseFind.mock.restore();
+    warnFind.mock.restore();
   }
 });
 
