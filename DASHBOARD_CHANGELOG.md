@@ -10,9 +10,9 @@ page.
 
 ## [1.2.3] - 2026-10-31
 
-Dashboard 1.2.3. A role-hierarchy fix, clearer error and empty states, and
-small usability fixes. No new environment variables, Discord intents or OAuth
-scopes.
+Dashboard 1.2.3. A role-hierarchy fix, security hardening, clearer error and
+empty states, and small usability fixes. No new environment variables,
+Discord intents or OAuth scopes.
 
 ### Changed
 - Role pickers for the verified role and the join role grey out roles you
@@ -51,6 +51,25 @@ scopes.
   "Database unavailable" (503, with Retry-After) and keep you signed in.
 - A form sent after your session ended now says nothing was saved and offers
   a Log in button.
+
+### Security
+- Session cookies are now `__Host-aegis_dash` and `__Host-aegis_oauth` on the
+  live site: the browser only accepts them over HTTPS from this exact host,
+  with `Path=/` and no `Domain`, so another subdomain or a plain-http
+  response can't set or overwrite them. They are still HttpOnly and
+  SameSite=Lax. If you were signed in with the old `aegis_dash` cookie, your
+  next visit moves you to the new one and clears the old one; you stay
+  signed in. (A local http copy keeps the old names under `/dashboard`.)
+- Every login starts a new session and deletes the one the browser had
+  before.
+- A query string or form with Mongo-operator-like keys (`$where`,
+  `user[$ne]`, dotted names) is refused with "Bad request" before anything
+  is read or saved.
+- Failed form checks (expired or foreign CSRF token, wrong Origin) are
+  written to the server log.
+- Stricter page headers, shared with the rest of the site: no inline styles
+  allowed by the Content Security Policy, no `<base>` changes, no frames or
+  workers, and cross-origin isolation of the window and its resources.
 
 ## [1.2.2] - 2026-10-30
 
