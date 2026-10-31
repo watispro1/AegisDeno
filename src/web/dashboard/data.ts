@@ -101,6 +101,8 @@ export interface RolePanelSummary {
   title: string;
   channelId: string;
   roleCount: number;
+  /** The panel's role IDs, to check them against the viewer's highest role. */
+  roleIds?: string[];
   style: string;
   createdAt: Date;
 }
@@ -339,6 +341,7 @@ export function mongoDashboardData(client: Client): DashboardData {
         title: p.title,
         channelId: p.channelId,
         roleCount: p.roles?.length ?? 0,
+        roleIds: (p.roles ?? []).map(r => r.roleId),
         style: p.panelStyle ?? "button",
         createdAt: new Date(p.createdAt ?? 0),
       }));

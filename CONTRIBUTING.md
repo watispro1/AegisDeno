@@ -111,8 +111,8 @@ Every user-facing change gets a changelog entry in the same pull request.
 - The website is plain server-rendered HTML from template strings in
   `src/web/`. Keep it that way:
   - No inline scripts or styles; the content security policy blocks them.
-    Scripts go in `src/web/client.ts` (or `dashboard/client.ts`), styles in
-    `src/web/theme.ts`.
+    Scripts go in `src/web/client/` (or `dashboard/client.ts`), styles in
+    `src/web/theme/`.
   - Escape everything that comes from users or config (`escapeHtml`,
     `safeUrl`).
   - No third-party requests: no CDNs, fonts or analytics.
@@ -122,5 +122,5 @@ Every user-facing change gets a changelog entry in the same pull request.
     and text that reads at 4.5:1 contrast.
 - Website copy must describe what the code actually does. If you change a
   feature, update `content.ts`, the docs page and, if it changes what is stored
-  or for how long, the privacy policy in `pages.ts`.
+  or for how long, the privacy policy in `pages/legal.ts`.
 - Never commit secrets. `.env` is ignored by git; keep it that way.

@@ -2,7 +2,8 @@
  * Script served from /assets/dashboard.js. Plain ES5, progressive only: every
  * dashboard form works without it. It adds the live welcome preview, dims
  * unused timeout fields, asks before revoking or deciding an appeal, keeps
- * checkbox-list counts current, and focuses the error summary.
+ * checkbox-list counts current, stops a form from being sent twice, drops a
+ * shown ?notice= from the address bar, and focuses the error summary.
  */
 export const dashboardScript = String.raw`
 (function () {
@@ -58,8 +59,37 @@ export const dashboardScript = String.raw`
     var message = (button && button.form === form && button.getAttribute('data-confirm-button')) ||
       (form && form.getAttribute && form.getAttribute('data-confirm'));
     lastButton = null;
-    if (message && !window.confirm(message)) e.preventDefault();
+    if (message && !window.confirm(message)) { e.preventDefault(); return; }
+    if (!form || !form.getAttribute || form.getAttribute('method') !== 'post') return;
+    /* A second click while the first post is on its way would send it twice. */
+    if (form.getAttribute('data-busy') === 'true') { e.preventDefault(); return; }
+    form.setAttribute('data-busy', 'true');
+    form.setAttribute('aria-busy', 'true');
+    /* Disable after the browser has read the form, so the clicked button's value is still sent. */
+    setTimeout(function () {
+      var buttons = form.querySelectorAll('button[type="submit"]');
+      for (var b = 0; b < buttons.length; b++) buttons[b].disabled = true;
+    }, 0);
   });
+
+  /* Coming back with the Back button restores the page as it was left: make its forms usable again. */
+  window.addEventListener('pageshow', function () {
+    var busy = document.querySelectorAll('form[data-busy="true"]');
+    for (var f = 0; f < busy.length; f++) {
+      busy[f].removeAttribute('data-busy');
+      busy[f].removeAttribute('aria-busy');
+      var bs = busy[f].querySelectorAll('button[type="submit"]');
+      for (var k = 0; k < bs.length; k++) bs[k].disabled = false;
+    }
+  });
+
+  /* Show a "Saved" style notice once: drop ?notice= from the address so a reload or bookmark does not repeat it. */
+  if (window.history && window.history.replaceState && /[?&]notice=/.test(window.location.search)) {
+    var query = window.location.search.replace(/^\?/, '').split('&').filter(function (p) {
+      return p.indexOf('notice=') !== 0;
+    }).join('&');
+    window.history.replaceState(null, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+  }
 
   /* Checkbox lists: keep the "(n picked)" count current. */
   var lists = document.querySelectorAll('.pick-list');

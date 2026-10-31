@@ -17,6 +17,7 @@ import {
   Guild,
   User,
 } from "discord.js";
+import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import {
   createSuggestion,
@@ -279,7 +280,7 @@ export const command: Command = {
       }
 
       const modal = new ModalBuilder()
-        .setCustomId("suggest_submit_modal")
+        .setCustomId(scopedModalId("suggest_submit_modal", interaction.id))
         .setTitle("Submit a Suggestion");
 
       const titleInput = new TextInputBuilder()
@@ -307,7 +308,7 @@ export const command: Command = {
 
       const modalResponse = await interaction.awaitModalSubmit({
         time: 300_000,
-        filter: (m) => m.user.id === interaction.user.id && m.customId === "suggest_submit_modal",
+        filter: (m) => m.user.id === interaction.user.id && m.customId === scopedModalId("suggest_submit_modal", interaction.id),
       }).catch(() => null);
 
       if (!modalResponse) return;

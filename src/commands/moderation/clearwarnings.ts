@@ -1,7 +1,13 @@
 import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
-import { clearWarningsForUser, getWarningsForUser } from "../../services/warnings";
+import {
+  countWarningRecords,
+  deleteWarningsByIds,
+  describeWarningRecords,
+  getWarningRecordsForUser,
+  type WarningRecordCounts,
+} from "../../services/warnings";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { addModerationCase } from "../../services/moderationCases";
@@ -20,6 +26,16 @@ export function clearWarningsBlock(input: { actorId: string; targetId: string; t
   return null;
 }
 
+/**
+ * Plain-text summary of what was cleared, for the case, the reply and the log.
+ * When fewer records were deleted than were shown (another moderator removed
+ * some meanwhile), it says so rather than over-reporting.
+ */
+export function clearedSummary(counts: WarningRecordCounts, deleted: number): string {
+  const shown = describeWarningRecords(counts, false);
+  return deleted >= counts.total ? shown : `${shown}; ${deleted} of ${counts.total} were still there to delete`;
+}
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("clearwarnings")
@@ -36,38 +52,50 @@ export const command: Command = {
     const target  = interaction.options.getUser("user", true);
     const guildId = interaction.guildId!;
 
-    const inServer = Boolean(await interaction.guild?.members.fetch(target.id).catch(() => null));
-    const outranksTarget = inServer
-      ? await isRoleHierarchyValid(interaction.client, guildId, interaction.user.id, target.id)
-      : false;
-    const blocked = clearWarningsBlock({ actorId: interaction.user.id, targetId: target.id, targetInServer: inServer, outranksTarget });
-    if (blocked) {
-      return interaction.reply({ content: blocked, flags: MessageFlags.Ephemeral });
-    }
+    // The member, hierarchy and warning lookups can take longer than Discord's
+    // 3-second window, so acknowledge first. The reply is ephemeral, and the
+    // confirmation prompt edits it.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
-      const currentWarnings = await getWarningsForUser(guildId, target.id);
-      if (currentWarnings.length === 0) {
-        await interaction.reply({ content: `✅ **${target.tag}** has no active warnings to clear.`, flags: MessageFlags.Ephemeral });
+      const inServer = Boolean(await interaction.guild?.members.fetch(target.id).catch(() => null));
+      const outranksTarget = inServer
+        ? await isRoleHierarchyValid(interaction.client, guildId, interaction.user.id, target.id)
+        : false;
+      const blocked = clearWarningsBlock({ actorId: interaction.user.id, targetId: target.id, targetInServer: inServer, outranksTarget });
+      if (blocked) {
+        await interaction.editReply({ content: blocked });
+        return;
+      }
+
+      // Everything that will be deleted, revoked records included, so the
+      // prompt, the case and the deletion all describe the same set.
+      const records = await getWarningRecordsForUser(guildId, target.id);
+      const counts = countWarningRecords(records);
+      if (counts.total === 0) {
+        await interaction.editReply({ content: `✅ **${target.tag}** has no warnings to clear.` });
         return;
       }
 
       const answer = await requestConfirmation(interaction, {
         content:
-          `Clear **${currentWarnings.length}** warning(s) for **${target.tag}** (<@${target.id}>)?\n` +
+          `Clear ${describeWarningRecords(counts)} for **${target.tag}** (<@${target.id}>)?\n` +
           "They are deleted for good and stop counting toward escalation and the trust score. A case is logged.",
-        confirmLabel: `Clear ${currentWarnings.length} warning(s)`,
+        confirmLabel: `Clear ${counts.total} ${counts.revoked === 0 ? "warning(s)" : "record(s)"}`,
       });
       if (answer !== "confirmed") return;
 
-      await clearWarningsForUser(guildId, target.id);
+      // Delete exactly the records shown, so a warning issued while the prompt
+      // was open is not removed unseen.
+      const deleted = await deleteWarningsByIds(guildId, target.id, records.map(r => String(r._id)));
+      const summary = clearedSummary(counts, deleted);
       await addModerationCase({
         guildId,
         userId: target.id,
         moderatorId: interaction.user.id,
         action: "clearwarnings",
         reason: "Warnings cleared by moderator.",
-        details: `Cleared ${currentWarnings.length} warning(s).`,
+        details: `Cleared ${summary}.`,
       });
 
       const embed = new EmbedBuilder()
@@ -75,7 +103,7 @@ export const command: Command = {
         .setTitle("✅ Warnings Cleared")
         .addFields(
           { name: "User",      value: `${target.tag} (<@${target.id}>)` },
-          { name: "Cleared",   value: `${currentWarnings.length} warning(s)` },
+          { name: "Cleared",   value: summary },
           { name: "Moderator", value: interaction.user.tag, inline: true },
         )
         .setTimestamp();
@@ -84,7 +112,7 @@ export const command: Command = {
       await sendGuildLog(interaction.client, guildId, {
         title: "✅ Warnings Cleared",
         color: 0x57F287,
-        description: `**User:** ${target.tag} (<@${target.id}>)\n**Cleared:** ${currentWarnings.length} warning(s)\n**Moderator:** ${interaction.user.tag}`,
+        description: `**User:** ${target.tag} (<@${target.id}>)\n**Cleared:** ${summary}\n**Moderator:** ${interaction.user.tag}`,
       });
     } catch (err) {
       logger.error(`Failed to clear warnings for user ${target.id} in guild ${guildId}`, err);

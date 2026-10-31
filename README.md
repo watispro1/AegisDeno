@@ -13,7 +13,7 @@ dashboard.
 | Command reference | https://aegisdeno.fly.dev/commands |
 | Web dashboard | https://aegisdeno.fly.dev/dashboard |
 | Status | https://aegisdeno.fly.dev/status |
-| Current version | bot 3.6.1, dashboard 1.2.2 |
+| Current version | bot 3.6.2, dashboard 1.2.3 |
 
 Despite the repository name, Aegis is a **Node.js** app (TypeScript,
 discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
@@ -180,8 +180,9 @@ changelog entry.
 The website lives in `src/web/`: pages are TypeScript template strings rendered
 by Express, with no framework and no build step for the front end.
 
-- `pages.ts`: page bodies, including the terms, privacy and security pages.
-  `layout.ts`: the shared shell, nav and footer.
+- `pages/`: page bodies, one module per page (`home.ts`, `commands.ts`,
+  `docs.ts`, `legal.ts` for terms, privacy and security, ...); `pages/index.ts`
+  re-exports them. `layout.ts`: the shared shell, nav and footer.
 - `content.ts`: feature and FAQ copy. Every claim there should trace back to a
   command in `src/commands`.
 - `catalog.ts`: builds the command reference from the registered command
@@ -189,9 +190,11 @@ by Express, with no framework and no build step for the front end.
 - `changelog.ts`: parses `CHANGELOG.md` and `DASHBOARD_CHANGELOG.md` for
   `/changelog`, `/dashboard/changelog` and `/changelog.xml`.
 - `notFound.ts` (404 suggestions), `wellKnown.ts` (`security.txt`).
-- `theme.ts` (stylesheet), `client.ts` (small progressive-enhancement script),
+- `theme/` (stylesheet, split by area and joined in `theme/index.ts`),
+  `client/` (small progressive-enhancement script, one IIFE split into parts),
   `assets.ts` (favicon, social image, manifest).
-- `dashboard/`: the web dashboard (OAuth, sessions, views, validation).
+- `dashboard/`: the web dashboard (OAuth, sessions, validation; `views/` has
+  one module per page and `routes/` one module per group of routes).
 
 ## Project documents
 

@@ -27,10 +27,13 @@ const CHANNEL = "700000000000000001";
 const CHANNEL_2 = "700000000000000002";
 const ROLE = "600000000000000001";
 const ROLE_HIGH = "600000000000000002"; // exists, but Aegis cannot assign it
+const ROLE_ABOVE_YOU = "600000000000000003"; // Aegis can assign it, but it is above the viewer's highest role
+const OWNER = "900000000000000099";
 const HIDDEN_CHANNEL = "700000000000000050"; // exists, but Discord obfuscates it for Aegis (no View Channel)
 const SAVED_ELSEWHERE = "700000000000000099"; // exempted with /automod, not a text channel the picker lists
 const APPEAL_CODE = "AGS-K7X2";
 const PANEL_ID = "panel-0a1b2c3d";
+const PANEL_HIGH = "panel-staff01"; // hands out a role above the viewer
 const CASE_ID = "65a1b2c3d4e5f60718293a4b";
 const TOKEN = "fake-access-token-never-logged";
 
@@ -44,6 +47,10 @@ const reviews: Array<{ code: string; decision: string; note: string | null; by: 
 const ticketPanels: TicketPanelInput[] = [];
 const verificationPanels: VerificationPanelInput[] = [];
 const rolePanelPosts: Array<{ id: string; channelId: string }> = [];
+/** The viewer's highest role position the fake bot reports (null: could not be fetched). */
+const viewerTop: { value: number | null } = { value: 5 };
+/** Whether the fake bot reports the viewer as the server owner. */
+const viewerIsOwner = { value: false };
 /** Extra permissions the fake bot says the user has right now. */
 const granted = new Set<DashboardPermission>(["BanMembers", "ManageChannels", "ManageRoles"]);
 const audit = memoryAuditStore();
@@ -63,7 +70,12 @@ const bot: BotView = {
   memberHasPermission: async (guildId, userId, permission) => guildId === GUILD_OK && userId === USER && granted.has(permission),
   textChannels: () => [{ id: CHANNEL, name: "mod-log", parent: "Staff" }, { id: CHANNEL_2, name: "general", parent: null }],
   hiddenChannelIds: () => new Set([HIDDEN_CHANNEL]),
-  roles: () => [{ id: ROLE_HIGH, name: "Admin", assignable: false }, { id: ROLE, name: "Verified", assignable: true }],
+  roles: () => [
+    { id: ROLE_HIGH, name: "Admin", position: 10, assignable: false },
+    { id: ROLE_ABOVE_YOU, name: "Senior Mod", position: 6, assignable: true },
+    { id: ROLE, name: "Verified", position: 2, assignable: true },
+  ],
+  viewerRoleLimit: async () => ({ ownerId: viewerIsOwner.value ? USER : OWNER, topPosition: viewerTop.value }),
   userName: id => (id === USER ? "aj" : null),
 };
 
@@ -108,11 +120,14 @@ const data: DashboardData = {
     reviews.push({ code, decision, note, by: actor.userId });
     return { ok: true, unban: decision === "approved" ? "done" : null };
   },
-  listRolePanels: async () => [{ id: PANEL_ID, title: "Pick <i>roles</i>", channelId: CHANNEL, roleCount: 3, style: "button", createdAt: new Date(0) }],
+  listRolePanels: async () => [
+    { id: PANEL_ID, title: "Pick <i>roles</i>", channelId: CHANNEL, roleCount: 3, roleIds: [ROLE], style: "button", createdAt: new Date(0) },
+    { id: PANEL_HIGH, title: "Staff roles", channelId: CHANNEL, roleCount: 1, roleIds: [ROLE_ABOVE_YOU], style: "button", createdAt: new Date(0) },
+  ],
   postTicketPanel: async (_g, input) => { ticketPanels.push(input); return "posted"; },
   setupVerificationPanel: async (_g, input) => { verificationPanels.push(input); return "posted"; },
   repostRolePanel: async (_g, id, channelId) => {
-    if (id !== PANEL_ID) return "not-found";
+    if (id !== PANEL_ID && id !== PANEL_HIGH) return "not-found";
     rolePanelPosts.push({ id, channelId });
     return "posted";
   },
@@ -195,7 +210,7 @@ before(async () => {
   });
   assert.ok(config);
   const app = express();
-  app.use("/dashboard", createDashboardRouter({ site, config, bot, data, sessions, audit, fetchImpl: fakeFetch as typeof fetch, limits: { auth: 40, post: 1000, page: 2000 } }));
+  app.use("/dashboard", createDashboardRouter({ site, config, bot, data, sessions, audit, fetchImpl: fakeFetch as typeof fetch, limits: { auth: 80, post: 1000, page: 2000 } }));
   server = app.listen(0);
   await new Promise(r => server.once("listening", r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -619,6 +634,67 @@ test("panels page and posting: CSRF, permissions, validation", async () => {
   assert.equal((await post(`/dashboard/${GUILD_DEMOTED}/panels/tickets`, { _csrf: csrf, channelId: CHANNEL })).status, 403);
 });
 
+test("role hierarchy: pickers and server-side validation stop roles at or above the viewer's highest role", async () => {
+  await login();
+  const pagePath = `/dashboard/${GUILD_OK}/panels`;
+  const csrf = await csrfFrom(pagePath);
+  const html = await (await get(pagePath)).text();
+  assert.ok(html.includes(`<option value="${ROLE_ABOVE_YOU}" disabled>@Senior Mod (above your highest role)</option>`), "role above viewer greyed out");
+  assert.ok(html.includes(`<option value="${ROLE}">@Verified</option>`), "role below both stays pickable");
+  assert.ok(html.includes(`<option value="${ROLE_HIGH}" disabled>@Admin (Aegis cannot assign)</option>`));
+  assert.match(html, /data-rolepanel-blocked/, "role panel with a higher role explains why it cannot be re-posted");
+
+  // The form is never trusted: posting the greyed-out role directly is refused.
+  const before = verificationPanels.length;
+  const forged = await post(`${pagePath}/verification`, { _csrf: csrf, channelId: CHANNEL, verifiedRoleId: ROLE_ABOVE_YOU, type: "button" });
+  assert.equal(forged.status, 400);
+  const forgedHtml = await forged.text();
+  assert.match(forgedHtml, /equal to or above your highest role/);
+  assert.ok(forgedHtml.includes(`<option value="${CHANNEL}" selected>`), "entered channel kept on the error page");
+  assert.equal(verificationPanels.length, before);
+
+  const welcome = await post(`/dashboard/${GUILD_OK}/settings/welcome`, { _csrf: csrf, welcomeMessage: "Hi {user}", welcomeRoleId: ROLE_ABOVE_YOU });
+  assert.equal(welcome.status, 400);
+  assert.match(await welcome.text(), /equal to or above your highest role/);
+
+  // Re-posting a role panel that hands out a higher role is refused.
+  const posts = rolePanelPosts.length;
+  const repost = await post(`${pagePath}/roles/${PANEL_HIGH}`, { _csrf: csrf, channelId: CHANNEL_2 });
+  assert.equal(repost.headers.get("location"), `${pagePath}?notice=rolepanel-above-you#roles`);
+  assert.equal(rolePanelPosts.length, posts);
+
+  // A viewer whose member record cannot be fetched gets nothing (fails closed).
+  viewerTop.value = null;
+  try {
+    const unknown = await post(`${pagePath}/verification`, { _csrf: csrf, channelId: CHANNEL, verifiedRoleId: ROLE, type: "button" });
+    assert.equal(unknown.status, 400);
+    assert.match(await (await get(pagePath)).text(), /data-role-picker-empty/);
+  } finally {
+    viewerTop.value = 5;
+  }
+
+  // The server owner may use any role Aegis can assign.
+  viewerIsOwner.value = true;
+  try {
+    const ok = await post(`${pagePath}/verification`, { _csrf: csrf, channelId: CHANNEL, verifiedRoleId: ROLE_ABOVE_YOU, type: "button" });
+    assert.equal(ok.status, 303);
+    assert.equal(verificationPanels[verificationPanels.length - 1].verifiedRoleId, ROLE_ABOVE_YOU);
+    const ownerRepost = await post(`${pagePath}/roles/${PANEL_HIGH}`, { _csrf: csrf, channelId: CHANNEL_2 });
+    assert.equal(ownerRepost.headers.get("location"), `${pagePath}?notice=rolepanel-posted#roles`);
+  } finally {
+    viewerIsOwner.value = false;
+  }
+});
+
+test("role panel re-post with no channel picked says so instead of blaming Aegis's access", async () => {
+  await login();
+  const pagePath = `/dashboard/${GUILD_OK}/panels`;
+  const csrf = await csrfFrom(pagePath);
+  const blank = await post(`${pagePath}/roles/${PANEL_ID}`, { _csrf: csrf, channelId: "" });
+  assert.equal(blank.headers.get("location"), `${pagePath}?notice=panel-pick-channel#roles`);
+  assert.match(await (await get(`${pagePath}?notice=panel-pick-channel`)).text(), /Pick a channel to post the role panel to/);
+});
+
 test("activity page lists dashboard changes for the server, escaped", async () => {
   await login();
   const path = `/dashboard/${GUILD_OK}/settings/logging`;
@@ -676,10 +752,12 @@ test("rate limits go through the injected shared store", async () => {
     const page = await fetch(`${url}/dashboard`, { redirect: "manual" });
     assert.equal(page.status, 429);
     assert.equal(page.headers.get("retry-after"), "17");
+    assert.match(await page.text(), /Wait 17 seconds, then reload the page/);
     const login = await fetch(`${url}/dashboard/login`, { redirect: "manual" });
     assert.equal(login.status, 429);
     const form = await fetch(`${url}/dashboard/logout`, { method: "POST", redirect: "manual" });
     assert.equal(form.status, 429);
+    assert.match(await form.text(), /Nothing was saved\. Wait 17 seconds/);
     assert.deepEqual(calls, ["page:240", "auth:20", "post:30"], "default limits unchanged");
   } finally {
     srv.close();

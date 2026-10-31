@@ -3,15 +3,19 @@ import { REST, Routes } from "discord.js";
 import { loadCommands, commands } from "../src/commands/loader";
 import { logger } from "../src/utils/logger";
 
-const TOKEN = process.env.DISCORD_TOKEN;
-const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID;
+const RAW_TOKEN = process.env.DISCORD_TOKEN;
+const RAW_APPLICATION_ID = process.env.DISCORD_APPLICATION_ID;
 const TEST_GUILD_ID = process.env.DISCORD_TEST_GUILD_ID;
 const CLEAR_GUILD_IDS = process.env.DISCORD_CLEAR_GUILD_IDS;
 
-if (!TOKEN || !APPLICATION_ID) {
+if (!RAW_TOKEN || !RAW_APPLICATION_ID) {
   logger.error("Missing DISCORD_TOKEN or DISCORD_APPLICATION_ID in .env");
   process.exit(1);
 }
+
+// Narrowed copies: TypeScript does not carry the process.exit() narrowing into main().
+const TOKEN: string = RAW_TOKEN;
+const APPLICATION_ID: string = RAW_APPLICATION_ID;
 
 async function main(): Promise<void> {
   await loadCommands();

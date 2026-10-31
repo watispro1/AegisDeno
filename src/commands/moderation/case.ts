@@ -243,16 +243,18 @@ export const command: Command = {
       }
       const newReason = interaction.options.getString("reason", true);
 
+      // Acknowledge before the database write so a slow lookup never shows "This interaction failed".
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const edited = await editCaseReason(interaction.guild.id, caseId, newReason);
 
       if (!edited) {
-        await interaction.reply({ content: caseIdHelp(caseId, "missing"), flags: MessageFlags.Ephemeral });
+        await interaction.editReply({ content: caseIdHelp(caseId, "missing") });
         return;
       }
       const warning = edited.kind === "warning";
       const targetId = edited.userId;
       const previous = { reason: edited.previousReason };
-      await interaction.reply({ content: `✅ Updated reason for ${warning ? "warning" : "case"} \`${caseId}\` to: "${newReason}"`, flags: MessageFlags.Ephemeral });
+      await interaction.editReply({ content: `✅ Updated reason for ${warning ? "warning" : "case"} \`${caseId}\` to: "${newReason}"` });
       await sendGuildLog(interaction.client, interaction.guild.id, {
         title: "✏️ Case Reason Edited",
         color: 0x3498DB,
@@ -272,9 +274,11 @@ export const command: Command = {
         await interaction.reply({ content: caseIdHelp(caseId, "invalid"), flags: MessageFlags.Ephemeral });
         return;
       }
+      // Acknowledge before the lookup; the confirmation then edits this ephemeral reply.
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const record = await ModerationCaseModel.findOne({ guildId: interaction.guild.id, _id: caseId }).lean().catch(() => null);
       if (!record) {
-        await interaction.reply({ content: caseIdHelp(caseId, "missing"), flags: MessageFlags.Ephemeral });
+        await interaction.editReply({ content: caseIdHelp(caseId, "missing") });
         return;
       }
 

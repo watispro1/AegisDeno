@@ -13,6 +13,9 @@ import {
   ComponentType,
   MessageFlags,
 } from "discord.js";
+import { scopedModalId } from "../../utils/modal";
+import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
+import { memberTopRolePosition, roleAboveActor } from "../../permissions/hierarchy";
 import type { Command } from "../../types/discord";
 import { setupVerification, getVerificationConfig, setKickUnverifiedMinutes } from "../../services/verificationService";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../services/verificationLogic";
@@ -99,8 +102,27 @@ export const command: Command = {
       const type = (interaction.options.getString("type") || "button") as "button" | "captcha";
       const kickOption = interaction.options.getInteger("kick_unverified_minutes");
 
+      // Never post to a channel Aegis cannot see.
+      if (isObfuscatedChannel(channel) || isObfuscatedChannel(interaction.guild.channels.cache.get(channel.id))) {
+        return interaction.reply({ content: `❌ ${hiddenChannelMessage(channel.id)}`, flags: MessageFlags.Ephemeral });
+      }
+      // Everyone who verifies gets this role, the invoker included, so it must
+      // be below the invoker's own highest role.
+      const tooHigh = roleAboveActor({
+        ownerId: interaction.guild.ownerId,
+        actorId: interaction.user.id,
+        actorTopPosition: await memberTopRolePosition(interaction.guild, interaction.user.id),
+        roles: [role],
+      });
+      if (tooHigh) {
+        return interaction.reply({
+          content: `❌ You can't use <@&${tooHigh.id}> as the verified role: it is equal to or above your highest role.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
       const modal = new ModalBuilder()
-        .setCustomId("verify_setup_modal")
+        .setCustomId(scopedModalId("verify_setup_modal", interaction.id))
         .setTitle("Verification Panel Details");
 
       const titleInput = new TextInputBuilder()
@@ -128,7 +150,7 @@ export const command: Command = {
 
       const modalResponse = await interaction.awaitModalSubmit({
         time: 300_000,
-        filter: (m) => m.user.id === interaction.user.id && m.customId === "verify_setup_modal",
+        filter: (m) => m.user.id === interaction.user.id && m.customId === scopedModalId("verify_setup_modal", interaction.id),
       }).catch(() => null);
 
       if (!modalResponse) return;
@@ -282,7 +304,7 @@ export const command: Command = {
       }
 
       const modal = new ModalBuilder()
-        .setCustomId("verify_batch_modal")
+        .setCustomId(scopedModalId("verify_batch_modal", interaction.id))
         .setTitle("Batch Verify Members");
 
       const idsInput = new TextInputBuilder()
@@ -297,7 +319,7 @@ export const command: Command = {
 
       const modalResponse = await interaction.awaitModalSubmit({
         time: 300_000,
-        filter: (m) => m.user.id === interaction.user.id && m.customId === "verify_batch_modal",
+        filter: (m) => m.user.id === interaction.user.id && m.customId === scopedModalId("verify_batch_modal", interaction.id),
       }).catch(() => null);
 
       if (!modalResponse) return;

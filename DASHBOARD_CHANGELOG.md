@@ -8,6 +8,50 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.2.3] - 2026-10-31
+
+Dashboard 1.2.3. A role-hierarchy fix, clearer error and empty states, and
+small usability fixes. No new environment variables, Discord intents or OAuth
+scopes.
+
+### Changed
+- Role pickers for the verified role and the join role grey out roles you
+  can't hand out and say why: "Aegis cannot assign" or "above your highest
+  role". When nothing can be picked, a note says which limit emptied the list.
+- When a channel list is empty, a note says whether Aegis can't see the
+  channels (they are hidden from it; give it View Channel) or the server has
+  no text channels. Hidden channels are still never listed.
+- A form can't be sent twice: its buttons are disabled while it is sending,
+  and work again if you come back with the Back button.
+- A "Saved" or other notice shows once: it is removed from the address bar,
+  so reloading or bookmarking the page doesn't repeat it.
+- Disabled buttons and fields now look disabled.
+- When you are rate limited while sending a form, the page says nothing was
+  saved.
+- A server Aegis is not in links straight to adding Aegis to that server.
+
+### Fixed
+- **Roles above your own could be handed out.** The verified role (Panels and
+  Settings), the join role, and role panel re-posts only checked Aegis's role
+  position. They now also require the role to be below your highest role,
+  checked live on every request and enforced on the server whatever the form
+  sends. The server owner may pick any role Aegis can assign; Administrator is
+  still bounded by their highest role. If your role can't be read, no role
+  can be picked. A role already saved in Settings can be kept while you change
+  other settings there.
+- A role panel that hands out a role above yours can't be re-posted by you;
+  its Re-post button is disabled with the reason.
+- A saved role that had become greyed out was dropped silently (or reported
+  as missing) the next time the form was saved. It now stays selected and is
+  checked like any other choice.
+- Re-posting a role panel without picking a channel said Aegis couldn't see
+  the channel; it now asks you to pick one.
+- A database outage showed "Something went wrong" (500), and a session
+  lookup that failed during an outage signed you out. Both now show
+  "Database unavailable" (503, with Retry-After) and keep you signed in.
+- A form sent after your session ended now says nothing was saved and offers
+  a Log in button.
+
 ## [1.2.2] - 2026-10-30
 
 Dashboard 1.2.2. Wording and one hidden-channel fix; no new environment

@@ -12,6 +12,7 @@ import {
   TextInputStyle,
   MessageFlags,
 } from "discord.js";
+import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { isSendableChannel } from "../../utils/channels";
 import { sendGuildLog } from "../../services/logging";
@@ -187,7 +188,7 @@ export const command: Command = {
 
       if (i.customId === "ann_edit") {
         const modal = new ModalBuilder()
-          .setCustomId("ann_edit_modal")
+          .setCustomId(scopedModalId("ann_edit_modal", i.id))
           .setTitle("Edit Announcement");
 
         const titleInput = new TextInputBuilder()
@@ -212,7 +213,7 @@ export const command: Command = {
         );
 
         await i.showModal(modal);
-        const resp = await i.awaitModalSubmit({ time: 120_000, filter: m => m.user.id === interaction.user.id }).catch(() => null);
+        const resp = await i.awaitModalSubmit({ time: 120_000, filter: m => m.user.id === interaction.user.id && m.customId === scopedModalId("ann_edit_modal", i.id) }).catch(() => null);
         if (resp) {
           const newTitle = resp.fields.getTextInputValue("ann_title_input");
           const newBody  = resp.fields.getTextInputValue("ann_body_input").replace(/\\n/g, "\n");

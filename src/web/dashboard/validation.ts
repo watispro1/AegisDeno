@@ -17,8 +17,11 @@ export interface ValidationContext {
   textChannelIds: ReadonlySet<string>;
   /** Channels Discord hides from Aegis (obfuscated, no View Channel). Never valid picks. */
   hiddenChannelIds?: ReadonlySet<string>;
-  /** Role ID → whether the bot can assign it. */
-  roles: ReadonlyMap<string, { assignable: boolean }>;
+  /**
+   * Role ID → whether the bot can assign it, and whether it is at or above the
+   * viewer's own highest role (aboveViewer; never set for the server owner).
+   */
+  roles: ReadonlyMap<string, { assignable: boolean; aboveViewer?: boolean }>;
 }
 
 export const SETTINGS_SECTIONS = ["logging", "escalation", "automod", "welcome", "tickets", "verification", "starboard"] as const;
@@ -113,7 +116,14 @@ function channel(body: FormBody, key: string, ctx: ValidationContext, errors: Er
   return raw;
 }
 
-function role(body: FormBody, key: string, ctx: ValidationContext, errors: Errors, required: boolean, label: string, opts: { anyRole?: boolean } = {}): string | null {
+/** Shown when a picked role is at or above the viewer's highest role. */
+export const ROLE_ABOVE_VIEWER_ERROR =
+  "That role is equal to or above your highest role in this server, so you can't hand it out. Pick a role below your highest role (only the server owner can pick any role).";
+
+function role(
+  body: FormBody, key: string, ctx: ValidationContext, errors: Errors, required: boolean, label: string,
+  opts: { anyRole?: boolean; saved?: string | null } = {},
+): string | null {
   const raw = field(body, key);
   if (raw === "") {
     if (required) errors.add(key, `Pick a ${label}.`);
@@ -124,8 +134,17 @@ function role(body: FormBody, key: string, ctx: ValidationContext, errors: Error
     errors.add(key, `That ${label} does not exist in this server. Pick one from the list.`);
     return null;
   }
-  if (!found.assignable && !opts.anyRole) {
+  if (opts.anyRole) return raw;
+  if (!found.assignable) {
     errors.add(key, `Aegis cannot assign that role. Move Aegis's role above it and make sure it has Manage Roles.`);
+    return null;
+  }
+  // Same rule as /rolepanel create and /verify setup: the role must be below the
+  // viewer's own highest role. A role that is already saved may be kept as is,
+  // so a moderator can change other settings in the section without being
+  // blocked by a role the owner chose.
+  if (found.aboveViewer && raw !== opts.saved) {
+    errors.add(key, ROLE_ABOVE_VIEWER_ERROR);
     return null;
   }
   return raw;
@@ -304,7 +323,7 @@ export interface WelcomeSettings {
   welcomeRoleId: string | null;
 }
 
-export function parseWelcome(body: FormBody, ctx: ValidationContext): Parsed<WelcomeSettings> {
+export function parseWelcome(body: FormBody, ctx: ValidationContext, saved: { welcomeRoleId?: string | null } = {}): Parsed<WelcomeSettings> {
   const errors = new Errors();
   const welcomeEnabled = checkbox(body, "welcomeEnabled");
   const welcomeChannelId = channel(body, "welcomeChannelId", ctx, errors, welcomeEnabled, "welcome channel");
@@ -315,7 +334,7 @@ export function parseWelcome(body: FormBody, ctx: ValidationContext): Parsed<Wel
   else if (welcomeMessage.length > WELCOME_MESSAGE_MAX) {
     errors.add("welcomeMessage", `Keep the message under ${WELCOME_MESSAGE_MAX} characters (it is ${welcomeMessage.length}).`);
   }
-  const welcomeRoleId = role(body, "welcomeRoleId", ctx, errors, false, "join role");
+  const welcomeRoleId = role(body, "welcomeRoleId", ctx, errors, false, "join role", { saved: saved.welcomeRoleId ?? null });
   return finish(errors, { welcomeEnabled, welcomeChannelId, welcomeMessage, welcomeRoleId });
 }
 
@@ -348,10 +367,10 @@ export interface VerificationSettingsInput {
   kickUnverifiedMinutes: number;
 }
 
-export function parseVerification(body: FormBody, ctx: ValidationContext): Parsed<VerificationSettingsInput> {
+export function parseVerification(body: FormBody, ctx: ValidationContext, saved: { verifiedRoleId?: string | null } = {}): Parsed<VerificationSettingsInput> {
   const errors = new Errors();
   const enabled = checkbox(body, "enabled");
-  const verifiedRoleId = role(body, "verifiedRoleId", ctx, errors, true, "verified role") ?? "";
+  const verifiedRoleId = role(body, "verifiedRoleId", ctx, errors, true, "verified role", { saved: saved.verifiedRoleId ?? null }) ?? "";
   const typeRaw = field(body, "type");
   if (typeRaw !== "button" && typeRaw !== "captcha") errors.add("type", "Pick button or captcha.");
   const kickUnverifiedMinutes = integer(body, "kickUnverifiedMinutes", 0, MAX_KICK_UNVERIFIED_MINUTES, "Auto-kick delay", errors, { blank: 0 });
@@ -516,6 +535,20 @@ export function parseRolePanelRepost(body: FormBody, ctx: ValidationContext): Pa
   const errors = new Errors();
   const channelId = channel(body, "channelId", ctx, errors, true, "channel") ?? "";
   return finish(errors, { channelId });
+}
+
+/**
+ * The first of a role panel's roles the viewer may not hand out (at or above
+ * their highest role), or null. Re-posting
+ * puts the panel's roles in front of a new audience, so it follows the same
+ * rule as /rolepanel create.
+ */
+export function rolePanelBlockedRole(roleIds: readonly string[], ctx: ValidationContext): string | null {
+  for (const id of roleIds) {
+    const found = ctx.roles.get(id);
+    if (found?.aboveViewer) return id;
+  }
+  return null;
 }
 
 /* ── Appeals ───────────────────────────────────────────────────────── */

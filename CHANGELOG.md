@@ -9,6 +9,52 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.6.2] - 2026-10-31
+
+Bug fixes, a dashboard role-hierarchy fix and dashboard improvements, and the
+website code split into smaller modules. Discord permissions, intents, slash
+command definitions and environment variables are unchanged. Includes
+dashboard 1.2.3 (see `DASHBOARD_CHANGELOG.md`).
+
+### Changed
+- The website code is split into smaller modules (one per page for the site
+  and the dashboard, the dashboard routes by section, and the stylesheet and
+  site script by area). The split itself changed no page; the dashboard
+  changes below are listed separately.
+
+### Fixed
+- **Dashboard role choices ignored your own role position.** The verified
+  role, the join role and role panel re-posts only checked Aegis's role, so
+  someone with Manage Server could pick a role above their own and then take
+  it. The dashboard now applies the same rule as `/rolepanel create` and
+  `/verify setup`: roles must be below your highest role (the server owner is
+  exempt; Administrator is not). See dashboard 1.2.3.
+- `/clearwarnings` could show "This interaction failed" on a slow lookup: it
+  now acknowledges the command before checking the member, role order and
+  warnings, then shows the confirmation in that reply.
+- `/clearwarnings` counted only active warnings but deleted revoked ones too,
+  so the prompt, the logged case and what was deleted disagreed. The prompt
+  now lists every record it will delete, exactly those records are deleted (a
+  warning issued while the prompt is open is kept), and the reply, the case
+  and the log channel all give the same count.
+- `/case edit` and `/case delete` could show "This interaction failed" on a
+  slow database: both now acknowledge the command before looking up the case,
+  and `/case delete` shows its confirmation in that reply.
+- Forms opened by a command (`/suggest submit`, `/rolepanel create`, `/verify
+  setup` and `batch`, `/welcome message`, `/note add`, `/appeal`, the `/embed`
+  and announcement editors, and the kick reason editor) could be answered by
+  the wrong run: after closing a form and running the command again, one
+  submit was picked up by both runs, so the old run acted on its old options
+  (for example posting a role panel with the previous roles) and the new run
+  failed. Each form now only answers the run that opened it.
+- `/rolepanel create` and `/verify setup` accepted roles at or above your own
+  highest role, which anyone, you included, could then take by clicking. They
+  now refuse those roles (the server owner is exempt), and refuse a channel
+  Aegis cannot see before opening the form.
+- A ticket closed at the same moment by the Close button, `/ticket close` or
+  the inactivity check could be closed twice, posting the notice and
+  transcript twice. Only the first close goes through now.
+
 ## [3.6.1] - 2026-10-30
 
 Website, legal pages and repository docs, a rebuilt command reference and docs
@@ -575,7 +621,8 @@ First version.
 - MongoDB storage (the SQLite dependency was dropped the same day).
 - Express website and Fly.io config.
 
-[3.6.1]: https://github.com/watispro1/AegisDeno/compare/b292b9f...main
+[3.6.2]: https://github.com/watispro1/AegisDeno/compare/18611d0...main
+[3.6.1]: https://github.com/watispro1/AegisDeno/compare/b292b9f...18611d0
 [3.6.0]: https://github.com/watispro1/AegisDeno/compare/87e33cb...b292b9f
 [3.5.0]: https://github.com/watispro1/AegisDeno/compare/6f05a0d...87e33cb
 [3.4.0]: https://github.com/watispro1/AegisDeno/compare/4c2a46a...6f05a0d
