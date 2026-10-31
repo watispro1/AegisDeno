@@ -36,6 +36,7 @@ import type {
   WelcomeSettings,
 } from "./validation";
 import { isObfuscatedChannel } from "../../utils/channels";
+import type { GoodbyeSettings } from "./moduleValidation";
 
 export type { AppealRecord, AppealStatus } from "../../services/appeals";
 
@@ -94,7 +95,8 @@ export type SettingsValue =
   | { section: "welcome"; value: WelcomeSettings }
   | { section: "tickets"; value: TicketSettingsInput }
   | { section: "verification"; value: VerificationSettingsInput }
-  | { section: "starboard"; value: StarboardSettingsInput };
+  | { section: "starboard"; value: StarboardSettingsInput }
+  | { section: "goodbye"; value: GoodbyeSettings };
 
 export interface RolePanelSummary {
   id: string;
@@ -419,6 +421,7 @@ export function mongoDashboardData(client: Client): DashboardData {
           break;
         }
         case "welcome":
+        case "goodbye":
           await updateGuildConfig(guildId, input.value);
           break;
         case "tickets": {

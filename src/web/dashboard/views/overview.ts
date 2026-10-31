@@ -1,6 +1,6 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord, OverviewData } from "../data";
-import { type GuildContext, fmtDate, guildNav, head, person, shell } from "./layout";
+import { type GuildContext, fmtDate, head, person, shell } from "./layout";
 
 /* ── Overview ──────────────────────────────────────────────────────── */
 
@@ -41,8 +41,9 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
     title: g.name,
     path: `/dashboard/${g.id}`,
     viewer: ctx.viewer,
+    guild: ctx,
+    active: "overview",
     body: `${head(g.name, "", [["Servers", "/dashboard"], [g.name, null]])}
-  ${guildNav(g.id, "overview")}
   <h2>Last 7 and 30 days</h2>
   <dl class="stat-grid">
     ${stat("Members", g.memberCount)}

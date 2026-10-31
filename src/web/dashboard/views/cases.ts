@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord } from "../data";
 import { CASE_REASON_MAX, CASE_TYPES, CASE_QUERY_MAX, type CaseFilter } from "../validation";
-import { type GuildContext, csrfField, fmtDate, guildNav, head, notice, person, shell } from "./layout";
+import { type GuildContext, csrfField, fmtDate, head, notice, person, shell } from "./layout";
 import { caseTable } from "./overview";
 
 /* ── Cases ─────────────────────────────────────────────────────────── */
@@ -46,8 +46,9 @@ export function renderCases(
     title: `Cases in ${g.name}`,
     path: `/dashboard/${g.id}/cases`,
     viewer: ctx.viewer,
+    guild: ctx,
+    active: "cases",
     body: `${head("Cases", "Moderation cases and warnings, newest first. Records older than a year are deleted automatically.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Cases", null]])}
-  ${guildNav(g.id, "cases")}
   <form class="filter-bar" method="get" action="${base}" role="search" aria-label="Filter cases">
     <div><label for="f-type">Type</label><select id="f-type" name="type">${typeOptions}</select></div>
     <div><label for="f-user">Member ID</label><input id="f-user" name="user" type="text" inputmode="numeric" autocomplete="off" value="${esc(filter.userId ?? "")}" placeholder="123456789012345678"></div>
@@ -93,8 +94,9 @@ export function renderCase(
     title: `${kind} ${record.id}`,
     path: action,
     viewer: ctx.viewer,
+    guild: ctx,
+    active: "cases",
     body: `${head(`${kind}: ${record.action}`, "", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Cases", `/dashboard/${g.id}/cases`], [record.id, null]])}
-  ${guildNav(g.id, "cases")}
   ${notice(o.noticeCode)}
   <dl class="detail-list">
     <dt>ID</dt><dd><code class="inline">${esc(record.id)}</code></dd>

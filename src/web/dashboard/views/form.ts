@@ -1,6 +1,7 @@
 import { escapeHtml as esc } from "../../pages";
 import type { ChannelOption, RoleOption } from "../botView";
 import type { SettingsSnapshot } from "../data";
+import { embedValues } from "./embedBuilder";
 import { AUTOMOD_ACTIONS, ESCALATION_ROWS, LOG_CATEGORY_LABELS, type FormBody, type SettingsSection } from "../validation";
 
 /* ── Settings ──────────────────────────────────────────────────────── */
@@ -17,7 +18,10 @@ export function settingsValues(section: SettingsSection, s: SettingsSnapshot): V
   switch (section) {
     case "logging": {
       const v: Values = { loggingEnabled: s.guild.loggingEnabled, loggingChannelId: s.guild.loggingChannelId ?? "" };
-      for (const [key] of LOG_CATEGORY_LABELS) v[`cat_${key}`] = s.guild.logCategories?.[key] !== false;
+      for (const [key] of LOG_CATEGORY_LABELS) {
+        v[`cat_${key}`] = s.guild.logCategories?.[key] !== false;
+        v[`chan_${key}`] = s.guild.logChannels?.[key] ?? "";
+      }
       return v;
     }
     case "escalation": {
@@ -48,6 +52,16 @@ export function settingsValues(section: SettingsSection, s: SettingsSnapshot): V
         welcomeChannelId: s.guild.welcomeChannelId ?? "",
         welcomeMessage: s.guild.welcomeMessage,
         welcomeRoleId: s.guild.welcomeRoleId ?? "",
+        we_on: Boolean(s.guild.welcomeEmbed),
+        ...embedValues(s.guild.welcomeEmbed, "we_"),
+      };
+    case "goodbye":
+      return {
+        goodbyeEnabled: s.guild.goodbyeEnabled === true,
+        goodbyeChannelId: s.guild.goodbyeChannelId ?? "",
+        goodbyeMessage: s.guild.goodbyeMessage ?? "",
+        ge_on: Boolean(s.guild.goodbyeEmbed),
+        ...embedValues(s.guild.goodbyeEmbed, "ge_"),
       };
     case "tickets":
       return {

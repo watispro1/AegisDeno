@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { AuditEntry } from "../audit";
 import { SECTION_TITLES, SETTINGS_SECTIONS, type SettingsSection } from "../validation";
-import { type GuildContext, fmtDate, guildNav, head, shell } from "./layout";
+import { type GuildContext, fmtDate, head, shell } from "./layout";
 import { pagerNav } from "./parts";
 
 /* ── Activity ──────────────────────────────────────────────────────── */
@@ -46,8 +46,9 @@ export function renderActivity(
     title: `Dashboard activity in ${g.name}`,
     path: `/dashboard/${g.id}/activity`,
     viewer: ctx.viewer,
+    guild: ctx,
+    active: "activity",
     body: `${head("Dashboard activity", "Every change made through this dashboard for this server, newest first. Kept for 180 days. Changes made with slash commands are in your log channel instead.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Activity", null]])}
-  ${guildNav(g.id, "activity")}
   ${result.items.length ? `<div class="table-wrap"><table class="case-table">
     <caption class="visually-hidden">Dashboard changes</caption>
     <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Details</th></tr></thead>

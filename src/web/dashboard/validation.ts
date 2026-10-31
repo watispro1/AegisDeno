@@ -4,6 +4,7 @@
  * returns either a clean value ready for the matching service or a map of
  * field errors. Limits match the slash commands that set the same values.
  */
+import type { EmbedSpec } from "../../services/embedSpec";
 import { MAX_WARN_EXPIRY_DAYS, type GuildConfig } from "../../services/configuration";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../services/ticketTranscript";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../services/verificationLogic";
@@ -24,7 +25,7 @@ export interface ValidationContext {
   roles: ReadonlyMap<string, { assignable: boolean; aboveViewer?: boolean }>;
 }
 
-export const SETTINGS_SECTIONS = ["logging", "escalation", "automod", "welcome", "tickets", "verification", "starboard"] as const;
+export const SETTINGS_SECTIONS = ["logging", "escalation", "automod", "welcome", "tickets", "verification", "starboard", "goodbye"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 export function isSettingsSection(value: unknown): value is SettingsSection {
@@ -39,6 +40,7 @@ export const SECTION_TITLES: Record<SettingsSection, string> = {
   tickets: "Tickets",
   verification: "Verification",
   starboard: "Starboard",
+  goodbye: "Goodbye",
 };
 
 export const LOG_CATEGORY_LABELS: ReadonlyArray<[string, string]> = [
@@ -74,7 +76,7 @@ export function checkbox(body: FormBody, key: string): boolean {
   return values.some(v => v === "on" || v === "1" || v === "true");
 }
 
-class Errors {
+export class Errors {
   readonly map: Record<string, string> = {};
   add(key: string, message: string): void {
     if (!this.map[key]) this.map[key] = message;
@@ -84,7 +86,7 @@ class Errors {
   }
 }
 
-function integer(body: FormBody, key: string, min: number, max: number, label: string, errors: Errors, opts: { blank?: number } = {}): number {
+export function integer(body: FormBody, key: string, min: number, max: number, label: string, errors: Errors, opts: { blank?: number } = {}): number {
   const raw = field(body, key);
   if (raw === "" && opts.blank !== undefined) return opts.blank;
   if (!/^-?\d{1,9}$/.test(raw)) {
@@ -99,7 +101,7 @@ function integer(body: FormBody, key: string, min: number, max: number, label: s
   return n;
 }
 
-function channel(body: FormBody, key: string, ctx: ValidationContext, errors: Errors, required: boolean, label: string): string | null {
+export function channel(body: FormBody, key: string, ctx: ValidationContext, errors: Errors, required: boolean, label: string): string | null {
   const raw = field(body, key);
   if (raw === "") {
     if (required) errors.add(key, `Pick a ${label}.`);
@@ -150,7 +152,7 @@ function role(
   return raw;
 }
 
-function finish<T>(errors: Errors, value: T): Parsed<T> {
+export function finish<T>(errors: Errors, value: T): Parsed<T> {
   return errors.empty ? { ok: true, value } : { ok: false, errors: errors.map };
 }
 
@@ -160,6 +162,8 @@ export interface LoggingSettings {
   loggingEnabled: boolean;
   loggingChannelId: string | null;
   logCategories: Record<string, boolean>;
+  /** Per-category channel overrides (dashboard only); absent keeps what is saved. */
+  logChannels?: Record<string, string> | null;
 }
 
 export function parseLogging(body: FormBody, ctx: ValidationContext): Parsed<LoggingSettings> {
@@ -321,6 +325,8 @@ export interface WelcomeSettings {
   welcomeChannelId: string | null;
   welcomeMessage: string;
   welcomeRoleId: string | null;
+  /** Optional embed sent with the message (dashboard only); absent keeps what is saved. */
+  welcomeEmbed?: EmbedSpec | null;
 }
 
 export function parseWelcome(body: FormBody, ctx: ValidationContext, saved: { welcomeRoleId?: string | null } = {}): Parsed<WelcomeSettings> {

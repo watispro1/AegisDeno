@@ -443,7 +443,7 @@ export const command: Command = {
 
 // ─── Shared end logic ─────────────────────────────────────────────────────────
 
-async function endGiveaway(
+export async function endGiveaway(
   client: Client,
   guildId: string,
   messageId: string,
