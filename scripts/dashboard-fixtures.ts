@@ -63,8 +63,9 @@ export function dashboardAuditPages(cfg: SiteConfig): [string, string][] {
     { id: "700000000000000002", name: "mod-log", parent: "Staff" },
   ];
   const roles = [
-    { id: "600000000000000002", name: "Admin", assignable: false },
-    { id: "600000000000000001", name: "Verified", assignable: true },
+    { id: "600000000000000002", name: "Admin", position: 10, assignable: false },
+    { id: "600000000000000003", name: "Senior Mod", position: 6, assignable: true, aboveViewer: true },
+    { id: "600000000000000001", name: "Verified", position: 2, assignable: true, aboveViewer: false },
   ];
   const guildList = [{ id: GUILD, name: "Test Server", icon: null, owner: false, permissions: "32" }];
   const filter = { type: null, userId: null, moderatorId: null, page: 2 };
@@ -104,7 +105,10 @@ export function dashboardAuditPages(cfg: SiteConfig): [string, string][] {
   pages.push(["/dashboard/:id/appeals/:code (decided)", renderAppeal(cfg, ctx, decided, { noticeCode: "appeal-denied" })]);
   pages.push(["/dashboard/:id/panels", renderPanels(cfg, ctx, {
     channels, roles, verificationSetUp: false, noticeCode: "panel-posted", missing: { tickets: null, roles: "Manage Roles" },
-    rolePanels: [{ id: "panel-1", title: "Colour roles for the whole community", channelId: "700000000000000001", roleCount: 5, style: "button", createdAt: new Date(0) }],
+    rolePanels: [
+      { id: "panel-1", title: "Colour roles for the whole community", channelId: "700000000000000001", roleCount: 5, roleIds: ["600000000000000001"], style: "button", createdAt: new Date(0) },
+      { id: "panel-2", title: "Staff roles", channelId: "700000000000000002", roleCount: 1, roleIds: ["600000000000000003"], style: "dropdown", createdAt: new Date(0) },
+    ],
     state: { form: "ticket", values: { channelId: "", title: "Help" }, errors: { channelId: "Pick a channel." } },
   })]);
   pages.push(["/dashboard/:id/panels (no role panels)", renderPanels(cfg, ctx, { channels, roles, verificationSetUp: true, rolePanels: [], missing: { tickets: null, roles: null } })]);

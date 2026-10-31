@@ -4,7 +4,7 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { logger } from "../../../utils/logger";
 import type { SiteConfig } from "../../pages";
-import { DASHBOARD_PERMISSION_LABELS, type BotView, type DashboardPermission } from "../botView";
+import { DASHBOARD_PERMISSION_LABELS, markRolesForViewer, type BotView, type DashboardPermission, type RoleOption } from "../botView";
 import { memoryAuditStore, type AuditStore } from "../audit";
 import { memoryRateLimitStore, type RateLimitStore } from "../rateLimitStore";
 import type { DashboardConfig } from "../config";
@@ -166,7 +166,9 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
         logger.info(`Dashboard: refused guild ${guildId} for user ${authed.session.userId}`);
         return fail(res, 403, "No access to this server", "You need Manage Server or Administrator in this server. If you were just given it, wait a minute and reload.", authed.viewer);
       }
-      const ctx: GuildContext = { guild, viewer: authed.viewer, nameOf: (id) => deps.bot.userName(id) };
+      // The viewer's highest role bounds which roles they may hand out (see rolesFor).
+      const roleLimit = await deps.bot.viewerRoleLimit(guildId, authed.session.userId).catch(() => ({ ownerId: null, topPosition: null }));
+      const ctx: GuildContext = { guild, viewer: authed.viewer, nameOf: (id) => deps.bot.userName(id), roleLimit };
       res.locals.dash = { ...authed, ctx } satisfies GuildLocals;
       next();
     } catch (err) {
@@ -201,11 +203,21 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
 
   const noticeParam = (req: Request): string | null => (typeof req.query.notice === "string" ? req.query.notice.slice(0, 40) : null);
 
-  function validationContext(guildId: string): ValidationContext {
+  /**
+   * The server's roles for this viewer: each is marked aboveViewer when it is
+   * at or above the viewer's highest role (owner exempt), on top of the bot's
+   * own assignable check. Pickers and validation both read this list.
+   */
+  function rolesFor(ctx: GuildContext): RoleOption[] {
+    return markRolesForViewer(deps.bot.roles(ctx.guild.id), ctx.viewer.userId, ctx.roleLimit);
+  }
+
+  function validationContext(ctx: GuildContext): ValidationContext {
+    const guildId = ctx.guild.id;
     return {
       textChannelIds: new Set(deps.bot.textChannels(guildId).map(c => c.id)),
       hiddenChannelIds: deps.bot.hiddenChannelIds(guildId),
-      roles: new Map(deps.bot.roles(guildId).map(r => [r.id, { assignable: r.assignable }])),
+      roles: new Map(rolesFor(ctx).map(r => [r.id, { assignable: r.assignable, aboveViewer: r.aboveViewer === true }])),
     };
   }
 
@@ -218,7 +230,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
     authLimit, postLimit, pageLimit, form, settingsForm,
     send, fail, cookie, loadSession,
     requireSession, requireCsrf, requireGuild, missingPermission, requirePermission,
-    actorOf, logAudit, noticeParam, validationContext,
+    actorOf, logAudit, noticeParam, validationContext, rolesFor,
     guildGet, guildPost, settingsPost,
   };
 }

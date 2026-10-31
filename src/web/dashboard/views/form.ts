@@ -153,7 +153,10 @@ export class Form {
         if (o.group) html += `<optgroup label="${esc(o.group)}">`;
         openGroup = o.group;
       }
-      html += `<option value="${esc(o.value)}"${o.value === current ? " selected" : ""}${o.disabled ? " disabled" : ""}>${esc(o.label)}</option>`;
+      // A disabled option is never submitted, so the saved choice stays enabled:
+      // otherwise saving the form would silently clear it (or fail as blank).
+      // Validation still decides whether it may be kept.
+      html += `<option value="${esc(o.value)}"${o.value === current ? " selected" : ""}${o.disabled && o.value !== current ? " disabled" : ""}>${esc(o.label)}</option>`;
     }
     if (openGroup) html += "</optgroup>";
     return `<div class="field">
@@ -215,10 +218,39 @@ export function channelOptions(channels: ChannelOption[], noneLabel: string) {
   );
 }
 
+/**
+ * Options for a picker of roles the dashboard hands out (verified role, join
+ * role). A role is pickable only when Aegis can assign it and it is below the
+ * viewer's own highest role; the rest are listed greyed out with the reason.
+ */
 export function roleOptions(roles: RoleOption[], noneLabel: string | null) {
   const opts: Array<{ value: string; label: string; disabled?: boolean }> = noneLabel ? [{ value: "", label: noneLabel }] : [{ value: "", label: "Pick a role" }];
-  for (const r of roles) opts.push({ value: r.id, label: r.assignable ? `@${r.name}` : `@${r.name} (Aegis cannot assign)`, disabled: !r.assignable });
+  for (const r of roles) {
+    const reason = !r.assignable ? "Aegis cannot assign" : r.aboveViewer ? "above your highest role" : null;
+    opts.push({ value: r.id, label: reason ? `@${r.name} (${reason})` : `@${r.name}`, disabled: reason !== null });
+  }
   return opts;
+}
+
+/** Help text for an assignable-role picker. */
+export const ROLE_PICKER_HELP =
+  "Only roles below both Aegis's highest role and your own can be picked; the others are greyed out with the reason. The server owner can pick any role Aegis can assign.";
+
+/**
+ * Explains an assignable-role picker with nothing to pick, saying which limit
+ * emptied it: Aegis's role position or Manage Roles, or the viewer's own
+ * highest role. Empty string when at least one role is pickable.
+ */
+export function rolePickerEmptyNote(roles: RoleOption[]): string {
+  if (roles.some(r => r.assignable && !r.aboveViewer)) return "";
+  if (roles.length === 0) {
+    return `<p class="callout warn" data-role-picker-empty>This server has no roles besides @everyone. Create a role in Discord first, then reload this page.</p>`;
+  }
+  const botBlocked = roles.every(r => !r.assignable);
+  const message = botBlocked
+    ? "Aegis can't assign any role here. Give Aegis the <strong>Manage Roles</strong> permission and move its role above the roles it should hand out, then reload this page."
+    : "Every role Aegis can assign is equal to or above your highest role, so there is nothing you can pick. Ask someone with a higher role (or the server owner) to set this, or have them move your role up.";
+  return `<p class="callout warn" data-role-picker-empty>${message}</p>`;
 }
 
 export function channelPicks(channels: ChannelOption[], hidden: ReadonlySet<string> = new Set(), saved = "") {

@@ -6,7 +6,7 @@ import { MAX_WARN_EXPIRY_DAYS } from "../../../services/configuration";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../../services/ticketTranscript";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
 import { type GuildContext, csrfField, guildNav, head, notice, shell } from "./layout";
-import { ACTION_OPTIONS, Form, type FormState, channelOptions, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePicks } from "./form";
+import { ACTION_OPTIONS, Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
 
 function sectionForm(
   section: SettingsSection,
@@ -97,7 +97,8 @@ function sectionForm(
         <div class="preview" data-welcome-preview aria-live="polite" aria-labelledby="welcome-preview-label">${esc(welcomePreview(f.str("welcomeMessage"), sample))}</div>
       </fieldset>
       <fieldset><legend>Join role</legend>
-        ${f.select("welcomeRoleId", "Give new members this role", roleOptions(roles, "No role"), "Roles above Aegis's own role cannot be assigned and are greyed out.")}
+        ${rolePickerEmptyNote(roles)}
+        ${f.select("welcomeRoleId", "Give new members this role", roleOptions(roles, "No role"), ROLE_PICKER_HELP)}
       </fieldset>`;
     }
 
@@ -120,7 +121,8 @@ function sectionForm(
       return `${missingNote(f.str("verifiedRoleId"), roles, "verified role")}
       <fieldset><legend>Verification</legend>
         ${f.checkbox("enabled", "Verification is on")}
-        ${f.select("verifiedRoleId", "Role given after verifying", roleOptions(roles, null))}
+        ${rolePickerEmptyNote(roles)}
+        ${f.select("verifiedRoleId", "Role given after verifying", roleOptions(roles, null), `${ROLE_PICKER_HELP} The saved role can be kept even if it is above yours.`)}
         ${f.select("type", "Challenge", [
           { value: "button", label: "Button: one click" },
           { value: "captcha", label: "Captcha: a short sum to solve" },

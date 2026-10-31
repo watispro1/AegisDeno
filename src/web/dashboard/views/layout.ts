@@ -1,6 +1,6 @@
 import { layout } from "../../layout";
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
-import type { GuildSummary } from "../botView";
+import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
 
 export interface Viewer {
@@ -15,6 +15,12 @@ export interface GuildContext {
   viewer: Viewer;
   /** Resolves a user ID to a cached username, if the bot has seen them. */
   nameOf: (userId: string) => string | null;
+  /**
+   * The viewer's highest role position and the server owner, read live for
+   * this request. Role pickers only offer roles below it (owner exempt).
+   * Missing means unknown, which fails closed.
+   */
+  roleLimit?: ViewerRoleLimit;
 }
 
 /* ── Shell ─────────────────────────────────────────────────────────── */
@@ -94,6 +100,8 @@ const NOTICES: Record<string, { text: string; bad?: boolean }> = {
   "verification-posted": { text: "Verification panel posted and verification turned on. You can now change its settings here." },
   "rolepanel-posted": { text: "Role panel posted again. The old message was removed; members' roles are unchanged." },
   "panel-channel-missing": { text: "Aegis cannot see that channel any more. Give Aegis the View Channel permission there, or pick another one.", bad: true },
+  "panel-pick-channel": { text: "Pick a channel to post the role panel to. Nothing was posted.", bad: true },
+  "rolepanel-above-you": { text: "Not re-posted: the panel hands out a role equal to or above your highest role. Only someone above that role, or the server owner, can re-post it.", bad: true },
   "panel-not-found": { text: "That role panel no longer exists. It may have been deleted with /rolepanel.", bad: true },
   "panel-failed": { text: "Discord refused the message. Check that Aegis can view the channel, send messages, embed links and read message history there.", bad: true },
   refreshed: { text: "Server list refreshed from Discord." },

@@ -1,12 +1,13 @@
 /** Panels: /:guildId/panels and the ticket, verification and role panel posts. */
 import type { Router } from "express";
 import type { PanelResult } from "../data";
-import { parseRolePanelRepost, parseTicketPanel, parseVerificationPanel, type FormBody } from "../validation";
+import { logger } from "../../../utils/logger";
+import { parseRolePanelRepost, parseTicketPanel, parseVerificationPanel, rolePanelBlockedRole, type FormBody } from "../validation";
 import { renderPanels, submittedValues, type GuildContext, type PanelsState } from "../views";
 import { type RouteKit, type GuildLocals } from "./context";
 
 export function registerPanelRoutes(router: Router, k: RouteKit): void {
-  const { deps, send, fail, missingPermission, requirePermission, actorOf, logAudit, noticeParam, validationContext, guildGet, guildPost } = k;
+  const { deps, send, fail, missingPermission, requirePermission, actorOf, logAudit, noticeParam, validationContext, rolesFor, guildGet, guildPost } = k;
 
   /* ── Panels ──────────────────────────────────────────────────────── */
 
@@ -20,7 +21,7 @@ export function registerPanelRoutes(router: Router, k: RouteKit): void {
     return renderPanels(deps.site, ctx, {
       channels: deps.bot.textChannels(ctx.guild.id),
       hiddenChannelIds: deps.bot.hiddenChannelIds(ctx.guild.id),
-      roles: deps.bot.roles(ctx.guild.id),
+      roles: rolesFor(ctx),
       rolePanels,
       verificationSetUp: snapshot.verification !== null,
       state,
@@ -45,7 +46,7 @@ export function registerPanelRoutes(router: Router, k: RouteKit): void {
     try {
       const { ctx } = res.locals.dash as GuildLocals;
       const body = (req.body ?? {}) as FormBody;
-      const parsed = parseTicketPanel(body, validationContext(ctx.guild.id));
+      const parsed = parseTicketPanel(body, validationContext(ctx));
       if (!parsed.ok) return send(res, await panelsPage(ctx, null, { form: "ticket", values: submittedValues(body), errors: parsed.errors }), 400);
       const result = await deps.data.postTicketPanel(ctx.guild.id, parsed.value, actorOf(ctx));
       if (result === "posted") await logAudit(ctx, "panel.ticket", parsed.value.channelId, `in channel ${parsed.value.channelId}${parsed.value.staffRoleId ? `, staff role ${parsed.value.staffRoleId}` : ""}`);
@@ -59,7 +60,7 @@ export function registerPanelRoutes(router: Router, k: RouteKit): void {
     try {
       const { ctx } = res.locals.dash as GuildLocals;
       const body = (req.body ?? {}) as FormBody;
-      const parsed = parseVerificationPanel(body, validationContext(ctx.guild.id));
+      const parsed = parseVerificationPanel(body, validationContext(ctx));
       if (!parsed.ok) return send(res, await panelsPage(ctx, null, { form: "verification", values: submittedValues(body), errors: parsed.errors }), 400);
       const result = await deps.data.setupVerificationPanel(ctx.guild.id, parsed.value, actorOf(ctx));
       if (result === "posted") {
@@ -78,8 +79,18 @@ export function registerPanelRoutes(router: Router, k: RouteKit): void {
       const { ctx } = res.locals.dash as GuildLocals;
       const panelId = String(req.params.panelId);
       if (!/^panel-[\w-]{1,64}$/.test(panelId)) return fail(res, 404, "Panel not found", "That role panel does not exist.", ctx.viewer);
-      const parsed = parseRolePanelRepost((req.body ?? {}) as FormBody, validationContext(ctx.guild.id));
-      if (!parsed.ok) return res.redirect(303, `/dashboard/${ctx.guild.id}/panels?notice=panel-channel-missing#roles`);
+      const vctx = validationContext(ctx);
+      const parsed = parseRolePanelRepost((req.body ?? {}) as FormBody, vctx);
+      if (!parsed.ok) {
+        const blank = typeof (req.body as FormBody)?.channelId !== "string" || String((req.body as FormBody).channelId).trim() === "";
+        return res.redirect(303, `/dashboard/${ctx.guild.id}/panels?notice=${blank ? "panel-pick-channel" : "panel-channel-missing"}#roles`);
+      }
+      // Same rule as /rolepanel create: every role on the panel must be below the viewer's highest role.
+      const panel = (await deps.data.listRolePanels(ctx.guild.id)).find(p => p.id === panelId);
+      if (panel && rolePanelBlockedRole(panel.roleIds ?? [], vctx)) {
+        logger.info(`Dashboard: role panel re-post refused (role above viewer) in guild ${ctx.guild.id} for user ${ctx.viewer.userId}`);
+        return res.redirect(303, `/dashboard/${ctx.guild.id}/panels?notice=rolepanel-above-you#roles`);
+      }
       const result = await deps.data.repostRolePanel(ctx.guild.id, panelId, parsed.value.channelId, actorOf(ctx));
       if (result === "posted") await logAudit(ctx, "panel.role", panelId, `to channel ${parsed.value.channelId}`);
       res.redirect(303, `/dashboard/${ctx.guild.id}/panels?notice=${panelNotice(result, "rolepanel-posted")}#roles`);
