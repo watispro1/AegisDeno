@@ -65,11 +65,12 @@ export function renderDocs(cfg: SiteConfig): string {
       <p>In Discord, <code>/dashboard</code> shows a private summary for the server (members, active automod filters, open tickets, pending suggestions, warnings and cases). Dashboard changes have their own <a href="/dashboard/changelog">changelog</a>.</p>
 
       ${docHeading("moderation", "Moderation and cases")}
-      <p>Timeout, kick and ban check that both you and Aegis rank above the member, then ask you to confirm. Warn checks that you outrank the member and applies straight away. Add <code>silent:true</code> to skip the DM to the member. On warn, timeout and ban the <code>reason</code> option suggests presets (Spam, NSFW, Harassment, Advertising, Raiding, Other) but takes any text, and <code>proof</code> attaches a screenshot to the case. Warn, timeout and ban show an Undo button for five minutes; it reverses the action and marks the case revoked.</p>
+      <p>Timeout, kick and ban check that both you and Aegis rank above the member, then ask you to confirm. Warn checks that you outrank the member and applies straight away. Add <code>silent:true</code> to skip the DM to the member. On warn, timeout and ban the <code>reason</code> option suggests presets (Spam, NSFW, Harassment, Advertising, Raiding, Other) but takes any text, and <code>proof</code> attaches a screenshot to the case. Warn, timeout and ban show an Undo button for five minutes; it reverses the action and marks the case revoked. <code>/timeout</code> takes a preset <code>duration</code> or any <code>custom_duration</code> up to 28 days (<code>90m</code>, <code>1d 12h</code>, <code>2 weeks</code>). <code>/ban duration:</code> makes a temporary ban (one minute to a year) that Aegis lifts automatically; leave it empty for a permanent ban. A new ban, <code>/unban</code> or an approved appeal cancels a pending automatic unban. On <code>/ban</code>, <code>silent:true</code> sends no DMs at all, including the appeal code, which is shown to you instead. Timeout and ban check role positions again when you press Confirm.</p>
       ${cmdBlock(`/warn user:@member reason:Spam severity:Low
 /timeout user:@member duration:1 hour reason:Arguing with staff proof:screenshot.png
 /kick user:@member reason:Alt account
 /ban user:@member reason:Raid account delete_messages:1
+/ban user:@member reason:Cooling off duration:7d
 /unban user_id:123456789012345678`)}
       ${docHeading("cases", "Cases and warnings", 3)}
       <p>Every action creates a case. <code>/case user</code> pages through a member's cases five at a time. Wherever a command takes a <code>case_id</code>, start typing and Aegis suggests the server's recent cases (only to staff with Moderate Members). <code>/case delete</code> needs Administrator, shows the case and asks you to confirm; it removes the record and posts to the log channel, but does not undo the action itself. <code>/case export</code> (Manage Server) sends up to 5,000 cases as a JSON file.</p>
@@ -133,7 +134,7 @@ export function renderDocs(cfg: SiteConfig): string {
       <p>Approving lifts the ban and DMs the member. Reviewing needs Ban Members; submitting does not. Appeals can also be decided on the dashboard's Appeals page.</p>
 
       ${docHeading("watchlist", "Watchlist")}
-      <p>Adds a member to a private watch. You get DMs for the events you picked. Add <code>alert_channel</code> to also post them in a staff channel; the member is never told.</p>
+      <p>Adds a member to a private watch. You get DMs for the events you picked. Add <code>alert_channel</code> to also post them in a staff channel; the member is never told. An alert only goes to a watcher who is still in the server, still has Moderate Members and, for messages and voice, can view that channel right now; otherwise it is skipped. When the event happened in a private channel, the staff-channel copy leaves out the message text and link (the watcher's DM keeps them).</p>
       ${cmdBlock(`/watchlist add user:@member duration:7 Days events:All Events reason:Alt of a banned user
 /watchlist add user:@member events:First Message of the Day + Voice Joins alert_channel:#mod-alerts
 /watchlist list
@@ -185,12 +186,12 @@ export function renderDocs(cfg: SiteConfig): string {
       ${cmdBlock(`/giveaway start prize:Nitro duration:24h winners:1 booster_multiplier:2
 /giveaway reroll message_id:123456789012345678
 /poll question:Next game night? option1:Friday option2:Saturday duration:24 Hours (1 Day) multiselect:true anonymous:true`)}
-      <p>Server boosters get extra entries when <code>booster_multiplier</code> is above 1. Ended giveaways have a Reroll button for the host and moderators with Manage Server; rerolls skip people who already won. Timed polls close on their own, even across restarts, and post the results.</p>
+      <p>Server boosters get extra entries when <code>booster_multiplier</code> is above 1. <code>duration</code> takes <code>30m</code>, <code>2h</code>, <code>1d 12h</code> or <code>3 days</code> (10 seconds to 30 days). For <code>end</code> and <code>reroll</code>, start typing in <code>message_id</code> to pick the giveaway by prize, or paste its message ID or link. Pressing Enter twice only enters you once. Ended giveaways have a Reroll button for the host and moderators with Manage Server; rerolls skip people who already won, and two rerolls pressed at once draw only once. Timed polls close on their own, even across restarts, and post the results.</p>
       ${docHeading("suggestions", "Suggestions", 3)}
       ${cmdBlock(`/suggest setup channel:#suggestions
 /suggest submit
 /suggest approve id:5d0c8a1e-7b3f-4c2e-9a61-2f4b8e9d1c70 reason:Doing it`)}
-      <p>Each suggestion post shows its ID in the footer. The post has Approve, Deny and Consider buttons for staff with Manage Server; each asks for an optional reason, and the author gets a DM when the status changes.</p>
+      <p><code>/suggest setup</code> takes a text or announcement channel and checks that Aegis can view, send and embed links there. For approve, deny, consider and info, start typing in <code>id</code> to pick a suggestion by its title. Each suggestion post shows its ID in the footer. The post has Approve, Deny and Consider buttons for staff with Manage Server; each asks for an optional reason, and the author gets a DM when the status changes.</p>
       ${docHeading("welcome", "Welcome messages", 3)}
       ${cmdBlock(`/welcome channel channel:#welcome
 /welcome message

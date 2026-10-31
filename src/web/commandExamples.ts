@@ -13,11 +13,13 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   ban: [
     "/ban user:@member reason:Raid account delete_messages:1",
     "/ban user:@member preset:Compromised Account / Raid Bot silent:true",
+    "/ban user:@member reason:Cooling off duration:7d",
   ],
   kick: ["/kick user:@member reason:Alt account"],
   timeout: [
     "/timeout user:@member duration:1 hour reason:Arguing with staff",
     "/timeout user:@member duration:10 minutes preset:Excessive Spamming / Chat Flooding",
+    "/timeout user:@member custom_duration:1d 12h reason:Repeated spam",
   ],
   warn: ["/warn user:@member reason:Spam in #general severity:Low"],
   unban: ["/unban user_id:123456789012345678 reason:Appeal approved"],
@@ -89,6 +91,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   ],
   giveaway: [
     "/giveaway start prize:Nitro duration:24h winners:1 booster_multiplier:2",
+    "/giveaway end message_id:https://discord.com/channels/123456789012345678/123456789012345679/123456789012345680",
     "/giveaway reroll message_id:123456789012345678",
   ],
   poll: [

@@ -16,6 +16,8 @@ import {
   Client,
   Guild,
   User,
+  ChannelType,
+  AutocompleteInteraction,
 } from "discord.js";
 import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
@@ -24,6 +26,8 @@ import {
   getSuggestion,
   updateSuggestion,
   reviewSuggestion,
+  deleteSuggestion,
+  listSuggestionsForPicker,
   type Suggestion,
 } from "../../services/suggestions";
 import {
@@ -33,7 +37,21 @@ import {
 } from "../../services/communityLogic";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 import { logger } from "../../utils/logger";
-import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
+import { isObfuscatedChannel, hiddenChannelMessage, isSendableChannel } from "../../utils/channels";
+import { truncate } from "../../utils/safeText";
+
+/** Channel types that can hold suggestion posts. */
+export const SUGGESTION_CHANNEL_TYPES = [ChannelType.GuildText, ChannelType.GuildAnnouncement] as const;
+
+export function isSuggestionChannelType(type: unknown): boolean {
+  return (SUGGESTION_CHANNEL_TYPES as readonly unknown[]).includes(type);
+}
+
+/** Autocomplete label for a suggestion: its title line, status and short ID. */
+export function suggestionChoiceLabel(s: { id: string; content: string; status: string }): string {
+  const title = s.content.split("\n")[0].replace(/\*\*/g, "").trim() || "Untitled";
+  return truncate(`${title} · ${s.status} · ${s.id.slice(0, 8)}`, 100);
+}
 
 const STATUS_COLORS: Record<string, number> = {
   pending:    0x5865F2,
@@ -212,39 +230,51 @@ export const command: Command = {
         .setName("setup")
         .setDescription("Set the channel where suggestions will be posted.")
         .addChannelOption(opt =>
-          opt.setName("channel").setDescription("Suggestions channel").setRequired(true)
+          opt.setName("channel").setDescription("Suggestions channel (text or announcement)").addChannelTypes(...SUGGESTION_CHANNEL_TYPES).setRequired(true)
         )
     )
     .addSubcommand(sub =>
       sub
         .setName("approve")
         .setDescription("Approve a suggestion.")
-        .addStringOption(opt => opt.setName("id").setDescription("Suggestion ID").setRequired(true))
+        .addStringOption(opt => opt.setName("id").setDescription("Suggestion: pick one, or paste its ID").setRequired(true).setAutocomplete(true).setMaxLength(64))
         .addStringOption(opt => opt.setName("reason").setDescription("Reason or note for the author").setRequired(false))
     )
     .addSubcommand(sub =>
       sub
         .setName("deny")
         .setDescription("Deny a suggestion.")
-        .addStringOption(opt => opt.setName("id").setDescription("Suggestion ID").setRequired(true))
+        .addStringOption(opt => opt.setName("id").setDescription("Suggestion: pick one, or paste its ID").setRequired(true).setAutocomplete(true).setMaxLength(64))
         .addStringOption(opt => opt.setName("reason").setDescription("Reason for denial").setRequired(false))
     )
     .addSubcommand(sub =>
       sub
         .setName("consider")
         .setDescription("Mark a suggestion as under consideration.")
-        .addStringOption(opt => opt.setName("id").setDescription("Suggestion ID").setRequired(true))
+        .addStringOption(opt => opt.setName("id").setDescription("Suggestion: pick one, or paste its ID").setRequired(true).setAutocomplete(true).setMaxLength(64))
         .addStringOption(opt => opt.setName("reason").setDescription("Staff note").setRequired(false))
     )
     .addSubcommand(sub =>
       sub
         .setName("info")
         .setDescription("View vote counts, status, and full details for a suggestion.")
-        .addStringOption(opt => opt.setName("id").setDescription("Suggestion ID").setRequired(true))
+        .addStringOption(opt => opt.setName("id").setDescription("Suggestion: pick one, or paste its ID").setRequired(true).setAutocomplete(true).setMaxLength(64))
     ),
 
   guildOnly: true,
   botPermissions: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks],
+
+  /** `id`: open suggestions for approve/deny/consider, any recent one for info. */
+  autocomplete: async (interaction: AutocompleteInteraction) => {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== "id" || !interaction.guildId) return interaction.respond([]);
+    const sub = interaction.options.getSubcommand(false);
+    const openOnly = sub === "approve" || sub === "deny" || sub === "consider";
+    // Review choices only for people who can review; info lists anyone's.
+    if (openOnly && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.respond([]);
+    const rows = await listSuggestionsForPicker(interaction.guildId, openOnly, String(focused.value ?? "")).catch(() => []);
+    await interaction.respond(rows.map(r => ({ name: suggestionChoiceLabel(r), value: r.id })));
+  },
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();
@@ -256,6 +286,23 @@ export const command: Command = {
         return interaction.reply({ content: "❌ You need **Manage Server** permission to set up suggestions.", flags: MessageFlags.Ephemeral });
       }
       const channel = interaction.options.getChannel("channel", true);
+      // Older clients (and API callers) can still send any channel type; the
+      // option filter alone is not enforcement.
+      if (!isSuggestionChannelType(channel.type)) {
+        return interaction.reply({ content: "❌ Suggestions need a **text** or **announcement** channel. Voice channels, categories, forums and threads can't hold the suggestion posts.", flags: MessageFlags.Ephemeral });
+      }
+      const resolved = interaction.guild!.channels.cache.get(channel.id) ?? channel;
+      if (isObfuscatedChannel(resolved)) {
+        return interaction.reply({ content: `❌ ${hiddenChannelMessage(channel.id)}`, flags: MessageFlags.Ephemeral });
+      }
+      const me = interaction.guild!.members.me;
+      const perms = me && "permissionsFor" in resolved && typeof resolved.permissionsFor === "function" ? resolved.permissionsFor(me) : null;
+      const missing = perms
+        ? ([["ViewChannel", "View Channel"], ["SendMessages", "Send Messages"], ["EmbedLinks", "Embed Links"]] as const).filter(([flag]) => !perms.has(PermissionFlagsBits[flag])).map(([, label]) => label)
+        : [];
+      if (missing.length) {
+        return interaction.reply({ content: `❌ I need **${missing.join("**, **")}** in <#${channel.id}> before suggestions can be posted there.`, flags: MessageFlags.Ephemeral });
+      }
       await updateGuildConfig(guildId, { suggestionsChannelId: channel.id });
       return interaction.reply({
         embeds: [
@@ -320,8 +367,8 @@ export const command: Command = {
           await modalResponse.editReply(`❌ The suggestions channel is set, but ${hiddenChannelMessage(config.suggestionsChannelId)}`);
           return;
         }
-        if (!(channel instanceof TextChannel)) {
-          await modalResponse.editReply("❌ The configured suggestions channel is invalid or missing.");
+        if (!channel || !isSuggestionChannelType(channel.type) || !isSendableChannel(channel)) {
+          await modalResponse.editReply("❌ The suggestions channel is missing or isn't a text channel any more. Ask an admin to run `/suggest setup` again.");
           return;
         }
 
@@ -343,7 +390,11 @@ export const command: Command = {
           .setFooter({ text: `ID: ${suggestion.id} · Submit your vote below!` })
           .setTimestamp();
 
-        const msg = await channel.send({ embeds: [embed], components: buildSuggestionComponents(suggestion) });
+        const msg = await channel.send({ embeds: [embed], components: buildSuggestionComponents(suggestion) }).catch(async (err) => {
+          // Don't leave a suggestion nobody can see or vote on.
+          await deleteSuggestion(guildId, suggestion.id).catch(() => null);
+          throw err;
+        });
         await updateSuggestion(guildId, suggestion.id, { messageId: msg.id, channelId: channel.id });
 
         await modalResponse.editReply({

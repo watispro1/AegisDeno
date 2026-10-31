@@ -38,7 +38,9 @@ registers. In short:
 hierarchy, ask for confirmation and write a numbered case. The `reason` option
 suggests presets but takes any text, and `proof` attaches a screenshot to the
 case. `/warn`, `/timeout` and `/ban` show an Undo button for five minutes; undo
-reverses the action and marks the case revoked. Also `/purge` (filters for
+reverses the action and marks the case revoked. `/ban duration:7d` makes a
+temporary ban that Aegis lifts on its own, and `/timeout custom_duration:` takes
+any length up to 28 days (`90m`, `1d 12h`, `2 weeks`). Also `/purge` (filters for
 bots, humans, links, images, embeds, a user or a keyword, with a preview),
 `/lock` (a channel, a category or the whole server, optionally timed),
 `/slowmode`, `/nickname`, `/note`, `/case`, `/infractions` and `/modhistory`.
@@ -47,7 +49,8 @@ ignore warnings older than a set number of days.
 
 **Automod.** Blocked words, links, mass mentions, message rate and caps, each
 with its own action (delete, delete and warn, delete and timeout), plus role and
-channel exemptions.
+channel exemptions. Members with Administrator or Manage Server are never
+automodded.
 
 **Trust score.** `/trustscore` gives a 0 to 100 number from account age, time
 in the server, a long-tenure bonus, active warnings, timeouts, kicks and bans
@@ -63,7 +66,9 @@ unbans them.
 **Watchlist.** `/watchlist add` quietly watches a member and DMs the moderator
 when they post, edit or delete a message, join or leave, have their roles
 changed or join voice, depending on the events picked. Alerts can also go to a
-staff channel. The member is not told.
+staff channel. The member is not told. An alert only reaches a watcher who
+still has Moderate Members and can view the channel it came from, and copies
+posted to a staff channel leave out text from private channels.
 
 **Mod reports.** `/modreport` shows the last 24 hours or 7 days in four views:
 overview, top offenders, moderator activity and automod hits. `/modstats` and
