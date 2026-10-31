@@ -2,7 +2,8 @@
 import type { Router } from "express";
 import { describeChanges } from "../audit";
 import type { SettingsSnapshot, SettingsValue } from "../data";
-import { isSettingsSection, parseAutomod, parseEscalation, parseLogging, parseStarboard, parseTickets, parseVerification, parseWelcome, type FormBody, type Parsed, type SettingsSection, type ValidationContext } from "../validation";
+import { isSettingsSection, parseAutomod, parseEscalation, parseLogging, parseStarboard, parseTickets, parseVerification, parseWelcome, Errors, LOG_CATEGORY_LABELS, type FormBody, type Parsed, type SettingsSection, type ValidationContext } from "../validation";
+import { parseGoodbye, parseLogChannels, parseWelcomeEmbed } from "../moduleValidation";
 import { MULTI_FIELDS, renderSettings, settingsValues, submittedValues } from "../views";
 import { type RouteKit, type GuildLocals } from "./context";
 
@@ -11,18 +12,28 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
 
   /* ── Settings ────────────────────────────────────────────────────── */
 
-  router.get("/:guildId/settings", ...guildGet, (_req, res) => {
-    const { ctx } = res.locals.dash as GuildLocals;
-    res.redirect(302, `/dashboard/${ctx.guild.id}/settings/logging`);
-  });
+  // GET /:guildId/settings (every module) lives in routes/community.ts.
 
   function parseSection(section: SettingsSection, body: FormBody, vctx: ValidationContext, current: SettingsSnapshot): Parsed<SettingsValue> {
     const wrap = <T>(p: Parsed<T>, make: (v: T) => SettingsValue): Parsed<SettingsValue> => (p.ok ? { ok: true, value: make(p.value) } : p);
     switch (section) {
-      case "logging": return wrap(parseLogging(body, vctx), value => ({ section, value }));
+      case "logging": {
+        const base = parseLogging(body, vctx);
+        const errors = new Errors();
+        const logChannels = parseLogChannels(body, vctx, LOG_CATEGORY_LABELS.map(([k]) => k), errors);
+        if (!base.ok || !errors.empty) return { ok: false, errors: { ...(base.ok ? {} : base.errors), ...errors.map } };
+        return { ok: true, value: { section, value: { ...base.value, logChannels } } };
+      }
       case "escalation": return wrap(parseEscalation(body), value => ({ section, value }));
       case "automod": return wrap(parseAutomod(body, vctx, current.automod), value => ({ section, value }));
-      case "welcome": return wrap(parseWelcome(body, vctx, { welcomeRoleId: current.guild.welcomeRoleId }), value => ({ section, value }));
+      case "welcome": {
+        const base = parseWelcome(body, vctx, { welcomeRoleId: current.guild.welcomeRoleId });
+        const errors = new Errors();
+        const welcomeEmbed = parseWelcomeEmbed(body, errors);
+        if (!base.ok || !errors.empty) return { ok: false, errors: { ...(base.ok ? {} : base.errors), ...errors.map } };
+        return { ok: true, value: { section, value: { ...base.value, welcomeEmbed } } };
+      }
+      case "goodbye": return wrap(parseGoodbye(body, vctx), value => ({ section, value }));
       case "tickets": return wrap(parseTickets(body, vctx), value => ({ section, value }));
       case "verification": return wrap(parseVerification(body, vctx, { verifiedRoleId: current.verification?.verifiedRoleId ?? null }), value => ({ section, value }));
       case "starboard": return wrap(parseStarboard(body, vctx, current.starboard), value => ({ section, value }));

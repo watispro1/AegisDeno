@@ -150,6 +150,14 @@ async function main() {
     dashJsParses = false;
   }
   check("dashboard.js parses", dashJsParses);
+  check("dashboard.js has the app shell helpers", ["data-drawer-toggle", "data-unsaved-bar", "data-confirm-dialog", "data-embed-builder", "data-filter-target"].every(k => dashJs.includes(k)));
+  check("dashboard.js never uses eval or innerHTML", !/\beval\(|innerHTML/.test(dashJs));
+  const siteCss = await (await fetch(origin + "/assets/site.css")).text();
+  check("site.css styles the dashboard sidebar and embed preview", siteCss.includes(".app-side") && siteCss.includes(".embed-preview") && siteCss.includes(".unsaved-bar"));
+  for (const path of ["/dashboard/800000000000000001/autoresponders", "/dashboard/800000000000000001/giveaways", "/dashboard/800000000000000001/announce"]) {
+    const page = await fetch(origin + path, { redirect: "manual" });
+    check(`${path} answers not configured without dashboard env`, page.status === 200 && (await page.text()).includes("not configured"), String(page.status));
+  }
   check("robots disallows /dashboard", (await (await fetch(origin + "/robots.txt")).text()).includes("Disallow: /dashboard"));
 
   console.log("\nSecurity headers");

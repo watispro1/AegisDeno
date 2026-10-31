@@ -21,6 +21,9 @@ import {
   type GuildContext,
 } from "../src/web/dashboard/views";
 import { SETTINGS_SECTIONS } from "../src/web/dashboard/validation";
+import { renderAnnounce, renderAutoResponders, renderAutomations } from "../src/web/dashboard/views/automation";
+import { renderGeneralSettings, renderGiveaways, renderSuggestions, renderWatchlist } from "../src/web/dashboard/views/community";
+import { moduleStates } from "../src/web/dashboard/views/overview";
 
 const GUILD = "800000000000000001";
 
@@ -120,6 +123,34 @@ export function dashboardAuditPages(cfg: SiteConfig): [string, string][] {
     total: 120,
   }, 50)]);
   pages.push(["/dashboard/:id/activity (empty)", renderActivity(cfg, ctx, 1, { items: [], total: 0 }, 50)]);
+  const extras = { casesPerDay: Array.from({ length: 30 }, (_, i) => i % 6), activeGiveaways: 1, automodHits7: 14, openSuggestions: 3, autoresponders: 2, scheduled: 1 };
+  const overview = { cases7: 1, cases30: 4, warnings7: 2, warnings30: 9, recentCases: [record], openTicketCount: 12, openTickets: [], pendingAppeals: 2 };
+  pages.push(["/dashboard/:id (full overview)", renderOverview(cfg, { ...ctx, servers: [{ id: GUILD, name: "Test Server" }, { id: "800000000000000002", name: "Other" }] }, overview, {
+    extras, snapshot, rolePanels: 2, hidden: new Set(["700000000000000009"]), missingBotPermissions: ["Manage Roles"],
+  })]);
+  pages.push(["/dashboard/:id/settings", renderGeneralSettings(cfg, ctx, { states: moduleStates(GUILD, overview, { snapshot, extras, rolePanels: 2 }), missingBotPermissions: [], hiddenCount: 1 })]);
+  pages.push(["/dashboard/:id/autoresponders", renderAutoResponders(cfg, ctx, {
+    rows: [{ id: "ar-1", trigger: "rules", response: "Read #rules, {user}.", matchType: "exact", enabled: true, createdBy: viewer.userId, createdAt: new Date(0) }],
+    enabled: true, noticeCode: "ar-added", max: 50,
+  })]);
+  pages.push(["/dashboard/:id/autoresponders (empty, errors)", renderAutoResponders(cfg, ctx, { rows: [], enabled: false, noticeCode: null, max: 50, state: { values: {}, errors: { trigger: "Type the text that triggers the response." } } })]);
+  pages.push(["/dashboard/:id/automations", renderAutomations(cfg, ctx, {
+    rows: [{ id: "65a1b2c3d4e5f60718293a4b", channelId: "700000000000000001", creatorId: viewer.userId, type: "scheduled", payload: "Weekly reminder", executeAt: new Date(86_400_000), intervalMs: 604_800_000 }],
+    channels, hidden: new Set(), noticeCode: "task-created",
+  })]);
+  pages.push(["/dashboard/:id/announce", renderAnnounce(cfg, ctx, { channels, hidden: new Set(), noticeCode: "announced" })]);
+  pages.push(["/dashboard/:id/giveaways", renderGiveaways(cfg, ctx, {
+    rows: [
+      { messageId: "100000000000000001", channelId: "700000000000000001", prize: "Nitro", winnerCount: 1, entrants: 40, winners: [], hostId: viewer.userId, endsAt: new Date(2e12), ended: false },
+      { messageId: "100000000000000002", channelId: "700000000000000001", prize: "Sticker pack", winnerCount: 2, entrants: 12, winners: ["500000000000000001"], hostId: viewer.userId, endsAt: new Date(0), ended: true },
+    ],
+    channels, noticeCode: null,
+  })]);
+  pages.push(["/dashboard/:id/suggestions", renderSuggestions(cfg, ctx, {
+    items: [{ id: "0f8fad5b-d9cb-469f-a165-70867728950e", authorId: "500000000000000001", content: "A music channel", status: "pending", up: 4, down: 1, reviewedBy: null, reviewReason: null, createdAt: new Date(0) }],
+    total: 1, page: 1, perPage: 20, filter: "open", channelId: "700000000000000001", channels, hidden: new Set(), noticeCode: "sg-reviewed",
+  })]);
+  pages.push(["/dashboard/:id/watchlist", renderWatchlist(cfg, ctx, { rows: [], noticeCode: null })]);
   pages.push(["/dashboard/:id/settings/verification (not set up)", renderSettings(cfg, ctx, "verification", { ...snapshot, verification: null }, { values: {}, errors: {} }, channels, roles, "verification-missing")]);
   return pages;
 }

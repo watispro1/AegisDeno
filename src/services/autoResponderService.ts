@@ -2,6 +2,7 @@ import { Message } from "discord.js";
 import { AutoResponderModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 import { TtlCache } from "../utils/ttlCache";
+import { getGuildConfig } from "./configuration";
 import { DISCORD_LIMITS, truncate } from "../utils/safeText";
 
 export interface AutoResponder {
@@ -71,6 +72,26 @@ export async function removeAutoResponder(guildId: string, id: string): Promise<
   }
 }
 
+/** Turns one responder on or off. False when it does not exist in this server. */
+export async function setAutoResponderEnabled(guildId: string, id: string, enabled: boolean): Promise<boolean> {
+  try {
+    responderCache.delete(guildId);
+    const res = await AutoResponderModel.updateOne({ guildId, id }, { $set: { enabled } });
+    return res.matchedCount > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether the server already has a responder with this trigger and match type (triggers are stored lower-cased). */
+export async function autoResponderExists(guildId: string, trigger: string, matchType: AutoResponder["matchType"]): Promise<boolean> {
+  try {
+    return (await AutoResponderModel.countDocuments({ guildId, trigger: trigger.toLowerCase().trim(), matchType })) > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function getAutoResponders(guildId: string): Promise<AutoResponder[]> {
   try {
     const docs = await AutoResponderModel.find({ guildId }).sort({ createdAt: -1 });
@@ -85,6 +106,8 @@ export async function processAutoResponders(message: Message): Promise<boolean> 
 
   try {
     const guildId = message.guild.id;
+    // The server-wide switch (dashboard Autoresponders page); cached with the guild config.
+    if ((await getGuildConfig(guildId)).autorespondersEnabled === false) return false;
     const responders = await responderCache.getOrLoad(guildId, () => loadActiveResponders(guildId));
     if (responders.length === 0) return false;
     const content = message.content.toLowerCase();

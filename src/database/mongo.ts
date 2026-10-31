@@ -40,6 +40,14 @@ const GuildConfigSchema = new mongoose.Schema({
   welcomeMessage: { type: String, default: "Welcome {user} to **{server}**! You are member #{member_count}.", maxlength: 1000 },
   welcomeRoleId: { type: String, default: null },
   suggestionsChannelId: { type: String, default: null },
+  // Added in 3.6.2 (dashboard overhaul). Normalised in services/configuration.ts.
+  welcomeEmbed: { type: mongoose.Schema.Types.Mixed, default: null },
+  goodbyeEnabled: { type: Boolean, default: false },
+  goodbyeChannelId: { type: String, default: null },
+  goodbyeMessage: { type: String, maxlength: 1000 },
+  goodbyeEmbed: { type: mongoose.Schema.Types.Mixed, default: null },
+  autorespondersEnabled: { type: Boolean, default: true },
+  logChannels: { type: mongoose.Schema.Types.Mixed, default: null },
   // Escalation: auto-actions when a user hits X warnings
   escalation: {
     enabled: { type: Boolean, default: false },

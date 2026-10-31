@@ -13,7 +13,20 @@ export function registerCaseRoutes(router: Router, k: RouteKit): void {
   router.get("/:guildId", ...guildGet, async (_req, res, next) => {
     try {
       const { ctx } = res.locals.dash as GuildLocals;
-      send(res, renderOverview(deps.site, ctx, await deps.data.overview(ctx.guild.id)));
+      const id = ctx.guild.id;
+      // The extra panels are best-effort: a failure in one never blocks the overview.
+      const soft = <T>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
+      const [data, extras, snapshot, panels] = await Promise.all([
+        deps.data.overview(id),
+        soft(k.modules.overviewExtras(id)),
+        soft(deps.data.loadSettings(id)),
+        soft(deps.data.listRolePanels(id)),
+      ]);
+      send(res, renderOverview(deps.site, ctx, data, {
+        extras, snapshot, rolePanels: panels?.length ?? 0,
+        hidden: deps.bot.hiddenChannelIds(id),
+        missingBotPermissions: deps.bot.botMissingPermissions?.(id) ?? [],
+      }));
     } catch (err) {
       next(err);
     }

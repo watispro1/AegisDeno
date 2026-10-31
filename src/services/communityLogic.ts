@@ -294,7 +294,7 @@ export function pickStarboardMedia(
 
 // ─── Welcome ─────────────────────────────────────────────────────────────────
 
-export const WELCOME_VARIABLES = ["{user}", "{username}", "{server}", "{count}", "{member_count}"] as const;
+export const WELCOME_VARIABLES = ["{user}", "{username}", "{server}", "{count}", "{member_count}", "{memberCount}"] as const;
 
 export interface WelcomeContext {
   userId: string;
@@ -303,7 +303,7 @@ export interface WelcomeContext {
   memberCount: number | null;
 }
 
-/** Fill `{user}`, `{username}`, `{server}` and `{count}` (alias `{member_count}`). */
+/** Fill `{user}`, `{username}`, `{server}` and `{count}` (aliases `{member_count}`, `{memberCount}`). */
 export function renderWelcomeTemplate(template: string, ctx: WelcomeContext): string {
   const count = ctx.memberCount == null ? "?" : String(ctx.memberCount);
   const values: Record<string, string> = {
@@ -312,7 +312,8 @@ export function renderWelcomeTemplate(template: string, ctx: WelcomeContext): st
     server: ctx.serverName,
     count,
     member_count: count,
+    memberCount: count,
   };
   // Single pass, so a username or server name containing "{server}" is not re-expanded.
-  return template.replace(/\{(user|username|server|count|member_count)\}/g, (_, key: string) => values[key]);
+  return template.replace(/\{(user|username|server|count|member_count|memberCount)\}/g, (_, key: string) => values[key]);
 }

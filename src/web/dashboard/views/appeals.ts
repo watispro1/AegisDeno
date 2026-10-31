@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { AppealRecord } from "../data";
 import { APPEAL_FILTERS, APPEAL_REVIEW_NOTE_MAX, type AppealFilter } from "../validation";
-import { type GuildContext, csrfField, fmtDate, guildNav, head, notice, person, shell } from "./layout";
+import { type GuildContext, csrfField, fmtDate, head, notice, person, shell } from "./layout";
 import { errorSummary, pagerNav, permissionNote } from "./parts";
 
 /* ── Appeals ───────────────────────────────────────────────────────── */
@@ -49,8 +49,9 @@ export function renderAppeals(
     title: `Appeals in ${g.name}`,
     path: `/dashboard/${g.id}/appeals`,
     viewer: ctx.viewer,
+    guild: ctx,
+    active: "appeals",
     body: `${head("Ban appeals", "Members banned by Aegis get an appeal code by DM and send their statement with <code class=\"inline\">/appeal submit</code>. Review them here or with <code class=\"inline\">/appeal review</code>.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Appeals", null]])}
-  ${guildNav(g.id, "appeals")}
   ${notice(o.noticeCode)}
   ${permissionNote(o.missingPermission ?? null)}
   ${tabs}
@@ -100,8 +101,9 @@ export function renderAppeal(
     title: `Appeal ${appeal.code}`,
     path: action,
     viewer: ctx.viewer,
+    guild: ctx,
+    active: "appeals",
     body: `${head(`Appeal ${appeal.code}`, "", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Appeals", `/dashboard/${g.id}/appeals`], [appeal.code, null]])}
-  ${guildNav(g.id, "appeals")}
   ${notice(o.noticeCode)}
   ${permissionNote(o.missingPermission ?? null)}
   <dl class="detail-list">

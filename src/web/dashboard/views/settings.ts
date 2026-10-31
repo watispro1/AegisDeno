@@ -1,11 +1,13 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { ChannelOption, RoleOption } from "../botView";
 import type { SettingsSnapshot } from "../data";
-import { ESCALATION_ROWS, LOG_CATEGORY_LABELS, MAX_TIMEOUT_MINUTES, SECTION_TITLES, SETTINGS_SECTIONS, WELCOME_MESSAGE_MAX, AUTOMOD_WORD_MAX, AUTOMOD_WORDS_MAX_COUNT, AUTOMOD_WORDS_TEXT_MAX, welcomePreview, type SettingsSection } from "../validation";
+import { ESCALATION_ROWS, LOG_CATEGORY_LABELS, MAX_TIMEOUT_MINUTES, SECTION_TITLES, WELCOME_MESSAGE_MAX, AUTOMOD_WORD_MAX, AUTOMOD_WORDS_MAX_COUNT, AUTOMOD_WORDS_TEXT_MAX, welcomePreview, type SettingsSection } from "../validation";
 import { MAX_WARN_EXPIRY_DAYS } from "../../../services/configuration";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../../services/ticketTranscript";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
-import { type GuildContext, csrfField, guildNav, head, notice, shell } from "./layout";
+import { type GuildContext, type GuildSection, csrfField, head, moduleStatus, notice, shell } from "./layout";
+import { embedBuilder } from "./embedBuilder";
+import { GOODBYE_MESSAGE_MAX } from "../../../services/configuration";
 import { ACTION_OPTIONS, Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
 
 function sectionForm(
@@ -24,8 +26,11 @@ function sectionForm(
         ${f.checkbox("loggingEnabled", "Post moderation and server events to a log channel")}
         ${f.select("loggingChannelId", "Log channel", channelOptions(channels, "No channel"), "Aegis needs View Channel, Send Messages and Embed Links there.")}
       </fieldset>
-      <fieldset><legend>What to log</legend>
-        ${LOG_CATEGORY_LABELS.map(([key, label]) => f.checkbox(`cat_${key}`, label)).join("")}
+      <fieldset><legend>What to log, and where</legend>
+        <p class="field-help">Each event type can go to its own channel. Leave a channel on "Main log channel" to use the one above.</p>
+        <div class="log-grid">
+        ${LOG_CATEGORY_LABELS.map(([key, label]) => `<div class="log-row">${f.checkbox(`cat_${key}`, label)}${f.select(`chan_${key}`, `Channel for ${label.toLowerCase()}`, channelOptions(channels, "Main log channel"))}</div>`).join("")}
+        </div>
       </fieldset>`;
 
     case "escalation": {
@@ -96,11 +101,25 @@ function sectionForm(
         <p class="field-help" id="welcome-preview-label">Preview, with you as the new member:</p>
         <div class="preview" data-welcome-preview aria-live="polite" aria-labelledby="welcome-preview-label">${esc(welcomePreview(f.str("welcomeMessage"), sample))}</div>
       </fieldset>
+      <fieldset><legend>Embed</legend>
+        ${f.checkbox("we_on", "Send an embed with the welcome message", "Build it below; the preview updates as you type.")}
+      </fieldset>
+      ${embedBuilder(f, "we_", { legend: "Welcome embed", sample: templateSample(ctx), contentKey: "welcomeMessage" })}
       <fieldset><legend>Join role</legend>
         ${rolePickerEmptyNote(roles)}
         ${f.select("welcomeRoleId", "Give new members this role", roleOptions(roles, "No role"), ROLE_PICKER_HELP)}
       </fieldset>`;
     }
+
+    case "goodbye":
+      return `${missingNote(f.str("goodbyeChannelId"), channels, "goodbye channel", hidden)}
+      <fieldset><legend>Goodbye message</legend>
+        ${f.checkbox("goodbyeEnabled", "Post a message when someone leaves", "Nobody is pinged: {user} shows their name as plain text.")}
+        ${f.select("goodbyeChannelId", "Channel", channelOptions(channels, "No channel"))}
+        ${f.textarea("goodbyeMessage", "Message", GOODBYE_MESSAGE_MAX, "Leave blank to send only the embed.")}
+        ${f.checkbox("ge_on", "Send an embed with it")}
+      </fieldset>
+      ${embedBuilder(f, "ge_", { legend: "Goodbye embed", sample: { ...templateSample(ctx), user: ctx.viewer.username }, contentKey: "goodbyeMessage" })}`;
 
     case "tickets":
       return `${missingNote(f.str("logChannelId"), channels, "transcript channel", hidden)}
@@ -148,6 +167,49 @@ function sectionForm(
   }
 }
 
+/** Which sidebar entry each settings section belongs to. */
+export const SECTION_NAV: Record<SettingsSection, GuildSection> = {
+  logging: "logging", escalation: "moderation", automod: "automod", welcome: "welcome", goodbye: "welcome",
+  tickets: "tickets", verification: "verification", starboard: "starboard",
+};
+
+/** The page title each section shows (module names, as in the sidebar). */
+const PAGE_TITLES: Record<SettingsSection, string> = {
+  logging: "Logging", escalation: "Moderation", automod: "Automod", welcome: "Welcome & Goodbye", goodbye: "Welcome & Goodbye",
+  tickets: "Tickets", verification: "Verification", starboard: "Starboard",
+};
+
+function templateSample(ctx: GuildContext) {
+  return { user: `@${ctx.viewer.username}`, username: ctx.viewer.username, server: ctx.guild.name, memberCount: ctx.guild.memberCount };
+}
+
+/** Whether the module behind a section is switched on (null: it has no single switch). */
+export function sectionEnabled(section: SettingsSection, s: SettingsSnapshot): boolean | null {
+  switch (section) {
+    case "logging": return s.guild.loggingEnabled;
+    case "escalation": return s.guild.escalation.enabled;
+    case "automod": return s.automod.words.enabled || s.automod.links.enabled || s.automod.mentions.enabled || s.automod.spam.enabled || s.automod.caps.enabled;
+    case "welcome": return s.guild.welcomeEnabled;
+    case "goodbye": return s.guild.goodbyeEnabled === true;
+    case "verification": return s.verification?.enabled ?? false;
+    case "starboard": return s.starboard.enabled;
+    case "tickets": return null;
+  }
+}
+
+function sectionIntro(section: SettingsSection, s: SettingsSnapshot, base: string): string {
+  const on = sectionEnabled(section, s);
+  const tabs = section === "welcome" || section === "goodbye"
+    ? `<nav class="tabs" aria-label="Welcome and goodbye"><a href="${base}/welcome"${section === "welcome" ? ' aria-current="page"' : ""}>Welcome</a><a href="${base}/goodbye"${section === "goodbye" ? ' aria-current="page"' : ""}>Goodbye</a></nav>`
+    : "";
+  const extra = section === "escalation"
+    ? `<p class="muted">Cases are on the <a href="${base.replace(/\/settings$/, "")}/cases">Cases</a> page; appeals on <a href="${base.replace(/\/settings$/, "")}/appeals">Appeals</a>.</p>`
+    : section === "tickets"
+      ? `<p class="muted">Post or move the ticket panel from <a href="${base.replace(/\/settings$/, "")}/panels#tickets">Role panels &amp; panels</a>.</p>`
+      : "";
+  return `${tabs}<div class="module-head">${on === null ? "" : moduleStatus(on)}<span class="muted">${on === null ? "Always available." : on ? "Aegis is using this module." : "Turn it on below, then save."}</span></div>${extra}`;
+}
+
 export function renderSettings(
   cfg: SiteConfig,
   ctx: GuildContext,
@@ -172,21 +234,20 @@ export function renderSettings(
   const canSave = !(section === "verification" && !snapshot.verification);
 
   return shell(cfg, {
-    title: `${SECTION_TITLES[section]} settings, ${g.name}`,
+    title: `${PAGE_TITLES[section]}, ${g.name}`,
     path: `${base}/${section}`,
     viewer: ctx.viewer,
-    body: `${head(`${SECTION_TITLES[section]} settings`, "", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Settings", null]])}
-  ${guildNav(g.id, "settings")}
-  <nav aria-label="Settings sections"><ul class="dash-nav">
-    ${SETTINGS_SECTIONS.map(s => `<li><a href="${base}/${s}"${s === section ? ' aria-current="page"' : ""}>${SECTION_TITLES[s]}</a></li>`).join("")}
-  </ul></nav>
+    guild: ctx,
+    active: SECTION_NAV[section],
+    body: `${head(PAGE_TITLES[section], "", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], [PAGE_TITLES[section], null]])}
+  ${sectionIntro(section, snapshot, base)}
   ${notice(noticeCode)}
   ${summary}
   ${section === "escalation" ? "" : channelPickerEmptyNote(channels, hiddenChannelIds)}
-  <form class="dash-form" method="post" action="${base}/${section}" novalidate>
+  <form class="dash-form${section === "welcome" || section === "goodbye" ? " wide" : ""}" method="post" action="${base}/${section}" novalidate data-track-changes>
     ${csrfField(ctx.viewer)}
     ${sectionForm(section, f, ctx, channels, roles, snapshot, hiddenChannelIds)}
-    ${canSave ? `<button class="btn" type="submit">Save ${SECTION_TITLES[section].toLowerCase()} settings</button>` : ""}
+    ${canSave ? `<button class="btn" type="submit" data-save-button>Save ${SECTION_TITLES[section].toLowerCase()} settings</button>` : ""}
   </form>`,
   });
 }

@@ -2,6 +2,7 @@ import { GuildConfigModel, LegacyPluginSettingsModel } from "../database/mongo";
 import { TtlCache } from "../utils/ttlCache";
 import { logger } from "../utils/logger";
 import { normalizeAutoCloseHours } from "./ticketTranscript";
+import { normalizeEmbedSpec, type EmbedSpec } from "./embedSpec";
 
 /** Per-guild ticket settings (set with /ticket settings or the dashboard). */
 export interface TicketSettings {
@@ -40,6 +41,21 @@ export interface GuildConfig {
   };
   tickets: TicketSettings;
   roles: RoleSettings;
+  /*
+   * Added in 3.6.2 with the dashboard overhaul. Optional in the type so older
+   * fixtures stay valid; normalizeGuildConfig always fills them.
+   */
+  /** Optional embed sent with the welcome message. */
+  welcomeEmbed?: EmbedSpec | null;
+  /** Post a message when a member leaves. */
+  goodbyeEnabled?: boolean;
+  goodbyeChannelId?: string | null;
+  goodbyeMessage?: string;
+  goodbyeEmbed?: EmbedSpec | null;
+  /** Master switch for autoresponders (each responder also has its own). Default on. */
+  autorespondersEnabled?: boolean;
+  /** Per-category log channel overrides; a category without one uses loggingChannelId. */
+  logChannels?: Record<string, string> | null;
 }
 
 /** Fields of GuildConfig whose sub-keys are saved one by one, so a partial update keeps the rest. */
@@ -72,7 +88,16 @@ const DEFAULT_CONFIG: Omit<GuildConfig, "guildId"> = {
   roles: {
     maxRolesPerPanel: 25,
   },
+  welcomeEmbed: null,
+  goodbyeEnabled: false,
+  goodbyeChannelId: null,
+  goodbyeMessage: "**{username}** left {server}. We now have {memberCount} members.",
+  goodbyeEmbed: null,
+  autorespondersEnabled: true,
+  logChannels: null,
 };
+
+export const GOODBYE_MESSAGE_MAX = 1000;
 
 export const MAX_ROLES_PER_PANEL = 25;
 
@@ -128,6 +153,14 @@ function normalizeLogCategories(value: unknown): Record<string, boolean> | null 
     .map(([key, val]) => [key, val]));
 }
 
+/** Per-category log channel overrides: known categories and snowflakes only. */
+export function normalizeLogChannels(value: unknown): Record<string, string> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const out = Object.fromEntries(Object.entries(value)
+    .filter(([key, val]) => LOG_CATEGORIES.has(key) && typeof val === "string" && DISCORD_ID.test(val)));
+  return Object.keys(out).length ? out as Record<string, string> : null;
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -169,6 +202,13 @@ export function normalizeGuildConfig(guildId: string, source?: StoredGuildConfig
     roles: {
       maxRolesPerPanel: normalizeMaxRolesPerPanel(roles.maxRolesPerPanel),
     },
+    welcomeEmbed: normalizeEmbedSpec(config.welcomeEmbed),
+    goodbyeEnabled: config.goodbyeEnabled === true,
+    goodbyeChannelId: optionalId(config.goodbyeChannelId),
+    goodbyeMessage: typeof config.goodbyeMessage === "string" && config.goodbyeMessage.length <= GOODBYE_MESSAGE_MAX ? config.goodbyeMessage : DEFAULT_CONFIG.goodbyeMessage,
+    goodbyeEmbed: normalizeEmbedSpec(config.goodbyeEmbed),
+    autorespondersEnabled: config.autorespondersEnabled !== false,
+    logChannels: normalizeLogChannels(config.logChannels),
   };
 }
 
@@ -225,7 +265,14 @@ export function guildConfigSetPaths(update: GuildConfigUpdate): Record<string, u
     "prefix", "language", "loggingEnabled", "loggingChannelId", "logCategories",
     "welcomeEnabled", "welcomeChannelId", "welcomeMessage", "welcomeRoleId",
     "suggestionsChannelId", "escalation",
+    "goodbyeEnabled", "goodbyeChannelId", "goodbyeMessage", "autorespondersEnabled",
   ]);
+  // Stored as whole sub-documents, so they are normalised here rather than per field.
+  const whole: Record<string, (value: unknown) => unknown> = {
+    welcomeEmbed: (v) => (v === null ? null : normalizeEmbedSpec(v)),
+    goodbyeEmbed: (v) => (v === null ? null : normalizeEmbedSpec(v)),
+    logChannels: normalizeLogChannels,
+  };
   // Nested settings are normalised on the way in: their schema paths are typed.
   const nested: Record<string, Record<string, (value: unknown) => unknown>> = {
     tickets: {
@@ -242,6 +289,8 @@ export function guildConfigSetPaths(update: GuildConfigUpdate): Record<string, u
     if (value === undefined) continue;
     if (flat.has(key)) {
       set[key] = value;
+    } else if (whole[key]) {
+      set[key] = whole[key](value);
     } else if (nested[key]) {
       const sub = asRecord(value);
       for (const [field, normalize] of Object.entries(nested[key])) {

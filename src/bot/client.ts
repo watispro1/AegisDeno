@@ -5,6 +5,7 @@ import {
   Collection,
   Events,
   GuildMember,
+  PartialGuildMember,
   Message,
   TextChannel,
   ActivityType,
@@ -17,6 +18,7 @@ import { executeCommand } from "../commands/executor";
 import { sendGuildLog } from "../services/logging";
 import { processAutomod, processAutomodEdit } from "../services/automodExecution";
 import { processAutoResponders } from "../services/autoResponderService";
+import { buildEmbedFromSpec, renderTemplate } from "../services/embedSpec";
 import { getGuildConfig } from "../services/configuration";
 import { scheduleUnverifiedKick } from "../services/verificationService";
 import { componentRouter } from "./interactions";
@@ -271,13 +273,11 @@ export function setupEvents(client: Client): void {
       if (channel && isObfuscatedChannel(channel)) {
         logger.warn(`Welcome channel ${config.welcomeChannelId} in ${member.guild.id} is hidden from Aegis (no View Channel); skipping the welcome message.`);
       } else if (channel) {
-        const msg = config.welcomeMessage
-          .replace(/{user}/g, `<@${member.user.id}>`)
-          .replace(/{username}/g, member.user.username)
-          .replace(/{server}/g, member.guild.name)
-          .replace(/{member_count}/g, String(member.guild.memberCount))
-          .replace(/{count}/g, String(member.guild.memberCount));
-        await channel.send(msg).catch(() => null);
+        const values = { user: `<@${member.user.id}>`, username: member.user.username, server: member.guild.name, memberCount: member.guild.memberCount };
+        const content = renderTemplate(config.welcomeMessage, values).slice(0, 2000);
+        const embeds = config.welcomeEmbed ? [buildEmbedFromSpec(config.welcomeEmbed, values)] : [];
+        // Only the joining member may be pinged by a welcome; never roles or @everyone.
+        await channel.send({ content: content || undefined, embeds, allowedMentions: { users: [member.user.id] } }).catch(() => null);
       }
     }
 
@@ -323,10 +323,32 @@ export function setupEvents(client: Client): void {
 
     // Ghost Watch — notify watchers on leave
     watchlistOnLeave(client, member).catch(err => logger.warn("Watchlist leave error:", err));
+
+    // Goodbye message (off unless turned on in the dashboard). Never pings anyone.
+    sendGoodbye(member).catch(err => logger.warn("Goodbye message error:", err));
   });
 
   // ─── Guild Join / Discovery ────────────────────────────────────────────────
   client.on(Events.GuildCreate, (guild) => {
     logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
   });
+}
+
+/** Posts the goodbye message for a member who left, if the server turned it on. */
+async function sendGoodbye(member: GuildMember | PartialGuildMember): Promise<void> {
+  const config = await getGuildConfig(member.guild.id);
+  if (!config.goodbyeEnabled || !config.goodbyeChannelId) return;
+  const channel = member.guild.channels.cache.get(config.goodbyeChannelId)
+    ?? await member.guild.channels.fetch(config.goodbyeChannelId).catch(() => null);
+  if (!channel || isObfuscatedChannel(channel)) {
+    if (channel) logger.warn(`Goodbye channel ${config.goodbyeChannelId} in ${member.guild.id} is hidden from Aegis (no View Channel); skipping the goodbye message.`);
+    return;
+  }
+  if (!channel.isTextBased() || !("send" in channel)) return;
+  const name = member.user?.username ?? "A member";
+  const values = { user: name, username: name, server: member.guild.name, memberCount: member.guild.memberCount };
+  const content = renderTemplate(config.goodbyeMessage ?? "", values).slice(0, 2000);
+  const embeds = config.goodbyeEmbed ? [buildEmbedFromSpec(config.goodbyeEmbed, values)] : [];
+  if (!content && embeds.length === 0) return;
+  await channel.send({ content: content || undefined, embeds, allowedMentions: { parse: [] } }).catch(() => null);
 }

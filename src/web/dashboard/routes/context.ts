@@ -10,7 +10,9 @@ import { memoryRateLimitStore, type RateLimitStore } from "../rateLimitStore";
 import type { DashboardConfig } from "../config";
 import type { DashboardData } from "../data";
 import { type FetchLike } from "../discordOAuth";
-import { guildInviteUrl, isSnowflake } from "../permissions";
+import { guildInviteUrl, isSnowflake, partitionGuilds } from "../permissions";
+import type { ModuleData } from "../moduleData";
+import { memoryModuleData } from "../moduleDataMemory";
 import { SESSION_COOKIE, SESSION_TTL_MS, cookieNames, csrfToken, originAllowed, parseCookies, serializeCookie, verifyCsrf, verifySessionCookie } from "../security";
 import { hasOperatorKeys } from "../../../utils/mongoSafe";
 import type { SessionData, SessionStore } from "../sessions";
@@ -28,6 +30,12 @@ export const DASHBOARD_FORM_LIMIT = "32kb";
  * multi-byte; ASCII lists are around 55 KB. Still bounded.
  */
 export const AUTOMOD_FORM_LIMIT = "512kb";
+/**
+ * Body limit for forms that carry the embed builder (announcements, welcome,
+ * goodbye). A full embed is 6000 characters plus 2000 of message text; at the
+ * worst case of nine URL-encoded bytes per character that is about 72 KB.
+ */
+export const EMBED_FORM_LIMIT = "128kb";
 
 export interface DashboardDeps {
   site: SiteConfig;
@@ -43,6 +51,8 @@ export interface DashboardDeps {
   rateLimits?: RateLimitStore;
   /** Dashboard change log. Defaults to in-memory; production passes the Mongo store. */
   audit?: AuditStore;
+  /** Module pages' data (autoresponders, giveaways, …). Defaults to in-memory; production passes the Mongo version. */
+  modules?: ModuleData;
 }
 
 export interface Authed {
@@ -120,14 +130,16 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
   const secret = cfg.sessionSecret;
   const store = deps.rateLimits ?? memoryRateLimitStore();
   const audit = deps.audit ?? memoryAuditStore();
+  const modules = deps.modules ?? memoryModuleData();
   const authLimit = limit(store, "auth", deps.limits?.auth ?? 20, deps);
   const postLimit = limit(store, "post", deps.limits?.post ?? 30, deps);
   const pageLimit = limit(store, "page", deps.limits?.page ?? 240, deps);
   const form = express.urlencoded({ extended: false, limit: DASHBOARD_FORM_LIMIT, parameterLimit: 200 });
   // The automod page carries the blocked word list, which may be up to 500 × 100 characters.
   const automodForm = express.urlencoded({ extended: false, limit: AUTOMOD_FORM_LIMIT, parameterLimit: 200 });
+  const embedForm = express.urlencoded({ extended: false, limit: EMBED_FORM_LIMIT, parameterLimit: 200 });
   const settingsForm = (req: Request, res: Response, next: NextFunction) =>
-    (req.params.section === "automod" ? automodForm : form)(req, res, next);
+    (req.params.section === "automod" ? automodForm : req.params.section === "welcome" || req.params.section === "goodbye" ? embedForm : form)(req, res, next);
 
   const send = (res: Response, html: string, status = 200) => res.status(status).type("html").send(html);
   const fail = (res: Response, status: number, title: string, message: string, viewer?: Viewer) =>
@@ -251,7 +263,9 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
       }
       // The viewer's highest role bounds which roles they may hand out (see rolesFor).
       const roleLimit = await deps.bot.viewerRoleLimit(guildId, authed.session.userId).catch(() => ({ ownerId: null, topPosition: null }));
-      const ctx: GuildContext = { guild, viewer: authed.viewer, nameOf: (id) => deps.bot.userName(id), roleLimit };
+      // The switcher lists servers from the login's list that Aegis is in and the viewer may manage (each is re-checked on open).
+      const servers = partitionGuilds(authed.session.guilds ?? [], (id) => deps.bot.hasGuild(id)).manageable.map(s => ({ id: s.id, name: s.name }));
+      const ctx: GuildContext = { guild, viewer: authed.viewer, nameOf: (id) => deps.bot.userName(id), roleLimit, servers };
       res.locals.dash = { ...authed, ctx } satisfies GuildLocals;
       next();
     } catch (err) {
@@ -307,14 +321,15 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
   const guildGet = [pageLimit, requireSession, requireGuild];
   const guildPost = [postLimit, form, requireSession, requireCsrf, requireGuild];
   const settingsPost = [postLimit, settingsForm, requireSession, requireCsrf, requireGuild];
+  const embedPost = [postLimit, embedForm, requireSession, requireCsrf, requireGuild];
 
   return {
-    deps, cfg, now, fetchImpl, secret, audit,
+    deps, cfg, now, fetchImpl, secret, audit, modules,
     authLimit, postLimit, pageLimit, form, settingsForm,
     send, fail, cookie, names, clearLegacySession, migrateLegacyCookie, rejectOperatorInput, loadSession,
     requireSession, requireCsrf, requireGuild, missingPermission, requirePermission,
     actorOf, logAudit, noticeParam, validationContext, rolesFor,
-    guildGet, guildPost, settingsPost,
+    guildGet, guildPost, settingsPost, embedPost,
   };
 }
 

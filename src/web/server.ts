@@ -33,6 +33,7 @@ import { createDashboardRouter } from "./dashboard/router";
 import { readDashboardConfig, missingDashboardSettings } from "./dashboard/config";
 import { discordBotView } from "./dashboard/botView";
 import { mongoDashboardData } from "./dashboard/data";
+import { mongoModuleData } from "./dashboard/moduleData";
 import { mongoSessionStore } from "./dashboard/sessions";
 import { mongoRateLimitStore } from "./dashboard/rateLimitStore";
 import { mongoAuditStore } from "./dashboard/audit";
@@ -436,6 +437,7 @@ export function startWebServer(client: Client) {
     config: dashboardConfig,
     bot: discordBotView(client),
     data: mongoDashboardData(client),
+    modules: mongoModuleData(client),
     sessions: mongoSessionStore(),
     rateLimits: mongoRateLimitStore(),
     audit: mongoAuditStore(),

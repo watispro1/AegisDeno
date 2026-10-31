@@ -2,12 +2,19 @@ import { layout } from "../../layout";
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
+import { NOTICES } from "./notices";
 
 export interface Viewer {
   userId: string;
   username: string;
   globalName: string | null;
   csrf: string;
+}
+
+/** A server in the switcher: one the viewer can manage and Aegis is in. */
+export interface SwitcherServer {
+  id: string;
+  name: string;
 }
 
 export interface GuildContext {
@@ -21,28 +28,148 @@ export interface GuildContext {
    * Missing means unknown, which fails closed.
    */
   roleLimit?: ViewerRoleLimit;
+  /** Other servers for the sidebar switcher (from the login's server list). */
+  servers?: SwitcherServer[];
 }
+
+export type GuildSection =
+  | "overview" | "settings"
+  | "moderation" | "automod" | "cases" | "appeals" | "watchlist" | "logging"
+  | "welcome" | "verification" | "panels" | "tickets" | "starboard" | "suggestions" | "giveaways"
+  | "autoresponders" | "automations" | "announce"
+  | "activity";
+
+interface NavItem { key: GuildSection; label: string; href: string; icon: string }
+
+/** The sidebar, grouped like the bot's modules. Hrefs are relative to /dashboard/:guildId. */
+export const MODULE_NAV: ReadonlyArray<{ group: string; items: ReadonlyArray<NavItem> }> = [
+  { group: "General", items: [
+    { key: "overview", label: "Overview", href: "", icon: "◎" },
+    { key: "settings", label: "Settings", href: "/settings", icon: "⚙" },
+  ] },
+  { group: "Moderation", items: [
+    { key: "moderation", label: "Moderation", href: "/settings/escalation", icon: "⚖" },
+    { key: "automod", label: "Automod", href: "/settings/automod", icon: "⛨" },
+    { key: "cases", label: "Cases", href: "/cases", icon: "▤" },
+    { key: "appeals", label: "Appeals", href: "/appeals", icon: "✉" },
+    { key: "watchlist", label: "Ghost Watch", href: "/watchlist", icon: "◉" },
+    { key: "logging", label: "Logging", href: "/settings/logging", icon: "≡" },
+  ] },
+  { group: "Community", items: [
+    { key: "welcome", label: "Welcome & Goodbye", href: "/settings/welcome", icon: "☺" },
+    { key: "verification", label: "Verification", href: "/settings/verification", icon: "✓" },
+    { key: "panels", label: "Role panels", href: "/panels", icon: "▦" },
+    { key: "tickets", label: "Tickets", href: "/settings/tickets", icon: "✎" },
+    { key: "starboard", label: "Starboard", href: "/settings/starboard", icon: "★" },
+    { key: "suggestions", label: "Suggestions", href: "/suggestions", icon: "?" },
+    { key: "giveaways", label: "Giveaways", href: "/giveaways", icon: "✦" },
+  ] },
+  { group: "Automation", items: [
+    { key: "autoresponders", label: "Autoresponders", href: "/autoresponders", icon: "↩" },
+    { key: "automations", label: "Scheduled messages", href: "/automations", icon: "◷" },
+    { key: "announce", label: "Announcements", href: "/announce", icon: "✺" },
+  ] },
+  { group: "Records", items: [
+    { key: "activity", label: "Activity", href: "/activity", icon: "⟲" },
+  ] },
+];
+
+function initial(name: string): string {
+  const ch = Array.from(name.trim())[0] ?? "?";
+  return esc(ch.toUpperCase());
+}
+
+function sidebar(ctx: GuildContext, active: GuildSection): string {
+  const g = ctx.guild;
+  const base = `/dashboard/${esc(g.id)}`;
+  const others = (ctx.servers ?? []).filter(s => s.id !== g.id).slice(0, 50);
+  const switcher = `<details class="switcher" data-menu>
+      <summary class="switcher-current" aria-label="Switch server, current: ${esc(g.name)}">
+        <span class="g-icon" aria-hidden="true">${initial(g.name)}</span>
+        <span class="g-name">${esc(g.name)}</span>
+        <span class="caret" aria-hidden="true">▾</span>
+      </summary>
+      <ul class="switcher-list">
+        ${others.map(s => `<li><a href="/dashboard/${esc(s.id)}"><span class="g-icon sm" aria-hidden="true">${initial(s.name)}</span>${esc(s.name)}</a></li>`).join("")}
+        <li class="switcher-all"><a href="/dashboard">All servers</a></li>
+      </ul>
+    </details>`;
+  const groups = MODULE_NAV.map(grp => `<li class="nav-group"><span class="nav-group-title">${esc(grp.group)}</span><ul>
+      ${grp.items.map(i => `<li><a class="side-link" href="${base}${i.href}"${i.key === active ? ' aria-current="page"' : ""}><span class="side-icon" aria-hidden="true">${i.icon}</span>${esc(i.label)}</a></li>`).join("")}
+    </ul></li>`).join("");
+  return `<aside class="app-side" id="dash-sidebar" data-drawer aria-label="Server menu">
+    ${switcher}
+    <nav aria-label="Modules"><ul class="side-nav">${groups}</ul></nav>
+  </aside>`;
+}
+
+function userMenu(viewer: Viewer): string {
+  const shown = viewer.globalName || viewer.username;
+  return `<details class="user-menu" data-menu>
+      <summary aria-label="Account menu"><span class="avatar" aria-hidden="true">${initial(shown)}</span><span class="user-name">${esc(shown)}</span></summary>
+      <div class="user-panel">
+        <p>Signed in as <strong>${esc(shown)}</strong> <span class="faint">(${esc(viewer.username)})</span></p>
+        <p><a href="/dashboard">Your servers</a> · <a href="/dashboard/changelog">What's new</a></p>
+        <form method="post" action="/dashboard/logout">
+          ${csrfField(viewer)}
+          <button class="btn ghost sm" type="submit">Log out</button>
+        </form>
+      </div>
+    </details>`;
+}
+
+/** Shared page furniture: toasts, the unsaved-changes bar and the confirm dialog (all driven by dashboard.js). */
+const APP_CHROME = `<div class="toast-region" data-toasts aria-live="polite" aria-atomic="false"></div>
+  <div class="unsaved-bar" data-unsaved-bar hidden role="region" aria-label="Unsaved changes">
+    <span>You have unsaved changes</span>
+    <span class="btn-row"><button class="btn ghost sm" type="button" data-unsaved-reset>Reset</button><button class="btn sm" type="button" data-unsaved-save>Save</button></span>
+  </div>
+  <dialog class="confirm-dialog" data-confirm-dialog aria-labelledby="confirm-title">
+    <form method="dialog">
+      <h2 id="confirm-title">Are you sure?</h2>
+      <p data-confirm-text></p>
+      <div class="btn-row"><button class="btn ghost" value="cancel" type="submit">Cancel</button><button class="btn danger" value="ok" type="submit" data-confirm-ok>Confirm</button></div>
+    </form>
+  </dialog>`;
 
 /* ── Shell ─────────────────────────────────────────────────────────── */
 
-export function shell(cfg: SiteConfig, o: { title: string; path: string; body: string; viewer?: Viewer; scripts?: boolean }): string {
+export function shell(cfg: SiteConfig, o: { title: string; path: string; body: string; viewer?: Viewer; scripts?: boolean; guild?: GuildContext; active?: GuildSection }): string {
   const v = cfg.assetVersion ? `?v=${encodeURIComponent(cfg.assetVersion)}` : "";
-  const bar = o.viewer
-    ? `<div class="dash-bar">
+  const footer = `<p class="muted dash-foot">Dashboard v${esc(DASHBOARD_VERSION)}. <a href="/dashboard/changelog">Dashboard changelog</a>: what changed in the dashboard.</p>`;
+  let body: string;
+  if (o.guild && o.viewer) {
+    body = `<div class="app" data-app>
+    ${sidebar(o.guild, o.active ?? "overview")}
+    <div class="app-main">
+      <div class="app-top">
+        <button class="btn ghost sm drawer-toggle" type="button" aria-controls="dash-sidebar" aria-expanded="false" data-drawer-toggle>☰ <span>Menu</span></button>
+        <span class="app-top-title">${esc(o.guild.guild.name)}</span>
+        ${userMenu(o.viewer)}
+      </div>
+      <div class="app-content">${o.body}</div>
+      ${footer}
+    </div>
+  </div>${APP_CHROME}`;
+  } else {
+    const bar = o.viewer
+      ? `<div class="dash-bar">
     <span>Signed in as <strong>${esc(o.viewer.globalName || o.viewer.username)}</strong> <span class="faint">(${esc(o.viewer.username)})</span></span>
     <form method="post" action="/dashboard/logout">
       ${csrfField(o.viewer)}
       <button class="btn ghost sm" type="submit">Log out</button>
     </form>
   </div>`
-    : "";
+      : "";
+    body = `<div class="wrap">${bar}${o.body}
+  ${footer}</div>${o.viewer ? APP_CHROME : ""}`;
+  }
   return layout({
     title: `${o.title} | Aegis dashboard`,
     description: "Manage Aegis for your Discord server: moderation cases and settings.",
     path: o.path,
     current: "/dashboard",
-    body: `<div class="wrap">${bar}${o.body}
-  <p class="muted">Dashboard v${esc(DASHBOARD_VERSION)}. <a href="/dashboard/changelog">Dashboard changelog</a>: what changed in the dashboard.</p></div>`,
+    body,
     inviteUrl: cfg.inviteUrl,
     supportUrl: cfg.supportUrl,
     version: cfg.version,
@@ -67,51 +194,23 @@ export function head(title: string, lead: string, crumbs: Array<[string, string 
   return `${trail}<div class="page-head"><h1>${esc(title)}</h1>${lead ? `<p class="lead">${lead}</p>` : ""}</div>`;
 }
 
-export type GuildSection = "overview" | "cases" | "appeals" | "panels" | "settings" | "activity";
-
-export function guildNav(guildId: string, active: GuildSection): string {
-  const base = `/dashboard/${esc(guildId)}`;
-  const item = (key: GuildSection, label: string, href: string) =>
-    `<li><a href="${href}"${key === active ? ' aria-current="page"' : ""}>${label}</a></li>`;
-  return `<nav aria-label="Server sections"><ul class="dash-nav">
-    ${item("overview", "Overview", base)}
-    ${item("cases", "Cases", `${base}/cases`)}
-    ${item("appeals", "Appeals", `${base}/appeals`)}
-    ${item("panels", "Panels", `${base}/panels`)}
-    ${item("settings", "Settings", `${base}/settings`)}
-    ${item("activity", "Activity", `${base}/activity`)}
-  </ul></nav>`;
+/**
+ * Kept for callers from before the sidebar: the sidebar now carries the
+ * server's navigation, so this renders nothing.
+ */
+export function guildNav(_guildId: string, _active: GuildSection): string {
+  return "";
 }
 
-const NOTICES: Record<string, { text: string; bad?: boolean }> = {
-  saved: { text: "Saved. Aegis uses the new settings from now on." },
-  reason: { text: "Reason updated. The change was posted to your log channel if logging is on." },
-  revoked: { text: "Marked as revoked. It stays in the record but no longer counts toward totals or escalation." },
-  "already-revoked": { text: "That record was already revoked, or it no longer exists.", bad: true },
-  "verification-missing": { text: "Verification is not set up yet. Post the verification panel from the Panels page (or run /verify setup in Discord) first.", bad: true },
-  "revoked-unbanned": { text: "Revoked, and the member was unbanned in Discord. The unban was recorded as a new case and posted to your log channel." },
-  "revoked-not-banned": { text: "Revoked. The member was not banned in Discord any more, so there was nothing to lift.", bad: true },
-  "revoked-unban-failed": { text: "Revoked, but Discord refused the unban. Check that Aegis has Ban Members, then use /unban.", bad: true },
-  "appeal-approved": { text: "Appeal approved. The member was unbanned and told by DM if their DMs are open." },
-  "appeal-approved-unban-failed": { text: "Appeal approved, but Discord refused the unban. Check that Aegis has Ban Members, then use /unban.", bad: true },
-  "appeal-denied": { text: "Appeal denied. The ban stays, and the member was told by DM if their DMs are open." },
-  "appeal-reviewed": { text: "That appeal was already reviewed, so nothing changed.", bad: true },
-  "panel-posted": { text: "Panel posted. Earlier Aegis panels of the same kind in that channel were removed." },
-  "verification-posted": { text: "Verification panel posted and verification turned on. You can now change its settings here." },
-  "rolepanel-posted": { text: "Role panel posted again. The old message was removed; members' roles are unchanged." },
-  "panel-channel-missing": { text: "Aegis cannot see that channel any more. Give Aegis the View Channel permission there, or pick another one.", bad: true },
-  "panel-pick-channel": { text: "Pick a channel to post the role panel to. Nothing was posted.", bad: true },
-  "rolepanel-above-you": { text: "Not re-posted: the panel hands out a role equal to or above your highest role. Only someone above that role, or the server owner, can re-post it.", bad: true },
-  "panel-not-found": { text: "That role panel no longer exists. It may have been deleted with /rolepanel.", bad: true },
-  "panel-failed": { text: "Discord refused the message. Check that Aegis can view the channel, send messages, embed links and read message history there.", bad: true },
-  refreshed: { text: "Server list refreshed from Discord." },
-  "refresh-failed": { text: "Discord did not return your server list. Log out and back in to refresh it.", bad: true },
-};
+/** Module on/off switch shown at the top of a module page. */
+export function moduleStatus(on: boolean, label = on ? "Enabled" : "Disabled"): string {
+  return `<span class="status-pill ${on ? "on" : "off"}">${esc(label)}</span>`;
+}
 
 export function notice(code: string | null | undefined): string {
   const n = code ? NOTICES[code] : undefined;
   if (!n) return "";
-  return `<div class="notice${n.bad ? " bad" : ""}" role="status"><p>${esc(n.text)}</p></div>`;
+  return `<div class="notice${n.bad ? " bad" : ""}" role="status" data-toast-source${n.bad ? ' data-toast-bad' : ""}><p>${esc(n.text)}</p></div>`;
 }
 
 export function fmtDate(d: Date): string {
@@ -122,4 +221,9 @@ export function fmtDate(d: Date): string {
 export function person(ctx: GuildContext, id: string): string {
   const name = ctx.nameOf(id);
   return name ? `${esc(name)} <span class="faint">${esc(id)}</span>` : `<code class="inline">${esc(id)}</code>`;
+}
+
+/** A friendly empty state block. */
+export function emptyState(title: string, text: string): string {
+  return `<div class="empty-state"><strong>${esc(title)}</strong> ${text}</div>`;
 }

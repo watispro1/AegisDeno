@@ -18,6 +18,8 @@ import { registerAppealRoutes } from "./routes/appeals";
 import { registerPanelRoutes } from "./routes/panels";
 import { registerActivityRoutes } from "./routes/activity";
 import { registerSettingsRoutes } from "./routes/settings";
+import { registerAutomationRoutes } from "./routes/automation";
+import { registerCommunityRoutes } from "./routes/community";
 
 export {
   CASES_PER_PAGE,
@@ -25,6 +27,7 @@ export {
   AUDIT_PER_PAGE,
   DASHBOARD_FORM_LIMIT,
   AUTOMOD_FORM_LIMIT,
+  EMBED_FORM_LIMIT,
   type DashboardDeps,
 } from "./routes/context";
 
@@ -60,6 +63,8 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   registerPanelRoutes(router, kit);
   registerActivityRoutes(router, kit);
   registerSettingsRoutes(router, kit);
+  registerAutomationRoutes(router, kit);
+  registerCommunityRoutes(router, kit);
 
   const { fail } = kit;
   // Errors inside the dashboard get a plain page; details stay in the server log.

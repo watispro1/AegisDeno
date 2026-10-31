@@ -1,3 +1,5 @@
+import { dashboardAppScript } from "./clientApp";
+
 /**
  * Script served from /assets/dashboard.js. Plain ES5, progressive only: every
  * dashboard form works without it. It adds the live welcome preview, dims
@@ -5,7 +7,7 @@
  * checkbox-list counts current, stops a form from being sent twice, drops a
  * shown ?notice= from the address bar, and focuses the error summary.
  */
-export const dashboardScript = String.raw`
+const baseScript = String.raw`
 (function () {
   'use strict';
 
@@ -21,8 +23,9 @@ export const dashboardScript = String.raw`
       count: input.getAttribute('data-sample-count') || '?'
     };
     values.member_count = values.count;
+    values.memberCount = values.count;
     var render = function () {
-      preview.textContent = input.value.replace(/\{(user|username|server|count|member_count)\}/g, function (_, key) {
+      preview.textContent = input.value.replace(/\{(user|username|server|count|member_count|memberCount)\}/g, function (_, key) {
         return values[key];
       });
     };
@@ -46,6 +49,23 @@ export const dashboardScript = String.raw`
     })(rows[i]);
   }
 
+  /* Confirm dialog: the page's <dialog data-confirm-dialog> when the browser supports it, else window.confirm. */
+  function askConfirm(message, onYes) {
+    var dialog = document.querySelector('[data-confirm-dialog]');
+    if (!dialog || typeof dialog.showModal !== 'function') { if (window.confirm(message)) onYes(); return; }
+    var text = dialog.querySelector('[data-confirm-text]');
+    if (text) text.textContent = message;
+    dialog.returnValue = '';
+    var done = function () {
+      dialog.removeEventListener('close', done);
+      if (dialog.returnValue === 'ok') onYes();
+    };
+    dialog.addEventListener('close', done);
+    dialog.showModal();
+    var ok = dialog.querySelector('[data-confirm-ok]');
+    if (ok && ok.focus) ok.focus();
+  }
+
   /* Ask before destructive actions. A clicked button's own data-confirm-button wins. */
   var lastButton = null;
   document.addEventListener('click', function (e) {
@@ -59,7 +79,17 @@ export const dashboardScript = String.raw`
     var message = (button && button.form === form && button.getAttribute('data-confirm-button')) ||
       (form && form.getAttribute && form.getAttribute('data-confirm'));
     lastButton = null;
-    if (message && !window.confirm(message)) { e.preventDefault(); return; }
+    if (message && form.getAttribute('data-confirmed') !== 'true') {
+      /* Ask in the page's own dialog (window.confirm without <dialog>), then send with the same button. */
+      e.preventDefault();
+      askConfirm(message, function () {
+        form.setAttribute('data-confirmed', 'true');
+        if (form.requestSubmit) form.requestSubmit(button && button.form === form ? button : undefined);
+        else form.submit();
+      });
+      return;
+    }
+    if (form && form.removeAttribute) form.removeAttribute('data-confirmed');
     if (!form || !form.getAttribute || form.getAttribute('method') !== 'post') return;
     /* A second click while the first post is on its way would send it twice. */
     if (form.getAttribute('data-busy') === 'true') { e.preventDefault(); return; }
@@ -109,3 +139,6 @@ export const dashboardScript = String.raw`
   if (summary && summary.focus) summary.focus();
 })();
 `;
+
+/** Everything served from /assets/dashboard.js: the original helpers, then the app shell's. */
+export const dashboardScript = baseScript + dashboardAppScript;

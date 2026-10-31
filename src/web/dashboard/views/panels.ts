@@ -3,7 +3,7 @@ import type { ChannelOption, RoleOption } from "../botView";
 import type { RolePanelSummary } from "../data";
 import { PANEL_TITLE_MAX, TICKET_PANEL_DESCRIPTION_MAX, VERIFY_PANEL_DESCRIPTION_MAX } from "../validation";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
-import { type GuildContext, csrfField, guildNav, head, notice, shell } from "./layout";
+import { type GuildContext, csrfField, head, notice, shell } from "./layout";
 import { Form, ROLE_PICKER_HELP, type Values, channelOptions, channelPickerEmptyNote, hiddenChannelNote, roleOptions, rolePickerEmptyNote } from "./form";
 import { errorSummary, permissionNote } from "./parts";
 
@@ -66,8 +66,9 @@ export function renderPanels(
     title: `Panels in ${g.name}`,
     path: `/dashboard/${g.id}/panels`,
     viewer: ctx.viewer,
+    guild: ctx,
+    active: "panels",
     body: `${head("Panels", "Post the messages members click: the ticket button, the verification button and role panels. Each uses the same code as its slash command.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Panels", null]])}
-  ${guildNav(g.id, "panels")}
   ${notice(o.noticeCode)}
   ${channelPickerEmptyNote(o.channels, hidden)}
 

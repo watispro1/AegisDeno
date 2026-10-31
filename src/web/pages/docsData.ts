@@ -94,7 +94,7 @@ export const SUBCOMMAND_CHECKS: { command: string; permission: string }[] = [
   { command: "/verify user", permission: "Manage Roles" },
   { command: "/verify autokick", permission: "Kick Members" },
   { command: "/suggest setup, approve, deny, consider", permission: "Manage Server" },
-  { command: "/autoresponder add, create, remove, delete", permission: "Manage Server" },
+  { command: "/autoresponder add, create, remove, delete, toggle", permission: "Manage Server" },
   { command: "/giveaway reroll", permission: "Manage Server, or the giveaway's host" },
 ];
 

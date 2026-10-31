@@ -10,9 +10,58 @@ page.
 
 ## [1.2.3] - 2026-10-31
 
-Dashboard 1.2.3. A role-hierarchy fix, security hardening, clearer error and
-empty states, and small usability fixes. No new environment variables,
-Discord intents or OAuth scopes.
+Dashboard 1.2.3. A redesigned, module-based dashboard with a sidebar and
+new pages for features that used to be slash-command only, a role-hierarchy
+fix, security hardening, clearer error and empty states, and small usability
+fixes. No new environment variables, Discord intents or OAuth scopes.
+
+### Added
+- **New layout.** Every server page now has a sidebar: a server switcher at
+  the top (your other servers with Aegis), then the modules grouped as
+  General, Moderation, Community, Automation and Records. A top bar shows the
+  server name and an account menu (your servers, what's new, log out). On a
+  phone the sidebar becomes a drawer behind a Menu button. Everything works
+  with the keyboard, and Escape closes the drawer and menus.
+- **Overview** now has stat cards (members, cases and warnings for 7 and 30
+  days, open tickets, pending appeals, active giveaways, automod hits), a
+  30-day cases-per-day chart, a grid of every module with its on/off state and
+  a link to it, and a setup checklist: permissions Aegis's role is missing,
+  configured channels Aegis can no longer see, logging or automod left off,
+  and how many channels are hidden from Aegis ahead of Discord's 2026-11-16
+  View Channel change.
+- **Settings** page listing every module with its state, plus Aegis's
+  server-wide permissions.
+- **Autoresponders:** add, turn on or off, and delete autoresponders, and
+  switch all of them off for the server at once (they are kept). Up to 50 per
+  server.
+- **Scheduled messages:** schedule a post to a channel in 1 minute to 28 days,
+  once or repeating (every 10 minutes to 28 days), and cancel pending ones.
+- **Announcements:** build an embed (title, description, colour, author,
+  footer, image and thumbnail links, up to 10 fields) with a live preview that
+  looks like Discord, and post it to a channel. Announcements never ping
+  anyone. Needs Manage Messages, as `/announce` does.
+- **Giveaways:** see running and finished giveaways, end one early, or reroll
+  a finished one.
+- **Suggestions:** pick the suggestions channel, filter open, approved, denied
+  or all suggestions, and approve, consider or deny with an optional staff
+  note. The post is restyled and the author told by DM, as with
+  `/suggest review`.
+- **Ghost Watch:** your own watch list (nobody else's), with Stop watching.
+  Needs Moderate Members, as `/watchlist` does.
+- **Goodbye messages:** a new Goodbye tab next to Welcome posts a message when
+  someone leaves. It never pings anyone.
+- **Embeds for welcome and goodbye:** both can send an embed built with the
+  same builder and preview. A variables list (`{user}`, `{username}`,
+  `{server}`, `{memberCount}` and its aliases) sits next to every text box.
+- **Logging per event type:** each log category (moderation actions, joins,
+  leaves, edits, deletes, role and channel changes) can go to its own channel;
+  the rest use the main log channel.
+- An **unsaved changes** bar ("You have unsaved changes — Reset / Save")
+  appears when you edit a settings form, and the browser asks before you
+  leave with unsaved changes.
+- Notices also show as toasts, destructive buttons ask in an in-page dialog,
+  tables have a filter box, long text boxes count characters, and module pages
+  show an Enabled / Disabled badge.
 
 ### Changed
 - Role pickers for the verified role and the join role grey out roles you
@@ -53,6 +102,15 @@ Discord intents or OAuth scopes.
   a Log in button.
 
 ### Security
+- Every new page and action uses the same protections as the rest of the
+  dashboard: sign-in, a CSRF token and same-origin check on every form, a live
+  check that you may manage the server, the matching Discord permission for
+  actions that need more than Manage Server, refusal of operator-looking
+  input, rate limits, size limits on forms, and an entry in the Activity log.
+  Channels hidden from Aegis are never offered or accepted. Embed image links
+  must be https, and every length is checked against Discord's limits on the
+  server. All new styling and scripts are served from `/assets`; the Content
+  Security Policy still allows no inline script or style.
 - Session cookies are now `__Host-aegis_dash` and `__Host-aegis_oauth` on the
   live site: the browser only accepts them over HTTPS from this exact host,
   with `Path=/` and no `Domain`, so another subdomain or a plain-http
