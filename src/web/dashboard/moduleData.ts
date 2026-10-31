@@ -5,7 +5,7 @@
  * with the in-memory version. The Mongo version goes through the same service
  * functions the slash commands use.
  */
-import { ChannelType, type Client, type TextChannel } from "discord.js";
+import { ChannelType, PermissionFlagsBits, type Client, type TextChannel } from "discord.js";
 import { AutomodHitModel, GiveawayModel, ModerationCaseModel, SuggestionModel, TaskModel, WatchlistEntryModel, WarningModel } from "../../database/mongo";
 import { addAutoResponder, autoResponderExists, getAutoResponders, removeAutoResponder, setAutoResponderEnabled } from "../../services/autoResponderService";
 import { AUTOMATION_TASK_TYPES, createTask, deleteTask, getTasksForGuild } from "../../services/scheduler";
@@ -136,6 +136,11 @@ export function mongoModuleData(client: Client): ModuleData {
     if (!ch || isObfuscatedChannel(ch) || (ch.type !== ChannelType.GuildText && ch.type !== ChannelType.GuildAnnouncement)) return null;
     return ch as TextChannel;
   };
+  /** Whether Aegis may view, send and embed in the channel (what /automation and /announce check). */
+  const canPost = (channel: TextChannel): boolean => {
+    const me = channel.guild.members.me;
+    return Boolean(me && channel.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks]));
+  };
   const log = (guildId: string, title: string, description: string) =>
     sendGuildLog(client, guildId, { title, color: 0x3498db, description }).catch(() => null);
   // Lazily loaded: the command modules pull in the whole interaction stack.
@@ -189,6 +194,7 @@ export function mongoModuleData(client: Client): ModuleData {
     async createAutomation(guildId, input, actor) {
       const channel = textChannel(guildId, input.channelId);
       if (!channel) return "channel-missing";
+      if (!canPost(channel)) return "failed";
       try {
         const task = await createTask(guildId, channel.id, actor.userId, "scheduled", input.message, new Date(Date.now() + input.delayMs), input.intervalMs);
         scheduleTask(client, task);
@@ -264,6 +270,7 @@ export function mongoModuleData(client: Client): ModuleData {
     async postEmbed(guildId, channelId, content, embed, actor) {
       const channel = textChannel(guildId, channelId);
       if (!channel) return "channel-missing";
+      if (!canPost(channel)) return "failed";
       try {
         // Dashboard posts never ping: no @everyone, roles or users.
         await channel.send({ content: content ?? undefined, embeds: [buildEmbedFromSpec(embed)], allowedMentions: { parse: [] } });

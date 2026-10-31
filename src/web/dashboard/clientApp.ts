@@ -51,7 +51,7 @@ export const dashboardAppScript = String.raw`
     region.appendChild(t);
     setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, bad ? 12000 : 6000);
   }
-  if (region) all('[data-toast-source]').forEach(function (n) { toast(n.textContent.trim(), n.hasAttribute('data-toast-bad')); });
+  if (region) all('[data-toast-source]').forEach(function (n) { toast(n.textContent.trim(), n.hasAttribute('data-toast-bad')); if (!n.hasAttribute('data-toast-bad')) n.setAttribute('data-toasted', ''); });
 
   /* ── Unsaved changes bar ────────────────────────────────────────── */
   var bar = doc.querySelector('[data-unsaved-bar]');

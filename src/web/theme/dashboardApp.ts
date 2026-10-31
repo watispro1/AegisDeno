@@ -145,7 +145,7 @@ tr[data-filtered-out] { display: none; }
 .toast.bad { border-left-color: var(--danger); }
 .toast p { margin: 0; flex: 1; }
 .toast button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 1.1rem; line-height: 1; min-width: 32px; min-height: 32px; }
-.js .notice[data-toast-source] { display: none; }
+.notice[data-toasted] { display: none; }
 .unsaved-bar { position: fixed; z-index: 55; left: 50%; bottom: 1rem; transform: translateX(-50%); width: min(40rem, calc(100vw - 2rem)); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .7rem 1rem; border-radius: var(--r); background: var(--text); color: var(--bg); box-shadow: 0 10px 30px rgba(0,0,0,.3); }
 .unsaved-bar[hidden] { display: none; }
 .unsaved-bar .btn.ghost { color: var(--bg); border-color: var(--bg); background: transparent; }
