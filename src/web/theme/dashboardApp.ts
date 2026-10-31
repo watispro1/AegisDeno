@@ -22,6 +22,7 @@ export const cssDashboardApp = String.raw`/* ── Dashboard app shell ──�
 .g-icon.sm { width: 1.5rem; height: 1.5rem; font-size: .75rem; margin-right: .5rem; }
 .g-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .caret { color: var(--muted); }
+.switcher-current:hover { border-color: var(--border-strong); }
 .switcher-list { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + .25rem); margin: 0; padding: .35rem; list-style: none; border: 1px solid var(--border-strong); border-radius: var(--r); background: var(--surface); max-height: 60vh; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
 .switcher-list li { margin: 0; }
 .switcher-list a { display: flex; align-items: center; min-height: 40px; padding: .3rem .5rem; border-radius: var(--r); color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
@@ -78,6 +79,7 @@ details.panel-card > summary { cursor: pointer; font-weight: 600; min-height: 32
 .checklist li { display: flex; gap: .6rem; align-items: flex-start; margin: 0 0 .7rem; font-size: .92rem; }
 .check-icon { display: inline-grid; place-items: center; width: 1.35rem; height: 1.35rem; flex-shrink: 0; border-radius: 50%; font-weight: 700; font-size: .8rem; color: #fff; background: var(--accent); }
 .checklist li.warn .check-icon { background: var(--warn); }
+.checklist li.info .check-icon { background: var(--accent); }
 .check-ok { color: var(--ok); font-weight: 500; }
 .chart { margin: 0; }
 .chart svg { display: block; width: 100%; height: 9rem; }
@@ -110,6 +112,7 @@ tr[data-filtered-out] { display: none; }
 /* ── Embed builder ──────────────────────────────────────────────────── */
 .embed-builder { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; margin: 0 0 1.25rem; }
 .embed-preview-wrap { position: sticky; top: 1rem; }
+.embed-inputs { margin: 0; }
 .embed-fields summary { cursor: pointer; font-weight: 500; min-height: 36px; }
 .embed-field-row { border-top: 1px dashed var(--border); padding-top: .5rem; }
 .embed-preview { background: var(--dc-bg, #313338); color: var(--dc-text, #dbdee1); border-radius: var(--r); padding: 1rem; font-size: .92rem; overflow-wrap: anywhere; }
