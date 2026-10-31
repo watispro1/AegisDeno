@@ -128,6 +128,32 @@ export interface TimedUnbanPayload {
   caseId: string | null;
   /** Length of the ban in seconds, for the log line. */
   durationSeconds: number;
+  /**
+   * Marker written into the ban's audit-log reason (`[temp:<ref>]`). The
+   * unban only happens while the member's current ban still carries it, so a
+   * later ban made outside Aegis is never lifted by an old timer.
+   */
+  banRef: string | null;
+}
+
+/** The marker `/ban duration:` puts at the start of the ban reason. */
+export function tempBanMarker(banRef: string): string {
+  return `[temp:${banRef}]`;
+}
+
+/**
+ * Whether a timed unban should lift the member's current ban: only when the
+ * ban reason still carries this task's marker. Tasks without a marker (none
+ * are created that way) are allowed through for compatibility.
+ */
+export function shouldLiftTimedBan(currentBanReason: string | null | undefined, banRef: string | null): boolean {
+  if (!banRef) return true;
+  return typeof currentBanReason === "string" && currentBanReason.includes(tempBanMarker(banRef));
+}
+
+/** Discord's "Unknown Ban" (10026): the only lookup error that means "not banned". */
+export function isUnknownBanError(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === 10026;
 }
 
 export function encodeTimedUnban(payload: TimedUnbanPayload): string {
@@ -144,12 +170,13 @@ export function decodeTimedUnban(raw: string): TimedUnbanPayload {
         moderatorTag: typeof o.moderatorTag === "string" ? o.moderatorTag : "Unknown",
         caseId: typeof o.caseId === "string" ? o.caseId : null,
         durationSeconds: typeof o.durationSeconds === "number" && Number.isFinite(o.durationSeconds) ? o.durationSeconds : 0,
+        banRef: typeof o.banRef === "string" && /^[a-z0-9]{4,16}$/.test(o.banRef) ? o.banRef : null,
       };
     }
   } catch {
     // fall through
   }
-  return { moderatorId: "", moderatorTag: "Unknown", caseId: null, durationSeconds: 0 };
+  return { moderatorId: "", moderatorTag: "Unknown", caseId: null, durationSeconds: 0, banRef: null };
 }
 
 // ─── Scheduler retry policy ──────────────────────────────────────────────────

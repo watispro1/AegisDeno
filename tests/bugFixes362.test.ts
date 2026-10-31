@@ -221,9 +221,27 @@ test("scheduler: a recurring task that keeps failing skips a run instead of bein
 
 test("temporary bans: payload round-trips and an unreadable one still unbans", async () => {
   const { encodeTimedUnban, decodeTimedUnban } = await import("../src/services/timedActions");
-  const p = { moderatorId: MOD, moderatorTag: "mod#1", caseId: "c1", durationSeconds: 86400 };
+  const p = { moderatorId: MOD, moderatorTag: "mod#1", caseId: "c1", durationSeconds: 86400, banRef: "a1b2c3d4" };
   assert.deepEqual(decodeTimedUnban(encodeTimedUnban(p)), p);
-  assert.deepEqual(decodeTimedUnban("{not json"), { moderatorId: "", moderatorTag: "Unknown", caseId: null, durationSeconds: 0 });
+  assert.deepEqual(decodeTimedUnban("{not json"), { moderatorId: "", moderatorTag: "Unknown", caseId: null, durationSeconds: 0, banRef: null });
+  assert.equal(decodeTimedUnban(JSON.stringify({ ...p, banRef: "x]y" })).banRef, null, "a malformed marker is ignored");
+});
+
+test("temporary bans: only the ban this task created is lifted", async () => {
+  const { shouldLiftTimedBan, tempBanMarker } = await import("../src/services/timedActions");
+  const reason = `${tempBanMarker("a1b2c3d4")} 7 days: Spam | Banned by mod`;
+  assert.equal(shouldLiftTimedBan(reason, "a1b2c3d4"), true);
+  assert.equal(shouldLiftTimedBan("Raiding | banned in Discord's menu", "a1b2c3d4"), false, "a newer ban made outside Aegis stays");
+  assert.equal(shouldLiftTimedBan(`${tempBanMarker("ffff0000")} 1 day: x`, "a1b2c3d4"), false, "another temporary ban's marker");
+  assert.equal(shouldLiftTimedBan(null, "a1b2c3d4"), false, "no reason recorded");
+});
+
+test("temporary bans: only Discord's Unknown Ban means 'not banned'; other lookup errors retry", async () => {
+  const { isUnknownBanError } = await import("../src/services/timedActions");
+  assert.equal(isUnknownBanError({ code: 10026, message: "Unknown Ban" }), true);
+  assert.equal(isUnknownBanError({ code: 50013 }), false);
+  assert.equal(isUnknownBanError(new Error("socket hang up")), false);
+  assert.equal(isUnknownBanError(null), false);
 });
 
 test("/ban duration: friendly lengths, permanent by default, bounded", async () => {

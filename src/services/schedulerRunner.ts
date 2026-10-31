@@ -3,6 +3,8 @@ import { getAllPendingTasks, deleteTask, updateTaskNextRun, ScheduledTask } from
 import {
   afterTaskFailure,
   decodeTimedUnban,
+  isUnknownBanError,
+  shouldLiftTimedBan,
   decodeChannelUnlock,
   decodePersonalReminder,
   nextTimerDelay,
@@ -139,8 +141,21 @@ async function performTimedUnban(client: Client, task: ScheduledTask): Promise<v
     throw new Error(`Guild ${task.guildId} is not available for timed unban.`);
   }
   const userId = task.creatorId;
-  const ban = await guild.bans.fetch(userId).catch(() => null);
-  if (!ban) return;
+  // Only Discord's "Unknown Ban" means the ban is already gone. Any other
+  // lookup error (outage, rate limit) throws, so the retry path runs instead
+  // of the task being dropped and the ban becoming permanent.
+  let ban;
+  try {
+    ban = await guild.bans.fetch({ user: userId, force: true });
+  } catch (err) {
+    if (isUnknownBanError(err)) return;
+    throw err;
+  }
+  if (!shouldLiftTimedBan(ban.reason, payload.banRef)) {
+    // The member was unbanned and banned again outside Aegis: that newer ban is not ours to lift.
+    logger.info(`Task ${task.id}: ban on ${userId} in ${guild.id} is not the temporary ban this task was for; leaving it.`);
+    return;
+  }
   const reason = `Temporary ban expired${payload.caseId ? ` (case ${payload.caseId})` : ""}`;
   await guild.members.unban(userId, auditReason(`${reason} | Banned by ${payload.moderatorTag}`));
   await addModerationCase({

@@ -21,7 +21,8 @@ import { generateAppealCode } from "./appeal";
 import { buildDurationSuggestions } from "../../utils/moderationPresets";
 import { formatDurationLong, parseFriendlyDuration } from "../../utils/duration";
 import { auditReason } from "../../utils/safeText";
-import { TEMP_BAN_MAX_SECONDS, TEMP_BAN_MIN_SECONDS } from "../../services/timedActions";
+import { TEMP_BAN_MAX_SECONDS, TEMP_BAN_MIN_SECONDS, tempBanMarker } from "../../services/timedActions";
+import { randomBytes } from "node:crypto";
 import { clearTimedUnbans, scheduleTimedUnban } from "../../services/tempBan";
 import type { AutocompleteInteraction } from "discord.js";
 
@@ -246,9 +247,12 @@ export const command: Command = {
           await target.send({ embeds: [dmEmbed] }).catch(() => null);
         }
 
+        // A temporary ban carries a marker at the start of its reason (kept by
+        // the 512-character trim), so the timed unban only lifts this ban.
+        const banRef = durationSeconds ? randomBytes(4).toString("hex") : null;
         await guild.members.ban(target.id, {
           // Discord rejects audit-log reasons over 512 characters.
-          reason: auditReason(`${reason}${durationSeconds ? ` [${durationLabel}]` : ""} | Banned by ${interaction.user.tag}`),
+          reason: auditReason(`${banRef ? `${tempBanMarker(banRef)} ${durationLabel}: ` : ""}${reason} | Banned by ${interaction.user.tag}`),
           deleteMessageSeconds: deleteDays * 86400,
         });
         // This ban replaces any earlier temporary one.
@@ -273,7 +277,7 @@ export const command: Command = {
               channelId: interaction.channelId,
               userId: target.id,
               executeAt: new Date(bannedAt + durationSeconds * 1000),
-              payload: { moderatorId: interaction.user.id, moderatorTag: interaction.user.tag, caseId, durationSeconds },
+              payload: { moderatorId: interaction.user.id, moderatorTag: interaction.user.tag, caseId, durationSeconds, banRef },
             });
             unbanScheduled = true;
           } catch (scheduleErr) {

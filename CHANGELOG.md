@@ -26,8 +26,12 @@ keep their names and still work. Includes dashboard 1.2.3 (see
   lifts the ban when it runs out, also after a restart, logs it and records an
   unban case. A new ban, `/unban`, the Undo button or an approved appeal
   cancels a pending automatic unban, so an old temporary ban can never lift a
-  later permanent one. The option suggests lengths and shows how what you
-  typed reads ("1d12h → 1 day 12 hours").
+  later permanent one. The ban reason starts with a `[temp:…]` marker and the
+  automatic unban only lifts a ban that still carries it, so a member who was
+  unbanned and banned again outside Aegis (for example in Discord's member
+  menu) stays banned. If Discord can't be reached when the ban runs out, the
+  unban is retried instead of dropped. The option suggests lengths and shows
+  how what you typed reads ("1d12h → 1 day 12 hours").
 - `/timeout custom_duration:` takes any length up to Discord's 28-day limit
   (`90m`, `1d 12h`, `2 weeks`), with the same suggestions. The `duration`
   presets still work; one of the two is needed.
