@@ -269,6 +269,19 @@ export function rolePicks(roles: RoleOption[]) {
   return roles.map(r => ({ value: r.id, label: `@${r.name}`, group: null }));
 }
 
+/**
+ * Explains channel pickers with nothing in them: either every channel is
+ * hidden from Aegis (no View Channel) or the server has no text channels.
+ * Empty string when there is at least one channel to pick.
+ */
+export function channelPickerEmptyNote(channels: ChannelOption[], hidden: ReadonlySet<string> = new Set()): string {
+  if (channels.length) return "";
+  const message = hidden.size
+    ? `Aegis can't see any text channels here: ${hidden.size === 1 ? "1 channel is" : `${hidden.size} channels are`} hidden from it, so the channel lists are empty. Give Aegis the <strong>View Channel</strong> permission in the channels it should use, then reload this page.`
+    : "This server has no text or announcement channels Aegis can use, so the channel lists are empty. Create one (or give Aegis access to one) in Discord, then reload this page.";
+  return `<p class="callout warn" data-channel-picker-empty>${message}</p>`;
+}
+
 /** Shown where a saved channel is one Discord now hides from Aegis (obfuscated). */
 export function hiddenChannelNote(id: string, what: string): string {
   return `<p class="callout warn" data-hidden-channel>Aegis can't see the saved ${what} (<code class="inline">${esc(id)}</code>). Give Aegis the <strong>View Channel</strong> permission there, or pick a new one.</p>`;

@@ -43,14 +43,20 @@ export function renderLanding(cfg: SiteConfig, error: string | null): string {
   });
 }
 
-export function renderError(cfg: SiteConfig, o: { status: number; title: string; message: string; viewer?: Viewer }): string {
+export function renderError(
+  cfg: SiteConfig,
+  o: { status: number; title: string; message: string; viewer?: Viewer; action?: { label: string; href: string; external?: boolean } },
+): string {
+  const action = o.action
+    ? `<a class="btn" href="${esc(o.action.href)}"${o.action.external ? ' rel="noopener noreferrer" target="_blank"' : ""}>${esc(o.action.label)}</a>`
+    : "";
   return shell(cfg, {
     title: o.title,
     path: "/dashboard",
     viewer: o.viewer,
     scripts: false,
     body: `${head(o.title, esc(o.message))}
-  <div class="btn-row"><a class="btn ghost" href="/dashboard">Back to your servers</a></div>`,
+  <div class="btn-row">${action}<a class="btn ghost" href="/dashboard">Back to your servers</a></div>`,
   });
 }
 

@@ -752,10 +752,12 @@ test("rate limits go through the injected shared store", async () => {
     const page = await fetch(`${url}/dashboard`, { redirect: "manual" });
     assert.equal(page.status, 429);
     assert.equal(page.headers.get("retry-after"), "17");
+    assert.match(await page.text(), /Wait 17 seconds, then reload the page/);
     const login = await fetch(`${url}/dashboard/login`, { redirect: "manual" });
     assert.equal(login.status, 429);
     const form = await fetch(`${url}/dashboard/logout`, { method: "POST", redirect: "manual" });
     assert.equal(form.status, 429);
+    assert.match(await form.text(), /Nothing was saved\. Wait 17 seconds/);
     assert.deepEqual(calls, ["page:240", "auth:20", "post:30"], "default limits unchanged");
   } finally {
     srv.close();

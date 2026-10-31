@@ -66,6 +66,11 @@ a.guild-item:hover { border-color: var(--accent); color: var(--text); }
 .detail-list dd { margin: 0; overflow-wrap: anywhere; }
 .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn.danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; filter: brightness(.92); }
+/* Disabled controls look disabled: greyed-out role panels, the busy state while a form is sending, unused timeout fields. */
+.btn:disabled, .btn:disabled:hover { opacity: .55; cursor: not-allowed; filter: none; }
+form[aria-busy="true"] .btn:disabled { cursor: progress; }
+.dash-form input:disabled, .dash-form select:disabled, .dash-form textarea:disabled,
+.panel-repost select:disabled { opacity: .6; cursor: not-allowed; }
 .tag.ok { color: var(--ok); border-color: currentColor; }
 .prewrap { white-space: pre-wrap; }
 .pick-list .pick-scroll { max-height: 18rem; overflow-y: auto; margin: 0 -.35rem .75rem; padding: 0 .35rem; }

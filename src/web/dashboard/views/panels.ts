@@ -4,7 +4,7 @@ import type { RolePanelSummary } from "../data";
 import { PANEL_TITLE_MAX, TICKET_PANEL_DESCRIPTION_MAX, VERIFY_PANEL_DESCRIPTION_MAX } from "../validation";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
 import { type GuildContext, csrfField, guildNav, head, notice, shell } from "./layout";
-import { Form, ROLE_PICKER_HELP, type Values, channelOptions, hiddenChannelNote, roleOptions, rolePickerEmptyNote } from "./form";
+import { Form, ROLE_PICKER_HELP, type Values, channelOptions, channelPickerEmptyNote, hiddenChannelNote, roleOptions, rolePickerEmptyNote } from "./form";
 import { errorSummary, permissionNote } from "./parts";
 
 /* ── Panels ────────────────────────────────────────────────────────── */
@@ -69,6 +69,7 @@ export function renderPanels(
     body: `${head("Panels", "Post the messages members click: the ticket button, the verification button and role panels. Each uses the same code as its slash command.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Panels", null]])}
   ${guildNav(g.id, "panels")}
   ${notice(o.noticeCode)}
+  ${channelPickerEmptyNote(o.channels, hidden)}
 
   <h2 id="tickets">Ticket panel</h2>
   <p class="muted">Same as <code class="inline">/ticket setup</code>. Earlier Aegis ticket panels in the channel are removed first.</p>

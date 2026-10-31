@@ -10,7 +10,7 @@ import { memoryRateLimitStore, type RateLimitStore } from "../rateLimitStore";
 import type { DashboardConfig } from "../config";
 import type { DashboardData } from "../data";
 import { type FetchLike } from "../discordOAuth";
-import { isSnowflake } from "../permissions";
+import { guildInviteUrl, isSnowflake } from "../permissions";
 import { SESSION_COOKIE, csrfToken, originAllowed, parseCookies, serializeCookie, verifyCsrf, verifySessionCookie } from "../security";
 import type { SessionData, SessionStore } from "../sessions";
 import { type FormBody, type ValidationContext } from "../validation";
@@ -62,6 +62,34 @@ function clientKey(req: Request): string {
 
 const RATE_WINDOW_MS = 60_000;
 
+/**
+ * What a rate-limited request is told. A refused form post says plainly that
+ * nothing was saved, so nobody assumes the change went through.
+ */
+export function rateLimitMessage(method: string, retryAfterSeconds: number): string {
+  const wait = `${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}`;
+  return method === "POST"
+    ? `Nothing was saved. Wait ${wait}, then go back and send the form again (your browser usually keeps what you typed).`
+    : `Wait ${wait}, then reload the page.`;
+}
+
+/**
+ * Whether an error means the database could not be reached (server selection,
+ * network, buffering timeouts), as opposed to a bug. Those get a 503 with
+ * Retry-After instead of a generic 500.
+ */
+export function isDatabaseUnavailable(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const name = String((err as { name?: unknown }).name ?? "");
+  const message = String((err as { message?: unknown }).message ?? "");
+  if (/^Mongo(ose)?(ServerSelection|Network|NetworkTimeout|Timeout|NotConnected|TopologyClosed)Error$/.test(name)) return true;
+  // Mongoose's own wording when the connection is down or never came up.
+  return /buffering timed out after|Client must be connected before running operations|Topology is closed/i.test(message);
+}
+
+/** Seconds a client should wait after a database outage before retrying. */
+export const DATABASE_RETRY_AFTER_SECONDS = 30;
+
 function limit(store: RateLimitStore, bucket: string, max: number, deps: DashboardDeps) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -71,7 +99,7 @@ function limit(store: RateLimitStore, bucket: string, max: number, deps: Dashboa
       res.status(429).type("html").send(renderError(deps.site, {
         status: 429,
         title: "Too many requests",
-        message: `Wait ${result.retryAfterSeconds} seconds and try again.`,
+        message: rateLimitMessage(req.method, result.retryAfterSeconds),
       }));
     } catch (err) {
       next(err);
@@ -111,6 +139,9 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
     const sessionId = verifySessionCookie(secret, parseCookies(req.headers.cookie)[SESSION_COOKIE]);
     if (!sessionId) return null;
     const session = await deps.sessions.get(sessionId, now()).catch((err) => {
+      // A database outage is not a sign-out: surface it (503) rather than
+      // bouncing the user to the landing page or losing their form as "signed out".
+      if (isDatabaseUnavailable(err)) throw err;
       logger.error("Dashboard: session lookup failed", err);
       return null;
     });
@@ -128,7 +159,12 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
       const authed = await loadSession(req);
       if (!authed) {
         if (req.method === "GET") return res.redirect(302, "/dashboard");
-        return fail(res, 401, "Signed out", "Your session ended. Log in again.");
+        return send(res, renderError(deps.site, {
+          status: 401,
+          title: "Signed out",
+          message: "Your session ended, so nothing was saved. Log in again, then send the form again.",
+          action: { label: "Log in with Discord", href: "/dashboard/login" },
+        }), 401);
       }
       res.locals.dash = authed;
       next();
@@ -159,7 +195,14 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
       if (!isSnowflake(guildId)) return fail(res, 404, "Server not found", "That is not a server ID.", authed.viewer);
       const guild = deps.bot.guild(guildId);
       if (!guild) {
-        return fail(res, 404, "Aegis is not in that server", "Add Aegis to the server first, or pick another server from your list.", authed.viewer);
+        const invite = guildInviteUrl(deps.site.inviteUrl, guildId);
+        return send(res, renderError(deps.site, {
+          status: 404,
+          title: "Aegis is not in that server",
+          message: "Aegis was removed from this server, or was never added. Add it, then refresh your server list; or pick another server.",
+          viewer: authed.viewer,
+          ...(invite ? { action: { label: "Add Aegis to this server", href: invite, external: true } } : {}),
+        }), 404);
       }
       const allowed = await deps.bot.memberCanManage(guildId, authed.session.userId);
       if (!allowed) {

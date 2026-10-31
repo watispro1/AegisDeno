@@ -6,7 +6,7 @@ import { MAX_WARN_EXPIRY_DAYS } from "../../../services/configuration";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../../services/ticketTranscript";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
 import { type GuildContext, csrfField, guildNav, head, notice, shell } from "./layout";
-import { ACTION_OPTIONS, Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
+import { ACTION_OPTIONS, Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
 
 function sectionForm(
   section: SettingsSection,
@@ -182,6 +182,7 @@ export function renderSettings(
   </ul></nav>
   ${notice(noticeCode)}
   ${summary}
+  ${section === "escalation" ? "" : channelPickerEmptyNote(channels, hiddenChannelIds)}
   <form class="dash-form" method="post" action="${base}/${section}" novalidate>
     ${csrfField(ctx.viewer)}
     ${sectionForm(section, f, ctx, channels, roles, snapshot, hiddenChannelIds)}

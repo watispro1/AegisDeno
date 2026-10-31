@@ -9,8 +9,8 @@
  */
 import express, { type NextFunction, type Request, type Response, type Router } from "express";
 import { logger } from "../../utils/logger";
-import { renderNotConfigured } from "./views";
-import { createRouteKit, type DashboardDeps } from "./routes/context";
+import { renderNotConfigured, type Viewer } from "./views";
+import { DATABASE_RETRY_AFTER_SECONDS, createRouteKit, isDatabaseUnavailable, type DashboardDeps } from "./routes/context";
 import { registerAuthRoutes } from "./routes/auth";
 import { registerPickerRoutes } from "./routes/picker";
 import { registerCaseRoutes } from "./routes/cases";
@@ -65,6 +65,11 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
     const status = typeof (err as { status?: unknown })?.status === "number" ? (err as { status: number }).status : 500;
     if (status === 413) return fail(res, 413, "Form too large", "That form was larger than the dashboard accepts.");
     if (status === 400) return fail(res, 400, "Bad request", "The form could not be read. Reload the page and try again.");
+    if (isDatabaseUnavailable(err)) {
+      logger.warn(`Dashboard: database unavailable: ${err instanceof Error ? err.message : String(err)}`);
+      res.setHeader("Retry-After", String(DATABASE_RETRY_AFTER_SECONDS));
+      return fail(res, 503, "Database unavailable", "Aegis couldn't reach its database just now. Nothing was changed if you were saving. Try again in a minute.", (res.locals.dash as { viewer?: Viewer } | undefined)?.viewer);
+    }
     logger.error("Dashboard error:", err instanceof Error ? err.message : err);
     fail(res, 500, "Something went wrong", "The dashboard hit an error. Nothing was changed if you were saving. Try again in a moment.");
   });
