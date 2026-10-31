@@ -114,3 +114,53 @@ export function decodeChannelUnlock(raw: string): ChannelUnlockPayload {
   // An unlock must still happen even if the payload is unreadable.
   return { moderatorTag: "Unknown", durationMinutes: 0 };
 }
+
+// ─── /ban duration (temporary ban) ───────────────────────────────────────────
+
+/** Shortest and longest temporary ban `/ban duration:` accepts. */
+export const TEMP_BAN_MIN_SECONDS = 60;
+export const TEMP_BAN_MAX_SECONDS = 365 * 86_400;
+
+export interface TimedUnbanPayload {
+  moderatorId: string;
+  moderatorTag: string;
+  /** The ban's case, so the unban log can point at it. */
+  caseId: string | null;
+  /** Length of the ban in seconds, for the log line. */
+  durationSeconds: number;
+}
+
+export function encodeTimedUnban(payload: TimedUnbanPayload): string {
+  return JSON.stringify(payload);
+}
+
+/** Never throws: a ban must still be lifted even if its payload is unreadable. */
+export function decodeTimedUnban(raw: string): TimedUnbanPayload {
+  try {
+    const o = JSON.parse(raw) as Record<string, unknown>;
+    if (o && typeof o === "object") {
+      return {
+        moderatorId: typeof o.moderatorId === "string" ? o.moderatorId : "",
+        moderatorTag: typeof o.moderatorTag === "string" ? o.moderatorTag : "Unknown",
+        caseId: typeof o.caseId === "string" ? o.caseId : null,
+        durationSeconds: typeof o.durationSeconds === "number" && Number.isFinite(o.durationSeconds) ? o.durationSeconds : 0,
+      };
+    }
+  } catch {
+    // fall through
+  }
+  return { moderatorId: "", moderatorTag: "Unknown", caseId: null, durationSeconds: 0 };
+}
+
+// ─── Scheduler retry policy ──────────────────────────────────────────────────
+
+/**
+ * What to do after a task failed `attempts` times. One-off tasks retry and are
+ * then dropped. A recurring task is never dropped for a run that failed: it
+ * skips that run and waits for the next one (it used to be deleted for good
+ * after three failures, e.g. while its channel was briefly hidden).
+ */
+export function afterTaskFailure(attempts: number, maxAttempts: number, recurring: boolean): "retry" | "skip-to-next" | "delete" {
+  if (attempts < maxAttempts) return "retry";
+  return recurring ? "skip-to-next" : "delete";
+}

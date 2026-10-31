@@ -1,3 +1,4 @@
+import { auditReason } from "../../utils/safeText";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -185,7 +186,7 @@ export const command: Command = {
             await target.user.send({ embeds: [dmEmbed] }).catch(() => null);
           }
 
-          await target.kick(`${finalReason} | Kicked by ${interaction.user.tag}`);
+          await target.kick(auditReason(`${finalReason} | Kicked by ${interaction.user.tag}`));
 
           await addModerationCase({
             guildId,

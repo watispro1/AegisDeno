@@ -1,3 +1,4 @@
+import { auditReason } from "../../utils/safeText";
 import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, GuildMember, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
@@ -47,7 +48,7 @@ export const command: Command = {
 
     await interaction.deferReply();
     try {
-      await target.timeout(null, `Timeout removed by ${interaction.user.tag}`);
+      await target.timeout(null, auditReason(`Timeout removed by ${interaction.user.tag}`));
       await addModerationCase({
         guildId,
         userId: target.id,

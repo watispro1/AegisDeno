@@ -1,6 +1,8 @@
 import { Client, TextChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { getAllPendingTasks, deleteTask, updateTaskNextRun, ScheduledTask } from "./scheduler";
 import {
+  afterTaskFailure,
+  decodeTimedUnban,
   decodeChannelUnlock,
   decodePersonalReminder,
   nextTimerDelay,
@@ -10,6 +12,9 @@ import {
 import { sendGuildLog } from "./logging";
 import { isSendableChannel, isObfuscatedChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
+import { auditReason } from "../utils/safeText";
+import { formatDurationLong } from "../utils/duration";
+import { addModerationCase } from "./moderationCases";
 
 const activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -120,6 +125,39 @@ async function performChannelUnlock(client: Client, task: ScheduledTask): Promis
   }
 }
 
+/**
+ * Lift a `/ban duration:` ban. The task's creatorId is the banned user. A ban
+ * that is already gone (unbanned by hand) just drops the task; a failure to
+ * unban throws so the normal retry path runs.
+ */
+async function performTimedUnban(client: Client, task: ScheduledTask): Promise<void> {
+  const payload = decodeTimedUnban(task.payload);
+  const guild = client.guilds.cache.get(task.guildId);
+  if (!guild) {
+    // Not cached yet (outage, boot) or the bot was removed: retry rather than
+    // drop it, so a temporary ban never silently becomes permanent.
+    throw new Error(`Guild ${task.guildId} is not available for timed unban.`);
+  }
+  const userId = task.creatorId;
+  const ban = await guild.bans.fetch(userId).catch(() => null);
+  if (!ban) return;
+  const reason = `Temporary ban expired${payload.caseId ? ` (case ${payload.caseId})` : ""}`;
+  await guild.members.unban(userId, auditReason(`${reason} | Banned by ${payload.moderatorTag}`));
+  await addModerationCase({
+    guildId: guild.id,
+    userId,
+    moderatorId: client.user?.id ?? payload.moderatorId,
+    action: "unban",
+    reason,
+    details: `Automatic unban after ${formatDurationLong(payload.durationSeconds)}`,
+  }).catch(() => null);
+  await sendGuildLog(client, guild.id, {
+    title: "⏲️ Temporary Ban Expired",
+    color: 0x57F287,
+    description: `**User:** ${ban.user.tag} (<@${userId}>)\n**Ban length:** ${formatDurationLong(payload.durationSeconds)}\n**Originally banned by:** ${payload.moderatorTag}${payload.caseId ? `\n**Case:** \`${payload.caseId}\`` : ""}`,
+  }).catch(err => logger.warn(`Task ${task.id}: timed-unban log failed`, err));
+}
+
 async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
   const taskId = task.id!;
   let shouldRetry = false;
@@ -147,6 +185,12 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
     if (task.type === "verify_kick") {
       const { runVerifyKick } = await import("./verificationService");
       await runVerifyKick(client, task);
+      retryCount.delete(taskId);
+      return;
+    }
+
+    if (task.type === "timed_unban") {
+      await performTimedUnban(client, task);
       retryCount.delete(taskId);
       return;
     }
@@ -221,7 +265,15 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       const attempts = (retryCount.get(taskId) ?? 0) + 1;
       retryCount.set(taskId, attempts);
 
-      if (attempts >= MAX_RETRY_ATTEMPTS) {
+      const next = afterTaskFailure(attempts, MAX_RETRY_ATTEMPTS, Boolean(task.intervalMs));
+      if (next === "skip-to-next") {
+        // A recurring task keeps its schedule: skip this run, try again next time.
+        retryCount.delete(taskId);
+        const nextTime = new Date(Date.now() + task.intervalMs!);
+        const updated = await updateTaskNextRun(task.guildId, taskId, nextTime);
+        logger.warn(`Task ${taskId}: failed ${attempts} time(s); skipping this run, next at ${nextTime.toISOString()}.`);
+        if (updated) scheduleTask(client, updated);
+      } else if (next === "delete") {
         // Exhausted retries — log and delete to prevent zombie tasks
         logger.error(
           `Task ${taskId} failed after ${attempts} attempt(s) — giving up and removing from DB.`

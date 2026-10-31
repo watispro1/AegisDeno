@@ -1,3 +1,4 @@
+import { auditReason } from "../utils/safeText";
 /**
  * Ban appeal review, shared by `/appeal review` and the web dashboard.
  *
@@ -114,8 +115,10 @@ export async function reviewBanAppeal(
   if (decision === "approved") {
     try {
       if (!guild) throw new Error("guild not cached");
-      await guild.bans.remove(appeal.userId, `Ban appeal ${upper} approved by ${reviewer.tag}`);
+      await guild.bans.remove(appeal.userId, auditReason(`Ban appeal ${upper} approved by ${reviewer.tag}`));
       unban = "done";
+      const { clearTimedUnbans } = await import("./tempBan");
+      await clearTimedUnbans(guildId, appeal.userId).catch(() => 0);
     } catch (err) {
       logger.warn(`Appeal ${upper}: automatic unban failed in guild ${guildId}: ${(err as Error)?.message ?? err}`);
       unban = "failed";

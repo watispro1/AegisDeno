@@ -1,4 +1,5 @@
-import { Client, Message, GuildMember } from "discord.js";
+import { Client, Message, GuildMember, PermissionFlagsBits } from "discord.js";
+import { codeBlock } from "../utils/safeText";
 import { getAutomodConfig } from "./automod";
 import { addWarning } from "./warnings";
 import { sendGuildLog } from "./logging";
@@ -36,39 +37,56 @@ function recordAndCheckSpam(
 }
 
 // ─── Exemption check ─────────────────────────────────────────────────────────
-function isExempt(
-  member: GuildMember | null,
+/**
+ * Safe-listed channels and roles are exempt, and so is server staff with
+ * Administrator or Manage Server (the same members Discord's own AutoMod
+ * exempts), so automod never deletes or times out the people who configure it.
+ */
+export function isExempt(
+  member: Pick<GuildMember, "permissions" | "roles"> | null,
   channelId: string,
   exemptRoleIds: string[],
   exemptChannelIds: string[]
 ): boolean {
   if (exemptChannelIds.includes(channelId)) return true;
-  if (member && member.roles.cache.some(role => exemptRoleIds.includes(role.id))) return true;
+  if (!member) return false;
+  if (member.permissions?.has?.(PermissionFlagsBits.Administrator) || member.permissions?.has?.(PermissionFlagsBits.ManageGuild)) return true;
+  if (member.roles.cache.some(role => exemptRoleIds.includes(role.id))) return true;
   return false;
 }
 
+/**
+ * How many pings a message carries for the mention-spam rule: distinct users,
+ * distinct roles, and @everyone/@here (counted once).
+ */
+export function mentionCount(mentions: { users: { size: number }; roles: { size: number }; everyone: boolean }): number {
+  return mentions.users.size + mentions.roles.size + (mentions.everyone ? 1 : 0);
+}
+
 // ─── Main handler ─────────────────────────────────────────────────────────────
-async function handleAutomod(client: Client, message: Message): Promise<void> {
-  if (!message.guildId || message.author.bot) return;
+/** Returns true when automod acted on the message (it is deleted or being deleted). */
+async function handleAutomod(client: Client, message: Message, isEdit: boolean): Promise<boolean> {
+  if (!message.guildId || message.author.bot) return false;
 
   let config;
   try {
     config = await getAutomodConfig(message.guildId);
   } catch (err) {
     logger.error(`Automod: failed to load config for guild ${message.guildId}`, err);
-    return;
+    return false;
   }
 
   const member = message.member ?? await message.guild?.members.fetch(message.author.id).catch(() => null) ?? null;
 
   // Skip if the user or channel is on the safe-list
-  if (isExempt(member, message.channelId, config.exemptRoleIds, config.exemptChannelIds)) return;
+  if (isExempt(member, message.channelId, config.exemptRoleIds, config.exemptChannelIds)) return false;
 
   let triggeredRule: { action: string } | null = null;
   let ruleName = "";
 
-  // 1. Spam detection (rate limiter)
-  if (config.spam.enabled) {
+  // 1. Spam detection (rate limiter). Edits are not new messages: counting
+  // them let a member who fixed a typo a few times trip the spam rule.
+  if (config.spam.enabled && !isEdit) {
     const windowMs = config.spam.windowSeconds * 1000;
     if (recordAndCheckSpam(message.guildId, message.author.id, config.spam.maxMessages, windowMs)) {
       triggeredRule = config.spam;
@@ -87,7 +105,7 @@ async function handleAutomod(client: Client, message: Message): Promise<void> {
 
   // 3. Mention Spam
   if (!triggeredRule && config.mentions.enabled) {
-    if (message.mentions.users.size >= config.mentions.threshold) {
+    if (mentionCount(message.mentions) >= config.mentions.threshold) {
       triggeredRule = config.mentions;
       ruleName = "Mention Spam";
     }
@@ -121,7 +139,7 @@ async function handleAutomod(client: Client, message: Message): Promise<void> {
     }
   }
 
-  if (!triggeredRule) return;
+  if (!triggeredRule) return false;
 
   // Map the human-readable rule name to a short schema key for analytics
   const ruleKeyMap: Record<string, string> = {
@@ -146,6 +164,7 @@ async function handleAutomod(client: Client, message: Message): Promise<void> {
     content:     message.content.slice(0, 200) || null,
     triggeredAt: new Date(),
   }).catch(err => logger.warn("Failed to log automod hit:", err));
+  return triggeredRule.action === "delete" || triggeredRule.action === "warn" || triggeredRule.action === "timeout";
 }
 
 async function enforceAutomod(
@@ -198,7 +217,7 @@ async function enforceAutomod(
         `**Rule:** ${ruleName}`,
         `**Action:** \`${action}\``,
         `**Channel:** <#${message.channelId}>`,
-        `\n**Content:**\n\`\`\`\n${message.content.substring(0, 400)}\`\`\``,
+        `\n**Content:**\n${codeBlock(message.content || "[no text]", 420)}`,
       ].join("\n"),
       fields: [{ name: "User ID", value: message.author.id, inline: true }],
     });
@@ -208,19 +227,19 @@ async function enforceAutomod(
 }
 
 /** Handles both new messages and edited messages. */
-export async function processAutomod(client: Client, message: Message): Promise<void> {
-  await handleAutomod(client, message);
+export async function processAutomod(client: Client, message: Message): Promise<boolean> {
+  return handleAutomod(client, message, false);
 }
 
 /** Call this from the messageUpdate event to also enforce rules on edits. */
-export async function processAutomodEdit(client: Client, newMessage: Message): Promise<void> {
+export async function processAutomodEdit(client: Client, newMessage: Message): Promise<boolean> {
   // Fetch partial messages to get full content
   if (newMessage.partial) {
     try {
       await newMessage.fetch();
     } catch {
-      return; // Can't fetch, skip
+      return false; // Can't fetch, skip
     }
   }
-  await handleAutomod(client, newMessage);
+  return handleAutomod(client, newMessage, true);
 }

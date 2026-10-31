@@ -2,6 +2,7 @@ import { Message } from "discord.js";
 import { AutoResponderModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 import { TtlCache } from "../utils/ttlCache";
+import { DISCORD_LIMITS, truncate } from "../utils/safeText";
 
 export interface AutoResponder {
   id: string;
@@ -113,7 +114,7 @@ export async function processAutoResponders(message: Message): Promise<boolean> 
           .replace(/{member_count}/g, String(message.guild.memberCount));
 
         if ("send" in message.channel && typeof message.channel.send === "function") {
-          await message.channel.send(formattedResponse).catch(() => null);
+          await message.channel.send(truncate(formattedResponse, DISCORD_LIMITS.content)).catch(() => null);
         }
         return true;
       }

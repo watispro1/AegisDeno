@@ -108,6 +108,22 @@ export const command: Command = {
       return interaction.reply({ content: "❌ This command can only be used in a text channel.", flags: MessageFlags.Ephemeral });
     }
 
+    // The guild-wide permission check is not enough: a channel overwrite can
+    // take away my access here, and bulkDelete would then fail after the preview.
+    const me = interaction.guild?.members.me;
+    if (me && "permissionsFor" in channel) {
+      const perms = channel.permissionsFor(me);
+      const need = [
+        [PermissionFlagsBits.ViewChannel, "View Channel"],
+        [PermissionFlagsBits.ReadMessageHistory, "Read Message History"],
+        [PermissionFlagsBits.ManageMessages, "Manage Messages"],
+      ] as const;
+      const missing = need.filter(([flag]) => !perms?.has(flag)).map(([, label]) => label);
+      if (missing.length) {
+        return interaction.reply({ content: `❌ I need **${missing.join("**, **")}** in this channel to purge it.`, flags: MessageFlags.Ephemeral });
+      }
+    }
+
     if (filter === "keyword" && !keyword) {
       return interaction.reply({ content: "❌ You must provide a `keyword` when using the `keyword` filter.", flags: MessageFlags.Ephemeral });
     }
