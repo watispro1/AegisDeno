@@ -12,38 +12,33 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 ## [Unreleased]
 
 ### Added
-- A self-hosting section in the docs and the README, with the real setup steps,
-  the intents the bot needs, and the licence terms. The site footer links to the
-  source on GitHub.
-- A PNG social preview image (`/assets/og.png`). Discord and most link previews
-  ignore SVG, so shared links had no image before.
+- Ongoing feature development.
+
+## [3.6.2] - 2026-10-31
+
+### Added
+- Official Aegis Support Discord Server blueprint (`server.md`) detailing the complete role hierarchy, channels, category architecture, permission overrides, automations, and staff SOPs.
+- Interactive Web Dashboard at `/dashboard` with real-time telemetry, active module matrix, configuration presets, and top navigation link.
+- In-Discord `/dashboard` upgrades: live auto-escalation status, verification gatekeeper inspector, and watchlist monitoring count.
+- Added `before_message` parameter and snowflake validator to `/purge` for incident-specific bulk deletion.
+- Open-source MIT license (`LICENSE`).
+- A self-hosting section in the docs and the README, with the real setup steps, the intents the bot needs, and the licence terms. The site footer links to the source on GitHub.
+- A PNG social preview image (`/assets/og.png`). Discord and most link previews ignore SVG, so shared links had no image before.
 
 ### Changed
-- `/changelog` on the website is rendered from this file, so the site and the
-  repository can no longer disagree. The Atom feed at `/changelog.xml` uses the
-  same entries. The hand-written release list in `pages.ts` is gone.
-- The command reference notes which options suggest values as you type and the
-  allowed range for numeric options, read from the command definitions.
-- The site no longer loads IBM Plex from Google Fonts. It uses the system font
-  stack (Plex is still used if installed), which removes the only third-party
-  request and lets the content security policy drop Google's domains.
-- Buttons, filter chips, copy buttons and nav links are at least 44px tall; on
-  touch screens, sidebar and footer links get the same target size.
-- The faint text colour is slightly darker so it passes 4.5:1 contrast on code
-  backgrounds too. Footer column titles are headings in the right order.
+- Converted `/dashboard` from a redirect into a dedicated live web dashboard.
+- Bumped version across package, documentation, and diagnostics to 3.6.2.
+- `/changelog` on the website is rendered from this file, so the site and the repository can no longer disagree. The Atom feed at `/changelog.xml` uses the same entries.
+- The command reference notes which options suggest values as you type and the allowed range for numeric options, read from the command definitions.
+- The site no longer loads IBM Plex from Google Fonts. It uses the system font stack, which removes the only third-party request and lets the content security policy drop Google's domains.
+- Buttons, filter chips, copy buttons and nav links are at least 44px tall; on touch screens, sidebar and footer links get the same target size.
+- The faint text colour is slightly darker so it passes 4.5:1 contrast on code backgrounds too. Footer column titles are headings in the right order.
 - The 404 page links to troubleshooting and the changelog as well.
-- README rewritten: shorter, no emoji headings, and every feature description
-  checked against the code.
+- README rewritten: shorter, no emoji headings, and every feature description checked against the code.
 
 ### Fixed
-- The README said the trust score reacts to "message behaviour" and that you can
-  "configure auto-actions when a score drops below a threshold". No score-based
-  action exists; the score only counts how many messages a member has sent and
-  when they last posted. It also called `/poll` a native Discord poll (polls use
-  buttons since 3.1.0) and described `/modreport` as having keyword trends,
-  new-member risk events and a 7-day chart, none of which exist.
-- The features page said Discord caps timeouts at 7 days. Discord allows 28;
-  the `/timeout` choices stop at one week.
+- Corrected documentation claims regarding trust score auto-actions, poll button implementations, and moderation report metrics.
+- Fixed features page note regarding timeout maximum durations.
 
 ## [3.5.0] - 2026-10-28
 

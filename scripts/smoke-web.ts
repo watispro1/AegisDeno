@@ -23,6 +23,7 @@ const fakeClient = {
 
 const ROUTES: [string, number][] = [
   ["/", 200],
+  ["/dashboard", 200],
   ["/features", 200],
   ["/commands", 200],
   ["/docs", 200],
@@ -81,7 +82,6 @@ async function main() {
   console.log("\nRedirects");
   for (const [path, target] of [
     ["/guide", "/docs"],
-    ["/dashboard", "/features"],
     ["/playground", "/features"],
     ["/terms-of-service", "/terms"],
     ["/privacy-policy", "/privacy"],

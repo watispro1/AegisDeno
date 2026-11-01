@@ -1,519 +1,317 @@
-# 🛡️ Aegis — Server Setup Guide
+# 🛡️ Official Aegis Support Discord Server — Architecture & Setup Blueprint
 
-> **Aegis** is a full-featured Discord moderation and community bot built with TypeScript, Discord.js v14, and MongoDB. This guide walks server administrators through every feature and how to configure it.
+> Complete blueprint and administrative manual for creating and configuring the official **Aegis Support & Community Discord Server**. This document specifies the complete hierarchy of roles, channels, categories, permission overrides, automations, and bot integrations.
 
 ---
 
 ## Table of Contents
 
-1. [Quick Start](#quick-start)
-2. [Moderation Commands](#moderation-commands)
-3. [Community Commands](#community-commands)
-4. [Roles & Panels](#roles--panels)
-5. [Ticket System](#ticket-system)
-6. [Verification System](#verification-system)
-7. [Automation & Reminders](#automation--reminders)
-8. [Configuration & Logging](#configuration--logging)
-9. [Automod](#automod)
-10. [Auto-Responder](#auto-responder)
-11. [General Commands](#general-commands)
-12. [Permission Reference](#permission-reference)
+1. [Server Foundation & Community Settings](#1-server-foundation--community-settings)
+2. [Role Hierarchy & Specifications](#2-role-hierarchy--specifications)
+3. [Global Permissions Matrix](#3-global-permissions-matrix)
+4. [Category & Channel Architecture](#4-category--channel-architecture)
+5. [Channel Permissions Breakdown](#5-channel-permissions-breakdown)
+6. [Official Aegis Bot Setup & Integration](#6-official-aegis-bot-setup--integration)
+7. [Onboarding & Member Journey](#7-onboarding--member-journey)
+8. [Staff Standard Operating Procedures (SOP)](#8-staff-standard-operating-procedures-sop)
 
 ---
 
-## Quick Start
+## 1. Server Foundation & Community Settings
 
-| Step | What to do |
-|------|-----------|
-| 1 | Invite Aegis with **Administrator** or the permissions listed in [Permission Reference](#permission-reference) |
-| 2 | Run `/config preset` to apply a ready-made setup for your server type |
-| 3 | Run `/logging setup` and pick a channel for audit logs |
-| 4 | Run `/verify setup` to enable member verification |
-| 5 | Run `/ticket setup` to create a support panel |
-| 6 | Optionally run `/automod` to enable automatic rule enforcement |
+### Server Metadata
+- **Server Name:** `Aegis Support & Community`
+- **Server Region:** Preferred closest to main bot host (US East / Central)
+- **Community Enabled:** Yes (Required for Announcement channels, Forum channels, Welcome screen, and Server Insights)
+- **Description:** *Official support, development updates, documentation, and community server for the Aegis Discord moderation and management bot.*
 
----
-
-## Moderation Commands
-
-### `/warn` — Issue a Warning
-Warn a member and store the infraction permanently.
-
-| Option | Description |
-|--------|-------------|
-| `user` | The member to warn *(required)* |
-| `preset` | Quick violation preset (Spam, NSFW, Harassment, etc.) |
-| `reason` | Free-text reason — also shows preset suggestions via autocomplete |
-| `severity` | `low` / `medium` / `high` — affects embed colour |
-| `proof` | Screenshot or image attachment stored with the case |
-| `silent` | Skip DM notification to the member |
-
-**After warning:** buttons appear for **Undo**, **Warning History**, and **Quick Timeout (10 min)**.
+### Safety & Moderation Setup
+- **Verification Level:** `High` (Must be a member of the server for longer than 10 minutes)
+- **Explicit Media Content Filter:** `Scan media content from all members`
+- **Default Notification Settings:** `Only @mentions`
+- **2FA Requirement for Moderation:** `Enabled` (All staff roles with administrative/kick/ban powers must have 2FA enabled)
 
 ---
 
-### `/timeout` — Temporarily Mute a Member
-Issues a Discord timeout with a configurable duration.
+## 2. Role Hierarchy & Specifications
 
-| Option | Description |
-|--------|-------------|
-| `user` | Member to timeout *(required)* |
-| `duration` | 60s · 5m · 10m · 30m · 1h · 6h · 12h · 1d · 3d · 1 week *(required)* |
-| `preset` | Common reason preset |
-| `reason` | Custom reason (autocomplete includes presets) |
-| `proof` | Attachment stored with the mod case |
-| `silent` | Skip DM |
+Roles must be arranged in the exact order shown below (highest position first) to preserve permission and moderation role hierarchy.
 
-**After confirmation:** buttons to **Undo**, **Extend +1h**, or **View Cases**.
-
----
-
-### `/ban` — Permanent Ban
-Ban with a confirmation prompt, DM with appeal info, and optional message deletion.
-
-| Option | Description |
-|--------|-------------|
-| `user` | Member or user ID *(required)* |
-| `preset` / `reason` | Reason (autocomplete + free text) |
-| `delete_messages` | Delete last 0–7 days of their messages |
-| `proof` | Proof attachment |
-| `silent` | Skip ban DM |
-
-**After ban:** an **Unban (Revoke)** button appears for a 60-second window.
+| Position | Role Name | Color Hex | Hoist | Mentionable | Purpose & Qualifications |
+|:---:|---|---|:---:|:---:|---|
+| **1** | `Founder / Owner` | `#E74C3C` (Ruby Red) | Yes | No | Server owner & core creator. Unrestricted administrative control. |
+| **2** | `Lead Developer` | `#9B59B6` (Purple) | Yes | Yes | Core bot software engineers & infrastructure managers. |
+| **3** | `Head Moderator` | `#E67E22` (Orange) | Yes | Yes | Leads moderation team, handles escalations, oversees staff actions. |
+| **4** | `Moderator` | `#3498DB` (Cyan Blue) | Yes | Yes | Daily community moderation, chat management, purge/mute/warn enforcement. |
+| **5** | `Support Specialist` | `#2ECC71` (Emerald) | Yes | Yes | Official technical support staff answering tickets and community questions. |
+| **6** | `Aegis Bot` | `#5865F2` (Blurple) | Yes | Yes | The official production Aegis bot instance. Elevated permissions. |
+| **7** | `System Bots` | `#7289DA` (Steel Blue) | Yes | No | Auxiliary utility bots (GitHub webhooks, uptime monitor, audio test). |
+| **8** | `Contributor / Dev` | `#1ABC9C` (Turquoise) | Yes | No | Open-source contributors with accepted PRs or code contributions. |
+| **9** | `Bug Hunter` | `#F1C40F` (Gold) | Yes | No | Members who discover and verify critical bugs or security flaws. |
+| **10** | `Server Booster` | `#F47FFF` (Nitro Pink) | Yes | No | Nitro boosters supporting the community (auto-managed by Discord). |
+| **11** | `VIP / Partner` | `#E91E63` (Magenta) | Yes | No | Verified server owners running Aegis in 1,000+ member guilds or sponsors. |
+| **12** | `Active Member` | `#6782B4` (Slate Blue) | No | No | Established active community members rewarded for engagement. |
+| **13** | `Community Member` | `#95A5A6` (Light Gray) | No | No | Verified standard member role. Baseline access to public channels. |
+| **14** | `Announcement Ping` | `#A0B0C0` (Muted) | No | No | Opt-in role for major release announcements. |
+| **15** | `Bot Updates Ping` | `#A0B0C0` (Muted) | No | No | Opt-in role for patch notes, feature updates, and changelogs. |
+| **16** | `Outage / Status Ping` | `#A0B0C0` (Muted) | No | No | Opt-in role for maintenance notices and downtime alerts. |
+| **17** | `Muted / Quarantine` | `#4F545C` (Dark Gray) | No | No | Restricted role for members placed in cooldown or under investigation. |
+| **18** | `@everyone` | None | No | No | Baseline pre-verification role. Restricted read-only view of landing channels. |
 
 ---
 
-### `/kick` — Remove from Server
-Kicks with optional reason and DM.
+## 3. Global Permissions Matrix
+
+| Role | Admin | Manage Guild | Manage Roles | Manage Chans | Kick / Ban | Timeout | Mod Messages | View Audit | Send Messages |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `Founder / Owner` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `Lead Developer` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `Head Moderator` | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `Moderator` | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `Support Specialist` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| `Aegis Bot` | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `System Bots` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `Community Member` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `Muted / Quarantine` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `@everyone` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 ---
 
-### `/purge` — Bulk Delete Messages
-Deletes messages matching your filters with a preview before executing.
+## 4. Category & Channel Architecture
 
-| Option | Description |
-|--------|-------------|
-| `amount` | Number of matching messages to delete (1–500) *(required)* |
-| `filter` | `all` · `bots` · `humans` · `links` · `images` · `embeds` · `keyword` |
-| `user` | Only delete messages from this specific user |
-| `keyword` | Delete only messages containing this text |
-| `reason` | Recorded in the mod log |
-| `before_message` | Only scan messages sent before this message ID — useful for targeting a specific incident |
+```
+📂 ─── 📌 INFORMATION & WELCOME ───
+  ├─ 📜・rules-and-info        [Text | Read-only]
+  ├─ 📢・announcements         [Announcement | Read-only]
+  ├─ 🚀・bot-updates           [Announcement | Read-only]
+  ├─ 📊・status-and-outages     [Announcement | Read-only]
+  └─ 🔗・official-links        [Text | Read-only]
 
-> **Tip:** Right-click any Discord message → **Copy Message ID** to use with `before_message`.
+📂 ─── 🛡️ VERIFICATION & ROLES ───
+  ├─ ⚡・verify                [Text | Interactive Verification Panel]
+  └─ 🎭・get-roles             [Text | Interactive Role Selection Panel]
 
----
+📂 ─── 💬 COMMUNITY CHAT ───
+  ├─ 💬・general-discussion    [Text | Slowmode 3s]
+  ├─ 🤖・bot-discussion        [Text | Slowmode 5s]
+  ├─ 🛠️・showcase-setups       [Text | Slowmode 15s]
+  ├─ ⭐・highlights            [Text | Starboard feed]
+  └─ 📸・media-and-memes       [Text | Slowmode 10s]
 
-### `/case` — Moderation Case Lookup
-View, edit, paginate, and export moderation cases.
+📂 ─── 🧪 TESTING & PLAYGROUND ───
+  ├─ 🤖・bot-playground-1      [Text | Public bot command testing]
+  ├─ 🤖・bot-playground-2      [Text | Public bot command testing]
+  └─ 🔐・mod-commands-testing  [Text | Staff-only command testing]
 
-| Subcommand | Description |
-|------------|-------------|
-| `view` | View a specific case by its database ID |
-| `user` | List all cases for a member with **◀ Prev / Next ▶** pagination |
-| `edit` | Change the reason on an existing case |
-| `delete` | Remove a case record (requires **Administrator**) |
-| `export` | Download all guild cases as a JSON file |
+📂 ─── 🎫 SUPPORT & TICKETS ───
+  ├─ 📩・create-ticket         [Text | Support ticket launcher panel]
+  ├─ ❓・faq-quick-help        [Text | Read-only searchable FAQ]
+  ├─ 💻・self-hosting          [Forum | Docker, Fly.io, MongoDB support]
+  └─ 🔌・api-and-dev-help      [Forum | Developer and integration help]
 
----
+📂 ─── 💡 FEEDBACK & BUGS ───
+  ├─ 💡・suggestions           [Text | Interactive suggestion system via /suggest]
+  └─ 🐛・bug-reports           [Forum | Structured bug tracking with status tags]
 
-### `/warn` history — `/warnings` & `/infractions`
+📂 ─── 🔒 STAFF COMMAND & AUDIT ───
+  ├─ 💬・staff-chat            [Text | Private staff discussion]
+  ├─ 📋・mod-logs              [Text | Bot audit log: bans, warns, kicks, purges]
+  ├─ 🚨・watchlist-alerts      [Text | Aegis real-time alerts for watched users]
+  ├─ 📑・ticket-transcripts    [Text | HTML ticket closing archives]
+  └─ 🤖・bot-debug-logs        [Text | System exceptions, alerts, deployment notices]
 
-- **`/warnings`** — List a member's active warnings
-- **`/infractions`** — Full moderation record with tabs for Overview, Warnings, and Cases
-- **`/modhistory`** — Paginated case history with action-type filter
-
----
-
-### `/clearwarnings` — Remove All Warnings
-Clears every warning for a member after a confirmation prompt.
-
----
-
-### `/escalation` — Auto-Escalation Thresholds
-Automatically applies actions when a member accumulates enough warnings.
-
-| Subcommand | Description |
-|------------|-------------|
-| `status` | View current config including warning expiry |
-| `toggle` | Enable / disable escalation |
-| `add` | Add a threshold: e.g. 3 warnings → timeout 60 min |
-| `remove` | Remove a threshold by warning count |
-| `clear` | Remove all thresholds |
-| `expiry` | Warnings older than X days stop counting (0 = never expire) |
-
-**Actions:** `timeout` (with duration) · `kick` · `ban`
+📂 ─── 🔊 VOICE LOUNGES ───
+  ├─ 🎙️・Community Lounge      [Voice | Bitrate 64kbps | User limit 25]
+  ├─ 🎮・Gaming & Screen Share [Voice | Bitrate 96kbps | User limit 10]
+  ├─ 🔒・Staff Meeting Room    [Voice | Bitrate 96kbps | Staff-only]
+  └─ 💤・AFK                   [Voice | Inactive channel 15m timeout]
+```
 
 ---
 
-### `/trustscore` — Member Trust Rating
-Calculates a 0–100 trust score based on account age, server tenure, warnings, and mod cases.
+## 5. Channel Permissions Breakdown
 
-| Tier | Score | Meaning |
-|------|-------|---------|
-| 🟢 Trusted | 80–100 | Long-standing, clean member |
-| 🔵 Established | 60–79 | Good standing |
-| 🟡 Caution | 40–59 | Monitor |
-| 🟠 Elevated Risk | 20–39 | Prior infractions |
-| 🔴 High Risk | 0–19 | New or heavily sanctioned |
+### 5.1 Category: `📌 INFORMATION & WELCOME`
+- **Target Audience:** Public broadcast to all joined users.
+- **`@everyone` Overrides:**
+  - `View Channel`: ✅ Allow
+  - `Send Messages`: ❌ Deny
+  - `Add Reactions`: ✅ Allow
+  - `Create Public/Private Threads`: ❌ Deny
+- **Staff / Bot Overrides:**
+  - `Lead Developer` / `Moderator`: `Send Messages`: ✅ Allow
+  - `Aegis Bot`: `Send Messages`, `Embed Links`, `Attach Files`: ✅ Allow
 
----
+### 5.2 Category: `🛡️ VERIFICATION & ROLES`
+- **`#verify`:**
+  - **`@everyone`:** `View Channel`: ✅ Allow, `Send Messages`: ❌ Deny, `Read Message History`: ✅ Allow.
+  - **`Community Member`:** `View Channel`: ❌ Deny (hidden once verified so channel list stays clean).
+  - **`Aegis Bot`:** Full message, embed, button interaction permissions.
+- **`#get-roles`:**
+  - **`@everyone`:** `View Channel`: ❌ Deny.
+  - **`Community Member`:** `View Channel`: ✅ Allow, `Send Messages`: ❌ Deny, `Read Message History`: ✅ Allow.
+  - Contains Aegis `/rolepanel` dropdown for opt-in ping roles.
 
-### `/lock` — Channel / Category Lockdown
-Prevent @everyone from sending messages.
+### 5.3 Category: `💬 COMMUNITY CHAT`
+- **`@everyone`:** `View Channel`: ❌ Deny (Must be verified).
+- **`Community Member`:**
+  - `View Channel`: ✅ Allow
+  - `Send Messages`: ✅ Allow
+  - `Attach Files`: ✅ Allow (Denied in `#general-discussion`, allowed in `#media-and-memes`)
+  - `Embed Links`: ✅ Allow (Subject to Aegis Automod URL filters)
+  - `Mention @everyone / @here`: ❌ Deny
+- **`Muted / Quarantine`:**
+  - `Send Messages`: ❌ Deny
+  - `Add Reactions`: ❌ Deny
 
-| Subcommand | Description |
-|------------|-------------|
-| `channel` | Lock a specific channel (with optional auto-unlock duration and custom message) |
-| `unlock` | Restore a locked channel |
-| `category` | Lock every text channel inside a category |
-| `server` | Emergency: lock ALL text channels (requires **Administrator**) |
-| `status` | Check current lock state of a channel |
+### 5.4 Category: `🧪 TESTING & PLAYGROUND`
+- **Purpose:** Where community members can test `/ping`, `/help`, `/remindme`, `/poll`, and preview Aegis features without cluttering general chat.
+- **`#bot-playground-1` & `2`:**
+  - Rate limit slowmode: `3 seconds`
+  - Message auto-cleanup: Regular purge or pinned notice explaining testing etiquette.
+- **`#mod-commands-testing`:**
+  - Viewable only by `Support Specialist`, `Moderator`, `Lead Developer`.
 
----
+### 5.5 Category: `🎫 SUPPORT & TICKETS`
+- **`#create-ticket`:**
+  - **`Community Member`:** `View Channel`: ✅ Allow, `Send Messages`: ❌ Deny. Contains persistent ticket launcher embed.
+- **Individual Ticket Channels (`ticket-XXXX` created dynamically):**
+  - Inherits staff permissions.
+  - Ticket creator: `View Channel`: ✅ Allow, `Send Messages`: ✅ Allow, `Attach Files`: ✅ Allow.
+  - `@everyone`: `View Channel`: ❌ Deny.
+- **`#self-hosting` & `#api-and-dev-help` (Forum Channels):**
+  - Available tags: `[Docker]`, `[Fly.io]`, `[MongoDB]`, `[Node.js]`, `[Solved]`, `[Investigating]`.
+  - Slowmode per thread: 5s.
 
-### `/watchlist` — Monitor Specific Members
-Alert staff when a watched member is active.
-
-| Subcommand | Description |
-|------------|-------------|
-| `add` | Add a member to the watchlist with event triggers |
-| `remove` | Remove from watchlist |
-| `list` | View all watched members |
-
-**Events:** Messages · Voice joins · First message of the day · Presence changes
-
----
-
-### `/note` — Private Staff Notes
-Add internal notes to member profiles, visible only to staff.
-
-| Subcommand | Description |
-|------------|-------------|
-| `add` | Open a modal to write a note |
-| `view` | View all notes for a member (paginated) |
-| `delete` | Delete a note by ID |
-| `clear` | Wipe all notes for a member |
-
----
-
-### `/modstats` — Moderation Dashboard
-View server-wide moderation activity for the last 7 or 30 days, including action breakdown and top offenders.
-
----
-
-### `/modreport` — Moderator Activity Report
-See which staff members took the most actions.
-
----
-
-### `/appeal` — Ban Appeal System
-Banned users can submit appeal codes via `/appeal submit`. Staff review with **Approve / Deny** buttons.
+### 5.6 Category: `🔒 STAFF COMMAND & AUDIT`
+- **`@everyone` & `Community Member`:** `View Channel`: ❌ Deny.
+- **`Moderator` & `Lead Developer`:** `View Channel`: ✅ Allow, `Send Messages`: ✅ Allow.
+- **`Aegis Bot`:** `Send Messages`, `Embed Links`, `Attach Files` enabled for logging pipelines.
 
 ---
 
-### `/slowmode` — Channel Rate-Limit
-Set a per-channel message cooldown (0 to disable).
+## 6. Official Aegis Bot Setup & Integration
+
+Run the following commands inside the server using the bot to configure its native subsystems:
+
+### 1. General & Audit Logging Setup
+```bash
+/config language language:en
+/config prefix prefix:!
+/logging setup channel:#mod-logs
+/logging enable
+/logging categories category:modActions enabled:true
+/logging categories category:memberJoins enabled:true
+/logging categories category:memberLeaves enabled:true
+/logging categories category:messageDeletes enabled:true
+/logging categories category:messageEdits enabled:true
+/logging categories category:roleChanges enabled:true
+/logging categories category:channelEvents enabled:true
+```
+
+### 2. Verification Gate
+```bash
+# Posts the verification panel in #verify granting the Community Member role:
+/verify setup channel:#verify verified_role:@Community Member type:button kick_unverified_minutes:30
+```
+
+### 3. Role Selection Panels (Opt-In Pings)
+```bash
+# Posts dropdown rolepanel in #get-roles:
+/rolepanel create channel:#get-roles role1:@Announcement Ping role2:@Bot Updates Ping role3:@Outage / Status Ping style:dropdown exclusive:false
+```
+
+### 4. Support Ticket Launcher & Settings
+```bash
+# Configures ticket logs to #ticket-transcripts and inactivity auto-close:
+/ticket settings log_channel:#ticket-transcripts autoclose_hours:48
+
+# Deploys the support launcher in #create-ticket:
+/ticket setup channel:#create-ticket staff_role:@Support Specialist title:"Aegis Technical Support" description:"Click the button below to open a private support ticket with our engineering and support staff."
+```
+
+### 5. Welcome & Orientation
+```bash
+/welcome message channel:#welcome message:"Welcome {user} to the official **{server}**! Please head over to <#verify-id> to complete verification. You are member #{member_count}."
+/welcome preview
+```
+
+### 6. Starboard Highlights
+```bash
+/starboard channel:#highlights threshold:4 emoji:⭐ self_star:false
+```
+
+### 7. Automod & Spam Protection
+```bash
+# Link protection for non-staff
+/automod links enabled:true action:delete
+
+# Mention spam safeguard
+/automod mentions enabled:true threshold:5 action:timeout
+
+# Chat flooding / raid spam defense
+/automod spam enabled:true max_messages:5 window_seconds:4 action:timeout
+
+# Whitelist staff and support channels
+/automod exempt role:@Support Specialist
+/automod exempt role:@Moderator
+/automod exempt channel:#bot-playground-1
+/automod exempt channel:#bot-playground-2
+```
+
+### 8. Escalation Safety Nets
+```bash
+/escalation toggle enabled:true
+/escalation add warnings:3 action:timeout duration:60
+/escalation add warnings:5 action:timeout duration:1440
+/escalation add warnings:7 action:ban
+/escalation expiry days:30
+```
 
 ---
 
-### `/nickname` — Force-Set Nickname
-Change or reset a member's nickname.
+## 7. Onboarding & Member Journey
+
+```mermaid
+flowchart TD
+    Join["User Joins Server"] --> Unverified["Assigned @everyone (Pre-Verification)"]
+    Unverified --> Land["Lands on #rules-and-info & #verify"]
+    Land --> ClickVerify["User clicks 'Verify' in #verify"]
+    ClickVerify --> Verified["Granted @Community Member Role"]
+    Verified --> PublicChat["Public Channels Unlocked"]
+    PublicChat --> OptIn["Visits #get-roles to select notification preferences"]
+    PublicChat --> NeedsHelp{"Needs Bot Help?"}
+    NeedsHelp -- Yes --> Ticket["Opens Ticket in #create-ticket or visits Forums"]
+    NeedsHelp -- No --> Engage["Participates in #general-discussion & #bot-playground"]
+```
+
+1. **Arrival:** New member joins, sees only `#rules-and-info`, `#announcements`, and `#verify`.
+2. **Verification:** Member reviews server rules and clicks the button in `#verify`.
+3. **Role Assignment:** Aegis grants `@Community Member` and automatically hides `#verify`.
+4. **Notification Setup:** Member visits `#get-roles` and selects opt-in pings (e.g., Release Notices, Outages).
+5. **Support Interaction:** If seeking assistance, member opens a structured thread in `#self-hosting` or clicks "Create Ticket" for sensitive inquiries (billing, self-hosting credentials, private logs).
 
 ---
 
-## Community Commands
+## 8. Staff Standard Operating Procedures (SOP)
 
-### `/giveaway` — Giveaways
-Create, manage, and reroll Discord giveaways.
+### Incident & Escalation Flow
+- **Minor Infraction (Excessive Caps, Off-topic, Light spam):**
+  - Verbal redirect in channel or `/warn user:@member reason:"Off-topic flooding" severity:low`
+- **Moderate Infraction (Disrespect, NSFW link attempt, Toxic behavior):**
+  - `/warn user:@member reason:"Harassment or toxic behavior" severity:medium`
+  - If repeat behavior occurs within 10 minutes: `/timeout user:@member duration:10m reason:"Cool down"`
+- **Severe Infraction (Malicious links, Token grabber, Extreme hate speech, Raid):**
+  - Immediate `/ban user:@member delete_messages:7 reason:"Malicious compromise / link distribution" proof:<attachment>`
+  - If channel is under active raid flood:
+    - `/lock channel duration_minutes:15 reason:"Raid containment in progress"`
+    - Run `/purge amount:100 filter:links` or `/purge amount:200 filter:bots`
 
-| Subcommand | Description |
-|------------|-------------|
-| `start` | Start a giveaway with prize, duration, and optional settings |
-| `end` | End early and draw winners |
-| `reroll` | Pick new winners from existing entrants |
-| `list` | View active giveaways |
-| `cancel` | Cancel without drawing |
-
-**Start options:** `required_role` · `booster_multiplier` (extra entries for boosters) · `winners` (1–20)
-
----
-
-### `/poll` — Community Polls
-Interactive polls with live results.
-
-- Multiple choice (up to 9 options)
-- Anonymous mode — hides who voted
-- Live results bar updates as votes come in
-- Moderator **End Poll** button
+### Ticket Resolution Etiquette
+1. **Claiming:** Staff members must press **Claim** on the ticket embed (`/ticket claim`) before providing in-depth support to avoid duplicate staff intervention.
+2. **Diagnostics:** When troubleshooting user instances, direct them to run `/diagnostics` and provide non-sensitive logs. Never ask for bot tokens or database passwords.
+3. **Closing:** When resolved, notify the user and invoke `/ticket close reason:"Issue resolved after configuration update"`. The bot automatically generates an HTML transcript and sends it to `#ticket-transcripts`.
 
 ---
 
-### `/suggest` — Community Suggestions
-Members submit suggestions via a modal; staff review with status buttons.
-
-| Subcommand | Description |
-|------------|-------------|
-| `submit` | Submit a suggestion (opens a form) |
-| `approve` | Mark approved (staff note optional) |
-| `deny` | Mark denied with reason |
-| `consider` | Mark "Under Consideration" |
-| `info` | View suggestion details and vote stats |
-
-> The suggestion author is automatically DM'd when the status changes.
-
----
-
-### `/starboard` — Message Highlights
-Automatically repost highly-reacted messages to a highlight channel.
-
-- Configurable star emoji and threshold
-- Self-star protection
-- Handles images, embeds, and attachments
-
----
-
-### `/welcome` — Welcome Messages
-Send a greeting when members join.
-
-| Option | Description |
-|--------|-------------|
-| `message` | Custom message supporting `{user}`, `{username}`, `{server}`, `{member_count}`, `{count}` |
-| `channel` | Channel to post in |
-| `role` | Auto-assign role on join |
-
-Use `/welcome preview` to see how the message will look before enabling.
-
----
-
-### `/embed` — Custom Embeds
-Build and send a rich embed to any channel.
-
----
-
-### `/announce` — Formatted Announcements
-Post a styled announcement with optional ping.
-
----
-
-### `/activitysummary` — Channel Activity
-Generate an activity summary for a channel over a given period.
-
----
-
-## Roles & Panels
-
-### `/rolepanel` — Self-Assign Role Panels
-Let members pick roles by clicking buttons or a dropdown.
-
-| Option | Description |
-|--------|-------------|
-| `channel` | Where to post the panel *(required)* |
-| `role1–3` | Roles to include |
-| `style` | `button` (default) or `dropdown` |
-| `exclusive` | Members can only hold one role from this panel |
-| `required_role` | A role members must already have to use this panel |
-
----
-
-## Ticket System
-
-### `/ticket` — Support Tickets
-Complete support ticket system with staff tools.
-
-| Subcommand | Description |
-|------------|-------------|
-| `setup` | Create a ticket panel in a channel |
-| `close` | Close the current ticket |
-| `claim` | Assign yourself as the ticket handler |
-| `add` / `remove` | Add or remove a user from the ticket channel |
-| `transcript` | Generate and download an HTML transcript |
-| `settings` | Set transcript log channel and inactivity auto-close hours |
-
-**Auto-close:** Tickets with no messages for the configured number of hours (default: 48h) close automatically. A warning is posted at ~47h.
-
----
-
-## Verification System
-
-### `/verify` — Anti-Raid Verification
-Gate server access behind a verification challenge.
-
-| Subcommand | Description |
-|------------|-------------|
-| `setup` | Configure and post a verification panel |
-| `autokick` | Kick members who don't verify within X minutes |
-| `user` | Manually verify a specific member |
-| `batch` | Manually verify multiple users |
-| `info` | View current verification settings |
-
-**Challenge types:**
-- **One-Click Button** — Member clicks to verify instantly
-- **CAPTCHA** — Member solves a simple math problem before getting the role
-
----
-
-## Automation & Reminders
-
-### `/remindme` — Personal Reminders
-Set a DM reminder that survives bot restarts.
-
-| Subcommand | Description |
-|------------|-------------|
-| `set` | Set a reminder with text, duration, and optional repeat |
-| `list` | View your pending reminders |
-| `cancel` | Cancel a reminder by ID |
-
-**Repeat options:** `daily` · `weekly`  
-**Snooze:** Delivered reminders include **Snooze 10m** and **Snooze 1h** buttons.
-
----
-
-### `/automation` — Scheduled Tasks
-Schedule recurring server tasks (announcements, role checks, etc.).
-
----
-
-## Configuration & Logging
-
-### `/config` — Server Settings
-Manage Aegis server preferences.
-
-| Subcommand | Description |
-|------------|-------------|
-| `view` | Show current settings |
-| `prefix` | Set a legacy text command prefix |
-| `preset` | Apply a pre-built config (community, gaming, study, etc.) |
-| `language` | Set the bot language |
-| `reset` | Reset all settings to defaults |
-
----
-
-### `/logging` — Audit Logs
-Configure which events are logged and where.
-
-| Subcommand | Description |
-|------------|-------------|
-| `setup` | Set the log channel |
-| `enable` / `disable` | Toggle logging |
-| `categories` | Enable/disable specific log categories |
-| `status` | View current logging configuration |
-
-**Log categories:** `modActions` · `memberJoins` · `memberLeaves` · `messageEdits` · `messageDeletes` · `roleChanges` · `channelEvents`
-
----
-
-### `/plugins` — Feature Toggles
-Enable or disable specific Aegis feature modules per server.
-
----
-
-### `/diagnostics` — Health Check
-Check bot latency, database connectivity, and feature status.
-
----
-
-## Automod
-
-### `/automod` — Automatic Rule Enforcement
-Detect and act on rule violations without moderator intervention.
-
-| Rule | Description |
-|------|-------------|
-| `words` | Block configured forbidden words/phrases |
-| `links` | Delete unauthorized links |
-| `mentions` | Limit mass-pings above a threshold |
-| `spam` | Rate-limit messages per window |
-| `caps` | Flag messages with excessive capitalization |
-
-**Actions per rule:** `delete` · `warn` · `timeout`
-
-**Exemptions:** Roles and channels can be whitelisted.
-
----
-
-## Auto-Responder
-
-### `/autoresponder` — Keyword Auto-Replies
-Automatically reply when a message contains a trigger phrase.
-
-| Subcommand | Description |
-|------------|-------------|
-| `add` | Add a trigger → response pair |
-| `list` | View all auto-responders |
-| `remove` | Delete a trigger |
-
----
-
-## General Commands
-
-| Command | Description |
-|---------|-------------|
-| `/help` | Browse all commands by category (filtered to what you can use) |
-| `/userinfo` | Full member profile; shows warns & trust score to mods only |
-| `/serverinfo` | Server stats: member counts, channel breakdown, boost level |
-| `/ping` | Bot latency and uptime |
-| `/about` | Aegis version, links, and invite |
-| `/dashboard` | Web dashboard link |
-
----
-
-## Permission Reference
-
-### Bot Required Permissions
-
-| Permission | Used by |
-|-----------|---------|
-| Administrator *(optional)* | Simplifies setup |
-| Manage Messages | `/purge`, automod delete |
-| Manage Channels | `/lock`, ticket channels |
-| Manage Roles | Verification roles, role panels |
-| Ban Members | `/ban`, appeal system |
-| Kick Members | `/kick`, escalation |
-| Moderate Members | `/timeout`, `/warn` |
-| View Audit Log | Logging |
-| Embed Links | All embed responses |
-| Attach Files | Transcripts, exports |
-| Read Message History | `/purge`, modhistory |
-| Send Messages | All responses |
-
-### User Required Permissions (defaults)
-
-| Permission | Commands unlocked |
-|-----------|-------------------|
-| `Moderate Members` | `/warn`, `/timeout`, `/kick`, `/case`, `/infractions`, `/watchlist`, `/note` |
-| `Manage Messages` | `/purge`, `/slowmode` |
-| `Manage Channels` | `/lock` |
-| `Manage Roles` | `/rolepanel` |
-| `Ban Members` | `/ban`, `/unban`, `/appeal` |
-| `Manage Guild` | `/config`, `/logging`, `/automod`, `/escalation`, `/suggest` review |
-| `Administrator` | `/case delete`, `/note clear` |
-| *(none)* | `/help`, `/userinfo` (self), `/remindme`, `/poll`, `/suggest submit`, `/giveaway enter` |
-
----
-
-## Variables Reference
-
-These variables can be used in welcome messages and other configurable text fields:
-
-| Variable | Replaced with |
-|----------|---------------|
-| `{user}` | `@Username` mention |
-| `{username}` | Username without the mention |
-| `{server}` | Server name |
-| `{member_count}` | Total member count |
-| `{count}` | Alias for `{member_count}` |
-
----
-
-## Support & Links
-
-- 🌐 **Web dashboard:** https://aegisdeno.fly.dev
-- 📋 **Commands catalog:** https://aegisdeno.fly.dev/commands
-- 📖 **Documentation:** https://aegisdeno.fly.dev/docs
-- 💬 **Support server:** https://discord.gg/DkZUgm3q4F
-- 🐛 **Issues:** https://github.com/watispro1/AegisDeno/issues
-
----
-
-*Aegis is licensed under the [MIT License](LICENSE).*
+*Document version: 3.6.2 · Maintained by Aegis Development Team.*

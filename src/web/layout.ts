@@ -27,6 +27,7 @@ export interface LayoutOptions {
 }
 
 export const NAV: NavLink[] = [
+  { label: "Dashboard", href: "/dashboard" },
   { label: "Features", href: "/features" },
   { label: "Commands", href: "/commands" },
   { label: "Docs", href: "/docs" },

@@ -1401,8 +1401,168 @@ export function renderNotFound(cfg: SiteConfig): string {
 
 /* ── Legacy routes ─────────────────────────────────────────────────── */
 
-export function renderDashboard(cfg: SiteConfig, _stats?: Stats, _online?: boolean): string {
-  return renderFeatures(cfg);
+export function renderDashboard(cfg: SiteConfig, stats?: Stats, online?: boolean): string {
+  const currentStats: Stats = stats ?? { commands: catalogStats().commands, guilds: 0, users: 0, ping: 0, uptime: 0 };
+  const isOnline = online ?? true;
+  const st = statusWord(currentStats.ping, isOnline);
+  const cs = catalogStats();
+
+  const body = `
+<div class="wrap">
+  ${breadcrumb("Dashboard")}
+  <div class="page-head">
+    <div class="hero-meta">
+      <span><span class="dot ${st.cls === "ok" ? "" : "danger"}" data-status-dot aria-hidden="true"></span><span data-status-state>${escapeHtml(st.label)}</span></span>
+      <span>latency <span data-live="ping" data-suffix=" ms">${currentStats.ping} ms</span></span>
+      <span>v${escapeHtml(cfg.version)}</span>
+    </div>
+    <h1>Server Management Dashboard</h1>
+    <p class="lead">Central control overview for Aegis subsystems, active security policies, automated escalations, and moderation workflows.</p>
+  </div>
+
+  <div class="status-line ${st.cls === "ok" ? "" : "bad"}" data-status-banner style="margin-bottom: 2rem;">
+    <span class="dot ${st.cls === "ok" ? "" : "danger"}" aria-hidden="true"></span>
+    <h2>Aegis Control Engine: ${st.cls === "ok" ? "All Systems Operational" : escapeHtml(st.label)}</h2>
+    <p>Monitoring ${currentStats.guilds.toLocaleString()} connected Discord server(s) across ${cs.commands} registered slash commands.</p>
+    <div class="btn-row" style="margin-top: .75rem;">
+      <a class="btn sm" href="${safeUrl(cfg.inviteUrl)}">Add Aegis to Your Server</a>
+      <a class="btn ghost sm" href="/commands">Command Catalog (${cs.commands})</a>
+      <a class="btn ghost sm" href="/status">Live Telemetry</a>
+      ${cfg.supportUrl ? `<a class="btn ghost sm" href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">Support Server</a>` : ""}
+    </div>
+  </div>
+
+  <h2>System Modules Overview</h2>
+  <div class="table-wrap">
+    <table class="metrics">
+      <thead>
+        <tr>
+          <th>Subsystem</th>
+          <th>Key Capabilities</th>
+          <th>Primary Slash Command</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>🛡️ Moderation &amp; Cases</strong></td>
+          <td>Warnings, timed mutes, bans, undo window, proof attachments, paginated case history</td>
+          <td><code>/warn</code>, <code>/timeout</code>, <code>/ban</code>, <code>/case</code></td>
+          <td><span class="tag">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>⚡ Auto-Escalation</strong></td>
+          <td>Threshold auto-actions (timeout, kick, ban) with automatic warning expiry</td>
+          <td><code>/escalation</code></td>
+          <td><span class="tag">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>🤖 Automod Defense</strong></td>
+          <td>Regex bad words, invite links, mention-spam limits, chat flood rate limiting</td>
+          <td><code>/automod</code></td>
+          <td><span class="tag">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>🎫 Support Tickets</strong></td>
+          <td>Staff claim buttons, 48-hour inactivity auto-close, automated HTML transcripts</td>
+          <td><code>/ticket</code></td>
+          <td><span class="tag">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>🛡️ Anti-Raid Verification</strong></td>
+          <td>One-click button &amp; math CAPTCHA verification, auto-kick unverified member timer</td>
+          <td><code>/verify</code></td>
+          <td><span class="tag">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>🎉 Giveaways &amp; Community</strong></td>
+          <td>Weighted drawings, Server Booster bonus entries, live multi-choice polls, suggestions</td>
+          <td><code>/giveaway</code>, <code>/poll</code>, <code>/suggest</code></td>
+          <td><span class="tag">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>⏰ Persistent Reminders</strong></td>
+          <td>DMs with 10m/1h snooze buttons and daily/weekly recurring reminder cadence</td>
+          <td><code>/remindme</code></td>
+          <td><span class="tag">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>🔒 Channel Lockdowns</strong></td>
+          <td>Single channel or full category locks with custom notices and timed auto-unlocks</td>
+          <td><code>/lock</code></td>
+          <td><span class="tag">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>📋 Audit Logging</strong></td>
+          <td>7 distinct event categories dispatched to designated staff log channels</td>
+          <td><code>/logging</code></td>
+          <td><span class="tag">Active</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Interactive Server Presets</h2>
+  <p>Apply ready-made configuration packages to your server with a single command:</p>
+  <div class="table-wrap">
+    <table class="metrics">
+      <thead>
+        <tr>
+          <th>Preset</th>
+          <th>Intended Server Type</th>
+          <th>Default Settings Applied</th>
+          <th>Command</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>🎮 Gaming &amp; Hangout</strong></td>
+          <td>Public gaming guilds and chat servers</td>
+          <td>Word filter active, link filter off, caps threshold 80%, mention limit 5</td>
+          <td><code>/config preset preset:gaming</code></td>
+        </tr>
+        <tr>
+          <td><strong>👥 Community / Creator</strong></td>
+          <td>Streamers, YouTubers, and community hubs</td>
+          <td>Word filter active, link filter active (delete), spam threshold 5/5s</td>
+          <td><code>/config preset preset:community</code></td>
+        </tr>
+        <tr>
+          <td><strong>📚 Study &amp; Education</strong></td>
+          <td>Classes, study groups, and professional networks</td>
+          <td>Strict word filter, link filter active, slowmode 5s on general channels</td>
+          <td><code>/config preset preset:study</code></td>
+        </tr>
+        <tr>
+          <td><strong>🛡️ High Security / Minimal</strong></td>
+          <td>Private servers or sensitive projects</td>
+          <td>Aggressive anti-raid, strict mention limit (3), CAPTCHA verification required</td>
+          <td><code>/config preset preset:strict</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Discord In-Server Dashboard</h2>
+  <p>Moderators can inspect live server metrics directly within Discord by running <code>/dashboard</code>. The in-chat control panel provides:</p>
+  <ul>
+    <li>Live server statistics (members, text/voice channel counts, boost tier).</li>
+    <li>AutoMod rule status and active filters overview.</li>
+    <li>Open support tickets and pending community suggestions tally.</li>
+    <li>Escalation policy inspection button with warning expiry days.</li>
+    <li>Verification gatekeeper status and auto-kick timer details.</li>
+    <li>Real-time gateway latency, memory usage, and connected guild health.</li>
+  </ul>
+
+  ${endNote(cfg, "Need help configuring Aegis? Check the <a href='/docs'>documentation</a> or browse the <a href='/commands'>complete command catalog</a>.")}
+</div>`;
+
+  return page(cfg, {
+    title: "Server Dashboard | Aegis",
+    description: "Central server management dashboard and control overview for Aegis Discord moderation.",
+    path: "/dashboard",
+    body,
+  });
 }
 
 export function renderPlayground(cfg: SiteConfig): string {
