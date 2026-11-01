@@ -29,14 +29,21 @@ const EXPLICIT_FILTER_LEVELS: Record<number, string> = {
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("serverinfo")
-    .setDescription("View comprehensive stats, metrics, and information about this server."),
+    .setDescription("View comprehensive stats, metrics, and information about this server.")
+    .addBooleanOption(o => o.setName("ephemeral").setDescription("Only show the response to you (default: false)").setRequired(false)),
 
   guildOnly: true,
   botPermissions: ["EmbedLinks"],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const guild = interaction.guild!;
-    const owner = await guild.fetchOwner().catch(() => null);
+    // Owner, emoji and sticker fetches can be slow on big servers: defer first, fetch in parallel.
+    await interaction.deferReply({ flags: interaction.options.getBoolean("ephemeral") ? MessageFlags.Ephemeral : undefined });
+    const [owner, emojis, stickers] = await Promise.all([
+      guild.fetchOwner().catch(() => null),
+      guild.emojis.fetch().catch(() => null),
+      guild.stickers.fetch().catch(() => null),
+    ]);
     // Channels Discord has hidden from Aegis (obfuscated) are left out of the counts.
     const channels = guild.channels.cache.filter(c => !isObfuscatedChannel(c));
 
@@ -45,8 +52,6 @@ export const command: Command = {
     const categories = channels.filter(c => c.type === ChannelType.GuildCategory).size;
     const forumChannels = channels.filter(c => c.type === ChannelType.GuildForum).size;
 
-    const emojis = await guild.emojis.fetch().catch(() => null);
-    const stickers = await guild.stickers.fetch().catch(() => null);
 
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -119,7 +124,7 @@ export const command: Command = {
       ...linkButtons
     );
 
-    const sent = await interaction.reply({ embeds: [embed], components: [buttons], fetchReply: true });
+    const sent = await interaction.editReply({ embeds: [embed], components: [buttons] });
 
     const collector = sent.createMessageComponentCollector({
       componentType: ComponentType.Button,

@@ -32,7 +32,9 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   ],
   infractions: ["/infractions user:@member"],
   modhistory: ["/modhistory user:@member filter:Bans"],
-  note: ["/note add user:@member", "/note view user:@member"],
+  nickname: ["/nickname user:@member name:Sam reason:Impersonation"],
+  serverinfo: ["/serverinfo ephemeral:true"],
+  note: ["/note add user:@member", "/note view user:@member", "/note delete id:65a1b2c3d4e5f60718293a4b"],
   escalation: [
     "/escalation add warnings:3 action:Timeout duration:60",
     "/escalation add warnings:5 action:Ban",

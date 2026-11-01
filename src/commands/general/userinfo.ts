@@ -72,6 +72,9 @@ export const command: Command = {
     // Warn counts, trust score and the mod-record buttons are only for moderators,
     // and their reply is ephemeral so the record is not shown to the channel.
     const viewerIsMod = hasModerationPermissions(interaction.memberPermissions?.bitfield ?? null);
+    // Moderators get several lookups (warnings, cases, Trust Score): defer so a slow
+    // database never runs past Discord's 3-second reply window.
+    if (viewerIsMod) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const [warnings, cases] = viewerIsMod
       ? await Promise.all([
@@ -182,12 +185,9 @@ export const command: Command = {
       ),
     );
 
-    const sent = await interaction.reply({
-      embeds: [embed],
-      components: rows,
-      fetchReply: true,
-      ...(viewerIsMod ? { flags: MessageFlags.Ephemeral as const } : {}),
-    });
+    const sent = viewerIsMod
+      ? await interaction.editReply({ embeds: [embed], components: rows })
+      : await interaction.reply({ embeds: [embed], components: rows, fetchReply: true });
 
     const collector = sent.createMessageComponentCollector({
       componentType: ComponentType.Button,
