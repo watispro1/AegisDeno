@@ -66,6 +66,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { id: "channels", icon: "lock", title: "Channel control", text: "Lock a channel, a category or the whole server with exact restore, set slowmode, and bulk-delete with filters.", commands: ["lock channel", "lock server", "slowmode set", "purge"] },
       { id: "notes", icon: "mail", title: "Staff notes and watchlist", text: "Private notes on members and a Ghost Watch list that alerts staff when a watched member joins or changes roles.", commands: ["note add", "note view", "watchlist add", "watchlist list"], dashboard: "Ghost Watch" },
       { id: "reports", icon: "chart", title: "Reports", text: "Weekly-style moderation reports, per-moderator stats and an activity summary.", commands: ["modreport", "modstats", "activitysummary"], dashboard: "Analytics" },
+      { id: "digest", icon: "bell", title: "Weekly staff digest", text: "Opt-in: one post a week with cases by type and moderator, joins and leaves, automod hits, incidents, trust changes and what is still open, on the day and hour you pick in your time zone.", commands: ["digest setup", "digest preview"], dashboard: "Staff digest" },
     ],
   },
   {
@@ -86,7 +87,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
   {
     id: "trust", title: "Trust Score", lead: "Who is likely fine and who to watch, with the reasons shown. Counts and dates only, never message content.",
     cards: [
-      { id: "trust-score", icon: "gauge", title: "Explainable score", text: "Account age, time in the server, verification, activity, cases and warnings by severity and recency, automod hits and join-gate flags, each shown as + or − points.", commands: ["trust user", "trustscore", "userinfo"], dashboard: "Trust Score" },
+      { id: "trust-score", icon: "gauge", title: "Explainable score", text: "Account age, time in the server, verification, activity, cases and warnings by severity and recency, automod hits and join-gate flags, each shown as + or − points.", commands: ["trust user", "userinfo"], dashboard: "Trust Score" },
       { id: "trust-integrations", icon: "role", title: "Opt-in integrations", text: "Link filtering only for low-trust members, a trust threshold for Incident Mode's join gate, and a low-trust role on join. All off until you turn them on.", commands: ["trust config"], dashboard: "Trust Score" },
     ],
   },
@@ -103,6 +104,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     id: "tickets", title: "Tickets & Appeals", lead: "Private help channels and a fair way back for banned members.",
     cards: [
       { id: "tickets-card", icon: "ticket", title: "Tickets", text: "A ticket panel, claim and rename, add people, and HTML transcripts posted to a log channel when a ticket closes.", commands: ["ticket setup", "ticket claim", "ticket transcript", "ticket settings"], dashboard: "Tickets" },
+      { id: "modmail", icon: "mail", title: "ModMail", text: "Members DM Aegis; staff answer from a private thread or forum post, anonymously if they like, with saved snippets, blocks and 90-day transcripts.", commands: ["modmail setup", "modmail reply", "modmail close", "modmail snippet use"], dashboard: "ModMail" },
       { id: "appeals", icon: "mail", title: "Ban appeals", text: "Banned members submit an appeal; staff review it with the case attached.", commands: ["appeal submit", "appeal review"], dashboard: "Appeals" },
     ],
   },

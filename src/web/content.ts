@@ -72,7 +72,7 @@ export const features: Feature[] = [
   },
   {
     id: "trustscore",
-    start: "/trustscore",
+    start: "/trust user",
     title: "Trust score",
     short: "A 0 to 100 number for a member, from account age, time in the server, their record and how active they are.",
     text: "Useful before you hand out a role or approve someone who looks off. The score is simple arithmetic and the embed lists why, biggest factor first, so you can see where a member landed and what drove it.",
@@ -86,7 +86,8 @@ export const features: Feature[] = [
       "Replies privately by default.",
     ],
     commands: [
-      ["/trustscore user:@member", "Score and breakdown, visible only to you"],
+      ["/trust user user:@member", "Score with every factor explained, visible only to you"],
+      ["/trustscore user:@member", "Deprecated alias of /trust user (same reply plus a note)"],
     ],
     docs: "trustscore",
   },

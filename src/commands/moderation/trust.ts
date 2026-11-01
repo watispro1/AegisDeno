@@ -1,10 +1,10 @@
 /**
  * /trust user — explainable Trust Score v2 for one member (Moderate Members, ephemeral).
  * /trust config — settings and opt-in integrations (Manage Server).
- * The older /trustscore command keeps working unchanged.
+ * /trustscore is a deprecated alias of /trust user (same reply plus a note).
  */
 import {
-  SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, MessageFlags, type Role,
+  SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, MessageFlags, type Role, type User,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
@@ -50,6 +50,25 @@ export function lowTrustRoleProblem(role: Pick<Role, "id" | "managed" | "positio
   return null;
 }
 
+/** The /trust user reply, shared with the deprecated /trustscore alias. */
+export async function replyWithTrust(
+  interaction: ChatInputCommandInteraction, user: User, current: TrustConfig, o: { ephemeral: boolean; note?: string },
+): Promise<void> {
+  await interaction.deferReply(o.ephemeral ? { flags: MessageFlags.Ephemeral } : {});
+  const guild = interaction.guild!;
+  const member = await guild.members.fetch(user.id).catch(() => null);
+  if (!member) {
+    await interaction.editReply("❌ That user isn't in this server, so there is no tenure or roles to score. Use `/case` or the dashboard member page for their record.");
+    return;
+  }
+  if (user.bot) {
+    await interaction.editReply("🤖 Bots aren't scored: only someone with Manage Server can add one.");
+    return;
+  }
+  const result = await getMemberTrust(subjectFromMember(member), { fresh: true, preset: current.preset });
+  await interaction.editReply({ content: o.note, embeds: [trustEmbed(user.tag, user.displayAvatarURL(), result, current)] });
+}
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("trust")
@@ -76,19 +95,7 @@ export const command: Command = {
     const current = normalizeTrustConfig((await getGuildConfig(guild.id)).trust);
 
     if (sub === "user") {
-      const user = interaction.options.getUser("user", true);
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      const member = await guild.members.fetch(user.id).catch(() => null);
-      if (!member) {
-        await interaction.editReply("❌ That user isn't in this server, so there is no tenure or roles to score. Use `/case` or the dashboard member page for their record.");
-        return;
-      }
-      if (user.bot) {
-        await interaction.editReply("🤖 Bots aren't scored: only someone with Manage Server can add one.");
-        return;
-      }
-      const result = await getMemberTrust(subjectFromMember(member), { fresh: true, preset: current.preset });
-      await interaction.editReply({ embeds: [trustEmbed(user.tag, user.displayAvatarURL(), result, current)] });
+      await replyWithTrust(interaction, interaction.options.getUser("user", true), current, { ephemeral: true });
       return;
     }
 
