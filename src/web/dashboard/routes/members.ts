@@ -28,9 +28,12 @@ export function registerMemberRoutes(router: Router, k: RouteKit): void {
       const ctx = locals(res);
       const userId = String(req.params.userId);
       if (!isSnowflake(userId)) return fail(res, 404, "Member not found", "That is not a user ID.", ctx.viewer);
-      const [member, records] = await Promise.all([extras.member(ctx.guild.id, userId), extras.memberRecords(ctx.guild.id, userId)]);
+      const [member, records, trust, overview] = await Promise.all([
+        extras.member(ctx.guild.id, userId), extras.memberRecords(ctx.guild.id, userId),
+        extras.trust.member(ctx.guild.id, userId).catch(() => null), extras.trust.overview(ctx.guild.id).catch(() => null),
+      ]);
       if (!member) return fail(res, 404, "Member not found", "Discord has no user with that ID.", ctx.viewer);
-      send(res, renderMember(deps.site, ctx, { member, records, noticeCode: noticeParam(req) }));
+      send(res, renderMember(deps.site, ctx, { member, records, noticeCode: noticeParam(req), trust: overview ? { result: trust, config: overview.config } : undefined }));
     } catch (err) { next(err); }
   });
 

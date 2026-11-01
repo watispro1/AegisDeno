@@ -6,6 +6,7 @@
 import { normalizeAutoCloseHours } from "./ticketTranscript";
 import { normalizeEmbedSpec, type EmbedSpec } from "./embedSpec";
 import { normalizeIncidentConfig, type IncidentConfig } from "./incidentLogic";
+import { normalizeTrustConfig, type TrustConfig } from "./trustEngine";
 /** Per-guild ticket settings (set with /ticket settings or the dashboard). */
 export interface TicketSettings {
   /** Channel that receives HTML transcripts when a ticket closes. */
@@ -62,6 +63,8 @@ export interface GuildConfig {
   incident?: IncidentConfig;
   /** Module switches the dashboard can flip; every module defaults to on. */
   modules?: ModuleSwitches;
+  /** Trust Score v2 settings and opt-in integrations (all off by default). */
+  trust?: TrustConfig;
 }
 
 /** Modules a server can switch off as a whole. The bot refuses new use of an off module. */
@@ -119,6 +122,7 @@ const DEFAULT_CONFIG: Omit<GuildConfig, "guildId"> = {
   logChannels: null,
   incident: normalizeIncidentConfig(undefined),
   modules: normalizeModuleSwitches(undefined),
+  trust: normalizeTrustConfig(undefined),
 };
 
 export const GOODBYE_MESSAGE_MAX = 1000;
@@ -235,6 +239,7 @@ export function normalizeGuildConfig(guildId: string, source?: StoredGuildConfig
     logChannels: normalizeLogChannels(config.logChannels),
     incident: normalizeIncidentConfig(config.incident),
     modules: normalizeModuleSwitches(config.modules),
+    trust: normalizeTrustConfig(config.trust),
   };
 }
 
@@ -253,6 +258,7 @@ export function guildConfigSetPaths(update: GuildConfigUpdate): Record<string, u
     logChannels: normalizeLogChannels,
     incident: normalizeIncidentConfig,
     modules: normalizeModuleSwitches,
+    trust: normalizeTrustConfig,
   };
   // Nested settings are normalised on the way in: their schema paths are typed.
   const nested: Record<string, Record<string, (value: unknown) => unknown>> = {

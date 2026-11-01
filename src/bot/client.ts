@@ -1,3 +1,4 @@
+import { applyLowTrustRole, purgeGuildTrustData } from "../services/trustService";
 import {
   Client,
   GatewayIntentBits,
@@ -276,6 +277,9 @@ export function setupEvents(client: Client): void {
 
     if (gate.act !== "none") return;
 
+    // Opt-in Trust Score low-trust role (off unless configured with /trust config).
+    applyLowTrustRole(member).catch(err => logger.warn(`Low-trust role check failed in ${member.guild.id}:`, err));
+
     // Welcome message and Auto-role
     const config = await getGuildConfig(member.guild.id);
     
@@ -353,6 +357,15 @@ export function setupEvents(client: Client): void {
   // ─── Guild Join / Discovery ────────────────────────────────────────────────
   client.on(Events.GuildCreate, (guild) => {
     logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
+  });
+
+  // Leaving a server drops the per-member activity counters kept for Trust Score.
+  // Cases and warnings keep their own one-year TTL so a re-add keeps the record.
+  client.on(Events.GuildDelete, (guild) => {
+    if (!guild.available) return; // an outage, not a removal
+    purgeGuildTrustData(guild.id)
+      .then(n => logger.info(`Left guild ${guild.id}; removed ${n} activity record(s).`))
+      .catch(err => logger.warn(`Trust data cleanup failed for ${guild.id}:`, err));
   });
 }
 

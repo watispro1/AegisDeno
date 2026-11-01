@@ -50,6 +50,8 @@ const GuildConfigSchema = new mongoose.Schema({
   // Incident Mode defaults and auto-trigger; module switches. Normalised in guildConfigNormalize.ts.
   incident: { type: mongoose.Schema.Types.Mixed, default: null },
   modules: { type: mongoose.Schema.Types.Mixed, default: null },
+  // Trust Score v2 settings. Normalised in services/trustEngine.ts.
+  trust: { type: mongoose.Schema.Types.Mixed, default: null },
   logChannels: { type: mongoose.Schema.Types.Mixed, default: null },
   // Escalation: auto-actions when a user hits X warnings
   escalation: {
@@ -440,8 +442,12 @@ const UserActivitySchema = new mongoose.Schema({
   messageCount: { type: Number, default: 0 },
   lastMessageAt: { type: Date, default: Date.now },
   lastMessageDate: { type: String, default: '' },
+  // UTC days ("2026-11-01") with at least one message, last 30 days only. Counts, never content.
+  recentDays: { type: [String], default: [] },
 });
 UserActivitySchema.index({ guildId: 1, userId: 1 }, { unique: true });
+// Members silent for 180 days lose their activity counters (Trust Score privacy TTL).
+UserActivitySchema.index({ lastMessageAt: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
 export const UserActivityModel = mongoose.model('UserActivity', UserActivitySchema);
 
 // ─── Web dashboard sessions ───────────────────────────────────────────────────

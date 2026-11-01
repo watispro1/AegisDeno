@@ -231,6 +231,8 @@ export interface JoinFacts {
   accountCreatedAt: Date;
   /** Aegis can time out (or kick) this member: their highest role is below Aegis's and they are not the owner. */
   actionable: boolean;
+  /** Opt-in Trust Score gate: joins scoring below the threshold are gated even with an old account. */
+  trust?: { score: number; threshold: number } | null;
 }
 
 export type GateDecision = { act: "none"; why: string } | { act: "timeout" | "kick"; reason: string };
@@ -241,8 +243,12 @@ export function joinGateDecision(options: Pick<IncidentOptions, "joinGate" | "mi
   // A bot can only join when someone with Manage Server adds it, so it is never gated.
   if (facts.isBot) return { act: "none", why: "bots are never gated" };
   const ageDays = (nowMs - facts.accountCreatedAt.getTime()) / 86_400_000;
-  if (!(ageDays < options.minAccountAgeDays)) return { act: "none", why: "account old enough" };
+  const lowTrust = facts.trust ? facts.trust.score < facts.trust.threshold : false;
+  if (!(ageDays < options.minAccountAgeDays) && !lowTrust) return { act: "none", why: "account old enough" };
   if (!facts.actionable) return { act: "none", why: "member is above Aegis in the role list" };
+  if (!(ageDays < options.minAccountAgeDays) && facts.trust) {
+    return { act: options.joinGate, reason: `Incident join gate: Trust Score ${facts.trust.score} (below ${facts.trust.threshold})` };
+  }
   const age = ageDays < 1 ? `${Math.max(0, Math.floor(ageDays * 24))}h` : `${Math.floor(ageDays)}d`;
   return { act: options.joinGate, reason: `Incident join gate: account is ${age} old (minimum ${options.minAccountAgeDays}d)` };
 }

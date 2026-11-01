@@ -1,3 +1,4 @@
+import { getGuildConfig } from "../../services/configuration";
 import { memberPageUrl } from "../../config/links";
 import {
   ChatInputCommandInteraction,
@@ -14,7 +15,9 @@ import {
 import { Command } from "../../types/discord";
 import { getWarningsForUser } from "../../services/warnings";
 import { getModerationCases } from "../../services/moderationCases";
-import { calculateTrustProfile, scoreBar } from "../../services/trustScore";
+import { scoreBar } from "../../services/trustScore";
+import { getMemberTrust, subjectFromMember } from "../../services/trustService";
+import { normalizeTrustConfig } from "../../services/trustEngine";
 import { hasModerationPermissions } from "../../services/commandAccess";
 
 const KEY_PERMISSIONS: Array<{ flag: bigint; name: string }> = [
@@ -126,15 +129,12 @@ export const command: Command = {
       .setTimestamp();
 
     if (viewerIsMod) {
-      const trust = calculateTrustProfile({
-        accountCreatedAt: user.createdAt,
-        joinedAt: member.joinedAt,
-        warnings: warnings.length,
-        cases: cases.length,
-      });
+      // Trust Score v2 (same engine as /trust user); a lookup failure leaves the field out.
+      const trustConfig = normalizeTrustConfig((await getGuildConfig(interaction.guildId!).catch(() => null))?.trust);
+      const trust = await getMemberTrust(subjectFromMember(member), { preset: trustConfig.preset }).catch(() => null);
       embed.addFields(
         { name: "⚠️ Warnings", value: `**${warnings.length}** warning(s)`, inline: true },
-        { name: "🧠 Trust Score", value: `**${trust.score}**/100 · ${trust.tier}\n\`${scoreBar(trust.score)}\``, inline: true },
+        ...(trust ? [{ name: "🧠 Trust Score", value: `**${trust.score}**/100 · ${trust.bandLabel}\n\`${scoreBar(trust.score)}\`\nDetails: \`/trust user\``, inline: true }] : []),
       );
     }
 

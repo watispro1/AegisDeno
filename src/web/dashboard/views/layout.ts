@@ -41,7 +41,7 @@ export type GuildSection =
   | "moderation" | "automod" | "cases" | "appeals" | "watchlist" | "logging"
   | "welcome" | "verification" | "panels" | "tickets" | "starboard" | "suggestions" | "giveaways"
   | "autoresponders" | "automations" | "announce"
-  | "activity" | "incident" | "members" | "analytics" | "tools";
+  | "activity" | "incident" | "trust" | "members" | "analytics" | "tools";
 
 interface NavItem { key: GuildSection; label: string; href: string; icon: string }
 
@@ -55,6 +55,7 @@ export const MODULE_NAV: ReadonlyArray<{ group: string; items: ReadonlyArray<Nav
   { group: "Moderation", items: [
     { key: "incident", label: "Incident Mode", href: "/incident", icon: "⚠" },
     { key: "members", label: "Members", href: "/members", icon: "☻" },
+    { key: "trust", label: "Trust Score", href: "/trust", icon: "◈" },
     { key: "moderation", label: "Moderation", href: "/settings/escalation", icon: "⚖" },
     { key: "automod", label: "Automod", href: "/settings/automod", icon: "⛨" },
     { key: "cases", label: "Cases", href: "/cases", icon: "▤" },

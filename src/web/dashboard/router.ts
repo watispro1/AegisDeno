@@ -21,6 +21,7 @@ import { registerSettingsRoutes } from "./routes/settings";
 import { registerAutomationRoutes } from "./routes/automation";
 import { registerCommunityRoutes } from "./routes/community";
 import { registerIncidentRoutes } from "./routes/incident";
+import { registerTrustRoutes } from "./routes/trust";
 import { registerMemberRoutes } from "./routes/members";
 import { registerInsightRoutes } from "./routes/insights";
 
@@ -66,6 +67,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   registerPanelRoutes(router, kit);
   registerActivityRoutes(router, kit);
   registerIncidentRoutes(router, kit);
+  registerTrustRoutes(router, kit);
   registerMemberRoutes(router, kit);
   registerInsightRoutes(router, kit);
   registerSettingsRoutes(router, kit);

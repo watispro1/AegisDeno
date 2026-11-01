@@ -10,6 +10,26 @@ import type { IncidentRecord } from "../../services/incidentStore";
 import type { EndResult, StartResult } from "../../services/incidentService";
 import type { GuildConfigUpdate, ModuleSwitches } from "../../services/guildConfigNormalize";
 import type { Actor, CaseRecord } from "./data";
+import { normalizeTrustConfig, type TrustConfig, type TrustResult } from "../../services/trustEngine";
+
+export interface TrustOverview {
+  config: TrustConfig;
+  /** Members scored (cached non-bot members, capped). */
+  scored: number;
+  truncated: boolean;
+  /** Ten buckets: 0–9 … 90–100. */
+  distribution: number[];
+  average: number | null;
+  lowCount: number;
+  lowest: Array<{ userId: string; name: string; avatarUrl: string | null; score: number; bandLabel: string }>;
+}
+
+export interface TrustDashboard {
+  overview(guildId: string): Promise<TrustOverview>;
+  /** null when they are not in the server (tenure and roles can't be scored). */
+  member(guildId: string, userId: string): Promise<TrustResult | null>;
+  saveConfig(guildId: string, config: TrustConfig): Promise<void>;
+}
 
 export interface MemberProfile {
   id: string;
@@ -73,6 +93,7 @@ export interface DashboardExtras {
   searchCases(guildId: string, query: string): Promise<CaseRecord[]>;
   analytics(guildId: string, days: number): Promise<AnalyticsData>;
   incidents: IncidentDashboard;
+  trust: TrustDashboard;
   saveIncidentConfig(guildId: string, config: IncidentConfig): Promise<void>;
   saveModuleSwitches(guildId: string, switches: ModuleSwitches): Promise<void>;
   applySettingsImport(guildId: string, update: GuildConfigUpdate, automod: Record<string, unknown> | null): Promise<void>;
@@ -118,9 +139,10 @@ export function memoryDashboardExtras(seed: {
   records?: Record<string, MemberRecords>;
   analytics?: AnalyticsData;
   incidents?: IncidentDashboard;
+  trust?: { overview?: Partial<TrustOverview>; members?: Record<string, TrustResult> };
 } = {}): DashboardExtras & { actions: Array<{ guildId: string; userId: string; input: MemberActionInput; by: string }>; saved: Record<string, unknown[]> } {
   const actions: Array<{ guildId: string; userId: string; input: MemberActionInput; by: string }> = [];
-  const saved: Record<string, unknown[]> = { incident: [], modules: [], import: [] };
+  const saved: Record<string, unknown[]> = { incident: [], modules: [], import: [], trust: [] };
   const members = seed.members ?? [];
   const emptyIncidents: IncidentDashboard = {
     active: async () => null, list: async () => [], get: async () => null,
@@ -135,6 +157,11 @@ export function memoryDashboardExtras(seed: {
     searchCases: async (_g, q) => Object.values(seed.records ?? {}).flatMap(r => [...r.cases, ...r.warnings]).filter(c => c.id === q || c.userId === q || c.reason.toLowerCase().includes(q.toLowerCase())).slice(0, 15),
     analytics: async (_g, days) => seed.analytics ?? { days: Array.from({ length: days }, (_, i) => `d${i}`), joins: new Array(days).fill(0), leaves: new Array(days).fill(0), cases: new Array(days).fill(0), automod: new Array(days).fill(0), casesByType: [], casesByModerator: [], automodByRule: [] },
     incidents: seed.incidents ?? emptyIncidents,
+    trust: {
+      overview: async () => ({ config: normalizeTrustConfig(saved.trust.at(-1)), scored: 0, truncated: false, distribution: new Array(10).fill(0), average: null, lowCount: 0, lowest: [], ...seed.trust?.overview }),
+      member: async (_g, id) => seed.trust?.members?.[id] ?? null,
+      saveConfig: async (_g, c) => { saved.trust.push(c); },
+    },
     saveIncidentConfig: async (_g, c) => { saved.incident.push(c); },
     saveModuleSwitches: async (_g, s) => { saved.modules.push(s); },
     applySettingsImport: async (_g, u, a) => { saved.import.push({ update: u, automod: a }); },

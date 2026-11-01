@@ -48,6 +48,7 @@ export const NOTICES: Record<string, { text: string; bad?: boolean }> = {
   "incident-active": { text: "An incident is already active, so nothing new was started.", bad: true },
   "incident-not-active": { text: "No incident is active.", bad: true },
   "incident-busy": { text: "Incident Mode is changing right now. Wait a few seconds and reload.", bad: true },
+  "trust-saved": { text: "Trust Score settings saved. Scores refresh within a few minutes." },
   "incident-saved": { text: "Incident Mode defaults saved." },
   "member-done": { text: "Done. The action was recorded as a case and posted to your log channel." },
   "member-failed": { text: "Discord refused that action. Check Aegis's permissions and role position; nothing was recorded.", bad: true },

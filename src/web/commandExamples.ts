@@ -51,6 +51,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   ],
   slowmode: ["/slowmode set duration:10 seconds", "/slowmode custom seconds:45 channel:#general"],
   trustscore: ["/trustscore user:@member"],
+  trust: ["/trust user user:@member", "/trust config enabled:true preset:balanced threshold:30"],
   appeal: [
     "/appeal submit code:AGS-K7X2",
     "/appeal list status:Pending",

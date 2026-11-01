@@ -44,6 +44,8 @@ export interface IncidentServiceDeps {
   paceMs?: number;
   reportUrl?: (guildId: string, incidentId: string) => string | null;
   log?: { warn(...a: unknown[]): void; info(...a: unknown[]): void };
+  /** Opt-in Trust Score gate; only asked during an incident. null = integration off. */
+  trustCheck?: (guildId: string, userId: string) => Promise<{ score: number; threshold: number } | null>;
 }
 
 export type StartResult =
@@ -253,7 +255,10 @@ export function createIncidentService(deps: IncidentServiceDeps) {
     }
     const current = active.get(guildId);
     if (!current) return { act: "none", why: "no incident" };
-    const decision = joinGateDecision(current.options, { isBot: member.isBot, accountCreatedAt: member.createdAt, actionable: member.actionable }, now());
+    const trust = !member.isBot && current.options.joinGate !== "off" && deps.trustCheck
+      ? await deps.trustCheck(guildId, member.userId).catch(() => null)
+      : null;
+    const decision = joinGateDecision(current.options, { isBot: member.isBot, accountCreatedAt: member.createdAt, actionable: member.actionable, trust }, now());
     await record(guildId, event("join", `${member.tag} joined${member.isBot ? " (bot)" : ""}`, { userId: member.userId }), { joins: 1 });
     if (decision.act === "none") return decision;
     try {

@@ -31,6 +31,15 @@ img.g-icon, img.avatar { object-fit: cover; background: var(--bg-sunk); padding:
 .note-list li { padding: .5rem 0; border-bottom: 1px solid var(--border); }
 .note-list p { margin: 0; }
 tr.revoked td { opacity: .6; }
+/* ── Trust Score ─────────────────────────────────────────────────── */
+.trust-chart .bar.low { fill: var(--danger); }
+.trust-factors { list-style: none; padding: 0; margin: 0 0 1rem; }
+.trust-factors li { padding: .3rem 0; border-bottom: 1px solid var(--border); }
+.trust-pts { display: inline-block; min-width: 3.5rem; font-family: var(--mono); font-weight: 600; }
+.trust-factors .pos .trust-pts { color: var(--success, var(--accent)); }
+.trust-factors .neg .trust-pts { color: var(--danger); }
+.trust-factors .base, .trust-factors .zero { color: var(--muted); }
+.trust-score { font-size: 1.15rem; margin: 0 0 .5rem; }
 /* ── Incident Mode ───────────────────────────────────────────────── */
 .incident-live { border-left: 4px solid var(--danger); }
 .stat-list li { padding: .2rem 0; }

@@ -1,7 +1,8 @@
 /** Form parsing for the Incident, Members, Analytics and settings-transfer pages. Same rules as validation.ts. */
 import { INCIDENT_MAX_MINUTES, MAX_GATE_TIMEOUT_MINUTES, MAX_SLOWMODE_SECONDS, normalizeIncidentConfig, type IncidentConfig, type IncidentOptions } from "../../services/incidentLogic";
 import { MODULE_SWITCH_KEYS, type ModuleSwitches } from "../../services/guildConfigNormalize";
-import { Errors, checkbox, field, fieldValues, finish, integer, type FormBody, type Parsed, type ValidationContext } from "./validation";
+import { normalizeTrustConfig, TRUST_PRESETS, type TrustConfig, type TrustPreset } from "../../services/trustEngine";
+import { Errors, checkbox, field, fieldValues, finish, integer, role, type FormBody, type Parsed, type ValidationContext } from "./validation";
 import { MEMBER_ACTIONS, type MemberAction, type MemberActionInput } from "./extras";
 
 function channelList(body: FormBody, key: string, ctx: ValidationContext, errors: Errors, label: string): string[] {
@@ -75,4 +76,20 @@ export function parseModuleSwitches(body: FormBody): ModuleSwitches {
 export function searchQuery(query: Record<string, unknown>): string {
   const raw = typeof query.q === "string" ? query.q : "";
   return raw.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 64);
+}
+
+/** Trust Score settings form. The low-trust role follows the same hierarchy rule as every role picker. */
+export function parseTrustSettings(body: FormBody, ctx: ValidationContext, saved: TrustConfig): Parsed<TrustConfig> {
+  const errors = new Errors();
+  const presetRaw = field(body, "preset");
+  if (presetRaw && !TRUST_PRESETS.includes(presetRaw as TrustPreset)) errors.add("preset", "Pick strict, balanced or lenient.");
+  const lowTrustRoleId = role(body, "lowTrustRoleId", ctx, errors, false, "low-trust role", { saved: saved.lowTrustRoleId });
+  return finish(errors, normalizeTrustConfig({
+    enabled: checkbox(body, "enabled"),
+    preset: presetRaw || "balanced",
+    lowThreshold: integer(body, "lowThreshold", 5, 90, "The threshold", errors, { blank: 30 }),
+    linkFilterLowTrustOnly: checkbox(body, "linkFilterLowTrustOnly"),
+    incidentGate: checkbox(body, "incidentGate"),
+    lowTrustRoleId,
+  }));
 }

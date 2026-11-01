@@ -4,6 +4,7 @@
  * Hidden channels (Discord obfuscated them because Aegis lacks View Channel)
  * are never read, listed, or edited. Also builds the process-wide service.
  */
+import { getMemberTrust, getTrustConfig, subjectFromMember } from "./trustService";
 import { ChannelType, GuildFeature, PermissionFlagsBits, type Client, type Guild, type GuildBasedChannel, type GuildMember } from "discord.js";
 import { isObfuscatedChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
@@ -124,6 +125,14 @@ export function incidentService(client: Client): IncidentService {
     getConfig: async (guildId) => (await getGuildConfig(guildId)).incident!,
     reportUrl: (guildId, id) => `${dashboardUrl(guildId)}/incident/${id}`,
     log: logger,
+    trustCheck: async (guildId, userId) => {
+      const config = await getTrustConfig(guildId);
+      if (!config.enabled || !config.incidentGate) return null;
+      const member = await client.guilds.cache.get(guildId)?.members.fetch(userId).catch(() => null);
+      if (!member) return null;
+      const trust = await getMemberTrust(subjectFromMember(member), { fresh: true, preset: config.preset });
+      return { score: trust.score, threshold: config.lowThreshold };
+    },
   });
   const svc = service;
   setIncidentSink((guildId, ev, inc, caseId) => svc.record(guildId, ev, inc, caseId));

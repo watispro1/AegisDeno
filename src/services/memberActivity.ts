@@ -79,6 +79,33 @@ export class ActivityBuffer {
   }
 }
 
+/** Days kept in the active-day counter (recentDays). */
+export const ACTIVE_DAY_WINDOW = 30;
+
+/**
+ * The upsert for one flushed entry, as an update pipeline: bumps the count,
+ * keeps the latest timestamp, and adds today to recentDays while dropping days
+ * older than the window, so the array never grows past ~31 entries.
+ */
+export function activityUpdate(e: PendingActivity): Record<string, unknown>[] {
+  const day = utcDay(e.lastAt);
+  const cutoff = utcDay(e.lastAt - ACTIVE_DAY_WINDOW * 86_400_000);
+  return [{
+    $set: {
+      messageCount: { $add: [{ $ifNull: ["$messageCount", 0] }, e.count] },
+      lastMessageAt: { $max: [{ $ifNull: ["$lastMessageAt", new Date(0)] }, new Date(e.lastAt)] },
+      lastMessageDate: day,
+      recentDays: {
+        $filter: {
+          input: { $setUnion: [{ $ifNull: ["$recentDays", []] }, [day]] },
+          as: "d",
+          cond: { $gte: ["$$d", cutoff] },
+        },
+      },
+    },
+  }];
+}
+
 const buffer = new ActivityBuffer();
 const lastDay = new Map<string, string>();
 const loadingDay = new Map<string, Promise<string | null>>();
@@ -110,15 +137,12 @@ export async function flushMemberActivity(): Promise<void> {
   const entries = buffer.drain();
   if (entries.length === 0) return;
   try {
-    await UserActivityModel.bulkWrite(
+    // The native driver takes update pipelines as-is (Mongoose would refuse the array).
+    await UserActivityModel.collection.bulkWrite(
       entries.map((e) => ({
         updateOne: {
           filter: { guildId: e.guildId, userId: e.userId },
-          update: {
-            $inc: { messageCount: e.count },
-            $max: { lastMessageAt: new Date(e.lastAt) },
-            $set: { lastMessageDate: utcDay(e.lastAt) },
-          },
+          update: activityUpdate(e),
           upsert: true,
         },
       })),

@@ -1,3 +1,4 @@
+import { mongoTrustDashboard } from "./trustData";
 /**
  * Production DashboardExtras: Discord through the live client, records through
  * the same Mongo models and services the slash commands use.
@@ -175,6 +176,8 @@ export function mongoDashboardExtras(client: Client): DashboardExtras {
       start: (guildId, options, reason, actor) => incidentService(client).start(guildId, { options, reason, trigger: "dashboard", actor: { id: actor.userId, tag: actor.username } }),
       end: (guildId, reason, actor) => incidentService(client).end(guildId, { actor: { id: actor.userId, tag: actor.username }, reason }),
     },
+
+    trust: mongoTrustDashboard(client),
 
     async saveIncidentConfig(guildId, config) { await updateGuildConfig(guildId, { incident: config }); },
     async saveModuleSwitches(guildId, switches) { await updateGuildConfig(guildId, { modules: switches }); },
