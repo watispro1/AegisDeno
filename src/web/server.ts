@@ -41,6 +41,7 @@ import { mongoModuleData } from "./dashboard/moduleData";
 import { mongoSessionStore } from "./dashboard/sessions";
 import { mongoRateLimitStore } from "./dashboard/rateLimitStore";
 import { mongoAuditStore } from "./dashboard/audit";
+import { mongoDashboardExtras } from "./dashboard/extrasMongo";
 import { dashboardScript } from "./dashboard/client";
 import { clientIp, secretMatches, securityHeaders } from "./securityHeaders";
 
@@ -489,6 +490,7 @@ export function startWebServer(client: Client) {
     sessions: mongoSessionStore(),
     rateLimits: mongoRateLimitStore(),
     audit: mongoAuditStore(),
+    extras: mongoDashboardExtras(client),
   }));
 
   app.use((req: Request, res: Response) => {

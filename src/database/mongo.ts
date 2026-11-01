@@ -456,6 +456,7 @@ const DashboardSessionSchema = new mongoose.Schema({
   userId:         { type: String, required: true },
   username:       { type: String, required: true },
   globalName:     { type: String, default: null },
+  avatar:         { type: String, default: null },
   accessToken:    { type: String, required: true },
   tokenExpiresAt: { type: Date, required: true },
   // Guilds from GET /users/@me/guilds at login or the last refresh: { id, name, icon, owner, permissions }.

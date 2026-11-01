@@ -11,6 +11,8 @@ export interface SessionData {
   userId: string;
   username: string;
   globalName: string | null;
+  /** Avatar hash from Discord at login (validated); optional so older sessions still load. */
+  avatar?: string | null;
   accessToken: string;
   tokenExpiresAt: Date;
   guilds: OAuthGuild[];
@@ -59,6 +61,7 @@ export function mongoSessionStore(): SessionStore {
         userId: doc.userId,
         username: doc.username,
         globalName: doc.globalName ?? null,
+        avatar: typeof doc.avatar === "string" ? doc.avatar : null,
         accessToken: doc.accessToken,
         tokenExpiresAt: new Date(doc.tokenExpiresAt),
         guilds: cleanGuilds(doc.guilds),

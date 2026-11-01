@@ -13,6 +13,7 @@ import { cancelTask, scheduleTask } from "../../services/schedulerRunner";
 import { removeWatchFromCache } from "../../services/watchlistService";
 import { buildEmbedFromSpec, type EmbedSpec } from "../../services/embedSpec";
 import { sendGuildLog } from "../../services/logging";
+import { encodeScheduledPayload, scheduledPayloadPreview } from "../../services/scheduledPayload";
 import { updateGuildConfig } from "../../services/configuration";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { logger } from "../../utils/logger";
@@ -94,7 +95,7 @@ export interface ModuleData {
   setAutoResponderEnabled(guildId: string, id: string, enabled: boolean): Promise<boolean>;
   removeAutoResponder(guildId: string, id: string): Promise<boolean>;
   listAutomations(guildId: string): Promise<AutomationRow[]>;
-  createAutomation(guildId: string, input: { channelId: string; message: string; delayMs: number; intervalMs: number | null }, actor: Actor): Promise<PanelResult>;
+  createAutomation(guildId: string, input: { channelId: string; message: string; delayMs: number; intervalMs: number | null; embed?: EmbedSpec | null }, actor: Actor): Promise<PanelResult>;
   cancelAutomation(guildId: string, id: string): Promise<boolean>;
   listGiveaways(guildId: string): Promise<GiveawayRow[]>;
   endGiveaway(guildId: string, messageId: string, actor: Actor): Promise<ActionResult>;
@@ -188,7 +189,7 @@ export function mongoModuleData(client: Client): ModuleData {
     async listAutomations(guildId) {
       return (await getTasksForGuild(guildId, undefined, AUTOMATION_TASK_TYPES)).map(t => ({
         id: String(t.id ?? t._id), channelId: t.channelId, creatorId: t.creatorId, type: t.type,
-        payload: t.payload, executeAt: t.executeAt, intervalMs: t.intervalMs ?? null,
+        payload: scheduledPayloadPreview(t.payload), executeAt: t.executeAt, intervalMs: t.intervalMs ?? null,
       }));
     },
     async createAutomation(guildId, input, actor) {
@@ -196,7 +197,7 @@ export function mongoModuleData(client: Client): ModuleData {
       if (!channel) return "channel-missing";
       if (!canPost(channel)) return "failed";
       try {
-        const task = await createTask(guildId, channel.id, actor.userId, "scheduled", input.message, new Date(Date.now() + input.delayMs), input.intervalMs);
+        const task = await createTask(guildId, channel.id, actor.userId, "scheduled", encodeScheduledPayload(input.message, input.embed ?? null), new Date(Date.now() + input.delayMs), input.intervalMs);
         scheduleTask(client, task);
       } catch (err) {
         logger.warn(`Dashboard: scheduled message failed in guild ${guildId}: ${(err as Error)?.message ?? err}`);

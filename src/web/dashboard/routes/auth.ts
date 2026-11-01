@@ -58,6 +58,7 @@ export function registerAuthRoutes(router: Router, k: RouteKit): void {
         userId: user.id,
         username: user.username,
         globalName: user.globalName,
+        avatar: user.avatar ?? null,
         accessToken: token.accessToken,
         tokenExpiresAt: new Date(at + token.expiresInSeconds * 1000),
         guilds,

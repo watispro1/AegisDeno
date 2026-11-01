@@ -20,6 +20,9 @@ import { registerActivityRoutes } from "./routes/activity";
 import { registerSettingsRoutes } from "./routes/settings";
 import { registerAutomationRoutes } from "./routes/automation";
 import { registerCommunityRoutes } from "./routes/community";
+import { registerIncidentRoutes } from "./routes/incident";
+import { registerMemberRoutes } from "./routes/members";
+import { registerInsightRoutes } from "./routes/insights";
 
 export {
   CASES_PER_PAGE,
@@ -62,6 +65,9 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   registerAppealRoutes(router, kit);
   registerPanelRoutes(router, kit);
   registerActivityRoutes(router, kit);
+  registerIncidentRoutes(router, kit);
+  registerMemberRoutes(router, kit);
+  registerInsightRoutes(router, kit);
   registerSettingsRoutes(router, kit);
   registerAutomationRoutes(router, kit);
   registerCommunityRoutes(router, kit);

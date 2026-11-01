@@ -1,3 +1,4 @@
+import { moduleEnabled, moduleOffMessage } from "../../services/moduleSwitches";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -250,6 +251,10 @@ export const command: Command = {
           content: `❌ No pending appeal found for code \`${code}\` under your account.`,
           flags: MessageFlags.Ephemeral,
         });
+        return;
+      }
+      if (!(await moduleEnabled(String(appeal.guildId), "appeals"))) {
+        await interaction.reply({ content: moduleOffMessage("appeals"), flags: MessageFlags.Ephemeral });
         return;
       }
       if (appeal.status !== "pending") {
