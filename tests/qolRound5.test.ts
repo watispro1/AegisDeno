@@ -23,7 +23,8 @@ test("embed style: house footer and actionable permission hints", () => {
 
 test("cases: page size from the query, only allowed sizes, kept across pages", () => {
   assert.equal(parseCaseFilter({ per: "50" }).per, 50);
-  assert.equal(parseCaseFilter({ per: "7" }).per, 25);
+  assert.equal(parseCaseFilter({ per: "7" }).per, undefined);
+  assert.equal(parseCaseFilter({ per: "25" }).per, undefined);
   assert.equal(parseCaseFilter({ per: ["100"] }).per, 100);
   assert.deepEqual([...CASE_PAGE_SIZES], [10, 25, 50, 100]);
   assert.equal(casesQuery({ type: null, userId: null, moderatorId: null, page: 1, per: 50 }, 2), "?per=50&page=2");

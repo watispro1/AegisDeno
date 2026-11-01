@@ -477,6 +477,7 @@ export function parseCaseFilter(query: Record<string, unknown>): CaseFilter {
   const user = id(pick("user"));
   const mod = id(pick("moderator"));
   const page = Number(pick("page"));
+  const per = Number(pick("per"));
   const q = pick("q").replace(/\s+/g, " ").slice(0, CASE_QUERY_MAX);
   return {
     type: (CASE_TYPES as readonly string[]).includes(type) ? type : null,
@@ -484,7 +485,8 @@ export function parseCaseFilter(query: Record<string, unknown>): CaseFilter {
     moderatorId: /^\d{17,20}$/.test(mod) ? mod : null,
     query: q || null,
     page: Number.isInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
-    per: (CASE_PAGE_SIZES as readonly number[]).includes(Number(pick("per"))) ? Number(pick("per")) : 25,
+    // Only a non-default allowed size is kept, so the default filter shape is unchanged.
+    ...(per !== 25 && (CASE_PAGE_SIZES as readonly number[]).includes(per) ? { per } : {}),
   };
 }
 
