@@ -89,6 +89,9 @@ export const command: Command = {
     .addStringOption(opt =>
       opt.setName("reason").setDescription("Reason for the purge (recorded in mod logs)").setRequired(false).setMaxLength(256)
     )
+        .addStringOption(opt =>
+      opt.setName("before_message").setDescription("Only scan messages sent before this message ID (right-click a message → Copy ID)").setRequired(false)
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
   guildOnly: true,
@@ -101,11 +104,16 @@ export const command: Command = {
     const target  = interaction.options.getUser("user");
     const keyword = interaction.options.getString("keyword");
     const reason  = interaction.options.getString("reason") ?? "Channel message cleanup";
+    const beforeMsgId = interaction.options.getString("before_message") ?? undefined;
     const channel = interaction.channel;
     const guildId = interaction.guildId!;
 
     if (!channel || !channel.isTextBased() || !("bulkDelete" in channel)) {
       return interaction.reply({ content: "❌ This command can only be used in a text channel.", flags: MessageFlags.Ephemeral });
+    }
+
+    if (beforeMsgId && !/^\d{17,20}$/.test(beforeMsgId)) {
+      return interaction.reply({ content: "❌ `before_message` must be a valid Discord message ID (17–20 digits).", flags: MessageFlags.Ephemeral });
     }
 
     if (filter === "keyword" && !keyword) {
@@ -118,7 +126,8 @@ export const command: Command = {
       // Page backwards through history until we have enough matches, hit the
       // 14-day bulk-delete limit, or reach the scan cap.
       const scanned: ScannedMessage[] = [];
-      let before: string | undefined;
+      // Use beforeMsgId as the scan start point if provided
+      let before: string | undefined = beforeMsgId;
       const scanStartedAt = Date.now();
       while (scanned.length < MAX_SCAN) {
         const page = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
