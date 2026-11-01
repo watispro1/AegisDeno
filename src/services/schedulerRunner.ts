@@ -1,7 +1,7 @@
 import { decodeScheduledPayload } from "./scheduledPayload";
 import { buildEmbedFromSpec } from "./embedSpec";
 import { Client, TextChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import { getAllPendingTasks, deleteTask, updateTaskNextRun, ScheduledTask } from "./scheduler";
+import { getAllPendingTasks, deleteTask, updateTaskNextRun, ScheduledTask, planRestore, deleteStaleTasks } from "./scheduler";
 import {
   afterTaskFailure,
   decodeTimedUnban,
@@ -264,16 +264,22 @@ export async function initScheduler(client: Client): Promise<void> {
       continue;
     }
 
-    if (executeAt <= now) {
+    const plan = planRestore(task, now.getTime());
+    if (plan.kind === "fire") {
       // Fire overdue tasks immediately in the background; don't block init
       void executeTask(client, task);
       expired++;
-    } else {
+    } else if (plan.kind === "reschedule") {
+      const updated = await updateTaskNextRun(task.guildId, task.id, plan.at).catch(() => null);
+      if (updated) { scheduleTask(client, updated); scheduled++; } else failed++;
+    } else if (plan.kind === "schedule") {
       scheduleTask(client, task);
       scheduled++;
     }
   }
 
+  const pruned = await deleteStaleTasks(now.getTime()).catch(() => 0);
+  if (pruned) logger.info(`Scheduler: removed ${pruned} stale one-off task(s) older than a day.`);
   logger.info(
     `Scheduler initialised: ${scheduled} pending, ${expired} overdue (fired), ${failed} skipped (malformed).`
   );

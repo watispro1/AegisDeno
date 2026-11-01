@@ -33,7 +33,7 @@ export function registerModmailRoutes(router: Router, k: RouteKit): void {
       const ctx = locals(res);
       const body = (req.body ?? {}) as FormBody;
       const overview = await extras.modmail.overview(ctx.guild.id);
-      const parsed = parseModmailSettings(body, validationContext(ctx), overview.config);
+      const parsed = parseModmailSettings(body, validationContext(ctx), overview.config, ctx.guild.id);
       if (!parsed.ok) {
         return send(res, renderModmail(deps.site, ctx, { overview, channels: channelsFor(ctx.guild.id), roles: rolesFor(ctx), noticeCode: null, state: { values: { ...modmailValues(overview.config), ...submittedValues(body) }, errors: parsed.errors } }), 400);
       }

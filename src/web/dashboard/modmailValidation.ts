@@ -13,7 +13,7 @@ function keptOrChannel(body: FormBody, key: string, ctx: ValidationContext, erro
   return channel(body, key, ctx, errors, required, label);
 }
 
-export function parseModmailSettings(body: FormBody, ctx: ValidationContext, saved: ModmailConfig): Parsed<ModmailConfig> {
+export function parseModmailSettings(body: FormBody, ctx: ValidationContext, saved: ModmailConfig, guildId = ""): Parsed<ModmailConfig> {
   const errors = new Errors();
   const enabled = checkbox(body, "enabled");
   const channelId = keptOrChannel(body, "channelId", ctx, errors, enabled, "ModMail channel", saved.channelId);
@@ -21,7 +21,9 @@ export function parseModmailSettings(body: FormBody, ctx: ValidationContext, sav
   let staffRoleId: string | null = null;
   if (roleRaw) {
     const found = ctx.roles.get(roleRaw);
-    if (!found) errors.add("staffRoleId", "That role does not exist in this server. Pick one from the list.");
+    // @everyone as the staff role would let every member answer and close tickets.
+    if (roleRaw === guildId) errors.add("staffRoleId", "@everyone can't be the staff role. Pick a staff role.");
+    else if (!found) errors.add("staffRoleId", "That role does not exist in this server. Pick one from the list.");
     // Granting ModMail access is a privilege: same hierarchy rule as every role picker.
     else if (found.aboveViewer && roleRaw !== saved.staffRoleId) errors.add("staffRoleId", ROLE_ABOVE_VIEWER_ERROR);
     else staffRoleId = roleRaw;
