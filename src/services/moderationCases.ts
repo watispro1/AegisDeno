@@ -1,3 +1,4 @@
+import { isValidObjectId } from "mongoose";
 import { ModerationCaseModel, WarningModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 
@@ -61,6 +62,34 @@ export async function revokeModerationCase(guildId: string, caseId: string, revo
   }
 }
 
+/**
+ * Change the reason on a moderation case or, if no case has that ID, on a
+ * warning (warnings live in their own collection). Shared by `/case edit` and
+ * the web dashboard. Returns what was changed, or null when nothing matched.
+ */
+export async function editCaseReason(
+  guildId: string,
+  caseId: string,
+  reason: string,
+): Promise<{ kind: "case" | "warning"; userId: string; previousReason: string } | null> {
+  if (!isValidObjectId(caseId)) return null;
+  // Return the old documents so callers can log the previous reason.
+  const record = await ModerationCaseModel.findOneAndUpdate(
+    { guildId, _id: caseId },
+    { $set: { reason } },
+    { returnDocument: "before" },
+  ).catch(() => null);
+  if (record) return { kind: "case", userId: record.userId, previousReason: record.reason };
+
+  const warning = await WarningModel.findOneAndUpdate(
+    { guildId, _id: caseId },
+    { $set: { reason } },
+    { returnDocument: "before" },
+  ).catch(() => null);
+  if (warning) return { kind: "warning", userId: warning.userId, previousReason: warning.reason };
+  return null;
+}
+
 // Alias used by the escalation service
 export const createModerationCase = addModerationCase;
 
@@ -68,8 +97,8 @@ export async function getRecentCasesForGuild(
   guildId: string,
   limit = 20,
 ): Promise<ModerationCase[]> {
-  const cases = await ModerationCaseModel.find({ guildId }).sort({ createdAt: -1 }).limit(limit);
-  return cases.map(entry => ({ ...entry.toObject(), _id: String(entry._id) })) as ModerationCase[];
+  const cases = await ModerationCaseModel.find({ guildId }).sort({ createdAt: -1 }).limit(limit).lean();
+  return cases.map(entry => ({ ...entry, _id: String(entry._id) })) as ModerationCase[];
 }
 
 export async function getTopOffendersForGuild(
@@ -91,12 +120,12 @@ export async function getModerationCases(
   limit = 10,
 ): Promise<ModerationCase[]> {
   const [cases, warnings] = await Promise.all([
-    ModerationCaseModel.find({ guildId, userId }).sort({ createdAt: -1 }).limit(limit),
-    WarningModel.find({ guildId, userId }).sort({ createdAt: -1 }).limit(limit),
+    ModerationCaseModel.find({ guildId, userId }).sort({ createdAt: -1 }).limit(limit).lean(),
+    WarningModel.find({ guildId, userId }).sort({ createdAt: -1 }).limit(limit).lean(),
   ]);
 
   const moderationCases: ModerationCase[] = cases.map((entry) => ({
-    ...entry.toObject(),
+    ...entry,
     _id: String(entry._id),
   })) as ModerationCase[];
 

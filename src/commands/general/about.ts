@@ -13,6 +13,7 @@ import {
 import { Command } from "../../types/discord";
 import { VERSION } from "../../version";
 import mongoose from "mongoose";
+import { isObfuscatedChannel } from "../../utils/channels";
 
 /** Formats a millisecond uptime into a human-readable string. */
 function fmtUptime(ms: number): string {
@@ -116,7 +117,7 @@ export const command: Command = {
       const ping = Math.round(client.ws.ping);
       const { label: pingLabel, emoji: pingEmoji, colour } = pingStatus(ping, client.isReady());
       const totalMembers  = client.guilds.cache.reduce((acc, g) => acc + (g.memberCount ?? 0), 0);
-      const totalChannels = client.channels.cache.size;
+      const totalChannels = client.channels.cache.filter(c => !isObfuscatedChannel(c)).size;
       const topGuilds = [...client.guilds.cache.values()]
         .sort((a, b) => (b.memberCount ?? 0) - (a.memberCount ?? 0))
         .slice(0, 5);

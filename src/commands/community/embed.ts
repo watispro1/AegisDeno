@@ -13,6 +13,7 @@ import {
   ModalSubmitInteraction,
   MessageFlags,
 } from "discord.js";
+import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { isSendableChannel } from "../../utils/channels";
 
@@ -217,7 +218,7 @@ export const command: Command = {
 
       if (i.customId === "embed_edit_desc") {
         const modal = new ModalBuilder()
-          .setCustomId("embed_desc_modal")
+          .setCustomId(scopedModalId("embed_desc_modal", i.id))
           .setTitle("Edit Embed Description");
 
         const input = new TextInputBuilder()
@@ -231,7 +232,7 @@ export const command: Command = {
         modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
         await i.showModal(modal);
 
-        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === "embed_desc_modal" }).catch(() => null) as ModalSubmitInteraction | null;
+        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === scopedModalId("embed_desc_modal", i.id) }).catch(() => null) as ModalSubmitInteraction | null;
         if (!modalSubmit) return;
 
         description = modalSubmit.fields.getTextInputValue("embed_desc_input").replace(/\\n/g, "\n");
@@ -242,7 +243,7 @@ export const command: Command = {
 
       if (i.customId === "embed_edit_meta") {
         const modal = new ModalBuilder()
-          .setCustomId("embed_meta_modal")
+          .setCustomId(scopedModalId("embed_meta_modal", i.id))
           .setTitle("Edit Title & URL Link");
 
         const titleInput = new TextInputBuilder()
@@ -266,7 +267,7 @@ export const command: Command = {
         );
         await i.showModal(modal);
 
-        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === "embed_meta_modal" }).catch(() => null) as ModalSubmitInteraction | null;
+        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === scopedModalId("embed_meta_modal", i.id) }).catch(() => null) as ModalSubmitInteraction | null;
         if (!modalSubmit) return;
 
         title = modalSubmit.fields.getTextInputValue("embed_title_input");
@@ -280,7 +281,7 @@ export const command: Command = {
 
       if (i.customId === "embed_edit_media") {
         const modal = new ModalBuilder()
-          .setCustomId("embed_media_modal")
+          .setCustomId(scopedModalId("embed_media_modal", i.id))
           .setTitle("Edit Images & Author");
 
         const authorInput = new TextInputBuilder()
@@ -319,7 +320,7 @@ export const command: Command = {
         );
         await i.showModal(modal);
 
-        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === "embed_media_modal" }).catch(() => null) as ModalSubmitInteraction | null;
+        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === scopedModalId("embed_media_modal", i.id) }).catch(() => null) as ModalSubmitInteraction | null;
         if (!modalSubmit) return;
 
         const a = modalSubmit.fields.getTextInputValue("embed_author_input").trim();

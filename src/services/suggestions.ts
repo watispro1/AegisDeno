@@ -1,4 +1,5 @@
 import { SuggestionModel } from "../database/mongo";
+import { escapeRegex } from "../utils/mongoSafe";
 
 export interface Suggestion {
   id: string;
@@ -75,4 +76,29 @@ export async function reviewSuggestion(
     { new: true },
   );
   return updated ? updated.toObject() as Suggestion : null;
+}
+
+export async function deleteSuggestion(guildId: string, id: string): Promise<void> {
+  await SuggestionModel.deleteOne({ guildId, id });
+}
+
+/**
+ * Up to 25 recent suggestions for an autocomplete list, newest first,
+ * optionally only those still open for review, filtered by typed text
+ * (matched literally against the content or the start of the ID).
+ */
+export async function listSuggestionsForPicker(
+  guildId: string,
+  openOnly: boolean,
+  typed: string,
+): Promise<Array<Pick<Suggestion, "id" | "content" | "status">>> {
+  const query = typed.trim().slice(0, 50);
+  const filter: Record<string, unknown> = { guildId };
+  if (openOnly) filter.status = { $in: ["pending", "considered"] };
+  if (query) {
+    const literal = escapeRegex(query);
+    filter.$or = [{ content: { $regex: literal, $options: "i" } }, { id: { $regex: `^${literal}`, $options: "i" } }];
+  }
+  const docs = await SuggestionModel.find(filter).sort({ createdAt: -1 }).limit(25).select("id content status").lean();
+  return docs.map(d => ({ id: String(d.id), content: String(d.content), status: String(d.status) as Suggestion["status"] }));
 }

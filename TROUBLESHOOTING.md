@@ -166,6 +166,20 @@ Liquid Glass requires CSS `backdrop-filter` support:
 
 ---
 
+## 🟡 "Aegis can't see this channel"
+
+From 2026-11-16 Discord hides channels from bots that lack **View Channel** on
+them: the bot still receives them, but named `___hidden___`, with no topic and
+with placeholder permissions. Aegis leaves these channels out of pickers and
+counts and never posts to them or edits their permissions.
+
+If a log, welcome, goodbye, suggestions, starboard, transcript, verification or role
+panel channel shows this message (in `/diagnostics`, a command reply or the
+dashboard), give Aegis's role **View Channel** in that channel (plus Send
+Messages and Embed Links where it posts), or pick another channel.
+
+---
+
 ## 🔵 Fly.io deployment issues
 
 ### "fly deploy" fails with "image build failed"

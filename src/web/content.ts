@@ -29,7 +29,8 @@ export const features: Feature[] = [
       "Reason suggestions on /warn, /timeout and /ban (Spam, NSFW, Harassment, Advertising, Raiding, Other), or type your own.",
       "Attach a screenshot with proof: and it is stored with the case.",
       "An Undo button on /warn, /timeout and /ban for five minutes; undoing reverses the action and marks the case revoked.",
-      "Timeouts from 60 seconds to one week; /removetimeout lifts one early.",
+      "Timeouts from 60 seconds to Discord's 28-day limit: pick a preset or type custom_duration (90m, 1d 12h, 2 weeks); /removetimeout lifts one early.",
+      "Temporary bans with /ban duration: (12h, 7d, 2 weeks, up to a year); Aegis lifts the ban when it runs out, even after a restart.",
       "/purge deletes up to 500 messages with filters for bots, humans, links, images, a user or text, skips pinned messages and anything over Discord's 14-day limit, and shows a preview first.",
       "/lock for a channel or a whole category, with an optional message and timed unlock; /slowmode for when a channel gets out of hand.",
       "/case view, /case user (with Prev/Next pages), /case edit and /case export (capped at 5,000 records) for the paper trail.",
@@ -116,6 +117,7 @@ export const features: Feature[] = [
       "Pick the events: everything, messages only, join and leave, role changes, voice joins, or just their first message of the day plus voice joins.",
       "Add alert_channel: to also post alerts in a staff channel.",
       "Alerts include before and after text for edits.",
+      "Privacy first: an alert only reaches a watcher who still has Moderate Members and can view the channel it came from, and staff-channel copies from private channels leave the text out.",
     ],
     commands: [
       ["/watchlist add user:@member duration:24 Hours events:Messages Only", "Start watching"],
@@ -250,7 +252,7 @@ export const faqs: { q: string; a: string }[] = [
   },
   {
     q: "Is there a web dashboard?",
-    a: `<p>No. Everything is configured with slash commands and Discord forms, so the people who already have permissions in your server are the people who can change settings.</p>`,
+    a: `<p>Yes, at <a href="/dashboard">/dashboard</a>. Log in with Discord to see moderation cases, edit or revoke them (and unban when revoking a ban), review ban appeals, post the ticket, verification and role panels, and change logging, escalation, automod (word list and exemptions included), welcome, ticket, verification and starboard settings. An Activity page shows who changed what. It only lists servers where you have Manage Server or Administrator, and it checks that permission on every page. Slash commands still do everything the dashboard does, and more.</p>`,
   },
   {
     q: "Is data shared between servers?",

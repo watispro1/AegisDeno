@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, 
 import { Command } from "../../types/discord";
 import { getGuildConfig } from "../../services/configuration";
 import { getAutomodConfig } from "../../services/automod";
+import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -24,8 +25,7 @@ export const command: Command = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     // 1. Fetch Configs
-    const guildConfig = await getGuildConfig(guild.id);
-    const automodConfig = await getAutomodConfig(guild.id);
+    const [guildConfig, automodConfig] = await Promise.all([getGuildConfig(guild.id), getAutomodConfig(guild.id)]);
 
     // 2. Check Permissions
     const p = botMember.permissions;
@@ -56,7 +56,9 @@ export const command: Command = {
     if (guildConfig.loggingEnabled && guildConfig.loggingChannelId) {
       const channel = guild.channels.cache.get(guildConfig.loggingChannelId)
         ?? await guild.channels.fetch(guildConfig.loggingChannelId).catch(() => null);
-      if (channel && "permissionsFor" in channel) {
+      if (isObfuscatedChannel(channel)) {
+        loggingStatus = `⚠️ Configured but ${hiddenChannelMessage(guildConfig.loggingChannelId)}`;
+      } else if (channel && "permissionsFor" in channel) {
         const canSend = channel.permissionsFor(botMember)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]);
         loggingStatus = canSend ? `✅ Configured (<#${channel.id}>)` : `⚠️ Configured (<#${channel.id}>) but missing Send Messages permission`;
       } else {
@@ -68,7 +70,9 @@ export const command: Command = {
     if (guildConfig.welcomeEnabled && guildConfig.welcomeChannelId) {
       const channel = guild.channels.cache.get(guildConfig.welcomeChannelId)
         ?? await guild.channels.fetch(guildConfig.welcomeChannelId).catch(() => null);
-      if (channel && "permissionsFor" in channel) {
+      if (isObfuscatedChannel(channel)) {
+        welcomeStatus = `⚠️ Configured but ${hiddenChannelMessage(guildConfig.welcomeChannelId)}`;
+      } else if (channel && "permissionsFor" in channel) {
         const canSend = channel.permissionsFor(botMember)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]);
         welcomeStatus = canSend ? `✅ Configured (<#${channel.id}>)` : `⚠️ Configured (<#${channel.id}>) but missing Send Messages permission`;
       } else {
@@ -98,19 +102,7 @@ export const command: Command = {
         ].filter(Boolean).join(", ")})`
       : "❌ All rules disabled";
 
-    // 5. Check Knub Plugins
-    const { knubManager } = await import("../../knub");
-    const allPlugins = knubManager.getAllPlugins();
-    const pluginStates = await Promise.all(
-      allPlugins.map(async (p) => ({
-        name: p.name,
-        enabled: await knubManager.isPluginEnabledForGuild(guild.id, p.name),
-      })),
-    );
-    const enabledPlugins = pluginStates.filter(p => p.enabled).map(p => p.name);
-    const disabledPlugins = pluginStates.filter(p => !p.enabled).map(p => p.name);
-
-    // 6. Build Embed
+    // 5. Build Embed
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle("🛠️ Server Diagnostics & Setup")
@@ -121,12 +113,6 @@ export const command: Command = {
         { name: "Welcome Channel", value: welcomeStatus, inline: true },
         { name: "Welcome Role", value: welcomeRoleStatus, inline: true },
         { name: "Automod", value: automodStatus, inline: false },
-        {
-          name: "🧩 Knub Plugins",
-          value: `**Enabled (${enabledPlugins.length}):** ${enabledPlugins.join(", ")}\n` +
-            (disabledPlugins.length > 0 ? `**Disabled (${disabledPlugins.length}):** ${disabledPlugins.join(", ")}` : "*All modules active*"),
-          inline: false,
-        },
       );
 
     const recommendations: string[] = [];
@@ -138,9 +124,6 @@ export const command: Command = {
     }
     if (!hasAnyAutomod) {
       recommendations.push("• Enable some automod features using `/automod <rule> toggle`.");
-    }
-    if (disabledPlugins.length > 0) {
-      recommendations.push(`• You have ${disabledPlugins.length} disabled plugin(s). Manage with \`/plugins\`.`);
     }
 
     if (recommendations.length > 0) {

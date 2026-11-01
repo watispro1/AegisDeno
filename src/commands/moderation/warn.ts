@@ -1,3 +1,4 @@
+import { auditReason } from "../../utils/safeText";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -220,7 +221,7 @@ export const command: Command = {
             await i.reply({ content: "❌ Cannot timeout member — they may have left or have higher roles than the bot.", flags: MessageFlags.Ephemeral });
             return;
           }
-          await member.timeout(10 * 60 * 1000, `Quick escalation from warn: ${reason} (by ${i.user.tag})`);
+          await member.timeout(10 * 60 * 1000, auditReason(`Quick escalation from warn: ${reason} (by ${i.user.tag})`));
           buttons.components[2].setDisabled(true).setLabel("Timed Out (10m)");
           await interaction.editReply({ embeds: [embed], components: [buttons] }).catch(() => null);
           await i.reply({ content: `⚡ **<@${target.id}>** has been placed in a **10-minute timeout** by <@${i.user.id}>.` });

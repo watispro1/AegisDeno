@@ -9,36 +9,454 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
-## [Unreleased]
+## [3.6.2] - 2026-10-31
+
+Bug fixes, security hardening across the bot, website and dashboard, upgrades
+to `/ban`, `/timeout`, `/giveaway`, `/suggest`, `/autoresponder`, `/lock` and
+`/starboard`, goodbye messages, a redesigned module-based dashboard with a
+role-hierarchy fix, and the website code split into smaller modules. Discord permissions, intents and environment variables are unchanged,
+and the command count is the same; a few commands gained optional options
+(listed below), so slash commands are re-registered on deploy. Existing options
+keep their names and still work. Includes dashboard 1.2.3 (see
+`DASHBOARD_CHANGELOG.md`).
 
 ### Added
-- Ongoing feature development.
+- **Goodbye messages:** Aegis can post a message when a member leaves (off
+  until turned on in the dashboard). It never pings anyone. Welcome and
+  goodbye messages can also send an embed, and understand `{memberCount}`
+  as well as `{count}` and `{member_count}`.
+- **Log channel per event type:** each log category can be sent to its own
+  channel (set in the dashboard); categories without one use the log channel.
+- **Server-wide autoresponder switch:** autoresponders can be switched off for
+  a whole server without deleting them (dashboard). On by default.
+- `/autoresponder toggle id: [enabled:]` turns one autoresponder on or off
+  without deleting it (leave `enabled` empty to flip it). `/autoresponder list`
+  marks switched-off ones and shows when they are off server-wide.
+- `/lock channel` and `/lock category` take `duration:` as well as
+  `duration_minutes:`: `90m`, `6h`, `1d 12h`, up to 7 days. Giving both is
+  refused rather than guessing.
+- The web dashboard was redesigned around modules, with new pages for
+  autoresponders, scheduled messages, announcements (embed builder),
+  giveaways, suggestions, Ghost Watch and goodbye messages. See dashboard
+  1.2.3 in `DASHBOARD_CHANGELOG.md`.
+- `/ban duration:` makes a **temporary ban**: type `12h`, `7d`, `2 weeks` or
+  `1d 12h` (one minute to one year; empty means permanent, as before). Aegis
+  lifts the ban when it runs out, also after a restart, logs it and records an
+  unban case. A new ban, `/unban`, the Undo button or an approved appeal
+  cancels a pending automatic unban, so an old temporary ban can never lift a
+  later permanent one. The ban reason starts with a `[temp:…]` marker and the
+  automatic unban only lifts a ban that still carries it, so a member who was
+  unbanned and banned again outside Aegis (for example in Discord's member
+  menu) stays banned. If Discord can't be reached when the ban runs out, the
+  unban is retried instead of dropped. The option suggests lengths and shows
+  how what you typed reads ("1d12h → 1 day 12 hours").
+- `/timeout custom_duration:` takes any length up to Discord's 28-day limit
+  (`90m`, `1d 12h`, `2 weeks`), with the same suggestions. The `duration`
+  presets still work; one of the two is needed.
+- `/giveaway end` and `/giveaway reroll` suggest the server's running or
+  ended giveaways by prize as you type `message_id`, and accept a pasted
+  message link as well as an ID.
+- `/suggest approve`, `deny`, `consider` and `info` suggest suggestions by
+  title as you type `id` (review choices only for staff with Manage Server).
 
-## [3.6.2] - 2026-10-31
+### Changed
+- `/starboard setup` refuses a channel Aegis can't see and names the
+  permissions it is missing there (View Channel, Send Messages, Embed Links)
+  instead of saving a channel it can't post to; the reply shows the threshold
+  and warns when the starboard is switched off.
+- `/autoresponder add` stops at 50 autoresponders per server (the dashboard
+  uses the same limit).
+- Welcome messages only ever ping the member who joined.
+- `/ban`: says when the member is already banned (with the existing reason)
+  instead of asking to ban again; shows the ban length in the confirmation,
+  result and log; and checks role positions again when you press Confirm, in
+  case they changed during the 30 seconds.
+- `/timeout`: the expiry is counted from when you confirm, not from when you
+  typed the command, and role positions are checked again on Confirm. The
+  case-history button shortens long reasons so the list always fits.
+- `/giveaway start`: `duration` also takes forms like `1d 12h` or `3 days`;
+  the channel picker only offers text and announcement channels; Aegis checks
+  it can view, send and embed links in that channel before posting; a managed
+  (integration) role is refused as the required role. The required-role
+  message names the role, and `/giveaway list` shows the entry count.
+- `/suggest setup` only accepts text and announcement channels (the picker
+  filters them, and the command checks again), refuses a channel Aegis can't
+  see, and says which permission is missing (View Channel, Send Messages or
+  Embed Links) before saving. Suggestions can now be posted in an
+  announcement channel.
+- `/purge` checks View Channel, Read Message History and Manage Messages in
+  the channel itself (not just server-wide) before scanning.
+- Automod no longer acts on members with Administrator or Manage Server (the
+  same staff Discord's own AutoMod exempts), and its mention-spam rule counts
+  role mentions and @everyone/@here as well as users.
+- Ghost Watch only sends an alert to a watcher who is still in the server,
+  still has Moderate Members and, for message and voice events, can view that
+  channel at that moment; otherwise the alert is skipped and not counted.
+  When the event happened in a private channel, the copy posted to a staff
+  alert channel leaves out the message text and link (the watcher's DM keeps
+  them).
+- The website code is split into smaller modules (one per page for the site
+  and the dashboard, the dashboard routes by section, and the stylesheet and
+  site script by area). The split itself changed no page; the dashboard
+  changes below are listed separately.
+
+### Fixed
+- **A message that matched an auto-responder skipped automod and Ghost
+  Watch.** The auto-responder ran first and stopped all further checks, so a
+  blocked word or link next to a trigger phrase went through. Automod now
+  runs first, and the auto-responder only answers messages automod left up.
+- A link preview or pin counted as an edit: Discord's update re-ran automod
+  on the message and sent a Ghost Watch "edited" alert. Only real text
+  changes count now. Edits also no longer count toward the spam-rate rule.
+- Ghost Watch could lose a watch added (or bring back one removed) during
+  its once-a-minute refresh; changes made while the refresh reads the
+  database are now kept. A failed refresh keeps the current watches instead
+  of dropping them.
+- Pressing a giveaway's Enter button twice quickly said "You are entered"
+  both times. Entry is now one atomic step: the second press says you are
+  already entered. The button also acknowledges before looking you up, so it
+  no longer shows "This interaction failed" on a slow lookup.
+- Two Reroll presses at once could draw and announce winners twice; only one
+  reroll goes through now.
+- A giveaway prize longer than about 240 characters made the post fail
+  (embed titles are limited to 256); the title is shortened instead.
+- `/suggest setup` accepted any channel (voice, category, forum), so
+  submissions failed later. If posting a suggestion fails, the stored
+  suggestion is removed instead of being left without a post.
+- `/ban silent:true` still sent the appeal-code DM; silent now means no DMs.
+- Moderation actions with a long reason could fail: Discord limits audit-log
+  reasons to 512 characters, and Aegis appended the moderator's name. Reasons
+  sent to Discord are now shortened to fit (the case keeps the full text).
+  Covers ban, kick, timeout, unban, appeal unbans, escalation and warn quick
+  actions.
+- The timeout Extend (+1h) button recorded a case and logged an extension
+  even when the timeout change failed; it now reports the failure instead.
+- A recurring `/automation` post whose channel was briefly unavailable was
+  deleted for good after three failed tries. It now skips that run and keeps
+  its schedule.
+- Task listings (`/automation list`, `/remindme list`, auto-unlock lookups)
+  are capped at 200 rows instead of reading every row.
+- The deleted-message log showed a broken author mention for messages Aegis
+  had not cached; it now says the author is unknown. Message text in logs and Ghost
+  Watch alerts can no longer break out of its code block (a ``` inside the
+  message ended it early), and auto-responder replies are cut to Discord's
+  2,000-character limit.
+
+- **Dashboard role choices ignored your own role position.** The verified
+  role, the join role and role panel re-posts only checked Aegis's role, so
+  someone with Manage Server could pick a role above their own and then take
+  it. The dashboard now applies the same rule as `/rolepanel create` and
+  `/verify setup`: roles must be below your highest role (the server owner is
+  exempt; Administrator is not). See dashboard 1.2.3.
+- `/clearwarnings` could show "This interaction failed" on a slow lookup: it
+  now acknowledges the command before checking the member, role order and
+  warnings, then shows the confirmation in that reply.
+- `/clearwarnings` counted only active warnings but deleted revoked ones too,
+  so the prompt, the logged case and what was deleted disagreed. The prompt
+  now lists every record it will delete, exactly those records are deleted (a
+  warning issued while the prompt is open is kept), and the reply, the case
+  and the log channel all give the same count.
+- `/case edit` and `/case delete` could show "This interaction failed" on a
+  slow database: both now acknowledge the command before looking up the case,
+  and `/case delete` shows its confirmation in that reply.
+- Forms opened by a command (`/suggest submit`, `/rolepanel create`, `/verify
+  setup` and `batch`, `/welcome message`, `/note add`, `/appeal`, the `/embed`
+  and announcement editors, and the kick reason editor) could be answered by
+  the wrong run: after closing a form and running the command again, one
+  submit was picked up by both runs, so the old run acted on its old options
+  (for example posting a role panel with the previous roles) and the new run
+  failed. Each form now only answers the run that opened it.
+- `/rolepanel create` and `/verify setup` accepted roles at or above your own
+  highest role, which anyone, you included, could then take by clicking. They
+  now refuse those roles (the server owner is exempt), and refuse a channel
+  Aegis cannot see before opening the form.
+- A ticket closed at the same moment by the Close button, `/ticket close` or
+  the inactivity check could be closed twice, posting the notice and
+  transcript twice. Only the first close goes through now.
+
+### Security
+- **Mentions are safe by default.** Every message, reply and webhook Aegis
+  sends now blocks @everyone, @here and role pings unless that message is
+  meant to ping: `/announce` with a ping choice and the ticket staff-role
+  ping opt in. Before, text from members or configuration (a reminder, an
+  auto-response, a suggestion, a giveaway prize, a welcome message with a
+  server name) could ping everyone if Aegis had Mention Everyone. User
+  mentions still ping.
+- Website and dashboard headers: the Content Security Policy no longer allows
+  inline styles (no page needs them), and adds `base-uri 'none'`,
+  `frame-src 'none'`, `worker-src 'none'`, `media-src 'none'` and
+  `manifest-src 'self'`; HSTS is two years; `Cross-Origin-Opener-Policy`,
+  `Cross-Origin-Resource-Policy` (cross-origin only for the public API and
+  share images), `X-Permitted-Cross-Domain-Policies`, `Origin-Agent-Cluster`
+  and `X-DNS-Prefetch-Control` are set; the deprecated `interest-cohort`
+  directive is replaced.
+- Dashboard cookies use the `__Host-` prefix on the live site
+  (`__Host-aegis_dash`, `__Host-aegis_oauth`), so only this host, over HTTPS,
+  can set them. Signed-in browsers are moved from the old `aegis_dash` cookie
+  on their next visit without being signed out. See dashboard 1.2.3.
+- Logging in now ends the browser's previous dashboard session (session
+  rotation), so a session someone planted in your browser can't carry over.
+- Dashboard requests whose query string or form contains Mongo-operator-like
+  keys (`$where`, `user[$ne]`, dotted keys) are refused before any database
+  call, and failed CSRF/origin checks are logged.
+- The public API rate limit counted every visitor as one, because behind
+  Fly's proxy it keyed on the proxy's address. It now uses the visitor's
+  address (`Fly-Client-IP`).
+- Requests larger than 600 KB are refused before parsing, and a final error
+  handler answers with a generic message: no error text or stack trace is
+  ever sent to the browser.
+- The Top.gg webhook secret is compared in constant time, and the vote log
+  line only includes plain, shortened fields from the request.
+- `/commands/<name>` redirects only keep letters, digits, `-` and `_`.
+- Logs redact secrets: the bot token, client secret, session secret, database
+  URL, Top.gg secrets, passwords inside connection strings, Discord tokens
+  and Authorization header values.
+- The Docker image's app files are owned by root and only readable by the
+  `node` user the bot runs as.
+- `npm audit` reports no known vulnerabilities; no dependency changed.
+
+## [3.6.1] - 2026-10-30
+
+Website, legal pages and repository docs, a rebuilt command reference and docs
+page, safer and easier moderation commands, and two fixes for hidden channels.
+Discord permissions, intents and environment variables are unchanged. Slash
+command definitions changed (`/warnings`, `/case`, `/autoresponder`); they are
+re-registered automatically when the bot starts. Includes dashboard 1.2.2 (see
+`DASHBOARD_CHANGELOG.md`).
 
 ### Added
 - Official Aegis Support Discord Server blueprint (`server.md`) detailing the complete role hierarchy, channels, category architecture, permission overrides, automations, and staff SOPs.
-- Interactive Web Dashboard at `/dashboard` with real-time telemetry, active module matrix, configuration presets, and top navigation link.
 - In-Discord `/dashboard` upgrades: live auto-escalation status, verification gatekeeper inspector, and watchlist monitoring count.
 - Added `before_message` parameter and snowflake validator to `/purge` for incident-specific bulk deletion.
 - Open-source MIT license (`LICENSE`).
-- A self-hosting section in the docs and the README, with the real setup steps, the intents the bot needs, and the licence terms. The site footer links to the source on GitHub.
-- A PNG social preview image (`/assets/og.png`). Discord and most link previews ignore SVG, so shared links had no image before.
+
+- **Commands page:** each command opens to a summary of who can run it, what
+  Aegis needs, its cooldown and whether it works in DMs, all read from the
+  command definitions. Every subcommand has its own block with its options
+  (type, required, choices, ranges, length limits, autocomplete), a link
+  anchor such as `/commands#cmd-automod-words-add`, and examples you can copy.
+  Hand-written examples are checked against the definitions by the tests;
+  commands without them get generated ones. A sticky search and category bar,
+  a "Jump to" list, Copy link and Expand all buttons, and a "Did you mean"
+  suggestion with a Clear button when nothing matches. Keyboard: `/` focuses
+  the search, Enter opens the first match, the arrow keys move through results
+  and Escape clears. The search is kept in the address bar (`?q=`) as you type.
+- **Docs page:** reorganised into Getting started, Guides, Reference and Help,
+  with a grouped table of contents (collapsible on phones) and a copyable link
+  on every heading. New sections: a step-by-step setup, the web dashboard,
+  hidden channels and how to fix them, auto-responder, permissions checked
+  inside subcommands, the permissions Aegis itself needs, an FAQ and links into
+  the troubleshooting page. Existing section links still work.
+- Troubleshooting has an entry for "Aegis can't see this channel".
+- `/case`: the `case_id` option on view, edit and delete suggests the server's
+  recent cases as you type (action, age and reason). Only members with
+  Moderate Members get suggestions.
+- `/autoresponder`: the `id` option on remove and delete suggests your
+  triggers as you type (Manage Server only).
+- `/warnings` has an `ephemeral` option.
+- A `/security` page and an RFC 9116 `/.well-known/security.txt` (with
+  `/security.txt` redirecting to it) explaining how to report a vulnerability
+  privately through GitHub. Both are linked from the footer and listed in the
+  sitemap and the site search.
+- The 404 page suggests the page you probably meant (`/comands` offers
+  Commands, `/ban` offers the `/ban` command) and has a command search box. The
+  requested path is never echoed back.
+- `/commands?q=ban` opens the command reference already filtered, so searches
+  can be shared and the 404 search box lands on results.
+- `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1),
+  `CONTRIBUTING.md`, and issue and pull request templates in `.github/`.
 
 ### Changed
-- Converted `/dashboard` from a redirect into a dedicated live web dashboard.
-- Bumped version across package, documentation, and diagnostics to 3.6.2.
-- `/changelog` on the website is rendered from this file, so the site and the repository can no longer disagree. The Atom feed at `/changelog.xml` uses the same entries.
-- The command reference notes which options suggest values as you type and the allowed range for numeric options, read from the command definitions.
-- The site no longer loads IBM Plex from Google Fonts. It uses the system font stack, which removes the only third-party request and lets the content security policy drop Google's domains.
-- Buttons, filter chips, copy buttons and nav links are at least 44px tall; on touch screens, sidebar and footer links get the same target size.
-- The faint text colour is slightly darker so it passes 4.5:1 contrast on code backgrounds too. Footer column titles are headings in the right order.
-- The 404 page links to troubleshooting and the changelog as well.
-- README rewritten: shorter, no emoji headings, and every feature description checked against the code.
+- `/warnings` pages through every active warning, five at a time with Prev and
+  Next buttons, instead of showing only the newest five, and shows each
+  warning's ID for `/case edit`. Only you see it unless you set
+  `ephemeral:false`.
+- `/case delete` shows the case and asks you to confirm before deleting it,
+  then posts the deletion to the log channel. `/case` errors for a wrong or
+  unknown ID say where to find IDs.
+- `/clearwarnings` shows how many warnings it will delete and asks you to
+  confirm. It now works for members who have left the server, and refuses to
+  clear your own warnings.
+- `/escalation clear` lists the thresholds and asks you to confirm; with none
+  set it says so.
+- `/autoresponder add` refuses an empty trigger or one that already exists
+  with the same match type, limits triggers to 100 characters and responses to
+  2,000, and `/autoresponder list` stays inside one message (the first 20, then
+  a count).
+- Confirmation prompts are shared by these commands: ephemeral, only the
+  person who ran the command can answer, and Cancel or a 30-second timeout
+  changes nothing.
+- Permission names on the site and in `/api/commands` use Discord's wording:
+  "Manage Server" instead of "Manage Guild". Each command in `/api/commands`
+  also lists its `cooldownSeconds`.
+- The Terms of Service and Privacy Policy are rewritten in plain language and
+  dated October 30, 2026. The privacy policy now lists every kind of record
+  Aegis stores and how long each is kept, as the code does it: one year for
+  warnings, cases and staff notes, 180 days for dashboard activity, 7 days for
+  dashboard sessions, about a minute for hashed rate-limit records, and no
+  automatic expiry for appeals, tickets, automod hits, member activity and
+  community records. It names the dashboard's OAuth scopes and cookies, the
+  services that receive data, how to ask for deletion, and Discord's minimum
+  age. Both pages have a summary and a table of contents.
+- The legal pages no longer show `support@aegisdeno.fly.dev`, which was only a
+  fallback and not a working inbox. Contact goes through GitHub issues, the
+  support server when `SUPPORT_SERVER_URL` is set, and an email address only
+  when `CONTACT_EMAIL` is set.
+- The footer links Security, Report a problem (GitHub issues), the release
+  notes for the running version and the dashboard changelog.
+- The docs "Data and storage" section matches the privacy policy, and the
+  self-hosting section covers `SITE_URL` and the dashboard settings.
+- README rewritten around the current release: features, links, every
+  environment variable, Fly.io deploys, tests and the new repository docs.
 
 ### Fixed
-- Corrected documentation claims regarding trust score auto-actions, poll button implementations, and moderation report metrics.
-- Fixed features page note regarding timeout maximum durations.
+- **Add to Discord could hang on "Opening Discord app".** Aegis also allows
+  user installs, so an invite link without an install type sent Discord into
+  its "Add App" flow, which hands off to the Discord app and can spin forever
+  when the app does not take it. Every invite button (site header, mobile menu,
+  home page, docs and the dashboard) now links straight to Discord's https
+  authorize page with `integration_type=0` (add to a server), the `bot` and
+  `applications.commands` scopes (written `bot%20applications.commands`) and the
+  computed permissions, so it opens in the browser on desktop and phones and
+  Discord offers the app from there. It is a plain link: no script, nothing for
+  the CSP or a popup blocker to stop. `BOT_INVITE_URL` is only used when it is
+  an https discord.com link (a `discord://` or mistyped value falls back to the
+  standard URL), and `response_type`/`redirect_uri` are removed from it. New
+  `/invite` link (and `/invite?guild_id=<server id>`) redirects to the same
+  invite, so it can be shared; `/add` points to it.
+- Hidden channels are detected from Discord's `CHANNEL_OBFUSCATED` flag only.
+  A real channel named `___hidden___` was treated as hidden: left out of
+  pickers and refused by send and moderation commands.
+- A ticket whose channel became hidden from Aegis could be closed by the
+  inactivity check, because Aegis stops seeing its messages. The check now
+  waits a full auto-close window and tries again while the channel is hidden,
+  and closing (by command, button or timer) refuses a hidden ticket channel
+  before changing the ticket's record, with a message saying to give Aegis View
+  Channel there.
+- The docs said warn asks for confirmation (it applies straight away; timeout,
+  kick and ban confirm) and showed a suggestion ID as `12` (IDs are long codes
+  shown in the suggestion's footer).
+- The privacy policy said configuration is deleted when Aegis is removed from
+  a server and that no copy of audit records is kept. Nothing is deleted on
+  removal, and the dashboard keeps its own activity log for 180 days; both are
+  now stated correctly.
+
+## [3.6.0] - 2026-10-30
+
+Pull requests #8 onward. Includes dashboard 1.2.0 and 1.2.1, the removal of
+the plugin framework (see "Removed") and handling for Discord's channel
+obfuscation, which Discord turns on for every bot on 2026-11-16. Slash command
+definitions are unchanged.
+
+### Added
+- **Hidden channels:** support for Discord's
+  [channel obfuscation](https://docs.discord.com/developers/resources/channel#channel-object-obfuscated-channels).
+  Channels Aegis lacks View Channel on now arrive named `___hidden___` with the
+  `CHANNEL_OBFUSCATED` flag and placeholder permissions. One shared check,
+  `isObfuscatedChannel()`, spots them (by the flag or the placeholder name).
+  Aegis leaves them out of channel pickers and channel counts (`/serverinfo`,
+  `/dashboard`, `/about`), never sends to them, and never edits their
+  permissions: `/lock server` and `/lock category` skip them, and `/lock`,
+  `/lock status`, `/slowmode`, timed auto-unlocks and ticket member changes
+  refuse them instead of overwriting the channel's real permissions with the
+  placeholder ones.
+- Where a configured channel has become hidden, Aegis says so: "Aegis can't
+  see this channel. Give Aegis the View Channel permission there." This shows
+  in `/diagnostics`, in `/suggest`, `/automation` and `/lock` replies, in the
+  bot's log for welcome messages and log entries it had to skip, and in the
+  dashboard settings and Panels pages.
+- A web dashboard at `/dashboard`. Its changes are listed separately in
+  `DASHBOARD_CHANGELOG.md` (on the site at `/dashboard/changelog`).
+- A self-hosting section in the docs and the README, with the real setup steps,
+  the intents the bot needs, and the licence terms. The site footer links to the
+  source on GitHub.
+- A PNG social preview image (`/assets/og.png`). Discord and most link previews
+  ignore SVG, so shared links had no image before.
+
+### Changed
+- `/dashboard` no longer redirects to `/features`. The site footer, home page,
+  FAQ and privacy policy now describe the dashboard and the login cookies it
+  sets.
+- `/case edit` and the dashboard share one `editCaseReason()` service function.
+- `/appeal review`, `/unban` and `/ticket setup` now run through shared service
+  functions (`reviewBanAppeal()`, `unbanMember()`, `postTicketPanel()`) that the
+  dashboard uses too. What they do is unchanged, except that an appeal can no
+  longer be reviewed twice at the same moment.
+- `/changelog` on the website is rendered from this file, so the site and the
+  repository can no longer disagree. The Atom feed at `/changelog.xml` uses the
+  same entries. The hand-written release list in `pages.ts` is gone.
+- The command reference notes which options suggest values as you type and the
+  allowed range for numeric options, read from the command definitions.
+- The site no longer loads IBM Plex from Google Fonts. It uses the system font
+  stack (Plex is still used if installed), which removes the only third-party
+  request and lets the content security policy drop Google's domains.
+- Buttons, filter chips, copy buttons and nav links are at least 44px tall; on
+  touch screens, sidebar and footer links get the same target size.
+- The faint text colour is slightly darker so it passes 4.5:1 contrast on code
+  backgrounds too. Footer column titles are headings in the right order.
+- The 404 page links to troubleshooting and the changelog as well.
+- README rewritten: shorter, no emoji headings, and every feature description
+  checked against the code.
+- Ticket settings and the roles-per-panel limit are stored in the server's
+  config. Values saved before are copied over automatically the first time the
+  server's config is loaded.
+- Guild, automod, starboard and autoresponder settings are cached for up to a
+  minute and refreshed as soon as they are changed, so ordinary messages and
+  reactions no longer read the database. A ticket's last-activity time is
+  written at most once a minute instead of on every message. New database
+  indexes cover warning, case, ticket and scheduled-task lookups.
+- The Docker image runs as the unprivileged `node` user and no longer ships the
+  npm cache.
+- Buttons, select menus and forms are handled by one small router keyed on
+  each component's ID, with the same IDs as before. If a handler fails, the
+  member gets a short private error message instead of no reply. Servers that
+  had switched a feature off with `/plugins toggle` get a warning in the bot's
+  log the first time their config is loaded.
+- After the one-time copy into the server's config, nothing reads the old
+  `pluginconfigs` collection. `OPERATIONAL.md` explains how to check that every
+  server was copied and then drop it.
+- **Site on phones:** the viewport extends under notches and rounded corners,
+  and the header, page edges, menu, footer and toasts keep clear of them
+  (`env(safe-area-inset-*)`). The open mobile menu scrolls on its own when it
+  is taller than the screen.
+- **Site on phones:** search boxes and form fields use 16px text on small and
+  touch screens, so iOS Safari no longer zooms in when you tap them.
+- **Site on phones:** on touch screens the logo, breadcrumb, footer, sidebar,
+  changelog version and "See all" links are at least 44px tall, and the search
+  button in the header is 44px wide.
+- **Site on phones:** long inline code in the docs, legal pages and callouts
+  wraps instead of running off the screen. Code in tables still scrolls with the
+  table.
+
+### Fixed
+- The README said the trust score reacts to "message behaviour" and that you can
+  "configure auto-actions when a score drops below a threshold". No score-based
+  action exists; the score only counts how many messages a member has sent and
+  when they last posted. It also called `/poll` a native Discord poll (polls use
+  buttons since 3.1.0) and described `/modreport` as having keyword trends,
+  new-member risk events and a 7-day chart, none of which exist.
+- The features page said Discord caps timeouts at 7 days. Discord allows 28;
+  the `/timeout` choices stop at one week.
+- The starboard never posted anything: the bot did not request the message
+  reactions intent, so Discord never sent it reaction events. Two stars landing
+  at the same moment can no longer post a message twice, and removing the last
+  star still updates the count.
+- Two quick clicks on a multi-choice `/poll` could lose one of the votes.
+- Results of a closed `/poll` with many voters could leave out options at the
+  end. Every option is always listed now; voter names are shortened instead.
+- Member activity counted in the last 30 seconds before a restart is saved
+  instead of lost.
+- Opening a command on `/commands` on a phone made the whole page scroll
+  sideways (to about 2,000px wide for `/remindme`): the usage block and option
+  tables now stay inside the screen and scroll on their own.
+
+### Removed
+- The Knub plugin framework the bot was built on. Buttons, menus and forms on
+  existing messages keep working.
+- `/plugins` (`list`, `toggle` and `info`) and the `/api/plugins` endpoint.
+  Features can no longer be switched off per server with `/plugins toggle`;
+  every feature is on in every server. To hide a command from members, use
+  Server Settings, Integrations, Aegis in Discord.
 
 ## [3.5.0] - 2026-10-28
 
@@ -49,8 +467,8 @@ commands are re-registered on the next start.
 ### Added
 - **Role panels:** `/rolepanel create` takes `style` (buttons or a dropdown),
   `exclusive` (a member can hold only one role from the panel) and
-  `required_role` (only members with that role can use the panel). The roles
-  plugin's max-roles-per-panel setting is now enforced.
+  `required_role` (only members with that role can use the panel). The
+  per-server limit on roles per panel (25 by default) is now enforced.
 - **Tickets:** a staff-only Claim button; a ticket can only be claimed once and
   shows who claimed it. `/ticket claim` does the same.
 - **Tickets:** tickets with no messages for 48 hours close on their own. Change
@@ -244,10 +662,6 @@ Includes the changes earlier drafts listed as 3.3.1.
 
 ## [3.3.0] - 2026-10-17
 
-### Added
-- Plugin framework: a 30-second in-memory cache for plugin settings,
-  `onGuildLoaded` and guild-join hooks, and plugin dependency checks.
-
 ### Changed
 - Website restyled with frosted-glass panels.
 
@@ -255,15 +669,10 @@ Includes the changes earlier drafts listed as 3.3.1.
 - Leaving members that were not cached no longer crash the member-remove
   handler.
 - Welcome messages are delivered when the welcome channel is not in the cache.
-- Removed duplicate button handlers that the plugin router already covered.
 
 ## [3.2.0] - 2026-10-15
 
 ### Added
-- Plugin framework (`src/knub`): commands grouped into plugins with shared
-  permission, cooldown and guild-only checks, per-server enable/disable stored
-  in MongoDB, and `/plugins list|toggle|info`.
-- `/api/plugins` endpoint.
 - `/about` has a menu with overview, runtime, network and database views.
 
 ### Fixed
@@ -377,7 +786,9 @@ First version.
 - MongoDB storage (the SQLite dependency was dropped the same day).
 - Express website and Fly.io config.
 
-[Unreleased]: https://github.com/watispro1/AegisDeno/compare/87e33cb...HEAD
+[3.6.2]: https://github.com/watispro1/AegisDeno/compare/18611d0...main
+[3.6.1]: https://github.com/watispro1/AegisDeno/compare/b292b9f...18611d0
+[3.6.0]: https://github.com/watispro1/AegisDeno/compare/87e33cb...b292b9f
 [3.5.0]: https://github.com/watispro1/AegisDeno/compare/6f05a0d...87e33cb
 [3.4.0]: https://github.com/watispro1/AegisDeno/compare/4c2a46a...6f05a0d
 [3.3.3]: https://github.com/watispro1/AegisDeno/compare/c87cfd5...4c2a46a

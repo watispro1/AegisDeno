@@ -1,3 +1,4 @@
+import { parseFriendlyDuration } from "../../utils/duration";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -22,11 +23,17 @@ import { createTask, deleteTask, getTasksForChannel } from "../../services/sched
 import { scheduleTask, cancelTask } from "../../services/schedulerRunner";
 import { encodeChannelUnlock } from "../../services/timedActions";
 import { LOCK_MESSAGE_MAX, buildLockNoticeText, shouldPostLockNotice } from "../../services/lockNotice";
+import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 
 type LockableChannel = Extract<GuildBasedChannel, { permissionOverwrites: unknown }>;
 
-function isLockable(ch: GuildBasedChannel | null | undefined): ch is LockableChannel {
-  return Boolean(ch && !ch.isThread() && ch.type !== ChannelType.GuildCategory && "permissionOverwrites" in ch);
+/**
+ * A channel Aegis may lock. Obfuscated channels (Aegis lacks View Channel) are
+ * never lockable: their overwrites are a placeholder, and editing them would
+ * clobber the channel's real permissions.
+ */
+export function isLockable(ch: GuildBasedChannel | null | undefined): ch is LockableChannel {
+  return Boolean(ch && !isObfuscatedChannel(ch) && !ch.isThread() && ch.type !== ChannelType.GuildCategory && "permissionOverwrites" in ch);
 }
 
 /** Channels inside a category that a lock applies to. */
@@ -95,6 +102,27 @@ async function clearPendingUnlocks(guildId: string, channelId: string): Promise<
   }
 }
 
+/** Longest auto-unlock the friendly duration option accepts (the scheduler keeps it across restarts). */
+export const MAX_LOCK_MINUTES = 7 * 24 * 60;
+
+/**
+ * The auto-unlock length in minutes from /lock's two options. duration_minutes
+ * (0–1440) keeps working; duration takes "90m", "6h", "1d 12h" up to 7 days.
+ * Giving both is refused so nobody is surprised by which one won.
+ */
+export function lockDurationMinutes(minutes: number | null, text: string | null): { minutes: number } | { error: string } {
+  const raw = (text ?? "").trim();
+  if (raw && minutes !== null && minutes !== 0) return { error: "Use either `duration` or `duration_minutes`, not both." };
+  if (!raw) return { minutes: Math.max(0, minutes ?? 0) };
+  if (raw === "0") return { minutes: 0 };
+  const seconds = parseFriendlyDuration(raw);
+  if (seconds === null) return { error: "I couldn't read that duration. Try `90m`, `6h` or `1d 12h`." };
+  const m = Math.round(seconds / 60);
+  if (m < 1) return { error: "The auto-unlock needs to be at least 1 minute." };
+  if (m > MAX_LOCK_MINUTES) return { error: "Auto-unlock can be at most 7 days. Leave it blank to lock until someone runs `/lock unlock`." };
+  return { minutes: m };
+}
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("lock")
@@ -118,6 +146,13 @@ export const command: Command = {
             .setMaxValue(1440)
         )
         .addStringOption(opt =>
+          opt
+            .setName("duration")
+            .setDescription("Auto-unlock after e.g. 90m, 6h or 2d (up to 7 days); instead of duration_minutes")
+            .setMaxLength(32)
+            .setRequired(false)
+        )
+        .addStringOption(opt =>
           opt.setName("message").setDescription("Custom message to post in the locked channel").setMaxLength(LOCK_MESSAGE_MAX).setRequired(false)
         )
     )
@@ -138,6 +173,13 @@ export const command: Command = {
             .setRequired(false)
             .setMinValue(0)
             .setMaxValue(1440)
+        )
+        .addStringOption(opt =>
+          opt
+            .setName("duration")
+            .setDescription("Auto-unlock after e.g. 90m, 6h or 2d (up to 7 days); instead of duration_minutes")
+            .setMaxLength(32)
+            .setRequired(false)
         )
         .addStringOption(opt =>
           opt.setName("message").setDescription("Custom message to post in each locked channel").setMaxLength(LOCK_MESSAGE_MAX).setRequired(false)
@@ -188,6 +230,9 @@ export const command: Command = {
     // Status subcommand — check if channel is locked
     if (sub === "status") {
       const targetChannel = (interaction.options.getChannel("channel") ?? interaction.channel) as TextChannel | null;
+      if (targetChannel && (isObfuscatedChannel(targetChannel) || isObfuscatedChannel(guild.channels.cache.get(targetChannel.id)))) {
+        return interaction.reply({ content: `❌ ${hiddenChannelMessage(targetChannel.id)}`, flags: MessageFlags.Ephemeral });
+      }
       if (!targetChannel || !("permissionOverwrites" in targetChannel)) {
         return interaction.reply({ content: "❌ Invalid channel.", flags: MessageFlags.Ephemeral });
       }
@@ -274,7 +319,8 @@ export const command: Command = {
 
           let locked = 0;
           for (const [, ch] of channelCollection) {
-            if (ch && ch.isTextBased() && !ch.isThread?.() && "permissionOverwrites" in ch) {
+            // Skip channels hidden from Aegis: their overwrites are not real.
+            if (ch && !isObfuscatedChannel(ch) && ch.isTextBased() && !ch.isThread?.() && "permissionOverwrites" in ch) {
               await (ch as TextChannel).permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }).catch(() => null);
               locked++;
             }
@@ -316,6 +362,14 @@ export const command: Command = {
     const customMessage = interaction.options.getString("message");
     const moderator = { id: interaction.user.id, tag: interaction.user.tag };
 
+    // Auto-unlock length: the friendly "duration" text or the older duration_minutes (not both).
+    const lockLength = sub === "channel" || sub === "category"
+      ? lockDurationMinutes(interaction.options.getInteger("duration_minutes"), interaction.options.getString("duration"))
+      : { minutes: 0 };
+    if ("error" in lockLength) {
+      return interaction.reply({ content: `❌ ${lockLength.error}`, flags: MessageFlags.Ephemeral });
+    }
+
     // Category lock / unlock
     const category = sub === "category" || sub === "unlock" ? interaction.options.getChannel("category") : null;
     if (category) {
@@ -323,7 +377,7 @@ export const command: Command = {
         return interaction.reply({ content: "❌ Please pick a category.", flags: MessageFlags.Ephemeral });
       }
       const isLocking = sub === "category";
-      const durationMinutes = isLocking ? (interaction.options.getInteger("duration_minutes") ?? 0) : 0;
+      const durationMinutes = isLocking ? lockLength.minutes : 0;
       await interaction.deferReply();
 
       const children = categoryChildren(guild, category.id);
@@ -380,13 +434,17 @@ export const command: Command = {
         await interaction.editReply("❌ Threads inherit permissions from their parent channel. Please lock the parent channel instead.");
         return;
       }
+      if (isObfuscatedChannel(targetChannel)) {
+        await interaction.editReply(`❌ ${hiddenChannelMessage(targetChannel!.id)}`);
+        return;
+      }
       if (!isLockable(targetChannel)) {
         await interaction.editReply("❌ Invalid channel — please select a text channel.");
         return;
       }
 
       const isLocking = sub === "channel";
-      const durationMinutes = isLocking ? (interaction.options.getInteger("duration_minutes") ?? 0) : 0;
+      const durationMinutes = isLocking ? lockLength.minutes : 0;
       const autoUnlockText = await applyLock(interaction.client, guild, targetChannel, isLocking, durationMinutes, moderator);
 
       const embed = new EmbedBuilder()

@@ -22,6 +22,8 @@ A step-by-step guide for deploying Aegis to production on Fly.io with MongoDB At
   - [x] **Server Members Intent** (required for welcome messages and hierarchy checks)
   - [x] **Message Content Intent** (required for automod)
   - [ ] **Presence Intent** (optional — only needed for rich presence display)
+  - The bot also requests the message reactions intent for the starboard. It is
+    not privileged, so there is nothing to enable for it.
 - [ ] Under **OAuth2 → URL Generator**, select scopes: `bot`, `applications.commands`
 - [ ] Select bot permissions: `Manage Messages`, `Kick Members`, `Ban Members`, `Moderate Members`, `Send Messages`, `Embed Links`, `Read Message History`, `View Audit Log`
 - [ ] Copy the generated OAuth2 URL → `BOT_INVITE_URL`
@@ -206,6 +208,82 @@ After inviting Aegis to a server:
 | `BOT_INVITE_URL`          | Optional | Custom OAuth2 invite URL                                        |
 | `SUPPORT_SERVER_URL`      | Optional | Discord support server invite                                   |
 | `CONTACT_EMAIL`           | Optional | Contact email shown in web footer                               |
+| `DISCORD_CLIENT_SECRET`   | Dashboard | OAuth2 client secret; the dashboard is off without it          |
+| `DASHBOARD_SESSION_SECRET`| Dashboard | Signs session cookies and CSRF tokens; 32+ characters          |
+| `DASHBOARD_REDIRECT_URI`  | Optional | OAuth2 redirect (default: `https://aegisdeno.fly.dev/dashboard/callback`) |
+
+## Web dashboard
+
+The dashboard at `/dashboard` lets people with **Manage Server** or
+**Administrator** log in with Discord, read and edit moderation cases, and change
+the settings the bot stores. It is off until the two secrets below are set; until
+then every `/dashboard` page says "not configured" and nothing else changes.
+
+### 1. Discord Developer Portal
+
+1. Open https://discord.com/developers/applications and pick the Aegis application.
+2. Go to **OAuth2**.
+3. Under **Redirects**, click **Add Redirect** and enter exactly:
+   `https://aegisdeno.fly.dev/dashboard/callback`
+   Then click **Save Changes**.
+4. On the same page, under **Client Secret**, click **Reset Secret** (or copy it if
+   you have it) and keep it for the next step. Resetting invalidates the old one.
+
+The dashboard asks for the `identify` and `guilds` scopes only. You do not need to
+tick them in the URL Generator; the login link sets them.
+
+### 2. Fly secrets
+
+```bash
+fly secrets set \
+  DISCORD_CLIENT_SECRET="paste-the-client-secret" \
+  DASHBOARD_SESSION_SECRET="$(openssl rand -hex 32)" \
+  -a aegisdeno
+```
+
+Setting secrets restarts the machines. `DISCORD_APPLICATION_ID` is already set and
+doubles as the OAuth2 client ID.
+
+If the site is served from another hostname, also set
+`DASHBOARD_REDIRECT_URI="https://your-host/dashboard/callback"` and add that same
+URL as a redirect in the portal. The two must match character for character.
+
+### 3. Check it
+
+1. Open https://aegisdeno.fly.dev/dashboard. It should show **Log in with Discord**
+   instead of "not configured".
+2. Log in. You should see the servers where you have Manage Server and Aegis is a
+   member, and an **Add Aegis** link for servers you manage without it.
+3. `fly logs -a aegisdeno` shows `Dashboard: user <id> signed in`. Secrets and
+   tokens are never logged.
+
+### Notes
+
+- Sessions live in the `dashboardsessions` collection and expire after 7 days
+  (TTL index). Only a SHA-256 of the session ID is stored; the Discord access
+  token stays on the server and is revoked at logout.
+- Rotating `DASHBOARD_SESSION_SECRET` signs everyone out.
+- Every server page re-checks the member's permissions through the bot's
+  gateway connection, so losing Manage Server takes effect on the next click.
+- Changes made in the dashboard are posted to the server's log channel (if
+  logging is on) with the dashboard user's mention, like slash command changes.
+- Changes made in the dashboard are also kept per server in the
+  `dashboardaudits` collection (TTL 180 days) and shown on its Activity page.
+- Rate limits per client IP (from `Fly-Client-IP`): 20 login requests, 30 form
+  posts and 240 page views per minute. Counters live in the
+  `dashboardratelimits` collection (one document per client and minute, keyed
+  by a hash of the IP, removed by a TTL index), so they are shared by every
+  machine and survive restarts. If MongoDB is unreachable they fall back to
+  in-memory counts.
+- Both collections and their TTL indexes are created by Mongoose on start; no
+  new environment variables, scopes or gateway intents are needed.
+- Appeal reviews, unbans and posting panels from the dashboard need the same
+  member permission as their slash command (Ban Members, Manage Channels or
+  Manage Roles), and the bot needs Ban Members, Manage Roles, Send Messages,
+  Embed Links and Read Message History where it acts.
+- Local testing: set `DASHBOARD_REDIRECT_URI=http://localhost:3000/dashboard/callback`,
+  add that redirect in the portal, and run `npm run dev`. Cookies drop the
+  `Secure` flag only when the redirect URI is plain `http`.
 
 ## Automatic deploys from GitHub
 

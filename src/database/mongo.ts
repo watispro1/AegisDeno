@@ -40,6 +40,14 @@ const GuildConfigSchema = new mongoose.Schema({
   welcomeMessage: { type: String, default: "Welcome {user} to **{server}**! You are member #{member_count}.", maxlength: 1000 },
   welcomeRoleId: { type: String, default: null },
   suggestionsChannelId: { type: String, default: null },
+  // Added in 3.6.2 (dashboard overhaul). Normalised in services/configuration.ts.
+  welcomeEmbed: { type: mongoose.Schema.Types.Mixed, default: null },
+  goodbyeEnabled: { type: Boolean, default: false },
+  goodbyeChannelId: { type: String, default: null },
+  goodbyeMessage: { type: String, maxlength: 1000 },
+  goodbyeEmbed: { type: mongoose.Schema.Types.Mixed, default: null },
+  autorespondersEnabled: { type: Boolean, default: true },
+  logChannels: { type: mongoose.Schema.Types.Mixed, default: null },
   // Escalation: auto-actions when a user hits X warnings
   escalation: {
     enabled: { type: Boolean, default: false },
@@ -47,6 +55,17 @@ const GuildConfigSchema = new mongoose.Schema({
     thresholds: { type: mongoose.Schema.Types.Mixed, default: [] },
     warnExpiryDays: { type: Number, default: null },
   },
+  // No schema defaults: services/configuration.ts fills them, and an absent
+  // field is how the one-time copy of retired settings knows what is unset.
+  tickets: {
+    logChannelId: { type: String },
+    autoCloseHours: { type: Number },
+    transcriptLogging: { type: Boolean },
+  },
+  roles: {
+    maxRolesPerPanel: { type: Number },
+  },
+  legacySettingsMigratedAt: { type: Date, default: null },
 });
 export const GuildConfigModel = mongoose.model("GuildConfig", GuildConfigSchema);
 
@@ -64,6 +83,10 @@ const WarningSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 WarningSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+// Active-warning counts and lists (escalation, /warnings, trust score) filter on revoked.
+WarningSchema.index({ guildId: 1, userId: 1, revoked: 1, createdAt: -1 });
+// Guild-wide recent counts (/modreport, activity summary, dashboard).
+WarningSchema.index({ guildId: 1, createdAt: -1 });
 WarningSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const WarningModel = mongoose.model("Warning", WarningSchema);
 
@@ -82,6 +105,8 @@ const ModerationCaseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 ModerationCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+// Guild case lists and recent counts (/case list, /modreport, /modstats, dashboard).
+ModerationCaseSchema.index({ guildId: 1, createdAt: -1 });
 ModerationCaseSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const ModerationCaseModel = mongoose.model("ModerationCase", ModerationCaseSchema);
 
@@ -97,6 +122,11 @@ const TaskSchema = new mongoose.Schema({
 });
 TaskSchema.index({ guildId: 1, executeAt: 1 });
 TaskSchema.index({ creatorId: 1, type: 1, executeAt: 1 });
+// Boot-time restore: `$or: [{ executeAt >= cutoff }, { type in [...] }]` needs one index per branch.
+TaskSchema.index({ executeAt: 1 });
+TaskSchema.index({ type: 1, executeAt: 1 });
+// Per-channel lookups (ticket auto-close, /lock auto-unlock).
+TaskSchema.index({ guildId: 1, channelId: 1, type: 1 });
 export const TaskModel = mongoose.model("ScheduledTask", TaskSchema);
 
 const AutomodSchema = new mongoose.Schema({
@@ -166,6 +196,8 @@ const TicketSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 TicketSchema.index({ guildId: 1, userId: 1, status: 1 });
+// Message-path activity updates and channel → ticket lookups filter by channel.
+TicketSchema.index({ channelId: 1, status: 1 });
 // Enforce the one-open-ticket-per-member policy even across restarts or
 // multiple bot instances. Closed tickets remain fully queryable as history.
 TicketSchema.index(
@@ -282,21 +314,26 @@ PollSchema.index({ guildId: 1, ended: 1 });
 export const PollModel = mongoose.model("Poll", PollSchema);
 
 
-const PluginConfigSchema = new mongoose.Schema({
+/**
+ * Retired per-feature settings (one document per guild and feature). Read only,
+ * once per guild, to copy ticket and role-panel settings into GuildConfig; see
+ * services/configuration.ts. Nothing writes here any more, and `autoIndex` is
+ * off so the bot never touches this collection's indexes. Safe to drop once
+ * every guild's config has `legacySettingsMigratedAt` set.
+ */
+const LegacyPluginSettingsSchema = new mongoose.Schema({
   guildId: { type: String, required: true },
   pluginName: { type: String, required: true },
-  enabled: { type: Boolean, default: true },
-  config: { type: mongoose.Schema.Types.Mixed, default: {} },
-  updatedAt: { type: Date, default: Date.now },
-});
-PluginConfigSchema.index({ guildId: 1, pluginName: 1 }, { unique: true });
-export const PluginConfigModel = mongoose.model("PluginConfig", PluginConfigSchema);
+  enabled: { type: Boolean },
+  config: { type: mongoose.Schema.Types.Mixed },
+}, { collection: "pluginconfigs", autoIndex: false, autoCreate: false });
+export const LegacyPluginSettingsModel = mongoose.model("LegacyPluginSettings", LegacyPluginSettingsSchema);
 
 // ─── Starboard ────────────────────────────────────────────────────────────────
 
 /**
  * Per-guild starboard configuration stored in MongoDB.
- * Separate from PluginConfig so it can be queried cheaply on every reaction.
+ * Read on every starboard reaction (cached in services/starboard.ts).
  */
 const StarboardConfigSchema = new mongoose.Schema({
   guildId:         { type: String, required: true, unique: true },
@@ -403,3 +440,58 @@ const UserActivitySchema = new mongoose.Schema({
 });
 UserActivitySchema.index({ guildId: 1, userId: 1 }, { unique: true });
 export const UserActivityModel = mongoose.model('UserActivity', UserActivitySchema);
+
+// ─── Web dashboard sessions ───────────────────────────────────────────────────
+
+/**
+ * One signed-in dashboard browser. The cookie holds a signed random ID; only its
+ * SHA-256 is stored here. The Discord access token never leaves the server.
+ * Documents are removed by the TTL index once `expiresAt` passes (7 days).
+ */
+const DashboardSessionSchema = new mongoose.Schema({
+  sidHash:        { type: String, required: true, unique: true },
+  userId:         { type: String, required: true },
+  username:       { type: String, required: true },
+  globalName:     { type: String, default: null },
+  accessToken:    { type: String, required: true },
+  tokenExpiresAt: { type: Date, required: true },
+  // Guilds from GET /users/@me/guilds at login or the last refresh: { id, name, icon, owner, permissions }.
+  guilds:         { type: mongoose.Schema.Types.Mixed, default: [] },
+  guildsFetchedAt:{ type: Date, default: Date.now },
+  createdAt:      { type: Date, default: Date.now },
+  expiresAt:      { type: Date, required: true },
+}, { minimize: false });
+DashboardSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+DashboardSessionSchema.index({ userId: 1 });
+export const DashboardSessionModel = mongoose.model("DashboardSession", DashboardSessionSchema);
+
+/**
+ * Dashboard rate-limit counters, one document per client, bucket and fixed
+ * one-minute window. Shared by every process, so limits hold across restarts
+ * and machines. The TTL index removes a window shortly after it ends.
+ * `key` is a SHA-256 of the client address, never the address itself.
+ */
+const DashboardRateLimitSchema = new mongoose.Schema({
+  _id:       { type: String },            // `${bucket}:${keyHash}:${windowStart}`
+  count:     { type: Number, default: 0 },
+  expiresAt: { type: Date, required: true },
+}, { versionKey: false });
+DashboardRateLimitSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+export const DashboardRateLimitModel = mongoose.model("DashboardRateLimit", DashboardRateLimitSchema);
+
+/**
+ * What was changed through the web dashboard, per server: who, what and when.
+ * Shown on the dashboard's Activity page; kept for 180 days.
+ */
+const DashboardAuditSchema = new mongoose.Schema({
+  guildId:   { type: String, required: true },
+  userId:    { type: String, required: true },
+  username:  { type: String, required: true },
+  action:    { type: String, required: true },   // e.g. "settings.automod", "case.revoke", "appeal.approve"
+  target:    { type: String, default: null },    // case ID, appeal code, channel ID…
+  summary:   { type: String, default: "" },
+  createdAt: { type: Date, default: Date.now },
+}, { versionKey: false });
+DashboardAuditSchema.index({ guildId: 1, createdAt: -1 });
+DashboardAuditSchema.index({ createdAt: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
+export const DashboardAuditModel = mongoose.model("DashboardAudit", DashboardAuditSchema);

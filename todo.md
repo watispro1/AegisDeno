@@ -124,11 +124,11 @@
 - [x] Overhaul `/ban`: added reason presets, account age and join date audit metrics in confirmation embed, and 1-click ban revocation button
 - [x] Overhaul `/case`: added `/case user` subcommand to view a member's complete infraction history with action icons, and richer single-case cards
 - [x] Overhaul `/purge`: added audit reason support, case logging into `ModerationCaseModel`, and visual progress bar
-- [x] Prune redundant markdown files (`CHANNEL_CONTENT.md`, `KNUB_CHANGELOG.md`, `DISCOVERY.md`) and update all project documentation for v3.3.3
+- [x] Prune redundant markdown files (`CHANNEL_CONTENT.md`, the old framework changelog, `DISCOVERY.md`) and update all project documentation for v3.3.3
 
 ### v3.3.2 Milestone (Starboard Plugin, Web Docs Overhaul & Mobile QoL)
 
-- [x] Create modular Knub Starboard plugin (`starboardPlugin` v1.0.0) with partial reaction hydration
+- [x] Create the Starboard module with partial reaction hydration
 - [x] Add `/starboard` command suite (setup, threshold, emoji, selfstar, ignore, config, list, toggle)
 - [x] Add `StarboardConfig` and `StarboardEntry` MongoDB models with unique compound indexes
 - [x] Overhaul `/docs` manual with comprehensive Starboard, Tickets, Verification, and AutoMod guides

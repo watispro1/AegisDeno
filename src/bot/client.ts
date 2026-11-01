@@ -5,13 +5,11 @@ import {
   Collection,
   Events,
   GuildMember,
+  PartialGuildMember,
   Message,
   TextChannel,
   ActivityType,
   PresenceUpdateStatus,
-  ActionRowBuilder,
-  ButtonBuilder,
-  EmbedBuilder,
 } from "discord.js";
 import "../types/augmentation"; // Ensure augmentation is loaded
 import { logger } from "../utils/logger";
@@ -20,10 +18,11 @@ import { executeCommand } from "../commands/executor";
 import { sendGuildLog } from "../services/logging";
 import { processAutomod, processAutomodEdit } from "../services/automodExecution";
 import { processAutoResponders } from "../services/autoResponderService";
+import { buildEmbedFromSpec, renderTemplate } from "../services/embedSpec";
 import { getGuildConfig } from "../services/configuration";
 import { scheduleUnverifiedKick } from "../services/verificationService";
-import { knubManager } from "../knub";
-import { registerDefaultPlugins } from "../knub/plugins";
+import { componentRouter } from "./interactions";
+import { registerStarboardEvents } from "./events/starboard";
 import {
   watchlistOnJoin,
   watchlistOnLeave,
@@ -32,9 +31,14 @@ import {
   watchlistOnMessageDelete,
   watchlistOnRoleChange,
   watchlistOnVoiceJoin,
+  startWatchlistSync,
 } from "../services/watchlistService";
-import { TicketModel } from "../database/mongo";
 import { recordMemberMessage } from "../services/memberActivity";
+import { touchTicketActivity } from "../services/ticketActivity";
+import { isObfuscatedChannel } from "../utils/channels";
+import { DEFAULT_ALLOWED_MENTIONS } from "./mentions";
+import { isContentEdit } from "./eventFilters";
+import { codeBlock } from "../utils/safeText";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -50,8 +54,16 @@ export function createClient(): Client {
       // drops presence updates from a connection missing this intent.
       GatewayIntentBits.GuildPresences,
       GatewayIntentBits.GuildVoiceStates,
+      // Starboard: without this intent Discord never sends reaction events.
+      GatewayIntentBits.GuildMessageReactions,
     ],
-    partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
+    // Message, Channel and Reaction partials deliver reactions on messages that
+    // are not in the cache (anything sent before the bot last started).
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.GuildMember],
+    // Safe default for every message, reply and webhook: user mentions ping,
+    // but @everyone, @here and role mentions inside user-supplied text never do.
+    // Features that are meant to ping a role or everyone opt in per message.
+    allowedMentions: DEFAULT_ALLOWED_MENTIONS,
   });
 
   // Attach commands collection to client for easy access
@@ -64,11 +76,7 @@ export function createClient(): Client {
 }
 
 export function setupEvents(client: Client): void {
-  // Initialize Knub plugins
-  registerDefaultPlugins();
-  knubManager.initialize(client).catch((err) => {
-    logger.error("[Knub] Plugin initialization error:", err);
-  });
+  registerStarboardEvents(client);
 
   // ─── Ready ────────────────────────────────────────────────────────────────
   client.once(Events.ClientReady, (c) => {
@@ -76,6 +84,7 @@ export function setupEvents(client: Client): void {
     logger.info(`📡 Serving ${c.guilds.cache.size} guild(s).`);
 
     applyPresence(c);
+    startWatchlistSync();
   });
 
   // Discord drops a presence that is not refreshed, so re-send it periodically.
@@ -150,7 +159,7 @@ export function setupEvents(client: Client): void {
       }
       await executeCommand(command, interaction);
     } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
-      await knubManager.dispatchComponent(interaction as any);
+      await componentRouter.dispatch(interaction);
     }
   });
 
@@ -158,35 +167,39 @@ export function setupEvents(client: Client): void {
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot || !message.guildId) return;
 
-    // 1. Autoresponder check
-    const responded = await processAutoResponders(message).catch(err => {
-      logger.error("Autoresponder error:", err);
-      return false;
-    });
-    if (responded) return;
-
-    // 2. Ghost Watch — alert watchers on message
+    // Activity, ticket and Ghost Watch bookkeeping run for every message.
     // Track message count / last active (debounced, no content) & first message of the day
     const isFirstToday = await recordMemberMessage(message.guildId, message.author.id).catch(() => false);
 
-    TicketModel.updateOne(
-      { guildId: message.guildId, channelId: message.channelId, status: "open" },
-      { $set: { lastActivityAt: new Date() } }
-    ).catch(() => null);
+    // Ticket inactivity clock: at most one write per channel per minute.
+    touchTicketActivity(message.guildId, message.channelId);
 
     watchlistOnMessage(client, message, isFirstToday).catch(err =>
       logger.warn("Watchlist message error:", err)
     );
 
-    // 3. Automod check
-    await processAutomod(client, message).catch(err =>
-      logger.error("Automod error (create):", err)
-    );
+    // Automod runs before the autoresponder. Previously a message that matched
+    // an autoresponder trigger returned early and skipped automod (and Ghost
+    // Watch), so a blocked word next to a trigger phrase went through.
+    const removed = await processAutomod(client, message).catch(err => {
+      logger.error("Automod error (create):", err);
+      return false;
+    });
+    if (removed) return;
+
+    await processAutoResponders(message).catch(err => {
+      logger.error("Autoresponder error:", err);
+      return false;
+    });
   });
 
   // ─── Automod (edited messages) ────────────────────────────────────────────
-  client.on(Events.MessageUpdate, async (_old, newMessage) => {
+  client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
     if (!newMessage.guildId) return;
+    // Discord also sends an update when it attaches a link preview or the
+    // message is pinned. Only a real content change counts as an edit; before
+    // this, a link preview re-ran automod and sent a Ghost Watch "edited" alert.
+    if (!isContentEdit(oldMessage, newMessage)) return;
     // Fetch partial to get full content
     const msg = newMessage.partial ? await newMessage.fetch().catch(() => null) : newMessage;
     if (!msg || msg.author?.bot) return;
@@ -216,9 +229,9 @@ export function setupEvents(client: Client): void {
       title: "🗑️ Message Deleted",
       color: 0xE74C3C,
       description: [
-        `**Author:** ${message.author?.tag ?? "Unknown"} (<@${message.author?.id}>)`,
+        `**Author:** ${message.author ? `${message.author.tag} (<@${message.author.id}>)` : "Unknown (message was not cached)"}`,
         `**Channel:** <#${message.channelId}>`,
-        message.content ? `\n**Content:**\n\`\`\`\n${message.content.substring(0, 900)}\`\`\`` : "",
+        message.content ? `\n**Content:**\n${codeBlock(message.content, 920)}` : "",
       ].join("\n"),
     }, "messageDeletes");
   });
@@ -257,14 +270,14 @@ export function setupEvents(client: Client): void {
       if (!channel) {
         channel = (await member.guild.channels.fetch(config.welcomeChannelId).catch(() => null)) as TextChannel | null ?? undefined;
       }
-      if (channel) {
-        const msg = config.welcomeMessage
-          .replace(/{user}/g, `<@${member.user.id}>`)
-          .replace(/{username}/g, member.user.username)
-          .replace(/{server}/g, member.guild.name)
-          .replace(/{member_count}/g, String(member.guild.memberCount))
-          .replace(/{count}/g, String(member.guild.memberCount));
-        await channel.send(msg).catch(() => null);
+      if (channel && isObfuscatedChannel(channel)) {
+        logger.warn(`Welcome channel ${config.welcomeChannelId} in ${member.guild.id} is hidden from Aegis (no View Channel); skipping the welcome message.`);
+      } else if (channel) {
+        const values = { user: `<@${member.user.id}>`, username: member.user.username, server: member.guild.name, memberCount: member.guild.memberCount };
+        const content = renderTemplate(config.welcomeMessage, values).slice(0, 2000);
+        const embeds = config.welcomeEmbed ? [buildEmbedFromSpec(config.welcomeEmbed, values)] : [];
+        // Only the joining member may be pinged by a welcome; never roles or @everyone.
+        await channel.send({ content: content || undefined, embeds, allowedMentions: { users: [member.user.id] } }).catch(() => null);
       }
     }
 
@@ -310,11 +323,32 @@ export function setupEvents(client: Client): void {
 
     // Ghost Watch — notify watchers on leave
     watchlistOnLeave(client, member).catch(err => logger.warn("Watchlist leave error:", err));
+
+    // Goodbye message (off unless turned on in the dashboard). Never pings anyone.
+    sendGoodbye(member).catch(err => logger.warn("Goodbye message error:", err));
   });
 
   // ─── Guild Join / Discovery ────────────────────────────────────────────────
-  client.on(Events.GuildCreate, async (guild) => {
+  client.on(Events.GuildCreate, (guild) => {
     logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
-    await knubManager.handleGuildCreate(guild);
   });
+}
+
+/** Posts the goodbye message for a member who left, if the server turned it on. */
+async function sendGoodbye(member: GuildMember | PartialGuildMember): Promise<void> {
+  const config = await getGuildConfig(member.guild.id);
+  if (!config.goodbyeEnabled || !config.goodbyeChannelId) return;
+  const channel = member.guild.channels.cache.get(config.goodbyeChannelId)
+    ?? await member.guild.channels.fetch(config.goodbyeChannelId).catch(() => null);
+  if (!channel || isObfuscatedChannel(channel)) {
+    if (channel) logger.warn(`Goodbye channel ${config.goodbyeChannelId} in ${member.guild.id} is hidden from Aegis (no View Channel); skipping the goodbye message.`);
+    return;
+  }
+  if (!channel.isTextBased() || !("send" in channel)) return;
+  const name = member.user?.username ?? "A member";
+  const values = { user: name, username: name, server: member.guild.name, memberCount: member.guild.memberCount };
+  const content = renderTemplate(config.goodbyeMessage ?? "", values).slice(0, 2000);
+  const embeds = config.goodbyeEmbed ? [buildEmbedFromSpec(config.goodbyeEmbed, values)] : [];
+  if (!content && embeds.length === 0) return;
+  await channel.send({ content: content || undefined, embeds, allowedMentions: { parse: [] } }).catch(() => null);
 }

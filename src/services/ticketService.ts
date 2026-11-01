@@ -14,45 +14,72 @@ import {
 import { TicketModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 import { sendGuildLog } from "./logging";
-import { knubManager } from "../knub/KnubManager";
+import { defaultGuildConfig, getGuildConfig, updateGuildConfig, type TicketSettings } from "./configuration";
 import { createTask, deleteTask, getTasksForChannel, type ScheduledTask } from "./scheduler";
 import {
-  DEFAULT_TICKET_AUTOCLOSE_HOURS,
   autoCloseDecision,
   decodeTicketTask,
   encodeTicketTask,
-  normalizeAutoCloseHours,
   renderTranscriptHtml,
   type TranscriptMessage,
 } from "./ticketTranscript";
+import { isObfuscatedChannel } from "../utils/channels";
 
-/** Per-guild ticket settings, stored as the `tickets` plugin config. */
-export interface TicketSettings {
-  /** Channel that receives HTML transcripts when a ticket closes. */
-  logChannelId: string | null;
-  /** Close a ticket after this many hours without messages; 0 disables. */
-  autoCloseHours: number;
-  /** Post transcripts to the log channel on close. */
-  transcriptLogging: boolean;
+export type { TicketSettings } from "./configuration";
+
+export const TICKET_PANEL_DEFAULT_TITLE = "🎫 Support Tickets";
+export const TICKET_PANEL_DEFAULT_DESCRIPTION = "Need assistance? Click the button below to open a private support ticket with our team.";
+
+/**
+ * Post the "Create Ticket" panel in a channel, deleting earlier Aegis ticket
+ * panels among its last 50 messages first. Shared by `/ticket setup` and the
+ * web dashboard. Throws when Discord refuses the send (missing permissions).
+ */
+export async function postTicketPanel(
+  channel: TextChannel,
+  opts: { staffRoleId?: string | null; title?: string | null; description?: string | null } = {},
+): Promise<Message> {
+  const botId = channel.client.user?.id;
+  const fetchedMsgs = await channel.messages.fetch({ limit: 50 }).catch(() => null);
+  if (fetchedMsgs) {
+    const oldPanels = fetchedMsgs.filter(
+      (m) =>
+        m.author.id === botId &&
+        m.components.some((row: any) => row.components?.some((c: any) => c.customId?.startsWith("ticket_create_"))),
+    );
+    for (const [, msg] of oldPanels) {
+      await msg.delete().catch(() => null);
+    }
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(opts.title || TICKET_PANEL_DEFAULT_TITLE)
+    .setColor(0x3498DB)
+    .setDescription(opts.description || TICKET_PANEL_DEFAULT_DESCRIPTION)
+    .setFooter({ text: "Aegis Ticket System" });
+
+  const customId = opts.staffRoleId ? `ticket_create_${opts.staffRoleId}` : "ticket_create_general";
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(customId)
+      .setLabel("Create Ticket")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("🎫"),
+  );
+
+  return channel.send({ embeds: [embed], components: [row] });
 }
 
 /** Most messages fetched into a transcript (Discord pages are 100 each). */
 const TRANSCRIPT_MESSAGE_LIMIT = 1000;
 
+/** Ticket settings live in the guild config (`tickets`). */
 export async function getTicketSettings(guildId: string): Promise<TicketSettings> {
-  const cfg = await knubManager
-    .getGuildPluginConfig<Record<string, unknown>>(guildId, "tickets")
-    .catch(() => ({} as Record<string, unknown>));
-  return {
-    logChannelId: typeof cfg.logChannelId === "string" && cfg.logChannelId ? cfg.logChannelId : null,
-    autoCloseHours: normalizeAutoCloseHours(cfg.autoCloseHours ?? DEFAULT_TICKET_AUTOCLOSE_HOURS),
-    transcriptLogging: cfg.transcriptLogging !== false,
-  };
+  return (await getGuildConfig(guildId).catch(() => defaultGuildConfig(guildId))).tickets;
 }
 
 export async function updateTicketSettings(guildId: string, patch: Partial<TicketSettings>): Promise<TicketSettings> {
-  await knubManager.setGuildPluginConfig(guildId, "tickets", patch);
-  return getTicketSettings(guildId);
+  return (await updateGuildConfig(guildId, { tickets: patch })).tickets;
 }
 
 /** The opener's channel button row: Claim (staff only) and Close. */
@@ -223,11 +250,11 @@ export async function createTicketChannel(
         category,
         status: "open",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // A second instance can win the unique-index race after this process has
       // already created a channel. Remove the orphan and direct the user to
       // the winning ticket rather than leaving duplicate private channels.
-      if (error?.code === 11000) {
+      if ((error as { code?: unknown } | null)?.code === 11000) {
         await channel.delete("Duplicate ticket creation prevented").catch(() => null);
         const existing = await TicketModel.findOne({ guildId: guild.id, userId, status: "open" });
         const existingChannel = existing
@@ -258,7 +285,13 @@ export async function createTicketChannel(
 
     const row = buildTicketControls(ticketId);
 
-    await channel.send({ content: `<@${userId}> ${staffRoleId ? `<@&${staffRoleId}>` : ""}`, embeds: [embed], components: [row] });
+    await channel.send({
+      content: `<@${userId}> ${staffRoleId ? `<@&${staffRoleId}>` : ""}`,
+      embeds: [embed],
+      components: [row],
+      // Ping exactly the opener and the configured staff role, nothing else.
+      allowedMentions: { users: [userId], roles: staffRoleId ? [staffRoleId] : [] },
+    });
 
     if (settings.autoCloseHours > 0) {
       const decision = autoCloseDecision(Date.now(), settings.autoCloseHours, Date.now());
@@ -293,16 +326,26 @@ export async function closeTicket(
     const ticket = await TicketModel.findOne({ guildId: guild.id, channelId, status: "open" });
     if (!ticket) return false;
 
-    ticket.status = "closed";
-    ticket.closedBy = closedByUserId;
-    ticket.closedAt = new Date();
-    ticket.reason = reason;
-    await ticket.save();
-
     let channel = guild.channels.cache.get(channelId) as TextChannel | undefined;
     if (!channel) {
       channel = (await guild.channels.fetch(channelId).catch(() => null)) as TextChannel | null ?? undefined;
     }
+
+    // Leave a ticket Aegis cannot see open: it could not post the notice,
+    // build the transcript or delete the channel, and members may still use it.
+    if (channel && isObfuscatedChannel(channel)) {
+      logger.warn(`Ticket ${ticket.id}: not closing, channel ${channelId} is hidden from Aegis.`);
+      return false;
+    }
+
+    // Claim the close atomically: the Close button, /ticket close and the
+    // auto-close check can race, and only one of them may post the notice,
+    // send the transcript and delete the channel.
+    const claimed = await TicketModel.updateOne(
+      { _id: ticket._id, status: "open" },
+      { $set: { status: "closed", closedBy: closedByUserId, closedAt: new Date(), reason } },
+    );
+    if (claimed.modifiedCount === 0) return false;
 
     await clearAutoCloseChecks(guild.id, channelId);
 
@@ -409,7 +452,7 @@ async function deliverCloseTranscript(
 
   if (settings.transcriptLogging && settings.logChannelId) {
     const logChannel = await guild.channels.fetch(settings.logChannelId).catch(() => null);
-    if (logChannel && logChannel.isTextBased() && "send" in logChannel) {
+    if (logChannel && !isObfuscatedChannel(logChannel) && logChannel.isTextBased() && "send" in logChannel) {
       await logChannel.send({ embeds: [summary], files: [file] }).catch(err =>
         logger.warn(`Ticket ${meta.ticketId}: could not post transcript to log channel`, err),
       );
@@ -466,9 +509,25 @@ export async function runTicketAutoClose(client: Client, task: ScheduledTask): P
 
   const settings = await getTicketSettings(task.guildId);
   const lastActivity = new Date(ticket.lastActivityAt ?? ticket.createdAt ?? Date.now()).getTime();
-  const decision = autoCloseDecision(lastActivity, settings.autoCloseHours, Date.now());
+  // A ticket channel hidden from Aegis gets no activity writes, so its stored
+  // time is stale. Check visibility before touching ticket state.
+  const channel = guild.channels.cache.get(ticket.channelId)
+    ?? await guild.channels.fetch(ticket.channelId).catch(() => null);
+  const now = Date.now();
+  const decision = autoCloseDecision(lastActivity, settings.autoCloseHours, now, {
+    channelHidden: isObfuscatedChannel(channel),
+  });
 
   if (decision.action === "disabled") return;
+  if (decision.action === "defer") {
+    await TicketModel.updateOne(
+      { id: ticket.id, guildId: task.guildId, status: "open" },
+      { $set: { lastActivityAt: new Date(now) } },
+    ).catch(err => logger.warn(`Ticket ${ticket.id}: could not refresh activity while hidden`, err));
+    logger.info(`Ticket ${ticket.id}: channel hidden from Aegis, auto-close deferred.`);
+    await scheduleAutoCloseCheck(client, task.guildId, ticket.channelId, ticket.id, new Date(decision.at));
+    return;
+  }
   if (decision.action === "recheck") {
     await scheduleAutoCloseCheck(client, task.guildId, ticket.channelId, ticket.id, new Date(decision.at));
     return;
@@ -479,6 +538,8 @@ export async function runTicketAutoClose(client: Client, task: ScheduledTask): P
 }
 
 export async function addUserToTicket(channel: TextChannel, userId: string): Promise<boolean> {
+  // Never edit overwrites on a channel hidden from Aegis: they are a placeholder.
+  if (isObfuscatedChannel(channel)) return false;
   try {
     await channel.permissionOverwrites.edit(userId, {
       ViewChannel: true,
@@ -492,6 +553,7 @@ export async function addUserToTicket(channel: TextChannel, userId: string): Pro
 }
 
 export async function removeUserFromTicket(channel: TextChannel, userId: string): Promise<boolean> {
+  if (isObfuscatedChannel(channel)) return false;
   try {
     await channel.permissionOverwrites.delete(userId);
     return true;

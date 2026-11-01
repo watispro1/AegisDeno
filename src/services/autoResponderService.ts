@@ -1,6 +1,9 @@
 import { Message } from "discord.js";
 import { AutoResponderModel } from "../database/mongo";
 import { logger } from "../utils/logger";
+import { TtlCache } from "../utils/ttlCache";
+import { getGuildConfig } from "./configuration";
+import { DISCORD_LIMITS, truncate } from "../utils/safeText";
 
 export interface AutoResponder {
   id: string;
@@ -13,12 +16,26 @@ export interface AutoResponder {
   createdAt: Date;
 }
 
-interface CacheEntry {
-  responders: any[];
-  expiresAt: number;
+/** The fields the message path needs, with the trigger already lower-cased. */
+interface ActiveResponder {
+  trigger: string;
+  response: string;
+  matchType: AutoResponder["matchType"];
 }
-const responderCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 30_000;
+
+/** Enabled responders per guild, read on every message. Add/remove invalidate. */
+const responderCache = new TtlCache<ActiveResponder[]>(30_000);
+
+async function loadActiveResponders(guildId: string): Promise<ActiveResponder[]> {
+  const docs = await AutoResponderModel.find({ guildId, enabled: true })
+    .select("-_id trigger response matchType")
+    .lean();
+  return docs.map((d) => ({
+    trigger: String(d.trigger).toLowerCase(),
+    response: String(d.response),
+    matchType: d.matchType as AutoResponder["matchType"],
+  }));
+}
 
 export async function addAutoResponder(input: {
   guildId: string;
@@ -55,6 +72,26 @@ export async function removeAutoResponder(guildId: string, id: string): Promise<
   }
 }
 
+/** Turns one responder on or off. False when it does not exist in this server. */
+export async function setAutoResponderEnabled(guildId: string, id: string, enabled: boolean): Promise<boolean> {
+  try {
+    responderCache.delete(guildId);
+    const res = await AutoResponderModel.updateOne({ guildId, id }, { $set: { enabled } });
+    return res.matchedCount > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether the server already has a responder with this trigger and match type (triggers are stored lower-cased). */
+export async function autoResponderExists(guildId: string, trigger: string, matchType: AutoResponder["matchType"]): Promise<boolean> {
+  try {
+    return (await AutoResponderModel.countDocuments({ guildId, trigger: trigger.toLowerCase().trim(), matchType })) > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function getAutoResponders(guildId: string): Promise<AutoResponder[]> {
   try {
     const docs = await AutoResponderModel.find({ guildId }).sort({ createdAt: -1 });
@@ -68,19 +105,15 @@ export async function processAutoResponders(message: Message): Promise<boolean> 
   if (!message.guild || message.author.bot || !message.content) return false;
 
   try {
+    const guildId = message.guild.id;
+    // The server-wide switch (dashboard Autoresponders page); cached with the guild config.
+    if ((await getGuildConfig(guildId)).autorespondersEnabled === false) return false;
+    const responders = await responderCache.getOrLoad(guildId, () => loadActiveResponders(guildId));
+    if (responders.length === 0) return false;
     const content = message.content.toLowerCase();
-    const now = Date.now();
-    const cached = responderCache.get(message.guild.id);
-    let responders: any[];
-    if (cached && now < cached.expiresAt) {
-      responders = cached.responders;
-    } else {
-      responders = await AutoResponderModel.find({ guildId: message.guild.id, enabled: true }).lean();
-      responderCache.set(message.guild.id, { responders, expiresAt: now + CACHE_TTL_MS });
-    }
 
     for (const ar of responders) {
-      const trigger = ar.trigger.toLowerCase();
+      const trigger = ar.trigger;
       let matched = false;
 
       if (ar.matchType === "exact" && content === trigger) {
@@ -104,7 +137,7 @@ export async function processAutoResponders(message: Message): Promise<boolean> 
           .replace(/{member_count}/g, String(message.guild.memberCount));
 
         if ("send" in message.channel && typeof message.channel.send === "function") {
-          await message.channel.send(formattedResponse).catch(() => null);
+          await message.channel.send(truncate(formattedResponse, DISCORD_LIMITS.content)).catch(() => null);
         }
         return true;
       }

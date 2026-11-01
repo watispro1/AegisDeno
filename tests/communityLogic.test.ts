@@ -6,6 +6,9 @@ import {
   applyPollVote,
   tallyPoll,
   pollLeaders,
+  pollVoteGuard,
+  renderPollResultsText,
+  EMBED_DESCRIPTION_LIMIT,
   buildResultBar,
   reviewTransition,
   isSuggestionOpen,
@@ -165,4 +168,61 @@ test("renderWelcomeTemplate does not re-expand variables inside substituted valu
   });
   assert.equal(out, "{server} @ S");
   assert.equal(renderWelcomeTemplate("{count}", { userId: "1", username: "u", serverName: "S", memberCount: null }), "?");
+});
+
+// ─── Poll fixes from the PR #5 review ────────────────────────────────────────
+
+/** Evaluates a pollVoteGuard filter against one user's stored picks, like MongoDB would. */
+function guardMatches(guard: Record<string, unknown>, stored: number[] | undefined): boolean {
+  const cond = Object.values(guard)[0];
+  if (cond && typeof cond === "object" && !Array.isArray(cond) && "$in" in cond) {
+    return stored === undefined || stored === null || (Array.isArray(stored) && stored.length === 0);
+  }
+  return JSON.stringify(stored) === JSON.stringify(cond);
+}
+
+test("pollVoteGuard: two quick multi-select clicks both count", () => {
+  let stored: number[] | undefined;
+  const userId = "u1";
+  // Both clicks were computed from the same read: no picks yet.
+  const clicks = [1, 3].map((option) => ({ option, picks: [] as number[] }));
+  for (const click of clicks) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const next = applyPollVote(click.picks, click.option, true);
+      if (guardMatches(pollVoteGuard(userId, click.picks), stored)) {
+        stored = next.choices.length ? next.choices : undefined;
+        break;
+      }
+      click.picks = stored ?? [];
+    }
+  }
+  assert.deepEqual(stored, [1, 3]);
+});
+
+test("pollVoteGuard keys on the user's picks and treats missing and empty alike", () => {
+  assert.deepEqual(pollVoteGuard("u1", []), { "votes.u1": { $in: [null, []] } });
+  assert.deepEqual(pollVoteGuard("u1", [0, 2]), { "votes.u1": [0, 2] });
+  assert.equal(guardMatches(pollVoteGuard("u1", []), []), true);
+  assert.equal(guardMatches(pollVoteGuard("u1", [0]), [0, 2]), false);
+});
+
+test("renderPollResultsText keeps every option when voter lists are long", () => {
+  const options = Array.from({ length: 10 }, (_, i) => `Option ${i} ${"x".repeat(70)}`);
+  const votes: Record<string, number[]> = {};
+  for (let u = 0; u < 400; u++) votes[`1000000000000${String(u).padStart(5, "0")}`] = [u % 10, (u + 3) % 10];
+  const counts = options.map((_, i) => Object.values(votes).filter((p) => p.includes(i)).length);
+  const total = counts.reduce((a, b) => a + b, 0);
+  const text = renderPollResultsText({ options, anonymous: false, votes }, counts, total, "🤝 Tie", ["1","2","3","4","5","6","7","8","9","10"]);
+  assert.ok(text.length <= EMBED_DESCRIPTION_LIMIT, `length ${text.length}`);
+  for (const opt of options) assert.ok(text.includes(opt), `missing ${opt}`);
+  assert.match(text, /\+\d+ (more|voters)/);
+});
+
+test("renderPollResultsText lists voters in full when they fit and never for anonymous polls", () => {
+  const votes = { "111": [0], "222": [0, 1] };
+  const text = renderPollResultsText({ options: ["A", "B"], anonymous: false, votes }, [2, 1], 3, "v", ["1", "2"]);
+  assert.match(text, /<@111> <@222>/);
+  assert.doesNotMatch(text, /more/);
+  const anon = renderPollResultsText({ options: ["A", "B"], anonymous: true, votes }, [2, 1], 3, "v", ["1", "2"]);
+  assert.doesNotMatch(anon, /<@/);
 });

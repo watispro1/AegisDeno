@@ -21,8 +21,10 @@ import {
   getTicketSettings,
   updateTicketSettings,
   ensureAutoCloseChecks,
+  postTicketPanel,
 } from "../../services/ticketService";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../services/ticketTranscript";
+import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -104,38 +106,10 @@ export const command: Command = {
 
       const channel = interaction.options.getChannel("channel", true) as TextChannel;
       const staffRole = interaction.options.getRole("staff_role");
-      const title = interaction.options.getString("title") || "🎫 Support Tickets";
-      const description = interaction.options.getString("description") || "Need assistance? Click the button below to open a private support ticket with our team.";
+      const title = interaction.options.getString("title");
+      const description = interaction.options.getString("description");
 
-      // Purge previous Aegis ticket panel messages in the channel to prevent duplicates
-      const fetchedMsgs = await channel.messages.fetch({ limit: 50 }).catch(() => null);
-      if (fetchedMsgs) {
-        const oldPanels = fetchedMsgs.filter(
-          (m) =>
-            m.author.id === interaction.client.user?.id &&
-            m.components.some((row: any) => row.components?.some((c: any) => c.customId?.startsWith("ticket_create_")))
-        );
-        for (const [, msg] of oldPanels) {
-          await msg.delete().catch(() => null);
-        }
-      }
-
-      const embed = new EmbedBuilder()
-        .setTitle(title)
-        .setColor(0x3498DB)
-        .setDescription(description)
-        .setFooter({ text: "Aegis Ticket System" });
-
-      const customId = staffRole ? `ticket_create_${staffRole.id}` : "ticket_create_general";
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(customId)
-          .setLabel("Create Ticket")
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji("🎫")
-      );
-
-      await channel.send({ embeds: [embed], components: [row] });
+      await postTicketPanel(channel, { staffRoleId: staffRole?.id ?? null, title, description });
       await interaction.reply({ content: `✅ Support ticket panel successfully created in ${channel}! (Previous panels in channel purged)`, flags: MessageFlags.Ephemeral });
       return;
     }
@@ -146,6 +120,11 @@ export const command: Command = {
 
       if (!await canCloseTicket(interaction.guild, interaction.channelId, interaction.user.id)) {
         await interaction.editReply("❌ Only the ticket opener or support staff can close this ticket.");
+        return;
+      }
+
+      if (isObfuscatedChannel(interaction.channel)) {
+        await interaction.editReply(`❌ ${hiddenChannelMessage(interaction.channelId)} The ticket stays open until then.`);
         return;
       }
 

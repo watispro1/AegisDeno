@@ -10,6 +10,7 @@ import {
   renderStatus,
   renderTerms,
   renderPrivacy,
+  renderSecurity,
   renderNotFound,
   type SiteConfig,
 } from "../src/web/pages";
@@ -48,6 +49,7 @@ async function main() {
     ["status.html", renderStatus(cfg, stats, false, startedAt)],
     ["privacy.html", renderPrivacy(cfg)],
     ["terms.html", renderTerms(cfg)],
+    ["security.html", renderSecurity(cfg)],
     ["404.html", renderNotFound(cfg)],
   ];
 

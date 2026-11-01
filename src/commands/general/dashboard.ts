@@ -15,6 +15,7 @@ import { getAutomodConfig } from "../../services/automod";
 import { getGuildConfig } from "../../services/configuration";
 import { SuggestionModel, TicketModel, WarningModel, ModerationCaseModel, WatchlistEntryModel } from "../../database/mongo";
 import { getVerificationConfig } from "../../services/verificationService";
+import { isObfuscatedChannel } from "../../utils/channels";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -44,12 +45,13 @@ export const command: Command = {
         ? [automod.words.enabled, automod.links.enabled, automod.mentions.enabled, automod.spam.enabled].filter(Boolean).length
         : 0;
 
-      const textChannels = guild.channels.cache.filter(c =>
+      // Channels Discord has hidden from Aegis (obfuscated) are left out of the counts.
+      const textChannels = guild.channels.cache.filter(c => !isObfuscatedChannel(c) && (
         c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement
-      ).size;
-      const voiceChannels = guild.channels.cache.filter(c =>
+      )).size;
+      const voiceChannels = guild.channels.cache.filter(c => !isObfuscatedChannel(c) && (
         c.type === ChannelType.GuildVoice || c.type === ChannelType.GuildStageVoice
-      ).size;
+      )).size;
 
       const embed = new EmbedBuilder()
         .setTitle(`🛡️ ${guild.name} — Control Panel`)

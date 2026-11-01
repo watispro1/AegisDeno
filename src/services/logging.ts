@@ -1,6 +1,7 @@
 import { Client, TextChannel, EmbedBuilder, EmbedData } from "discord.js";
 import { getGuildConfig } from "./configuration";
 import { logger } from "../utils/logger";
+import { isObfuscatedChannel } from "../utils/channels";
 
 /** Audit log categories that can be toggled per guild via /logging status. */
 export type LogCategory =
@@ -25,8 +26,14 @@ export async function sendGuildLog(
     // Per-category toggles default to enabled unless explicitly turned off.
     if (category && config.logCategories && config.logCategories[category] === false) return;
 
-    const channel = await client.channels.fetch(config.loggingChannelId).catch(() => null);
+    // A category may have its own channel (set on the dashboard); otherwise the main log channel.
+    const channelId = (category && config.logChannels?.[category]) || config.loggingChannelId;
+    const channel = await client.channels.fetch(channelId).catch(() => null);
     if (!channel || !(channel instanceof TextChannel)) return;
+    if (isObfuscatedChannel(channel)) {
+      logger.warn(`Log channel ${channelId} in guild ${guildId} is hidden from Aegis (no View Channel); log entry skipped.`);
+      return;
+    }
 
     const built = new EmbedBuilder({
       ...embed,

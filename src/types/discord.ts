@@ -29,6 +29,8 @@ export interface Command {
   botPermissions?: PermissionResolvable[];
   /** Whether the command may only be invoked inside a guild. */
   guildOnly?: boolean;
+  /** Per-user cooldown in milliseconds; defaults to 1500. 0 turns it off. */
+  cooldownMs?: number;
   /** Execute the command interaction. */
   execute(interaction: ChatInputCommandInteraction): Promise<void | InteractionResponse<boolean>>;
   /** Optional slash-command autocomplete handler. */
