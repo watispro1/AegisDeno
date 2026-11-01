@@ -1,3 +1,5 @@
+import { memberPermsIn, postRefusal } from "../../utils/channelAccess";
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -100,6 +102,10 @@ export const command: Command = {
       return interaction.reply({ content: "❌ Please select a text channel.", flags: MessageFlags.Ephemeral });
     }
 
+    // The announcer must be able to post there (and ping everyone, if asked) themselves.
+    const refusal = postRefusal(await memberPermsIn(interaction, channel.id), channel.id, { pingEveryone: pingChoice === "everyone" || pingChoice === "here" });
+    if (refusal) return interaction.reply({ content: `❌ ${refusal}`, flags: MessageFlags.Ephemeral });
+
     // Check bot perms in target channel
     const me = interaction.guild?.members.me;
     if (me && "permissionsFor" in channel) {
@@ -179,7 +185,7 @@ export const command: Command = {
     });
 
     let isSending = false;
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("announce", i, async () => {
       if (i.customId === "ann_cancel") {
         collector.stop();
         await i.update({ content: "❌ Announcement cancelled.", embeds: [], components: [] });
@@ -259,7 +265,7 @@ export const command: Command = {
           await interaction.editReply({ content: "❌ Failed to send. Check my permissions.", embeds: [], components: [] });
         }
       }
-    });
+    }));
 
     collector.on("end", async (_, reason) => {
       if (reason === "time") {

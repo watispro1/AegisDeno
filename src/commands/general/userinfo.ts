@@ -1,3 +1,6 @@
+import { guardCollect } from "../../utils/collectorGuard";
+import { getGuildConfig } from "../../services/configuration";
+import { memberPageUrl } from "../../config/links";
 import {
   ChatInputCommandInteraction,
   EmbedBuilder,
@@ -13,7 +16,9 @@ import {
 import { Command } from "../../types/discord";
 import { getWarningsForUser } from "../../services/warnings";
 import { getModerationCases } from "../../services/moderationCases";
-import { calculateTrustProfile, scoreBar } from "../../services/trustScore";
+import { scoreBar } from "../../services/trustScore";
+import { getMemberTrust, subjectFromMember } from "../../services/trustService";
+import { normalizeTrustConfig } from "../../services/trustEngine";
 import { hasModerationPermissions } from "../../services/commandAccess";
 
 const KEY_PERMISSIONS: Array<{ flag: bigint; name: string }> = [
@@ -68,6 +73,9 @@ export const command: Command = {
     // Warn counts, trust score and the mod-record buttons are only for moderators,
     // and their reply is ephemeral so the record is not shown to the channel.
     const viewerIsMod = hasModerationPermissions(interaction.memberPermissions?.bitfield ?? null);
+    // Moderators get several lookups (warnings, cases, Trust Score): defer so a slow
+    // database never runs past Discord's 3-second reply window.
+    if (viewerIsMod) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const [warnings, cases] = viewerIsMod
       ? await Promise.all([
@@ -125,15 +133,12 @@ export const command: Command = {
       .setTimestamp();
 
     if (viewerIsMod) {
-      const trust = calculateTrustProfile({
-        accountCreatedAt: user.createdAt,
-        joinedAt: member.joinedAt,
-        warnings: warnings.length,
-        cases: cases.length,
-      });
+      // Trust Score v2 (same engine as /trust user); a lookup failure leaves the field out.
+      const trustConfig = normalizeTrustConfig((await getGuildConfig(interaction.guildId!).catch(() => null))?.trust);
+      const trust = await getMemberTrust(subjectFromMember(member), { preset: trustConfig.preset }).catch(() => null);
       embed.addFields(
         { name: "⚠️ Warnings", value: `**${warnings.length}** warning(s)`, inline: true },
-        { name: "🧠 Trust Score", value: `**${trust.score}**/100 · ${trust.tier}\n\`${scoreBar(trust.score)}\``, inline: true },
+        ...(trust ? [{ name: "🧠 Trust Score", value: `**${trust.score}**/100 · ${trust.bandLabel}\n\`${scoreBar(trust.score)}\`\nDetails: \`/trust user\``, inline: true }] : []),
       );
     }
 
@@ -151,6 +156,12 @@ export const command: Command = {
             .setLabel("Mod Cases")
             .setStyle(ButtonStyle.Secondary)
             .setEmoji("📂"),
+          // The dashboard's member page: cases, warnings, notes and quick actions in one place.
+          new ButtonBuilder()
+            .setLabel("Member page")
+            .setStyle(ButtonStyle.Link)
+            .setURL(memberPageUrl(interaction.guildId!, user.id))
+            .setEmoji("🧭"),
         ),
       );
     }
@@ -175,19 +186,16 @@ export const command: Command = {
       ),
     );
 
-    const sent = await interaction.reply({
-      embeds: [embed],
-      components: rows,
-      fetchReply: true,
-      ...(viewerIsMod ? { flags: MessageFlags.Ephemeral as const } : {}),
-    });
+    const sent = viewerIsMod
+      ? await interaction.editReply({ embeds: [embed], components: rows })
+      : await interaction.reply({ embeds: [embed], components: rows, fetchReply: true });
 
     const collector = sent.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 90_000,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("userinfo", i, async () => {
       const isModRecord = i.customId.startsWith("userinfo_warns_") || i.customId.startsWith("userinfo_cases_");
       if (isModRecord && !hasModerationPermissions(i.memberPermissions?.bitfield ?? null)) {
         await i.reply({ content: "❌ Moderation records are only visible to moderators.", flags: MessageFlags.Ephemeral });
@@ -222,7 +230,7 @@ export const command: Command = {
           flags: MessageFlags.Ephemeral,
         });
       }
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction.editReply({ components: [] }).catch(() => null);

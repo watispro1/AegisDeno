@@ -55,6 +55,11 @@ export function dashboardUrl(guildId?: string): string {
   return siteUrl(`/dashboard/${encodeURIComponent(guildId)}`);
 }
 
+/** One member's page on the dashboard (cases, warnings, notes, quick actions). */
+export function memberPageUrl(guildId: string, userId: string): string {
+  return siteUrl(`/dashboard/${encodeURIComponent(guildId)}/members/${encodeURIComponent(userId)}`);
+}
+
 /** Case list for a guild, optionally filtered to one member. */
 export function caseListUrl(guildId: string, userId?: string): string {
   const base = siteUrl(`/dashboard/${encodeURIComponent(guildId)}/cases`);

@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -11,6 +12,13 @@ import {
 import { Command } from "../../types/discord";
 import { siteUrl } from "../../config/links";
 import mongoose from "mongoose";
+import { databaseLatency, statusMonitor, uptimeRatio } from "../../services/statusMonitor";
+
+/** Share of healthy heartbeat samples in the last 24 hours, as on the status page. */
+export function uptime24h(nowMs = Date.now()): string {
+  const r = uptimeRatio(statusMonitor().samples(), nowMs, 86_400_000);
+  return r === null ? "collecting" : `${(Math.floor(r * 10000) / 100).toFixed(2)}%`;
+}
 
 /** Formats a millisecond uptime into a human-readable string. */
 function fmtUptime(ms: number): string {
@@ -41,15 +49,11 @@ export const command: Command = {
   botPermissions: ["EmbedLinks"],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
+    // Bounded at 2 s, so a stalled database can't leave the command hanging.
     const measureDb = async (): Promise<string> => {
       if (mongoose.connection.readyState !== 1) return "Disconnected";
-      try {
-        const start = Date.now();
-        await mongoose.connection.db?.admin().ping();
-        return `${Date.now() - start}ms`;
-      } catch {
-        return "Error";
-      }
+      const ms = await databaseLatency();
+      return ms === null ? "Timed out" : `${ms}ms`;
     };
 
     const buildEmbed = (roundtrip: number, wsPing: number, dbPing: string) => {
@@ -62,7 +66,11 @@ export const command: Command = {
         .setTitle("🏓 Pong! System Telemetry")
         .setDescription(
           `**Health Tier:** ${tier.emoji} **${tier.label}**\n` +
-          `Gateway heartbeat and message latency are within active operating parameters.`
+          (tier.label === "Excellent" || tier.label === "Good"
+            ? "Gateway heartbeat and message latency are normal."
+            : tier.label === "Connecting"
+              ? "Still waiting for the first gateway heartbeat after a restart."
+              : "Discord is answering slowly right now; commands may lag. Live details are on the status page.")
         )
         .addFields(
           { name: "⚡ Round-trip", value: `\`${roundtrip}ms\``, inline: true },
@@ -71,6 +79,7 @@ export const command: Command = {
           { name: "⏰ Bot Uptime", value: `\`${uptime}\``, inline: true },
           { name: "💾 Heap Memory", value: `\`${memMb} MB\``, inline: true },
           { name: "🌐 Servers",    value: `\`${interaction.client.guilds.cache.size.toLocaleString()}\``, inline: true },
+          { name: "📈 24h uptime", value: `\`${uptime24h()}\``, inline: true },
         )
         .setFooter({
           text: `Aegis • Latency Probe • ${tier.label}`,
@@ -112,7 +121,7 @@ export const command: Command = {
       filter: (i) => i.customId === "ping_refresh" && i.user.id === interaction.user.id,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("ping", i, async () => {
       const clickStart = Date.now();
       await i.deferUpdate();
       const dbPing = await measureDb();
@@ -123,7 +132,7 @@ export const command: Command = {
         embeds: [buildEmbed(roundtrip, wsPing, dbPing)],
         components: [buildButtonRow(false)],
       });
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction.editReply({ components: [buildButtonRow(true)] }).catch(() => null);

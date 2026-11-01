@@ -1,3 +1,4 @@
+import { moduleEnabled, moduleOffMessage } from "../../services/moduleSwitches";
 /**
  * Ticket panel and in-ticket buttons.
  *
@@ -21,6 +22,10 @@ export const ticketRoutes: ComponentRoute[] = [
     async handle(interaction) {
       if (!interaction.isButton() || !interaction.guild) return;
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      if (!(await moduleEnabled(interaction.guild.id, "tickets"))) {
+        await interaction.editReply(moduleOffMessage("tickets"));
+        return;
+      }
 
       const staffRoleId = interaction.customId.replace("ticket_create_", "");
       const result = await createTicketChannel(

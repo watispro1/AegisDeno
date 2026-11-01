@@ -3,18 +3,22 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
 import { NOTICES } from "./notices";
+import { isDiscordCdnUrl } from "../cdn";
 
 export interface Viewer {
   userId: string;
   username: string;
   globalName: string | null;
   csrf: string;
+  /** Discord CDN avatar URL, when the user has one. */
+  avatarUrl?: string | null;
 }
 
 /** A server in the switcher: one the viewer can manage and Aegis is in. */
 export interface SwitcherServer {
   id: string;
   name: string;
+  iconUrl?: string | null;
 }
 
 export interface GuildContext {
@@ -37,7 +41,7 @@ export type GuildSection =
   | "moderation" | "automod" | "cases" | "appeals" | "watchlist" | "logging"
   | "welcome" | "verification" | "panels" | "tickets" | "starboard" | "suggestions" | "giveaways"
   | "autoresponders" | "automations" | "announce"
-  | "activity";
+  | "activity" | "incident" | "trust" | "members" | "analytics" | "tools";
 
 interface NavItem { key: GuildSection; label: string; href: string; icon: string }
 
@@ -46,8 +50,12 @@ export const MODULE_NAV: ReadonlyArray<{ group: string; items: ReadonlyArray<Nav
   { group: "General", items: [
     { key: "overview", label: "Overview", href: "", icon: "◎" },
     { key: "settings", label: "Settings", href: "/settings", icon: "⚙" },
+    { key: "tools", label: "Modules & backup", href: "/tools", icon: "⇄" },
   ] },
   { group: "Moderation", items: [
+    { key: "incident", label: "Incident Mode", href: "/incident", icon: "⚠" },
+    { key: "members", label: "Members", href: "/members", icon: "☻" },
+    { key: "trust", label: "Trust Score", href: "/trust", icon: "◈" },
     { key: "moderation", label: "Moderation", href: "/settings/escalation", icon: "⚖" },
     { key: "automod", label: "Automod", href: "/settings/automod", icon: "⛨" },
     { key: "cases", label: "Cases", href: "/cases", icon: "▤" },
@@ -71,6 +79,7 @@ export const MODULE_NAV: ReadonlyArray<{ group: string; items: ReadonlyArray<Nav
   ] },
   { group: "Records", items: [
     { key: "activity", label: "Activity", href: "/activity", icon: "⟲" },
+    { key: "analytics", label: "Analytics", href: "/analytics", icon: "▥" },
   ] },
 ];
 
@@ -79,18 +88,25 @@ function initial(name: string): string {
   return esc(ch.toUpperCase());
 }
 
+/** A server icon or avatar from Discord's CDN (the only image host the CSP allows), else the initial. */
+function iconOrInitial(url: string | null | undefined, name: string, cls: string): string {
+  return isDiscordCdnUrl(url)
+    ? `<img class="${cls} has-img" src="${esc(url)}" alt="" width="32" height="32" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+    : `<span class="${cls}" aria-hidden="true">${initial(name)}</span>`;
+}
+
 function sidebar(ctx: GuildContext, active: GuildSection): string {
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}`;
   const others = (ctx.servers ?? []).filter(s => s.id !== g.id).slice(0, 50);
   const switcher = `<details class="switcher" data-menu>
       <summary class="switcher-current" aria-label="Switch server, current: ${esc(g.name)}">
-        <span class="g-icon" aria-hidden="true">${initial(g.name)}</span>
+        ${iconOrInitial(g.iconUrl, g.name, "g-icon")}
         <span class="g-name">${esc(g.name)}</span>
         <span class="caret" aria-hidden="true">▾</span>
       </summary>
       <ul class="switcher-list">
-        ${others.map(s => `<li><a href="/dashboard/${esc(s.id)}"><span class="g-icon sm" aria-hidden="true">${initial(s.name)}</span>${esc(s.name)}</a></li>`).join("")}
+        ${others.map(s => `<li><a href="/dashboard/${esc(s.id)}">${iconOrInitial(s.iconUrl, s.name, "g-icon sm")}${esc(s.name)}</a></li>`).join("")}
         <li class="switcher-all"><a href="/dashboard">All servers</a></li>
       </ul>
     </details>`;
@@ -106,7 +122,7 @@ function sidebar(ctx: GuildContext, active: GuildSection): string {
 function userMenu(viewer: Viewer): string {
   const shown = viewer.globalName || viewer.username;
   return `<details class="user-menu" data-menu>
-      <summary aria-label="Account menu"><span class="avatar" aria-hidden="true">${initial(shown)}</span><span class="user-name">${esc(shown)}</span></summary>
+      <summary aria-label="Account menu">${iconOrInitial(viewer.avatarUrl, shown, "avatar")}<span class="user-name">${esc(shown)}</span></summary>
       <div class="user-panel">
         <p>Signed in as <strong>${esc(shown)}</strong> <span class="faint">(${esc(viewer.username)})</span></p>
         <p><a href="/dashboard">Your servers</a> · <a href="/dashboard/changelog">What's new</a></p>
@@ -124,6 +140,12 @@ const APP_CHROME = `<div class="toast-region" data-toasts aria-live="polite" ari
     <span>You have unsaved changes</span>
     <span class="btn-row"><button class="btn ghost sm" type="button" data-unsaved-reset>Reset</button><button class="btn sm" type="button" data-unsaved-save>Save</button></span>
   </div>
+  <dialog class="palette" data-palette aria-label="Jump to a page">
+    <label class="visually-hidden" for="palette-q">Jump to</label>
+    <input type="search" id="palette-q" data-palette-input placeholder="Jump to a module or setting… (Enter to search cases)" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list">
+    <ul id="palette-list" class="palette-list" role="listbox" data-palette-list></ul>
+    <p class="faint palette-hint">↑ ↓ to move · Enter to open · Esc to close</p>
+  </dialog>
   <dialog class="confirm-dialog" data-confirm-dialog aria-labelledby="confirm-title">
     <form method="dialog">
       <h2 id="confirm-title">Are you sure?</h2>
@@ -145,6 +167,11 @@ export function shell(cfg: SiteConfig, o: { title: string; path: string; body: s
       <div class="app-top">
         <button class="btn ghost sm drawer-toggle" type="button" aria-controls="dash-sidebar" aria-expanded="false" data-drawer-toggle>☰ <span>Menu</span></button>
         <span class="app-top-title">${esc(o.guild.guild.name)}</span>
+        <form class="top-search" method="get" action="/dashboard/${esc(o.guild.guild.id)}/search" role="search">
+          <label class="visually-hidden" for="top-q">Search cases and members</label>
+          <input type="search" id="top-q" name="q" maxlength="64" placeholder="Search cases, members…" autocomplete="off">
+        </form>
+        <button class="btn ghost sm palette-btn" type="button" data-palette-open aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" title="Jump to (Ctrl+K)">⌘K</button>
         ${userMenu(o.viewer)}
       </div>
       <div class="app-content">${o.body}</div>

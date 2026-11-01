@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -334,13 +335,13 @@ export const command: Command = {
         componentInteraction.customId === "help_category_select",
     });
 
-    collector.on("collect", async (componentInteraction) => {
+    collector.on("collect", (componentInteraction) => guardCollect("help", componentInteraction, async () => {
       const selected = componentInteraction.values[0];
       await componentInteraction.update({
         embeds: [generateCategoryEmbed(selected)],
         components: [row, linkRow],
       });
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction

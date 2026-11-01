@@ -1,5 +1,6 @@
 import { isValidObjectId } from "mongoose";
 import { ModerationCaseModel, WarningModel } from "../database/mongo";
+import { noteIncidentCase } from "./incidentHooks";
 import { logger } from "../utils/logger";
 
 export type ModerationAction =
@@ -38,7 +39,9 @@ export async function addModerationCase(input: {
 }): Promise<string | null> {
   try {
     const doc = await ModerationCaseModel.create(input);
-    return String(doc._id);
+    const id = String(doc._id);
+    noteIncidentCase(input.guildId, id, input.action, input.userId);
+    return id;
   } catch (error) {
     logger.error(`Failed to record ${input.action} case for user ${input.userId}:`, error);
     return null;

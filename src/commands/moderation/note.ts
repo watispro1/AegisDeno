@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -12,12 +13,34 @@ import {
   TextInputBuilder,
   TextInputStyle,
   MessageFlags,
+  type AutocompleteInteraction,
 } from "discord.js";
 import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { StaffNoteModel } from "../../database/mongo";
 
 const PAGE_SIZE = 4;
+
+/** A note ID is a Mongo ObjectId: 24 hex characters. */
+export function isNoteId(value: string): boolean {
+  return /^[0-9a-f]{24}$/i.test(value);
+}
+
+export function canDeleteNote(authorId: string, actorId: string, actorHasManageGuild: boolean): boolean {
+  return authorId === actorId || actorHasManageGuild;
+}
+
+/** Autocomplete choices for /note delete: "a1b2c3d4 · <@user> · text…", newest first, max 25. */
+export function noteIdSuggestions(rows: Array<{ id: string; userId: string; note: string; createdAt: Date }>, typed: string): Array<{ name: string; value: string }> {
+  const q = typed.trim().toLowerCase();
+  return rows
+    .filter(r => !q || r.id.toLowerCase().includes(q) || r.userId.includes(q) || r.note.toLowerCase().includes(q))
+    .slice(0, 25)
+    .map(r => {
+      const label = `${r.id.slice(-8)} · user ${r.userId} · ${r.createdAt.toISOString().slice(0, 10)} · ${r.note.replace(/\s+/g, " ")}`;
+      return { name: label.length > 100 ? `${label.slice(0, 99)}…` : label, value: r.id };
+    });
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -44,7 +67,7 @@ export const command: Command = {
         .setName("delete")
         .setDescription("Delete a specific staff note by ID.")
         .addStringOption(opt =>
-          opt.setName("id").setDescription("The note ID (from /note view)").setRequired(true)
+          opt.setName("id").setDescription("The note ID (from /note view); suggestions as you type").setRequired(true).setAutocomplete(true)
         )
     )
     .addSubcommand(sub =>
@@ -59,6 +82,16 @@ export const command: Command = {
 
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ModerateMembers],
+
+  /** Suggests this server's newest notes for /note delete, matched by ID or text. */
+  autocomplete: async (interaction: AutocompleteInteraction) => {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== "id" || !interaction.guildId) { await interaction.respond([]); return; }
+    const rows = await StaffNoteModel.find({ guildId: interaction.guildId }).sort({ createdAt: -1 }).limit(100)
+      .select("_id userId note createdAt").lean().catch(() => []);
+    await interaction.respond(noteIdSuggestions(rows.map(r => ({ id: String(r._id), userId: r.userId, note: r.note, createdAt: new Date(r.createdAt) })), String(focused.value ?? "")))
+      .catch(() => null);
+  },
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();
@@ -226,7 +259,7 @@ export const command: Command = {
           filter: (i) => i.user.id === interaction.user.id,
         });
 
-        collector.on("collect", async (i) => {
+        collector.on("collect", (i) => guardCollect("note", i, async () => {
           try {
             await i.deferUpdate().catch(() => null);
 
@@ -256,7 +289,7 @@ export const command: Command = {
           } catch (btnErr) {
             logger.warn("Error handling note button interaction", btnErr);
           }
-        });
+        }));
 
         collector.on("end", async () => {
           await interaction.editReply({ components: [] }).catch(() => null);
@@ -273,10 +306,24 @@ export const command: Command = {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const noteId = interaction.options.getString("id", true).trim();
-        const deleted = await StaffNoteModel.findOneAndDelete({ _id: noteId, guildId });
-
-        if (!deleted) {
+        // An ID that isn't a Mongo ObjectId used to surface as a generic error.
+        if (!isNoteId(noteId)) {
+          await interaction.editReply("❌ That isn't a note ID. Pick one from the suggestions, or copy it from `/note view`.");
+          return;
+        }
+        const existing = await StaffNoteModel.findOne({ _id: noteId, guildId }).select("moderatorId").lean();
+        if (!existing) {
           await interaction.editReply("❌ Note not found — it may already be deleted or belong to a different server.");
+          return;
+        }
+        // Moderators delete their own notes; anyone else's needs Manage Server (like /note clear).
+        if (!canDeleteNote(existing.moderatorId, interaction.user.id, interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) === true)) {
+          await interaction.editReply("❌ That note was written by another moderator. Deleting someone else's note needs **Manage Server**.");
+          return;
+        }
+        const deleted = await StaffNoteModel.findOneAndDelete({ _id: noteId, guildId });
+        if (!deleted) {
+          await interaction.editReply("❌ Note not found — it was deleted a moment ago.");
           return;
         }
 
@@ -347,7 +394,7 @@ export const command: Command = {
           max: 1,
         });
 
-        collector.on("collect", async (i) => {
+        collector.on("collect", (i) => guardCollect("note", i, async () => {
           try {
             if (i.customId === "note_clear_cancel") {
               await i.update({ content: "❌ Clear cancelled.", embeds: [], components: [] }).catch(() => null);
@@ -374,7 +421,7 @@ export const command: Command = {
           } catch (clearErr) {
             logger.warn("Error clearing notes", clearErr);
           }
-        });
+        }));
 
         collector.on("end", async (_, stopReason) => {
           if (stopReason === "time") {

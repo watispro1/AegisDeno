@@ -21,6 +21,8 @@ export interface DiscordUser {
   id: string;
   username: string;
   globalName: string | null;
+  /** Avatar hash (validated), for the Discord CDN; null for the default avatar. */
+  avatar?: string | null;
 }
 
 export class DiscordOAuthError extends Error {
@@ -88,6 +90,7 @@ export async function fetchUser(accessToken: string, fetchImpl: FetchLike = fetc
     id: body.id,
     username: typeof body.username === "string" ? body.username : "unknown",
     globalName: typeof body.global_name === "string" ? body.global_name : null,
+    avatar: typeof body.avatar === "string" && /^(a_)?[0-9a-f]{32}$/.test(body.avatar) ? body.avatar : null,
   };
 }
 

@@ -122,7 +122,7 @@ export function channel(body: FormBody, key: string, ctx: ValidationContext, err
 export const ROLE_ABOVE_VIEWER_ERROR =
   "That role is equal to or above your highest role in this server, so you can't hand it out. Pick a role below your highest role (only the server owner can pick any role).";
 
-function role(
+export function role(
   body: FormBody, key: string, ctx: ValidationContext, errors: Errors, required: boolean, label: string,
   opts: { anyRole?: boolean; saved?: string | null } = {},
 ): string | null {

@@ -12,7 +12,8 @@ export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self'",
-  "img-src 'self' data:",
+  // Discord's CDN only, for real avatars and server icons on the dashboard.
+  "img-src 'self' data: https://cdn.discordapp.com",
   "font-src 'self'",
   "connect-src 'self'",
   "manifest-src 'self'",

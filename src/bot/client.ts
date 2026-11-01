@@ -1,3 +1,4 @@
+import { applyLowTrustRole, purgeGuildTrustData } from "../services/trustService";
 import {
   Client,
   GatewayIntentBits,
@@ -39,6 +40,8 @@ import { isObfuscatedChannel } from "../utils/channels";
 import { DEFAULT_ALLOWED_MENTIONS } from "./mentions";
 import { isContentEdit } from "./eventFilters";
 import { codeBlock } from "../utils/safeText";
+import { incidentService, joinActionable } from "../services/incidentDiscord";
+import { recordMemberFlow } from "../services/memberFlow";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -85,6 +88,8 @@ export function setupEvents(client: Client): void {
 
     applyPresence(c);
     startWatchlistSync();
+    // Restores incidents that ended while the bot was down and resumes expiry checks.
+    incidentService(c).boot().catch(err => logger.error("Incident Mode boot failed:", err));
   });
 
   // Discord drops a presence that is not refreshed, so re-send it periodically.
@@ -238,6 +243,20 @@ export function setupEvents(client: Client): void {
 
   // ─── Member Join ──────────────────────────────────────────────────────────
   client.on(Events.GuildMemberAdd, async (member: GuildMember) => {
+    recordMemberFlow(member.guild.id, "join").catch(() => undefined);
+    // Incident Mode first: a gated join gets no welcome or auto-role, and the
+    // join counts toward the optional join-burst auto-trigger.
+    const gate = await incidentService(client).onMemberJoin(member.guild.id, {
+      userId: member.id,
+      tag: member.user?.tag ?? member.id,
+      isBot: member.user?.bot === true,
+      createdAt: member.user?.createdAt ?? new Date(),
+      actionable: joinActionable(member, "timeout") || joinActionable(member, "kick"),
+    }).catch((err) => {
+      logger.warn(`Incident join check failed in ${member.guild.id}:`, err);
+      return { act: "none" as const, why: "error" };
+    });
+
     // Log event
     const userTag = member.user?.tag ?? "Unknown User";
     const avatarUrl = member.user?.displayAvatarURL?.();
@@ -256,14 +275,16 @@ export function setupEvents(client: Client): void {
     // Ghost Watch — notify watchers on join
     watchlistOnJoin(client, member).catch(err => logger.warn("Watchlist join error:", err));
 
+    if (gate.act !== "none") return;
+
+    // Opt-in Trust Score low-trust role (off unless configured with /trust config).
+    applyLowTrustRole(member).catch(err => logger.warn(`Low-trust role check failed in ${member.guild.id}:`, err));
+
     // Welcome message and Auto-role
     const config = await getGuildConfig(member.guild.id);
     
-    if (config.welcomeRoleId) {
-      await member.roles.add(config.welcomeRoleId).catch(err => 
-        logger.warn(`Failed to assign auto-role ${config.welcomeRoleId} to ${userTag} in ${member.guild.id}:`, err)
-      );
-    }
+    // Members still behind Discord's membership screening get the role once they pass it (see GuildMemberUpdate).
+    if (config.welcomeRoleId && !member.pending) await assignWelcomeRole(member, config.welcomeRoleId);
 
     if (config.welcomeEnabled && config.welcomeChannelId) {
       let channel = member.guild.channels.cache.get(config.welcomeChannelId) as TextChannel | undefined;
@@ -289,6 +310,10 @@ export function setupEvents(client: Client): void {
 
   // ─── Member Update (role changes for Ghost Watch) ─────────────────────────
   client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+    if (oldMember.pending && !newMember.pending) {
+      const roleId = (await getGuildConfig(newMember.guild.id).catch(() => null))?.welcomeRoleId;
+      if (roleId) await assignWelcomeRole(newMember, roleId);
+    }
     watchlistOnRoleChange(client, oldMember, newMember).catch(err =>
       logger.warn("Watchlist roleChange error:", err)
     );
@@ -306,6 +331,7 @@ export function setupEvents(client: Client): void {
 
   // ─── Member Leave ─────────────────────────────────────────────────────────
   client.on(Events.GuildMemberRemove, async (member) => {
+    recordMemberFlow(member.guild.id, "leave").catch(() => undefined);
     const user = member.user;
     const tag = user?.tag ?? "Unknown User";
     const id = member.id;
@@ -332,6 +358,32 @@ export function setupEvents(client: Client): void {
   client.on(Events.GuildCreate, (guild) => {
     logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
   });
+
+  // Leaving a server drops the per-member activity counters kept for Trust Score.
+  // Cases and warnings keep their own one-year TTL so a re-add keeps the record.
+  client.on(Events.GuildDelete, (guild) => {
+    if (!guild.available) return; // an outage, not a removal
+    purgeGuildTrustData(guild.id)
+      .then(n => logger.info(`Left guild ${guild.id}; removed ${n} activity record(s).`))
+      .catch(err => logger.warn(`Trust data cleanup failed for ${guild.id}:`, err));
+  });
+}
+
+/**
+ * Gives a new member the welcome auto-role. Adding a role during membership
+ * screening would skip the server's rules gate, so pending members wait; a
+ * role above Aegis is skipped with a warning instead of an API error per join.
+ */
+async function assignWelcomeRole(member: GuildMember, roleId: string): Promise<void> {
+  const role = member.guild.roles.cache.get(roleId);
+  if (role && !role.editable) {
+    logger.warn(`Auto-role ${roleId} in ${member.guild.id} is above Aegis's highest role (or managed); skipping it.`);
+    return;
+  }
+  if (member.roles.cache.has(roleId)) return;
+  await member.roles.add(roleId, "Welcome auto-role").catch(err =>
+    logger.warn(`Failed to assign auto-role ${roleId} to ${member.user?.tag ?? member.id} in ${member.guild.id}:`, err),
+  );
 }
 
 /** Posts the goodbye message for a member who left, if the server turned it on. */

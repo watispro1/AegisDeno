@@ -1,3 +1,4 @@
+import { moduleEnabled, moduleOffMessage } from "../../services/moduleSwitches";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -288,6 +289,10 @@ export const command: Command = {
 
     // ── /giveaway start ────────────────────────────────────────────────────
     if (sub === "start") {
+      if (!(await moduleEnabled(guildId, "giveaways"))) {
+        await interaction.reply({ content: moduleOffMessage("giveaways"), flags: MessageFlags.Ephemeral });
+        return;
+      }
       const prize       = interaction.options.getString("prize", true);
       const durationRaw = interaction.options.getString("duration", true);
       const winnerCount = interaction.options.getInteger("winners") ?? 1;

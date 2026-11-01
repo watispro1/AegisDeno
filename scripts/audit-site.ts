@@ -11,6 +11,17 @@ import { styles } from "../src/web/theme";
 import { clientScript } from "../src/web/client";
 import { themeInitScript } from "../src/web/assets";
 import { dashboardAuditPages } from "./dashboard-fixtures";
+import { buildStatusPayload } from "../src/web/statusData";
+/** Status payload fixture for previews and audits. */
+function statusFixture(online: boolean, ping: number, startedAt = Date.now() - 3_723_000) {
+  const now = Date.now();
+  const samples = Array.from({ length: 2000 }, (_, i) => ({ at: now - i * 300_000, gateway: online || i > 3, db: true, ping }));
+  return buildStatusPayload({
+    nowMs: now, online, ping, guilds: 1, shards: 1, memoryRss: 150 * 1048576, version: "preview", startedAt, commands: 50,
+    dbConnected: true, dbLatency: 12, registration: { ok: true, count: 50, at: now }, samples, notices: [],
+  });
+}
+
 
 const cfg: SiteConfig = {
   inviteUrl: "https://discord.com/oauth2/authorize?client_id=123",
@@ -37,7 +48,7 @@ async function main() {
     ["/troubleshooting", renderTroubleshooting(cfg)],
     ["/changelog", renderChangelog(cfg)],
     ["/dashboard/changelog", renderDashboardChangelog(cfg)],
-    ["/status", renderStatus(cfg, stats, true, Date.now())],
+    ["/status", renderStatus(cfg, statusFixture(true, stats.ping))],
     ["/privacy", renderPrivacy(cfg)],
     ["/terms", renderTerms(cfg)],
     ["/security", renderSecurity(cfg)],
@@ -48,8 +59,8 @@ async function main() {
   /* Degraded and offline variants, so conditionally applied classes such as
      `warn`, `danger`, and `bad` are exercised rather than reported as dead. */
   const variantPages: [string, string][] = [
-    ["/status (degraded)", renderStatus(cfg, { ...stats, ping: 400 }, true, Date.now())],
-    ["/status (offline)", renderStatus(cfg, { ...stats, ping: 0 }, false, Date.now())],
+    ["/status (degraded)", renderStatus(cfg, statusFixture(true, 400))],
+    ["/status (offline)", renderStatus(cfg, statusFixture(false, 0))],
     ["/ (offline)", renderHome(cfg, { ...stats, ping: 0 }, false)],
   ];
 

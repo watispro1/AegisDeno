@@ -153,11 +153,13 @@ export const SCHEDULED_MESSAGE_MAX = 2000;
 const MIN_DELAY_S = 60;
 const MAX_DELAY_S = 28 * 86_400;
 
-export function parseAutomation(body: FormBody, ctx: ValidationContext): Parsed<{ channelId: string; message: string; delayMs: number; intervalMs: number | null }> {
+export function parseAutomation(body: FormBody, ctx: ValidationContext): Parsed<{ channelId: string; message: string; delayMs: number; intervalMs: number | null; embed: EmbedSpec | null }> {
   const errors = new Errors();
   const channelId = channel(body, "channelId", ctx, errors, true, "channel");
   const message = multiline(body, "message");
-  if (!message) errors.add("message", "Write the message to post.");
+  // The embed builder is optional: a message, an embed, or both.
+  const embed = readEmbed(body, "e_", errors);
+  if (!message && !embed) errors.add("message", "Write the message to post, or build an embed below.");
   else if (message.length > SCHEDULED_MESSAGE_MAX) errors.add("message", `Keep the message under ${SCHEDULED_MESSAGE_MAX} characters (it is ${message.length}).`);
   const delay = parseFriendlyDuration(field(body, "delay"));
   if (delay === null || delay < MIN_DELAY_S || delay > MAX_DELAY_S) errors.add("delay", "Post it in 1 minute to 28 days, such as 30m, 2h or 1d 12h.");
@@ -168,7 +170,7 @@ export function parseAutomation(body: FormBody, ctx: ValidationContext): Parsed<
     if (repeat === null || repeat < 10 * 60 || repeat > MAX_DELAY_S) errors.add("repeat", "Repeat every 10 minutes to 28 days, or leave it blank to post once.");
     else intervalMs = repeat * 1000;
   }
-  return finish(errors, { channelId: channelId ?? "", message, delayMs: (delay ?? 0) * 1000, intervalMs });
+  return finish(errors, { channelId: channelId ?? "", message, delayMs: (delay ?? 0) * 1000, intervalMs, embed });
 }
 
 /** Task IDs are Mongo ObjectIds. */

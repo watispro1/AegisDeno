@@ -1,3 +1,5 @@
+import { decodeScheduledPayload } from "./scheduledPayload";
+import { buildEmbedFromSpec } from "./embedSpec";
 import { Client, TextChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { getAllPendingTasks, deleteTask, updateTaskNextRun, ScheduledTask } from "./scheduler";
 import {
@@ -253,10 +255,18 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       return;
     }
 
+    // A scheduled message built with the dashboard's embed builder carries its own embed.
+    const custom = task.type === "scheduled" ? decodeScheduledPayload(task.payload) : null;
+    if (custom?.embed) {
+      await channel.send({ content: custom.text || undefined, embeds: [buildEmbedFromSpec(custom.embed)], allowedMentions: { parse: ["users"] } });
+      retryCount.delete(taskId);
+      return;
+    }
+
     const embed = new EmbedBuilder()
       .setColor(task.type === "reminder" ? 0x5865F2 : 0x57F287)
       .setTitle(task.type === "reminder" ? "⏰ Reminder" : "📅 Scheduled Message")
-      .setDescription(task.payload)
+      .setDescription(custom ? custom.text || "(empty message)" : task.payload)
       .setTimestamp();
 
     if (task.type === "reminder") {

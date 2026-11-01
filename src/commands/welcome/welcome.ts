@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -140,7 +141,7 @@ export const command: Command = {
         filter: (i) => i.user.id === interaction.user.id,
       });
 
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("welcome", i, async () => {
         await i.deferUpdate();
         const freshConfig = await getGuildConfig(guildId);
 
@@ -183,7 +184,7 @@ export const command: Command = {
 
           await i.followUp({ embeds: [previewEmbed], flags: MessageFlags.Ephemeral });
         }
-      });
+      }));
 
       collector.on("end", async () => {
         await interaction.editReply({ components: [] }).catch(() => null);

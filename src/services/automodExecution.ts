@@ -1,3 +1,6 @@
+import { getMemberTrust, getTrustConfig, subjectFromMember } from "./trustService";
+import { linkFilterApplies, type TrustConfig } from "./trustEngine";
+import { noteIncidentDeletes } from "./incidentHooks";
 import { Client, Message, GuildMember, PermissionFlagsBits } from "discord.js";
 import { codeBlock } from "../utils/safeText";
 import { getAutomodConfig } from "./automod";
@@ -59,6 +62,22 @@ export function isExempt(
  * How many pings a message carries for the mention-spam rule: distinct users,
  * distinct roles, and @everyone/@here (counted once).
  */
+/**
+ * Opt-in Trust Score integration: when the server limits link filtering to
+ * low-trust members, trusted members' links pass. Any lookup failure filters.
+ */
+async function linkFilterAppliesTo(message: Message): Promise<boolean> {
+  if (!message.guild || !message.member) return true;
+  try {
+    const trust = await getTrustConfig(message.guild.id);
+    if (!trust.enabled || !trust.linkFilterLowTrustOnly) return true;
+    const result = await getMemberTrust(subjectFromMember(message.member), { preset: trust.preset });
+    return linkFilterApplies(trust, result.score);
+  } catch {
+    return linkFilterApplies({ enabled: true, linkFilterLowTrustOnly: true } as TrustConfig, null);
+  }
+}
+
 export function mentionCount(mentions: { users: { size: number }; roles: { size: number }; everyone: boolean }): number {
   return mentions.users.size + mentions.roles.size + (mentions.everyone ? 1 : 0);
 }
@@ -118,7 +137,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
   // 4. Link Filtering
   if (!triggeredRule && config.links.enabled) {
     LINK_REGEX.lastIndex = 0; // Reset regex state (global flag)
-    if (LINK_REGEX.test(message.content)) {
+    if (LINK_REGEX.test(message.content) && await linkFilterAppliesTo(message)) {
       triggeredRule = config.links;
       ruleName = "Link Filtering";
     }
@@ -186,9 +205,11 @@ async function enforceAutomod(
 
   // Delete the message for all enforcement actions
   if (action === "delete" || action === "warn" || action === "timeout") {
-    await message.delete().catch(err => {
+    const deleted = await message.delete().then(() => true).catch(err => {
       logger.warn(`Automod: failed to delete message ${message.id} in guild ${message.guildId}`, err);
+      return false;
     });
+    if (deleted) noteIncidentDeletes(message.guildId, 1, `automod (${ruleName})`, message.author.id);
   }
 
   if (action === "warn") {

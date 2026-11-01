@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { Client } from "discord.js";
 import { logger } from "../utils/logger";
 import { styles } from "./theme";
 import { clientScript } from "./client";
+import { statusScript } from "./client/status";
+import { type StatusPayload } from "./statusData";
+import { registerStatusRoutes } from "./statusRoutes";
 import { faviconSvg, ogImageSvg, ogImagePng, manifest, themeInitScript } from "./assets";
 import { botPermissionBitfield, buildCatalog, catalogStats, getCommand } from "./catalog";
 import {
@@ -37,29 +39,15 @@ import { mongoModuleData } from "./dashboard/moduleData";
 import { mongoSessionStore } from "./dashboard/sessions";
 import { mongoRateLimitStore } from "./dashboard/rateLimitStore";
 import { mongoAuditStore } from "./dashboard/audit";
+import { mongoDashboardExtras } from "./dashboard/extrasMongo";
 import { dashboardScript } from "./dashboard/client";
 import { clientIp, secretMatches, securityHeaders } from "./securityHeaders";
+import { apiRateLimit, compression, siteErrorHandler } from "./serverMiddleware";
+
+export { siteErrorHandler };
 
 /** Largest request body the site accepts at all; route parsers set tighter limits. */
 const MAX_REQUEST_BYTES = 600 * 1024;
-
-/**
- * Final Express error handler: logs the error server-side and answers with a
- * generic message (JSON under /api, plain text elsewhere). Never echoes the
- * error, its message or a stack trace.
- */
-export function siteErrorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
-  const status = typeof (err as { status?: unknown })?.status === "number" ? (err as { status: number }).status : 500;
-  const code = status >= 400 && status < 600 ? status : 500;
-  if (code >= 500) logger.error(`Web error on ${req.method} ${req.path}:`, err instanceof Error ? err.message : err);
-  if (res.headersSent) return;
-  res.setHeader("Cache-Control", "no-store");
-  if (req.path.startsWith("/api/")) {
-    res.status(code).json({ error: code === 413 ? "payload_too_large" : code === 400 ? "bad_request" : "server_error" });
-    return;
-  }
-  res.status(code).type("text/plain").send(code === 413 ? "Request too large" : code === 400 ? "Bad request" : "Something went wrong");
-}
 
 const SITE_VERSION = VERSION;
 const STARTED_AT = Date.now();
@@ -70,36 +58,9 @@ const ASSET_VERSION = createHash("sha256")
   .update(clientScript)
   .update(themeInitScript)
   .update(dashboardScript)
+  .update(statusScript)
   .digest("hex")
   .slice(0, 8);
-
-const COMPRESSIBLE = /^(text\/|application\/(json|xml|manifest\+json|atom\+xml|rss\+xml)|image\/svg)/;
-const RATE_WINDOW_MS = 60_000;
-const API_REQUESTS_PER_WINDOW = 120;
-const requestCounts = new Map<string, { count: number; windowStartedAt: number }>();
-
-function apiRateLimit(req: Request, res: Response, next: NextFunction): void {
-  const now = Date.now();
-  // Behind Fly's proxy req.ip is the proxy, so every visitor shared one bucket.
-  const key = clientIp(req);
-  const current = requestCounts.get(key);
-  const entry = !current || now - current.windowStartedAt >= RATE_WINDOW_MS
-    ? { count: 0, windowStartedAt: now }
-    : current;
-  entry.count++;
-  requestCounts.set(key, entry);
-  if (requestCounts.size > 10_000) {
-    for (const [address, value] of requestCounts) {
-      if (now - value.windowStartedAt >= RATE_WINDOW_MS) requestCounts.delete(address);
-    }
-  }
-  if (entry.count > API_REQUESTS_PER_WINDOW) {
-    res.setHeader("Retry-After", "60");
-    res.status(429).json({ error: "rate_limited" });
-    return;
-  }
-  next();
-}
 
 function siteConfig(): SiteConfig {
   const appId = process.env.DISCORD_APPLICATION_ID?.trim();
@@ -131,38 +92,9 @@ function applySecurityHeaders(req: Request, res: Response): void {
   for (const [name, value] of Object.entries(securityHeaders(req.path))) res.setHeader(name, value);
 }
 
-/** Gzip text responses. Fly terminates TLS and does not compress upstream. */
-function compression(req: Request, res: Response, next: NextFunction): void {
-  const accepted = String(req.headers["accept-encoding"] ?? "");
-  res.setHeader("Vary", "Accept-Encoding");
-
-  if (!accepted.includes("gzip")) {
-    next();
-    return;
-  }
-
-  const original = res.send.bind(res) as (body?: unknown) => Response;
-
-  res.send = function send(this: Response, body?: unknown): Response {
-    if (this.headersSent || typeof body !== "string" || this.getHeader("Content-Encoding")) {
-      return original(body);
-    }
-    if (!COMPRESSIBLE.test(String(this.getHeader("Content-Type") ?? ""))) {
-      return original(body);
-    }
-
-    const packed = gzipSync(Buffer.from(body, "utf8"), { level: 6 });
-    this.setHeader("Content-Encoding", "gzip");
-    this.setHeader("Content-Length", String(packed.byteLength));
-    return original(packed);
-  };
-
-  next();
-}
-
 interface RouteDef {
   path: string;
-  render: (cfg: SiteConfig, ctx: RenderContext) => string;
+  render: (cfg: SiteConfig, ctx: RenderContext) => string | Promise<string>;
   priority: string;
   /** Pages that embed live metrics must never be served stale. */
   live?: boolean;
@@ -172,6 +104,7 @@ interface RenderContext {
   stats: Stats;
   online: boolean;
   startedAt: number;
+  status: () => Promise<StatusPayload>;
 }
 
 const ROUTES: RouteDef[] = [
@@ -184,7 +117,7 @@ const ROUTES: RouteDef[] = [
   // Public and static, so it is served (and indexed) even when the dashboard is off.
   // Registered before the /dashboard router, which would otherwise treat it as a server ID.
   { path: "/dashboard/changelog", render: c => renderDashboardChangelog(c), priority: "0.4" },
-  { path: "/status", render: (c, x) => renderStatus(c, x.stats, x.online, x.startedAt), priority: "0.6", live: true },
+  { path: "/status", render: async (c, x) => renderStatus(c, await x.status()), priority: "0.6", live: true },
   { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },
   { path: "/terms", render: c => renderTerms(c), priority: "0.4" },
   { path: "/security", render: c => renderSecurity(c), priority: "0.3" },
@@ -241,6 +174,11 @@ export function startWebServer(client: Client) {
   const online = (): boolean => Boolean(client?.isReady?.());
   const isOnline = (): boolean => online();
 
+  // Heartbeat samples, the public status payload and /api/status (statusRoutes.ts).
+  const statusPayload = registerStatusRoutes(app, {
+    online, stats: () => collectStats(client), client, version: SITE_VERSION, startedAt: STARTED_AT,
+  });
+
   const asset = (res: Response, type: string, body: string | Buffer, maxAge = 3600) => {
     res.setHeader("Cache-Control", `public, max-age=${maxAge}, immutable`);
     res.type(type).send(body);
@@ -249,6 +187,7 @@ export function startWebServer(client: Client) {
   app.get("/assets/site.css", (_req, res) => asset(res, "text/css", styles, 31536000));
   app.get("/assets/site.js", (_req, res) => asset(res, "text/javascript", clientScript, 31536000));
   app.get("/assets/dashboard.js", (_req, res) => asset(res, "text/javascript", dashboardScript, 31536000));
+  app.get("/assets/status.js", (_req, res) => asset(res, "text/javascript", statusScript, 31536000));
   app.get("/assets/theme-init.js", (_req, res) => asset(res, "text/javascript", themeInitScript, 31536000));
   app.get("/assets/favicon.svg", (_req, res) => asset(res, "image/svg+xml", faviconSvg, 31536000));
   app.get("/assets/og.svg", (_req, res) => asset(res, "image/svg+xml", ogImageSvg, 31536000));
@@ -416,13 +355,18 @@ export function startWebServer(client: Client) {
   };
 
   for (const route of ROUTES) {
-    app.get(route.path, (_req, res) => {
-      const ctx: RenderContext = {
-        stats: collectStats(client),
-        online: online(),
-        startedAt: STARTED_AT,
-      };
-      send(res, route.render(cfg, ctx), 200, route.live ? "no-cache" : undefined);
+    app.get(route.path, async (_req, res, next) => {
+      try {
+        const ctx: RenderContext = {
+          stats: collectStats(client),
+          online: online(),
+          startedAt: STARTED_AT,
+          status: statusPayload,
+        };
+        send(res, await route.render(cfg, ctx), 200, route.live ? "no-cache" : undefined);
+      } catch (err) {
+        next(err);
+      }
     });
   }
 
@@ -441,6 +385,7 @@ export function startWebServer(client: Client) {
     sessions: mongoSessionStore(),
     rateLimits: mongoRateLimitStore(),
     audit: mongoAuditStore(),
+    extras: mongoDashboardExtras(client),
   }));
 
   app.use((req: Request, res: Response) => {

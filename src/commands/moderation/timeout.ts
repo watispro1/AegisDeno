@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -224,7 +225,7 @@ export const command: Command = {
       max: 1,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("timeout", i, async () => {
       if (i.customId === "timeout_cancel") {
         await i.update({ content: "❌ Timeout cancelled.", embeds: [], components: [] });
         return;
@@ -426,7 +427,7 @@ export const command: Command = {
         logger.error(`Failed to timeout user ${target.user.id} in guild ${guildId}`, err);
         await i.editReply({ content: "❌ Failed to timeout the member. Check my permissions.", embeds: [], components: [] });
       }
-    });
+    }));
 
     collector.on("end", async (_, stopReason) => {
       if (stopReason === "time") {

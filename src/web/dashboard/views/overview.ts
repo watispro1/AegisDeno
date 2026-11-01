@@ -52,7 +52,11 @@ export function moduleStates(guildId: string, data: OverviewData, m: OverviewMod
   if (!s) return [];
   const a = s.automod;
   const rules = [a.words, a.links, a.mentions, a.spam, a.caps].filter(r => r.enabled).length;
+  // Module switches from the Modules & backup page (absent means on).
+  const sw = (key: "tickets" | "giveaways" | "scheduled" | "appeals") => s.guild.modules?.[key] !== false;
+  const auto = s.guild.incident?.autoTrigger;
   return [
+    { key: "incident", label: "Incident Mode", href: `${b}/incident`, on: null, detail: auto?.enabled ? `Auto-trigger: ${auto.joins} joins / ${auto.seconds}s` : "Ready; auto-trigger off" },
     { key: "moderation", label: "Moderation", href: `${b}/settings/escalation`, on: s.guild.escalation.enabled, detail: s.guild.escalation.enabled ? `${s.guild.escalation.thresholds.length} escalation step${s.guild.escalation.thresholds.length === 1 ? "" : "s"}` : "Escalation off" },
     { key: "automod", label: "Automod", href: `${b}/settings/automod`, on: rules > 0, detail: `${rules} of 5 rules on` },
     { key: "logging", label: "Logging", href: `${b}/settings/logging`, on: s.guild.loggingEnabled && Boolean(s.guild.loggingChannelId), detail: s.guild.loggingChannelId ? "Log channel set" : "No log channel" },
@@ -60,13 +64,13 @@ export function moduleStates(guildId: string, data: OverviewData, m: OverviewMod
     { key: "goodbye", label: "Goodbye", href: `${b}/settings/goodbye`, on: s.guild.goodbyeEnabled === true, detail: s.guild.goodbyeChannelId ? "Channel set" : "No channel" },
     { key: "verification", label: "Verification", href: `${b}/settings/verification`, on: s.verification?.enabled ?? false, detail: s.verification ? s.verification.type : "Not set up" },
     { key: "panels", label: "Role panels", href: `${b}/panels`, on: null, detail: `${m.rolePanels ?? 0} panel${m.rolePanels === 1 ? "" : "s"}` },
-    { key: "tickets", label: "Tickets", href: `${b}/settings/tickets`, on: null, detail: `${data.openTicketCount} open` },
+    { key: "tickets", label: "Tickets", href: `${b}/settings/tickets`, on: sw("tickets"), detail: `${data.openTicketCount} open` },
     { key: "starboard", label: "Starboard", href: `${b}/settings/starboard`, on: s.starboard.enabled && Boolean(s.starboard.channelId), detail: `${s.starboard.threshold} × ${s.starboard.emoji}` },
     { key: "suggestions", label: "Suggestions", href: `${b}/suggestions`, on: Boolean(s.guild.suggestionsChannelId), detail: x ? `${x.openSuggestions} open` : "" },
-    { key: "giveaways", label: "Giveaways", href: `${b}/giveaways`, on: null, detail: x ? `${x.activeGiveaways} running` : "" },
+    { key: "giveaways", label: "Giveaways", href: `${b}/giveaways`, on: sw("giveaways"), detail: x ? `${x.activeGiveaways} running` : "" },
     { key: "autoresponders", label: "Autoresponders", href: `${b}/autoresponders`, on: s.guild.autorespondersEnabled !== false, detail: x ? `${x.autoresponders} saved` : "" },
-    { key: "automations", label: "Scheduled messages", href: `${b}/automations`, on: null, detail: x ? `${x.scheduled} pending` : "" },
-    { key: "appeals", label: "Appeals", href: `${b}/appeals`, on: null, detail: `${data.pendingAppeals} pending` },
+    { key: "automations", label: "Scheduled messages", href: `${b}/automations`, on: sw("scheduled"), detail: x ? `${x.scheduled} pending` : "" },
+    { key: "appeals", label: "Appeals", href: `${b}/appeals`, on: sw("appeals"), detail: `${data.pendingAppeals} pending` },
   ];
 }
 

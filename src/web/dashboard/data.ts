@@ -143,7 +143,7 @@ export interface DashboardData {
 
 const DAY_MS = 86_400_000;
 
-function toRecord(doc: Record<string, unknown>, kind: "case" | "warning"): CaseRecord {
+export function toRecord(doc: Record<string, unknown>, kind: "case" | "warning"): CaseRecord {
   const date = (v: unknown) => (v ? new Date(v as string) : null);
   return {
     id: String(doc._id),

@@ -7,6 +7,7 @@ import { connectDatabase, closeDatabase } from "./database/mongo";
 import { logger } from "./utils/logger";
 import { startWebServer } from "./web/server";
 import { flushMemberActivity } from "./services/memberActivity";
+import { statusMonitor } from "./services/statusMonitor";
 
 const TOKEN           = process.env.DISCORD_TOKEN!;
 const APPLICATION_ID  = process.env.DISCORD_APPLICATION_ID!;
@@ -79,7 +80,9 @@ async function main(): Promise<void> {
   // while we wait for Discord's API to register commands.
   try {
     await registerCommands();
+    statusMonitor().setRegistration(true, commands.size);
   } catch (err) {
+    statusMonitor().setRegistration(false, commands.size);
     logger.error("Failed to register slash commands:", err);
     // Don't crash here; let the bot boot and just log the error. Commands might 
     // already be registered or it's a transient Discord API issue.

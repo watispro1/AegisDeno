@@ -77,7 +77,7 @@ function every(ms: number | null): string {
 }
 
 export function renderAutomations(cfg: SiteConfig, ctx: GuildContext, o: {
-  rows: AutomationRow[]; channels: ChannelOption[]; hidden: ReadonlySet<string>; noticeCode: string | null; state?: FormState;
+  rows: AutomationRow[]; channels: ChannelOption[]; hidden: ReadonlySet<string>; noticeCode: string | null; state?: FormState; moduleOff?: boolean;
 }): string {
   const g = esc(ctx.guild.id);
   const base = `/dashboard/${g}/automations`;
@@ -105,12 +105,17 @@ export function renderAutomations(cfg: SiteConfig, ctx: GuildContext, o: {
     <form class="dash-form" method="post" action="${base}" novalidate data-track-changes>
       ${csrfField(ctx.viewer)}
       ${f.select("channelId", "Channel", channelOptions(o.channels, "Pick a channel"), "Aegis needs View Channel, Send Messages and Embed Links there.")}
-      ${f.textarea("message", "Message", SCHEDULED_MESSAGE_MAX, "Posted as the description of a 📅 Scheduled Message embed. Nobody is pinged.", ` rows="4" data-count-max="${SCHEDULED_MESSAGE_MAX}"`)}
+      ${f.textarea("message", "Message", SCHEDULED_MESSAGE_MAX, "Without an embed below, posted as the description of a 📅 Scheduled Message embed. With one, posted as text above your embed. Roles and @everyone are never pinged.", ` rows="4" data-count-max="${SCHEDULED_MESSAGE_MAX}"`)}
       <div class="field-row two">
         ${f.text("delay", "Post in", 32, "Such as 30m, 2h or 1d 12h (1 minute to 28 days).", ' spellcheck="false"')}
         ${f.text("repeat", "Repeat every (optional)", 32, "Blank posts once. 10 minutes to 28 days.", ' spellcheck="false"')}
       </div>
-      <button class="btn" type="submit" data-save-button>Schedule</button>
+      <details class="embed-optional"${Object.keys(state.values).some(k => k.startsWith("e_") && state.values[k]) ? " open" : ""}>
+        <summary>Add an embed (optional)</summary>
+        ${embedBuilder(f, "e_", { legend: "Embed", sample: { user: `@${ctx.viewer.username}`, username: ctx.viewer.username, server: ctx.guild.name, memberCount: ctx.guild.memberCount }, contentKey: "message", help: "Built here, posted later exactly as previewed. Variables are shown filled with your name." })}
+      </details>
+      ${o.moduleOff ? `<p class="notice bad">Scheduled messages are switched off on the Modules &amp; backup page, so new ones can't be added. Messages already scheduled still post.</p>` : ""}
+      <button class="btn" type="submit" data-save-button${o.moduleOff ? " disabled" : ""}>Schedule</button>
     </form>
   </section>
   <h2>Pending</h2>
@@ -118,7 +123,7 @@ export function renderAutomations(cfg: SiteConfig, ctx: GuildContext, o: {
   <div class="table-wrap"><table class="case-table" id="task-table" data-filterable>
     <caption class="visually-hidden">Scheduled messages</caption>
     <thead><tr><th scope="col">Next post</th><th scope="col">Channel</th><th scope="col">Repeats</th><th scope="col">Message</th><th scope="col">By</th><th scope="col">Actions</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>` : emptyState("Nothing scheduled.", "Schedule a message above, or with <code class=\"inline\">/automation schedule</code>.")}`,
+    <tbody>${rows}</tbody></table></div>` : emptyState("Nothing scheduled.", "Schedule a message above, or with <code class=\"inline\">/automation message</code>.")}`,
   });
 }
 

@@ -14,9 +14,13 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 A documentation and quality-of-life release: the official-server playbook now
 documents every channel and its setup commands, the bot links straight to cases
 and docs, and the public site gained a faster search palette, saved command
-filters, copyable docs sections and a filterable changelog. Discord permissions,
-intents and environment variables are unchanged. Public URLs are now read from
-the environment, so a staging deployment no longer links back to production.
+filters, copyable docs sections and a filterable changelog. It also adds
+Incident Mode (raid protection that restores the server exactly when it ends), a
+reworked public status page and a round of command fixes. Discord intents and
+environment variables are unchanged; Incident Mode uses Manage Channels, Manage
+Roles and Manage Server when they are granted, and skips what it can't do. Public
+URLs are now read from the environment, so a staging deployment no longer links
+back to production.
 
 ### Added
 - **`server.md` channel reference:** every text, forum and voice channel now has
@@ -53,6 +57,53 @@ the environment, so a staging deployment no longer links back to production.
 - **Tests:** `tests/links.test.ts` pins the URL builders and mod-log rows;
   `tests/siteQol.test.ts` covers the search, filters, docs and changelog hooks.
 
+- **Incident Mode (`/incident start|end|status|auto`):** one command applies
+  slowmode to public channels, locks every public channel, one channel or the
+  channels saved on the dashboard, gates new accounts younger than a set age
+  (time out or kick), and can pause server invites. It ends on its own after a
+  set time (up to 24 hours, default 1 hour) or with `/incident end`, and puts
+  back exactly what it changed, from state saved in Mongo, so a restart mid-
+  incident still restores cleanly. Every step is recorded on the incident's
+  timeline. `/incident auto` can start it when many accounts join at once
+  (off by default; joins and window are configurable). Needs Manage Channels
+  for slowmode and locks, Manage Roles for overwrites, Manage Server to pause
+  invites, and Moderate Members or Kick Members for the join gate.
+- **Status page rework:** `/status` shows each component (bot gateway, Discord
+  API latency, database, command registration, dashboard and website) with its
+  state, live metrics, 24-hour and 7-day uptime bars built from heartbeat
+  samples, and posted notices (incidents and maintenance). The same data is
+  served as JSON at `/api/status`.
+- **`/ping`** shows 24-hour uptime from the same heartbeat samples as the
+  status page, and explains a slow or still-connecting gateway in plain words.
+- **`/userinfo`** has a Member page button that opens the member on the
+  dashboard (cases, warnings, notes and quick actions in one place).
+- **Features page:** Incident Mode is listed with the other modules.
+- **Tests:** `tests/incidentMode.test.ts`, `tests/statusPage.test.ts`,
+  `tests/dashboardUpgrades.test.ts` and `tests/codexFixes362.test.ts`.
+- **Trust Score v2 (`/trust user`, `/trust config`):** an explainable 0–100
+  score per member from account age, time in the server, verification, active
+  days in the last 30, cases and warnings weighted by severity and recency (a
+  timeout still in effect counts more), automod hits in 30 days and Incident
+  Mode join-gate flags. Each factor is listed with its + or − points.
+  `/trust user` needs Moderate Members and is always ephemeral; `/trust config`
+  needs Manage Server and sets the weights preset (strict, balanced, lenient),
+  the low-trust threshold and three integrations that are **off by default**:
+  link filtering only for low-trust members, a trust threshold for Incident
+  Mode's join gate, and a low-trust role on join (checked against Aegis's and
+  your highest role). `/userinfo` shows the same score to moderators.
+  `/trustscore` keeps working unchanged.
+- **Features page rework:** `/features` is organised by category (Moderation,
+  Automod & Safety, Incident Mode, Trust Score, Community, Tickets & Appeals,
+  Dashboard, Status & Reliability) with an icon sprite, a headline hero, in-page
+  navigation, "on the dashboard" badges, a "Why Aegis" comparison and invite and
+  dashboard calls to action. Command names on the page come from the real
+  command definitions and link to their `/commands` anchors; a test fails if
+  one stops existing.
+- **Command options:** `/nickname reason:`, `/serverinfo ephemeral:`, reason
+  suggestions on `/kick`, note-ID suggestions on `/note delete`.
+- **Tests:** `tests/trustScoreV2.test.ts`, `tests/featuresPage.test.ts`,
+  `tests/commandsRound4.test.ts` and `tests/bugFixesRound4.test.ts`.
+
 ### Changed
 - Hardcoded `aegisdeno.fly.dev` and support-invite URLs in `/help`, `/about`,
   `/ping`, `/dashboard` and permission errors were replaced with the shared link
@@ -62,6 +113,21 @@ the environment, so a staging deployment no longer links back to production.
 - Purge records its case before showing the result, so the confirmation can link
   to the case and the member's history; timeout extensions link their new case
   too.
+- Channel locking moved from `/lock` into `src/services/channelLock.ts` so
+  `/lock` and Incident Mode share one implementation; guild config normalisers
+  moved to `src/services/guildConfigNormalize.ts`; `server.ts` was split into
+  `serverMiddleware.ts` and `statusRoutes.ts`. No behaviour change from the
+  splits themselves.
+- Member activity tracking now also keeps the UTC days a member was active in
+  the last 30 days (a short list of dates, never message content) for Trust
+  Score; `/userinfo` uses the Trust Score v2 engine.
+- `/nickname` shows the old and new name, logs the reason to the mod log, says
+  when nothing would change, and refuses the server owner up front.
+- `/slowmode` prints custom values as "1 minute 30 seconds" (was "1.5
+  minutes") and its channel pickers only offer channels that have slowmode.
+- Dashboard, starboard, watchlist, appeal, automod-hit and activity models moved
+  out of `src/database/mongo.ts` into `dashboardModels.ts` and `extraModels.ts`
+  (re-exported, so imports are unchanged).
 
 ### Fixed
 - `server.md` documents `/welcome message` as the form it is, explains `{user}`,
@@ -72,6 +138,48 @@ the environment, so a staging deployment no longer links back to production.
   and the docs test fails if they return.
 - Logging, automod, verify, rolepanel, ticket, welcome, starboard and escalation
   examples in `server.md` use the choice labels Discord actually shows.
+- `/lock server` skips channels hidden from Aegis (their overwrites are only a
+  placeholder, and editing them would clobber the real permissions), private
+  channels @everyone can't see, and channels already locked. Auto-unlocks are
+  persisted so a restart can't leave a channel locked, and giving both
+  `duration` and `duration_minutes` is refused instead of silently picking one.
+- `/ping` bounds the database check at 2 seconds and says "Timed out" instead
+  of hanging when the database stalls.
+- The welcome auto-role is no longer given to members still in Discord's
+  membership screening (which let them skip the rules gate); they get it once
+  they pass. A role above Aegis is skipped with one warning instead of an API
+  error on every join.
+- Every button/menu collector in the commands now catches its own errors: an
+  expired interaction or a Discord error is logged and answered with a short
+  ephemeral notice instead of an unhandled promise rejection and "This
+  interaction failed".
+- `/slowmode set|custom` checks Manage Channels in the target channel (for
+  both you and Aegis), so channel overwrites that deny it are respected; the
+  quick-adjust buttons use the same check.
+- `/announce` and `/embed` refuse to post into a channel you can't post in
+  yourself, and `/announce` pings need Mention Everyone in that channel.
+- `/note delete` rejects malformed IDs with a clear message (they used to hit
+  a database error), and deleting another moderator's note needs Manage Server.
+- `/userinfo` and `/serverinfo` defer before their lookups so large servers or
+  a slow database don't run past Discord's three-second window; `/userinfo`'s
+  trust field no longer counted only the five newest cases of any type.
+- Codex review on #18/#19: `/autoresponder` toggling reports the real result,
+  embed size limits are checked after template placeholders are expanded, and
+  `server.md` uses the current command names.
+
+### Security
+- New Mongo collections: `incidents` (incident state and timeline),
+  `statussamples` (heartbeat samples, expire after 8 days), `statusnotices`
+  (status page notices) and `memberflows` (daily join/leave counts for analytics, expire after 120 days).
+- The Content Security Policy now allows images from `https://cdn.discordapp.com`
+  only, for real avatars and server icons on the dashboard; avatar hashes from
+  Discord OAuth are validated before use.
+- Incident Mode records each change before making it and restores only what it
+  recorded, so a crash part-way through still puts back everything it touched.
+- Trust Score stores no message content: only counts, dates and the 30-day
+  active-day list. Activity records of members silent for 180 days expire, and
+  when Aegis is removed from a server its activity records are deleted. Trust
+  settings changes are written to the mod log and the dashboard audit log.
 
 ## [3.6.2] - 2026-10-31
 

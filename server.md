@@ -145,8 +145,8 @@ The **Suggested topic** column is written to paste straight into Discord's *Edit
 | `#rules-and-info` | Staff only (`@everyone` reads) | The canonical rules, the warning/escalation ladder, and the map of where to get help. This is the one page every member is expected to read. | Pinned rule embed. No automod needed because nobody can post. | `Read first: server rules, the warning ladder, and where to get help. Then verify in #verify.` |
 | `#welcome` | Aegis only (`@everyone` reads) | Landing feed for new members. Greets each join and points to the next step: read the rules, then verify. | `/welcome` posts here using `{user}`, `{server}`, and `{member_count}`. | `Welcome to Aegis Support & Community! Read #rules-and-info, then click Verify in #verify.` |
 | `#announcements` | Staff only (`@everyone` reads) | High-signal news: major releases, events, policy changes, and community milestones. Published to followers. | `/announce` with `crosspost:true` publishes to the channel's followers. | `Major Aegis releases, events, and community news. Reactions on, replies off — discuss in #general-discussion.` |
-| `#bot-updates` | Staff only (`@everyone` reads) | Every version bump: new commands, changed options, fixes, and deprecations. Lower volume than announcements, higher detail. | `/announce` or `/embed`; each post should link the matching `/changelog` entry. | `Release notes for every Aegis version: new commands, fixes, and breaking changes.` |
-| `#status-and-outages` | Staff only (`@everyone` reads) | Incident notices: planned maintenance, gateway problems, degraded performance, and all-clears. | Manual posts; always include a link to `/status` so members can check live numbers. | `Incident and maintenance notices. Check the live status page before reporting downtime.` |
+| `#bot-updates` | Staff only (`@everyone` reads) | Every version bump: new commands, changed options, fixes, and deprecations. Lower volume than announcements, higher detail. | `/announce` or `/embed`; each post should link the matching entry on the site's changelog page (`aegisdeno.fly.dev/changelog`). | `Release notes for every Aegis version: new commands, fixes, and breaking changes.` |
+| `#status-and-outages` | Staff only (`@everyone` reads) | Incident notices: planned maintenance, gateway problems, degraded performance, and all-clears. | Manual posts; always include a link to the status page (`aegisdeno.fly.dev/status`) so members can check live numbers. | `Incident and maintenance notices. Check the live status page before reporting downtime.` |
 | `#official-links` | Staff only (`@everyone` reads) | One message with every trusted destination: invite, dashboard, docs, status, changelog, support, and legal pages. | Pinned embed. This is the only place invite links should be posted. | `Official Aegis links: invite, dashboard, docs, status, changelog, and support. Nothing else here.` |
 
 > **Why `#welcome` exists:** the welcome system needs a dedicated target. Posting greetings in `#rules-and-info` buries the rules and breaks the "read-only reference" role of that channel.
@@ -181,7 +181,7 @@ The **Suggested topic** column is written to paste straight into Discord's *Edit
 | Channel | Who can post | What it is for | Aegis behavior | Suggested topic |
 |---|---|---|---|---|
 | `#create-ticket` | Aegis only; `@Community Member` reads | The only supported way to open a private ticket. One persistent panel, no chatter. | `/ticket setup` posts the panel. The button creates a private channel, pings the support role, and logs the ticket. | `Open a private support ticket. Use this for logs, account issues, and anything you cannot share publicly.` |
-| `#faq-quick-help` | Staff only (`@Community Member` reads) | The ten questions that answer themselves: invite permissions, missing slash commands, resetting config, transcript access, appeal codes. | Pinned FAQ embed. Each answer ends with a link to the matching `/docs` section. | `Quick answers to the most common Aegis questions. Search here before opening a ticket.` |
+| `#faq-quick-help` | Staff only (`@Community Member` reads) | The ten questions that answer themselves: invite permissions, missing slash commands, resetting config, transcript access, appeal codes. | Pinned FAQ embed. Each answer ends with a link to the matching section of the docs page (`aegisdeno.fly.dev/docs`). | `Quick answers to the most common Aegis questions. Search here before opening a ticket.` |
 | `#self-hosting` | `@Community Member` (forum, 5s per thread) | Long-form help for running Aegis yourself: Docker, Fly.io, MongoDB, Node.js, environment variables, and first boot. | Forum threads. Tags: `Docker`, `Fly.io`, `MongoDB`, `Node.js`, `Solved`, `Investigating`. Auto-archive after 7 days idle. | `Self-hosting help: Docker, Fly.io, MongoDB, Node.js, and environment setup. One issue per thread.` |
 | `#api-and-dev-help` | `@Community Member` (forum, 5s per thread) | Integration questions: webhooks, dashboards, custom tooling, and API-shaped work around Aegis. | Forum threads. Tags: `API`, `Webhooks`, `Bots`, `Solved`, `Investigating`. Auto-archive after 7 days idle. | `Developer help for Aegis integrations, webhooks, and custom tooling. One question per thread.` |
 
@@ -238,7 +238,7 @@ Voice channels do not have topics. Set the channel **status** shown below instea
 | Suggestions and decisions | `#suggestions` | `/suggest submit`, `/suggest approve` |
 | Welcome messages | `#welcome` | Member join |
 | Runtime errors and deploy notices | `#bot-debug-logs` | Internal logger |
-| Status changes | `#status-and-outages` | Staff post; links `/status` |
+| Status changes | `#status-and-outages` | Staff post; links the status page (`aegisdeno.fly.dev/status`) |
 
 ---
 
@@ -311,7 +311,7 @@ Voice channels do not have topics. Set the channel **status** shown below instea
 
 ## 7. Official Aegis Bot Setup & Integration
 
-Run the following commands inside the server using the bot to configure its native subsystems. Option names below match the registered slash commands; if a command changes, `/help` and the public `/commands` catalog are the source of truth.
+Run the following commands inside the server using the bot to configure its native subsystems. Option names below match the registered slash commands; if a command changes, `/help` and the public command catalog (`aegisdeno.fly.dev/commands`) are the source of truth.
 
 ### 7.1 Setup Order
 

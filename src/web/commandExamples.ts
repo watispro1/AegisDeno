@@ -32,7 +32,9 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   ],
   infractions: ["/infractions user:@member"],
   modhistory: ["/modhistory user:@member filter:Bans"],
-  note: ["/note add user:@member", "/note view user:@member"],
+  nickname: ["/nickname user:@member name:Sam reason:Impersonation"],
+  serverinfo: ["/serverinfo ephemeral:true"],
+  note: ["/note add user:@member", "/note view user:@member", "/note delete id:65a1b2c3d4e5f60718293a4b"],
   escalation: [
     "/escalation add warnings:3 action:Timeout duration:60",
     "/escalation add warnings:5 action:Ban",
@@ -51,6 +53,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   ],
   slowmode: ["/slowmode set duration:10 seconds", "/slowmode custom seconds:45 channel:#general"],
   trustscore: ["/trustscore user:@member"],
+  trust: ["/trust user user:@member", "/trust config enabled:true preset:balanced threshold:30"],
   appeal: [
     "/appeal submit code:AGS-K7X2",
     "/appeal list status:Pending",

@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -13,6 +14,8 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
+import { formatDurationLong } from "../../utils/duration";
+import { auditReason } from "../../utils/safeText";
 import { sendGuildLog } from "../../services/logging";
 import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 
@@ -34,12 +37,18 @@ const PRESET_CHOICES = [
   { name: "6 hours (max)",    value: 21600},
 ];
 
-function formatDuration(seconds: number): string {
-  if (seconds === 0)    return "**Disabled**";
-  if (seconds < 60)    return `**${seconds} second${seconds !== 1 ? "s" : ""}**`;
-  if (seconds < 3600)  return `**${seconds / 60} minute${seconds / 60 !== 1 ? "s" : ""}**`;
-  return `**${seconds / 3600} hour${seconds / 3600 !== 1 ? "s" : ""}**`;
+/** "**1 minute 30 seconds**"; custom values no longer print as "1.5 minutes". */
+export function formatSlowmode(seconds: number): string {
+  return seconds === 0 ? "**Disabled**" : `**${formatDurationLong(seconds)}**`;
 }
+const formatDuration = formatSlowmode;
+
+/** Channel kinds that have a per-user rate limit. */
+export const SLOWMODE_CHANNEL_TYPES = [
+  ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildForum, ChannelType.GuildMedia,
+  ChannelType.GuildVoice, ChannelType.GuildStageVoice,
+  ChannelType.PublicThread, ChannelType.PrivateThread, ChannelType.AnnouncementThread,
+] as const;
 
 // ─── Command ─────────────────────────────────────────────────────────────────
 
@@ -59,7 +68,7 @@ export const command: Command = {
             .addChoices(...PRESET_CHOICES)
         )
         .addChannelOption(opt =>
-          opt.setName("channel").setDescription("Channel to configure (defaults to current)").setRequired(false)
+          opt.setName("channel").setDescription("Channel to configure (defaults to current)").setRequired(false).addChannelTypes(...SLOWMODE_CHANNEL_TYPES)
         )
         .addStringOption(opt =>
           opt.setName("reason").setDescription("Reason for setting slowmode").setMaxLength(256).setRequired(false)
@@ -78,7 +87,7 @@ export const command: Command = {
             .setMaxValue(21600)
         )
         .addChannelOption(opt =>
-          opt.setName("channel").setDescription("Channel to configure (defaults to current)").setRequired(false)
+          opt.setName("channel").setDescription("Channel to configure (defaults to current)").setRequired(false).addChannelTypes(...SLOWMODE_CHANNEL_TYPES)
         )
         .addStringOption(opt =>
           opt.setName("reason").setDescription("Reason for setting slowmode").setMaxLength(256).setRequired(false)
@@ -89,7 +98,7 @@ export const command: Command = {
         .setName("check")
         .setDescription("Check the current slowmode on a channel.")
         .addChannelOption(opt =>
-          opt.setName("channel").setDescription("Channel to check (defaults to current)").setRequired(false)
+          opt.setName("channel").setDescription("Channel to check (defaults to current)").setRequired(false).addChannelTypes(...SLOWMODE_CHANNEL_TYPES)
         )
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
@@ -128,6 +137,19 @@ export const command: Command = {
     }
 
     // ── /slowmode set / custom ─────────────────────────────────────────────
+    // Server-wide Manage Channels isn't enough when the channel's overwrites deny
+    // it: check the member (and Aegis) in this channel, as Discord itself would.
+    const memberPerms = interaction.inCachedGuild()
+      ? interaction.member.permissionsIn(targetChan.id)
+      : (await interaction.guild?.members.fetch(interaction.user.id).catch(() => null))?.permissionsIn(targetChan.id);
+    if (!memberPerms?.has(PermissionFlagsBits.ManageChannels)) {
+      return interaction.reply({ content: `❌ You need **Manage Channels** in <#${targetChan.id}> to change its slowmode.`, flags: MessageFlags.Ephemeral });
+    }
+    const botPerms = interaction.guild?.members.me?.permissionsIn(targetChan.id);
+    if (!botPerms?.has(PermissionFlagsBits.ManageChannels)) {
+      return interaction.reply({ content: `❌ I need **Manage Channels** in <#${targetChan.id}> to change its slowmode.`, flags: MessageFlags.Ephemeral });
+    }
+
     const seconds = sub === "set"
       ? interaction.options.getInteger("duration", true)
       : interaction.options.getInteger("seconds", true);
@@ -137,7 +159,7 @@ export const command: Command = {
     try {
       await (targetChan as TextChannel).setRateLimitPerUser(
         seconds,
-        `${reason} | Set by ${interaction.user.tag}`,
+        auditReason(`${reason} | Set by ${interaction.user.tag}`),
       );
 
       const action = seconds === 0 ? "🔓 Slowmode Disabled" : "🐌 Slowmode Set";
@@ -195,10 +217,11 @@ export const command: Command = {
       const collector = sent.createMessageComponentCollector({
         componentType: ComponentType.Button,
         time: 60_000,
-        filter: (i) => i.memberPermissions?.has(PermissionFlagsBits.ManageChannels) === true,
+        // Channel-level check, same as the command itself.
+        filter: (i) => i.inCachedGuild() && i.member.permissionsIn(targetChan.id).has(PermissionFlagsBits.ManageChannels),
       });
 
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("slowmode", i, async () => {
         const parts = i.customId.split("_");
         const key = parts.slice(1, -1).join("_");
         const newRate = quickPresets[key] ?? 0;
@@ -217,7 +240,7 @@ export const command: Command = {
         } catch (err) {
           logger.warn("Quick-adjust slowmode failed", err);
         }
-      });
+      }));
 
       collector.on("end", async () => {
         await interaction.editReply({ components: [] }).catch(() => null);

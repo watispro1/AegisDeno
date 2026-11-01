@@ -17,6 +17,9 @@ import { type RouteKit, type GuildLocals } from "./context";
 export function registerAutomationRoutes(router: Router, k: RouteKit): void {
   const { deps, modules, send, fail, actorOf, logAudit, noticeParam, validationContext, requirePermission, guildGet, guildPost, embedPost } = k;
   const locals = (res: { locals: Record<string, unknown> }) => (res.locals.dash as GuildLocals).ctx;
+  /** Whether the Scheduled messages module is on (the Settings page switch); unreadable settings count as on. */
+  const scheduledEnabled = async (guildId: string) =>
+    (await deps.data.loadSettings(guildId).catch(() => null))?.guild.modules?.scheduled !== false;
   const panelNotice = (r: PanelResult, ok: string) => (r === "posted" ? ok : r === "channel-missing" ? "panel-channel-missing" : "panel-failed");
 
   /* ── Autoresponders ──────────────────────────────────────────────── */
@@ -79,6 +82,7 @@ export function registerAutomationRoutes(router: Router, k: RouteKit): void {
       channels: deps.bot.textChannels(ctx.guild.id),
       hidden: deps.bot.hiddenChannelIds(ctx.guild.id),
       noticeCode, state,
+      moduleOff: !(await scheduledEnabled(ctx.guild.id)),
     });
   }
 
@@ -86,10 +90,11 @@ export function registerAutomationRoutes(router: Router, k: RouteKit): void {
     try { send(res, await taskPage(locals(res), noticeParam(req))); } catch (err) { next(err); }
   });
 
-  router.post("/:guildId/automations", ...guildPost, async (req, res, next) => {
+  router.post("/:guildId/automations", ...embedPost, async (req, res, next) => {
     try {
       const ctx = locals(res);
       const body = (req.body ?? {}) as FormBody;
+      if (!(await scheduledEnabled(ctx.guild.id))) return res.redirect(303, `/dashboard/${ctx.guild.id}/automations?notice=module-disabled`);
       const parsed = parseAutomation(body, validationContext(ctx));
       if (!parsed.ok) return send(res, await taskPage(ctx, null, { values: submittedValues(body), errors: parsed.errors }), 400);
       const result = await modules.createAutomation(ctx.guild.id, parsed.value, actorOf(ctx));

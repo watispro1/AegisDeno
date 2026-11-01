@@ -7,11 +7,14 @@ import { logger } from "../../utils/logger";
 import { canManageGuild } from "./permissions";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { memberTopRolePosition, roleAboveActor } from "../../permissions/hierarchy";
+import { guildIconUrl } from "./cdn";
 
 export interface GuildSummary {
   id: string;
   name: string;
   memberCount: number;
+  /** Discord CDN icon URL, when the server has an icon. */
+  iconUrl?: string | null;
 }
 
 export interface ChannelOption {
@@ -49,10 +52,11 @@ export interface ViewerRoleLimit {
 }
 
 /** Extra permissions some dashboard actions need, matching their slash commands. */
-export type DashboardPermission = "BanMembers" | "ManageChannels" | "ManageRoles" | "ManageMessages" | "ModerateMembers";
+export type DashboardPermission = "BanMembers" | "KickMembers" | "ManageChannels" | "ManageRoles" | "ManageMessages" | "ModerateMembers";
 
 export const DASHBOARD_PERMISSION_LABELS: Record<DashboardPermission, string> = {
   BanMembers: "Ban Members",
+  KickMembers: "Kick Members",
   ManageChannels: "Manage Channels",
   ManageRoles: "Manage Roles",
   ManageMessages: "Manage Messages",
@@ -135,7 +139,7 @@ export function discordBotView(client: Client): BotView {
 
     guild(guildId) {
       const g = get(guildId);
-      return g ? { id: g.id, name: g.name ?? "Unknown server", memberCount: g.memberCount ?? 0 } : null;
+      return g ? { id: g.id, name: g.name ?? "Unknown server", memberCount: g.memberCount ?? 0, iconUrl: guildIconUrl(g.id, g.icon) } : null;
     },
 
     async memberCanManage(guildId, userId) {

@@ -129,23 +129,55 @@ export function normalizeEmbedSpec(value: unknown): EmbedSpec | null {
   return spec;
 }
 
+/**
+ * Fills template variables in every text part, clamps each part, then keeps
+ * the aggregate under Discord's 6,000-character embed limit. A stored spec
+ * passes that check before expansion, but placeholders such as {server} can
+ * grow it past the limit afterwards, and Discord rejects the whole message.
+ * Trimming order: trailing fields first, then the description, footer,
+ * author and title, so the most important text survives.
+ */
+export function fillEmbedSpec(spec: EmbedSpec, values?: TemplateValues): EmbedSpec {
+  const fill = (s: string | null, max: number) => (s ? (values ? renderTemplate(s, values) : s).slice(0, max) : null);
+  const out: EmbedSpec = {
+    ...spec,
+    title: fill(spec.title, EMBED_LIMITS.title),
+    description: fill(spec.description, EMBED_LIMITS.description),
+    authorName: fill(spec.authorName, EMBED_LIMITS.author),
+    footerText: fill(spec.footerText, EMBED_LIMITS.footer),
+    fields: spec.fields.map(f => ({
+      name: fill(f.name, EMBED_LIMITS.fieldName) ?? "",
+      value: fill(f.value, EMBED_LIMITS.fieldValue) ?? "",
+      inline: f.inline,
+    })).filter(f => f.name && f.value),
+  };
+  let over = embedLength(out) - EMBED_LIMITS.total;
+  while (over > 0 && out.fields.length) {
+    const f = out.fields.pop()!;
+    over -= f.name.length + f.value.length;
+  }
+  for (const key of ["description", "footerText", "authorName", "title"] as const) {
+    if (over <= 0) break;
+    const text = out[key];
+    if (!text) continue;
+    const keep = Math.max(0, text.length - over);
+    over -= text.length - keep;
+    out[key] = keep > 1 ? text.slice(0, keep - 1) + "…" : null;
+  }
+  return out;
+}
+
 /** Builds the discord.js embed, filling template variables in every text part. */
 export function buildEmbedFromSpec(spec: EmbedSpec, values?: TemplateValues): EmbedBuilder {
-  const fill = (s: string, max: number) => (values ? renderTemplate(s, values) : s).slice(0, max);
+  const filled = fillEmbedSpec(spec, values);
   const embed = new EmbedBuilder();
-  if (spec.title) embed.setTitle(fill(spec.title, EMBED_LIMITS.title));
-  if (spec.description) embed.setDescription(fill(spec.description, EMBED_LIMITS.description));
-  if (spec.color !== null) embed.setColor(spec.color);
-  if (spec.authorName) embed.setAuthor({ name: fill(spec.authorName, EMBED_LIMITS.author) });
-  if (spec.footerText) embed.setFooter({ text: fill(spec.footerText, EMBED_LIMITS.footer) });
-  if (spec.imageUrl) embed.setImage(spec.imageUrl);
-  if (spec.thumbnailUrl) embed.setThumbnail(spec.thumbnailUrl);
-  if (spec.fields.length) {
-    embed.addFields(spec.fields.map(f => ({
-      name: fill(f.name, EMBED_LIMITS.fieldName),
-      value: fill(f.value, EMBED_LIMITS.fieldValue),
-      inline: f.inline,
-    })));
-  }
+  if (filled.title) embed.setTitle(filled.title);
+  if (filled.description) embed.setDescription(filled.description);
+  if (filled.color !== null) embed.setColor(filled.color);
+  if (filled.authorName) embed.setAuthor({ name: filled.authorName });
+  if (filled.footerText) embed.setFooter({ text: filled.footerText });
+  if (filled.imageUrl) embed.setImage(filled.imageUrl);
+  if (filled.thumbnailUrl) embed.setThumbnail(filled.thumbnailUrl);
+  if (filled.fields.length) embed.addFields(filled.fields);
   return embed;
 }

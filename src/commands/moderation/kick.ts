@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { auditReason } from "../../utils/safeText";
 import { logger } from "../../utils/logger";
 import {
@@ -16,6 +17,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { scopedModalId } from "../../utils/modal";
+import { handleReasonAutocomplete } from "../../utils/moderationPresets";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid, isBotHierarchyValid } from "../../permissions/hierarchy";
@@ -30,7 +32,7 @@ export const command: Command = {
       opt.setName("user").setDescription("The member to kick").setRequired(true)
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the kick").setMaxLength(512).setRequired(false)
+      opt.setName("reason").setDescription("Reason for the kick (suggestions as you type)").setMaxLength(512).setRequired(false).setAutocomplete(true)
     )
     .addBooleanOption(opt =>
       opt.setName("silent").setDescription("Skip DM notification to the member (default: false)").setRequired(false)
@@ -41,6 +43,9 @@ export const command: Command = {
   userPermissions: [PermissionFlagsBits.KickMembers],
   botPermissions:  [PermissionFlagsBits.KickMembers],
 
+  // Same reason suggestions as /warn, /timeout and /ban.
+  autocomplete: handleReasonAutocomplete,
+
   execute: async (interaction: ChatInputCommandInteraction) => {
     let target = interaction.options.getMember("user") as GuildMember | null;
     if (!target) {
@@ -49,7 +54,7 @@ export const command: Command = {
         target = await interaction.guild.members.fetch(user.id).catch(() => null);
       }
     }
-    const reason  = interaction.options.getString("reason") ?? "No reason provided.";
+    const reason  = interaction.options.getString("reason")?.trim() || "No reason provided.";
     const silent  = interaction.options.getBoolean("silent") ?? false;
     const guildId = interaction.guildId!;
 
@@ -133,7 +138,7 @@ export const command: Command = {
       max: 5,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("kick", i, async () => {
       if (handled) return;
 
       if (i.customId === "kick_cancel") {
@@ -227,7 +232,7 @@ export const command: Command = {
           await i.editReply({ content: "❌ Failed to kick the member. Check my permissions and role hierarchy.", embeds: [], components: [] }).catch(() => null);
         }
       }
-    });
+    }));
 
     collector.on("end", async (_, stopReason) => {
       if (stopReason === "time") {

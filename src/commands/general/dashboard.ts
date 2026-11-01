@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -151,7 +152,7 @@ export const command: Command = {
       filter: (i) => i.user.id === interaction.user.id,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("dashboard", i, async () => {
       switch (i.customId) {
         case "dash_refresh": {
           await i.deferUpdate();
@@ -262,7 +263,7 @@ export const command: Command = {
           break;
         }
       }
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction.editReply({ components: [] }).catch(() => null);

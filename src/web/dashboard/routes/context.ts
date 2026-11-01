@@ -13,8 +13,10 @@ import { type FetchLike } from "../discordOAuth";
 import { guildInviteUrl, isSnowflake, partitionGuilds } from "../permissions";
 import type { ModuleData } from "../moduleData";
 import { memoryModuleData } from "../moduleDataMemory";
+import { memoryDashboardExtras, type DashboardExtras } from "../extras";
 import { SESSION_COOKIE, SESSION_TTL_MS, cookieNames, csrfToken, originAllowed, parseCookies, serializeCookie, verifyCsrf, verifySessionCookie } from "../security";
 import { hasOperatorKeys } from "../../../utils/mongoSafe";
+import { guildIconUrl, userAvatarUrl } from "../cdn";
 import type { SessionData, SessionStore } from "../sessions";
 import { type FormBody, type ValidationContext } from "../validation";
 import { renderError, type GuildContext, type Viewer } from "../views";
@@ -53,6 +55,8 @@ export interface DashboardDeps {
   audit?: AuditStore;
   /** Module pages' data (autoresponders, giveaways, …). Defaults to in-memory; production passes the Mongo version. */
   modules?: ModuleData;
+  /** Members, search, analytics, Incident Mode and settings transfer. Defaults to in-memory; production passes the Mongo version. */
+  extras?: DashboardExtras;
 }
 
 export interface Authed {
@@ -131,6 +135,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
   const store = deps.rateLimits ?? memoryRateLimitStore();
   const audit = deps.audit ?? memoryAuditStore();
   const modules = deps.modules ?? memoryModuleData();
+  const extras = deps.extras ?? memoryDashboardExtras();
   const authLimit = limit(store, "auth", deps.limits?.auth ?? 20, deps);
   const postLimit = limit(store, "post", deps.limits?.post ?? 30, deps);
   const pageLimit = limit(store, "page", deps.limits?.page ?? 240, deps);
@@ -197,7 +202,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
     return {
       sessionId,
       session,
-      viewer: { userId: session.userId, username: session.username, globalName: session.globalName, csrf: csrfToken(secret, sessionId) },
+      viewer: { userId: session.userId, username: session.username, globalName: session.globalName, csrf: csrfToken(secret, sessionId), avatarUrl: userAvatarUrl(session.userId, session.avatar) },
     };
   }
 
@@ -264,7 +269,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
       // The viewer's highest role bounds which roles they may hand out (see rolesFor).
       const roleLimit = await deps.bot.viewerRoleLimit(guildId, authed.session.userId).catch(() => ({ ownerId: null, topPosition: null }));
       // The switcher lists servers from the login's list that Aegis is in and the viewer may manage (each is re-checked on open).
-      const servers = partitionGuilds(authed.session.guilds ?? [], (id) => deps.bot.hasGuild(id)).manageable.map(s => ({ id: s.id, name: s.name }));
+      const servers = partitionGuilds(authed.session.guilds ?? [], (id) => deps.bot.hasGuild(id)).manageable.map(s => ({ id: s.id, name: s.name, iconUrl: guildIconUrl(s.id, s.icon) }));
       const ctx: GuildContext = { guild, viewer: authed.viewer, nameOf: (id) => deps.bot.userName(id), roleLimit, servers };
       res.locals.dash = { ...authed, ctx } satisfies GuildLocals;
       next();
@@ -324,7 +329,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
   const embedPost = [postLimit, embedForm, requireSession, requireCsrf, requireGuild];
 
   return {
-    deps, cfg, now, fetchImpl, secret, audit, modules,
+    deps, cfg, now, fetchImpl, secret, audit, modules, extras,
     authLimit, postLimit, pageLimit, form, settingsForm,
     send, fail, cookie, names, clearLegacySession, migrateLegacyCookie, rejectOperatorInput, loadSession,
     requireSession, requireCsrf, requireGuild, missingPermission, requirePermission,

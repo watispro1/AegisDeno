@@ -1,3 +1,5 @@
+import { scheduledPayloadPreview } from "../../services/scheduledPayload";
+import { moduleEnabled, moduleOffMessage } from "../../services/moduleSwitches";
 import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, TextChannel, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
@@ -85,6 +87,11 @@ export const command: Command = {
     const guildId = interaction.guildId!;
 
     await interaction.deferReply({ flags: (sub !== "remind" && sub !== "message" && sub !== "repeat") ? MessageFlags.Ephemeral : undefined });
+
+    if ((sub === "message" || sub === "repeat") && !(await moduleEnabled(guildId, "scheduled"))) {
+      await interaction.editReply(moduleOffMessage("scheduled"));
+      return;
+    }
 
     try {
       // ── remind ────────────────────────────────────────────────────────────
@@ -224,7 +231,8 @@ export const command: Command = {
           const icon      = t.type === "reminder" ? "⏰" : "📅";
           const status    = activeIds.has(t.id!) ? "" : " *(queued — pending timer restore)*";
           const timestamp = `<t:${Math.floor(new Date(t.executeAt).getTime() / 1000)}:R>`;
-          const preview   = t.payload.length > 60 ? t.payload.substring(0, 60) + "…" : t.payload;
+          const text      = scheduledPayloadPreview(t.payload);
+          const preview   = text.length > 60 ? text.substring(0, 60) + "…" : text;
           return `${icon} **\`${t.id}\`** — ${timestamp}${status}\n*${preview}*`;
         });
 

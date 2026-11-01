@@ -149,57 +149,5 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
   });
 }
 
-/* ── Features ──────────────────────────────────────────────────────── */
-
-export function renderFeatures(cfg: SiteConfig): string {
-  const toc = features.map(f => `<li><a href="#${f.id}">${escapeHtml(f.title)}</a></li>`).join("\n        ");
-
-  const sections = features.map(f => `<section class="feature" id="${f.id}" aria-labelledby="${f.id}-title">
-      <h2 id="${f.id}-title">${escapeHtml(f.title)}</h2>
-      <p>${escapeHtml(f.text)}</p>
-      <ul>
-        ${f.points.map(p => `<li>${escapeHtml(p)}</li>`).join("\n        ")}
-      </ul>
-      <div class="feature-cmds">
-        ${f.commands.map(([c, d]) => `<div><code>${escapeHtml(c)}</code><span>${escapeHtml(d)}</span></div>`).join("\n        ")}
-      </div>
-      ${f.docs ? `<p class="feature-links"><a href="/docs#${f.docs}">Setup notes in the docs</a></p>` : ""}
-    </section>`).join("\n\n    ");
-
-  const body = `
-<div class="wrap">
-  ${breadcrumb("Features")}
-  <div class="page-head">
-    <h1>Features</h1>
-    <p class="lead">What Aegis does, one area at a time, with the commands you would actually type. For every option on every command, see the <a href="/commands">command reference</a>.</p>
-  </div>
-
-  <details class="toc-mobile">
-    <summary>Jump to a section</summary>
-    <ul>
-      ${toc}
-    </ul>
-  </details>
-
-  <div class="split">
-    <aside class="toc" aria-label="Sections">
-      <p class="side-title">On this page</p>
-      <ul>
-        ${toc}
-      </ul>
-    </aside>
-    <div>
-    ${sections}
-    ${endNote(cfg, "Want to try it on a test server first? That works too.")}
-    </div>
-  </div>
-</div>`;
-
-  return page(cfg, {
-    title: "Features | Aegis",
-    description:
-      "Moderation and cases, automod, trust score, ban appeals, watchlist, mod reports, logging, tickets, verification and community tools in the Aegis Discord bot.",
-    path: "/features",
-    body,
-  });
-}
+/* The /features page lives in features.ts. */
+export { renderFeatures } from "./features";

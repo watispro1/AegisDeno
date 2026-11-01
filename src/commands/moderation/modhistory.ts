@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   ChatInputCommandInteraction,
   EmbedBuilder,
@@ -174,7 +175,7 @@ export const command: Command = {
       filter: (i) => i.user.id === interaction.user.id,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("modhistory", i, async () => {
       await i.deferUpdate();
 
       if (i.customId === "mh_prev") {
@@ -195,7 +196,7 @@ export const command: Command = {
         embeds: [buildEmbed()],
         components: getComponents(),
       });
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction.editReply({ components: [] }).catch(() => null);
