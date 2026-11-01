@@ -13,7 +13,8 @@ import {
 import { Command } from "../../types/discord";
 import { getAutomodConfig } from "../../services/automod";
 import { getGuildConfig } from "../../services/configuration";
-import { SuggestionModel, TicketModel, WarningModel, ModerationCaseModel } from "../../database/mongo";
+import { SuggestionModel, TicketModel, WarningModel, ModerationCaseModel, WatchlistEntryModel } from "../../database/mongo";
+import { getVerificationConfig } from "../../services/verificationService";
 import { isObfuscatedChannel } from "../../utils/channels";
 
 export const command: Command = {
@@ -29,13 +30,15 @@ export const command: Command = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const fetchStats = async () => {
-      const [automod, config, openTickets, pendingSuggestions, totalWarnings, totalCases] = await Promise.all([
+      const [automod, config, openTickets, pendingSuggestions, totalWarnings, totalCases, vConfig, watchlistCount] = await Promise.all([
         getAutomodConfig(guild.id).catch(() => null),
         getGuildConfig(guild.id).catch(() => null),
         TicketModel.countDocuments({ guildId: guild.id, status: "open" }).catch(() => 0),
         SuggestionModel.countDocuments({ guildId: guild.id, status: "pending" }).catch(() => 0),
         WarningModel.countDocuments({ guildId: guild.id }).catch(() => 0),
         ModerationCaseModel.countDocuments({ guildId: guild.id }).catch(() => 0),
+        getVerificationConfig(guild.id).catch(() => null),
+        WatchlistEntryModel.countDocuments({ guildId: guild.id }).catch(() => 0),
       ]);
 
       const automodActive = automod
@@ -65,6 +68,9 @@ export const command: Command = {
           { name: "📂 Total Mod Cases", value: `**${totalCases}**`, inline: true },
           { name: "💬 Text / Voice", value: `**${textChannels}** text • **${voiceChannels}** voice`, inline: true },
           { name: "📋 Mod Log", value: config?.loggingChannelId ? `<#${config.loggingChannelId}>` : "Not configured", inline: true },
+          { name: "⚡ Auto-Escalation", value: config?.escalation?.enabled ? `✅ Active (${config.escalation.thresholds?.length ?? 0} tiers)` : "❌ Disabled", inline: true },
+          { name: "🛡️ Verification", value: vConfig?.enabled ? `✅ Active (${vConfig.type})` : "Not setup", inline: true },
+          { name: "👁️ Watchlist", value: `**${watchlistCount}** monitored`, inline: true },
         )
         .setFooter({ text: `AegisDeno • Last refreshed` })
         .setTimestamp();
@@ -96,6 +102,16 @@ export const command: Command = {
           .setEmoji("💡"),
       );
       const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId("dash_escalation")
+          .setLabel("Escalation")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("⚡"),
+        new ButtonBuilder()
+          .setCustomId("dash_verify")
+          .setLabel("Verification")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("🛡️"),
         new ButtonBuilder()
           .setCustomId("dash_warnings")
           .setLabel("Warnings Summary")
@@ -195,6 +211,36 @@ export const command: Command = {
               `• Bot Uptime: **${h}h ${m}m**`,
               `• Guilds Connected: **${interaction.client.guilds.cache.size}**`,
             ].join("\n"),
+            flags: MessageFlags.Ephemeral,
+          });
+          break;
+        }
+        case "dash_escalation": {
+          const cfg = await getGuildConfig(guild.id).catch(() => null);
+          const esc = cfg?.escalation;
+          const lines = esc?.thresholds?.length
+            ? esc.thresholds.sort((a, b) => a.atWarnings - b.atWarnings).map(t => "• **" + t.atWarnings + " warns** → `" + t.action.toUpperCase() + "`" + (t.durationMinutes ? " (" + t.durationMinutes + "m)" : "")).join("\n")
+            : "No escalation thresholds configured.";
+          const expiryText = esc?.warnExpiryDays ? (esc.warnExpiryDays + " day(s)") : "Never expire";
+          await i.reply({
+            content: "⚡ **Auto-Escalation Status for " + guild.name + ":**\n• Status: **" + (esc?.enabled ? "✅ Enabled" : "❌ Disabled") + "**\n• Warn Expiry: **" + expiryText + "**\n\n**Thresholds:**\n" + lines,
+            flags: MessageFlags.Ephemeral,
+          });
+          break;
+        }
+        case "dash_verify": {
+          const vc = await getVerificationConfig(guild.id).catch(() => null);
+          if (!vc?.enabled) {
+            await i.reply({
+              content: "❌ **Verification is not configured on this server.** Use `/verify setup` to enable it.",
+              flags: MessageFlags.Ephemeral,
+            });
+            break;
+          }
+          const kickText = vc.kickUnverifiedMinutes > 0 ? ("**" + vc.kickUnverifiedMinutes + " minutes**") : "Disabled";
+          const chanText = vc.channelId ? ("<#" + vc.channelId + ">") : "Unknown";
+          await i.reply({
+            content: "🛡️ **Verification Config for " + guild.name + ":**\n• Status: **✅ Active**\n• Verified Role: <@&" + vc.verifiedRoleId + ">\n• Channel: " + chanText + "\n• Challenge: `" + vc.type + "`\n• Auto-Kick: " + kickText,
             flags: MessageFlags.Ephemeral,
           });
           break;

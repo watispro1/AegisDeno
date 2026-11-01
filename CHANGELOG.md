@@ -225,6 +225,11 @@ re-registered automatically when the bot starts. Includes dashboard 1.2.2 (see
 `DASHBOARD_CHANGELOG.md`).
 
 ### Added
+- Official Aegis Support Discord Server blueprint (`server.md`) detailing the complete role hierarchy, channels, category architecture, permission overrides, automations, and staff SOPs.
+- In-Discord `/dashboard` upgrades: live auto-escalation status, verification gatekeeper inspector, and watchlist monitoring count.
+- Added `before_message` parameter and snowflake validator to `/purge` for incident-specific bulk deletion.
+- Open-source MIT license (`LICENSE`).
+
 - **Commands page:** each command opens to a summary of who can run it, what
   Aegis needs, its cooldown and whether it works in DMs, all read from the
   command definitions. Every subcommand has its own block with its options

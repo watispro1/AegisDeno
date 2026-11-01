@@ -30,6 +30,7 @@ export interface LayoutOptions {
 export const REPO_URL = "https://github.com/watispro1/AegisDeno";
 
 export const NAV: NavLink[] = [
+  { label: "Dashboard", href: "/dashboard" },
   { label: "Features", href: "/features" },
   { label: "Commands", href: "/commands" },
   { label: "Docs", href: "/docs" },
