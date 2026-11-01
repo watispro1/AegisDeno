@@ -31,41 +31,33 @@ async function registerCommands(): Promise<void> {
 
   logger.info(`📝 Commands to register (${commandData.length}): ${commandNames}`);
 
-  const clearGuildIds = (process.env.DISCORD_CLEAR_GUILD_IDS ?? "")
+  // Clear guild-scoped commands in test guild or specified guilds so commands never show up twice
+  const clearGuildIds = new Set<string>();
+  if (TEST_GUILD_ID) clearGuildIds.add(TEST_GUILD_ID);
+  (process.env.DISCORD_CLEAR_GUILD_IDS ?? "")
     .split(",")
     .map(id => id.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .forEach(id => clearGuildIds.add(id));
 
   for (const guildId of clearGuildIds) {
     try {
       const existing = (await rest.get(
         Routes.applicationGuildCommands(APPLICATION_ID, guildId)
-      )) as { body?: unknown[] };
-      const body = existing.body;
-      if (Array.isArray(body) && body.length > 0) {
-        logger.info(`Clearing ${body.length} stale guild command(s) in ${guildId}...`);
+      )) as unknown[];
+      if (Array.isArray(existing) && existing.length > 0) {
+        logger.info(`Clearing ${existing.length} duplicate guild command(s) in ${guildId}...`);
         await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] });
       }
     } catch (err) {
-      logger.warn(`Could not clear stale guild commands for ${guildId}:`, err);
+      logger.warn(`Could not clear duplicate guild commands for ${guildId}:`, err);
     }
   }
 
-  // 1. Always register globally so every server the bot is in or added to gets commands
+  // Register globally so every server receives exactly 1 copy of each command
   logger.info(`Registering ${commandData.length} commands globally...`);
   await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
-  logger.info(`✅ Global commands registered (${commandData.length} total).`);
-
-  // 2. If a test guild is set, also register to it directly so updates appear instantly without propagation delay
-  if (TEST_GUILD_ID) {
-    try {
-      logger.info(`⚡ Registering ${commandData.length} commands to test guild ${TEST_GUILD_ID} (instant)...`);
-      await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, TEST_GUILD_ID), { body: commandData });
-      logger.info(`✅ Guild commands registered instantly in guild ${TEST_GUILD_ID}.`);
-    } catch (err) {
-      logger.warn(`Could not register guild commands to test guild ${TEST_GUILD_ID}:`, err);
-    }
-  }
+  logger.info(`✅ Global commands registered (${commandData.length} total, no duplicates).`);
 }
 
 async function main(): Promise<void> {

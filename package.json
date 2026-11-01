@@ -13,7 +13,8 @@
     "preview:site": "tsx scripts/preview-site.ts",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck",
-    "deploy": "tsx scripts/deploy-commands.ts"
+    "deploy": "tsx scripts/deploy-commands.ts",
+    "deploy:clean-guilds": "tsx scripts/deploy-commands.ts --clean-guilds"
   },
   "keywords": [],
   "author": "",

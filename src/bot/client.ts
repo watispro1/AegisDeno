@@ -329,21 +329,8 @@ export function setupEvents(client: Client): void {
   });
 
   // ─── Guild Join / Discovery ────────────────────────────────────────────────
-  client.on(Events.GuildCreate, async (guild) => {
+  client.on(Events.GuildCreate, (guild) => {
     logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
-    try {
-      const token = process.env.DISCORD_TOKEN;
-      const appId = process.env.DISCORD_APPLICATION_ID;
-      if (token && appId && client.commands.size > 0) {
-        const { REST, Routes } = await import("discord.js");
-        const rest = new REST({ version: "10" }).setToken(token);
-        const commandData = Array.from(client.commands.values()).map(c => c.data.toJSON());
-        await rest.put(Routes.applicationGuildCommands(appId, guild.id), { body: commandData });
-        logger.info(`⚡ Registered ${commandData.length} instant slash commands for new guild: "${guild.name}" (${guild.id})`);
-      }
-    } catch (err) {
-      logger.warn(`Could not register instant commands for new guild "${guild.name}":`, err);
-    }
   });
 }
 

@@ -13,63 +13,103 @@ if (!RAW_TOKEN || !RAW_APPLICATION_ID) {
   process.exit(1);
 }
 
-// Narrowed copies: TypeScript does not carry the process.exit() narrowing into main().
 const TOKEN: string = RAW_TOKEN;
 const APPLICATION_ID: string = RAW_APPLICATION_ID;
 
+const args = process.argv.slice(2);
+const cleanGuildsOnly = args.includes("--clean-guilds") || args.includes("-c");
+const guildOnly = args.includes("--guild-only") || args.includes("-g");
+
 async function main(): Promise<void> {
-  await loadCommands();
-
   const rest = new REST({ version: "10" }).setToken(TOKEN);
-  const commandData = Array.from(commands.values()).map(c => c.data.toJSON());
 
-  // 1. Always register globally so any server with the bot receives commands
-  logger.info(`Registering ${commandData.length} commands globally...`);
-  await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
-  logger.info("Global commands registered (propagating across Discord).");
+  // Mode 1: Clean guild-scoped commands to eliminate duplicates
+  if (cleanGuildsOnly) {
+    logger.info("🧹 Cleaning all guild-scoped commands to remove duplicate commands...");
+    const guildIds = new Set<string>();
+    if (TEST_GUILD_ID) guildIds.add(TEST_GUILD_ID);
+    if (CLEAR_GUILD_IDS) {
+      CLEAR_GUILD_IDS.split(",").map(s => s.trim()).filter(Boolean).forEach(id => guildIds.add(id));
+    }
 
-  // 2. Clear any specifically requested stale guild IDs
-  for (const guildId of (CLEAR_GUILD_IDS ?? "").split(",").map(s => s.trim()).filter(Boolean)) {
     try {
-      const existing = (await rest.get(
-        Routes.applicationGuildCommands(APPLICATION_ID, guildId)
-      )) as { body?: unknown[] };
-      if (Array.isArray(existing.body) && existing.body.length > 0) {
-        logger.info(`Clearing ${existing.body.length} stale guild command(s) in ${guildId}...`);
-        await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] });
+      const guilds = (await rest.get(Routes.userGuilds())) as Array<{ id: string; name: string }>;
+      if (Array.isArray(guilds)) {
+        guilds.forEach(g => guildIds.add(g.id));
       }
     } catch (err) {
-      logger.warn(`Could not clear stale commands in ${guildId}:`, err);
+      logger.warn("Could not list current guilds via REST:", err);
     }
+
+    for (const guildId of guildIds) {
+      try {
+        const existing = (await rest.get(Routes.applicationGuildCommands(APPLICATION_ID, guildId))) as unknown[];
+        if (Array.isArray(existing) && existing.length > 0) {
+          logger.info(`Clearing ${existing.length} guild command(s) in guild ${guildId}...`);
+          await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] });
+        }
+      } catch (err) {
+        logger.warn(`Could not clear commands in guild ${guildId}:`, err);
+      }
+    }
+
+    logger.info("✅ Finished clearing guild commands. Exactly 1 copy (global) will now display in Discord!");
+    return;
   }
 
-  // 3. Register directly to active guilds for instant availability (0s propagation delay)
-  const targetGuildIds = new Set<string>();
-  if (TEST_GUILD_ID) {
-    targetGuildIds.add(TEST_GUILD_ID);
+  await loadCommands();
+  const commandData = Array.from(commands.values()).map(c => c.data.toJSON());
+
+  // Mode 2: Guild-only deployment (for isolated dev servers)
+  if (guildOnly) {
+    if (!TEST_GUILD_ID) {
+      logger.error("Missing DISCORD_TEST_GUILD_ID in .env for --guild-only deployment.");
+      process.exit(1);
+    }
+    logger.info("Clearing global commands to prevent duplicate entries...");
+    await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: [] });
+    logger.info(`Registering ${commandData.length} commands to test guild ${TEST_GUILD_ID}...`);
+    await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, TEST_GUILD_ID), { body: commandData });
+    logger.info(`✅ Instant guild commands registered in guild ${TEST_GUILD_ID}.`);
+    return;
+  }
+
+  // Mode 3: Standard Global Deployment (Default)
+  // Registers globally and wipes guild-scoped commands so every server gets EXACTLY ONE copy of each command.
+  logger.info(`Registering ${commandData.length} commands globally...`);
+  await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
+  logger.info(`✅ Global commands registered (${commandData.length} total).`);
+
+  // Automatically wipe guild-scoped commands in active guilds to prevent 2x duplicates!
+  logger.info("Wiping stale guild-scoped commands to prevent duplicate entries in slash menus...");
+  const guildIdsToClean = new Set<string>();
+  if (TEST_GUILD_ID) guildIdsToClean.add(TEST_GUILD_ID);
+  if (CLEAR_GUILD_IDS) {
+    CLEAR_GUILD_IDS.split(",").map(s => s.trim()).filter(Boolean).forEach(id => guildIdsToClean.add(id));
   }
 
   try {
     const guilds = (await rest.get(Routes.userGuilds())) as Array<{ id: string; name: string }>;
     if (Array.isArray(guilds)) {
-      for (const g of guilds) {
-        targetGuildIds.add(g.id);
-      }
+      guilds.forEach(g => guildIdsToClean.add(g.id));
     }
   } catch (err) {
     logger.warn("Could not list current guilds via REST:", err);
   }
 
-  for (const guildId of targetGuildIds) {
+  for (const guildId of guildIdsToClean) {
     try {
-      logger.info(`Registering ${commandData.length} commands instantly to guild ${guildId}...`);
-      await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: commandData });
+      const existing = (await rest.get(Routes.applicationGuildCommands(APPLICATION_ID, guildId))) as unknown[];
+      if (Array.isArray(existing) && existing.length > 0) {
+        logger.info(`Clearing ${existing.length} duplicate guild command(s) in guild ${guildId}...`);
+        await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] });
+      }
     } catch (err) {
-      logger.warn(`Failed to register instant commands for guild ${guildId}:`, err);
+      logger.warn(`Could not clear duplicate commands in guild ${guildId}:`, err);
     }
   }
 
-  logger.info(`✅ Deployment complete. Commands active globally and instantly in ${targetGuildIds.size} guild(s).`);
+  logger.info("✅ Deployment complete. All commands are active globally with zero duplicates!");
 }
 
 main().catch(err => {
