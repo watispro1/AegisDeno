@@ -40,7 +40,7 @@ export async function sendGuildLog(
       timestamp: new Date().toISOString(),
     });
 
-    await channel.send({ embeds: [built] });
+    await channel.send({ embeds: [built], allowedMentions: { parse: [] } });
   } catch (error) {
     logger.error(`Failed to send log to guild ${guildId}:`, error);
   }

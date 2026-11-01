@@ -20,7 +20,9 @@ import { handlePollButton } from "../../services/polls";
 import { getSuggestion, voteOnSuggestion } from "../../services/suggestions";
 
 async function handleSuggestionButton(interaction: ButtonInteraction): Promise<void> {
-  const [, action, id] = interaction.customId.split("_");
+  const parts = interaction.customId.split("_");
+  const action = parts[1];
+  const id = parts.slice(2).join("_");
   if (!id || !interaction.guildId) return;
 
   if (action === "approve" || action === "deny" || action === "consider") {

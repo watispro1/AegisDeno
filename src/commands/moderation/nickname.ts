@@ -6,6 +6,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
+import { auditReason } from "../../utils/safeText";
 import { sendGuildLog } from "../../services/logging";
 import { logger } from "../../utils/logger";
 import { Command } from "../../types/discord";
@@ -61,7 +62,7 @@ export const command: Command = {
 
     await interaction.deferReply();
     try {
-      await target.setNickname(name, `Changed by ${interaction.user.tag}`);
+      await target.setNickname(name, auditReason(`Changed by ${interaction.user.tag}`));
     } catch (err) {
       logger.warn(`Failed to set nickname for ${target.id} in guild ${guildId}:`, err);
       await interaction.editReply({

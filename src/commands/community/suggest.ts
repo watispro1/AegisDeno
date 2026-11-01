@@ -204,7 +204,9 @@ export async function handleSuggestionReviewButton(interaction: ButtonInteractio
 
 /** Submit handler for the review modal opened by the buttons above. */
 export async function handleSuggestionReviewModal(interaction: ModalSubmitInteraction): Promise<void> {
-  const [, action, id] = interaction.customId.split("_");
+  const parts = interaction.customId.split("_");
+  const action = parts[1];
+  const id = parts.slice(2).join("_");
   if (!action || !id || !isReviewAction(action) || !interaction.guild) return;
   if (!canReview(interaction)) {
     await interaction.reply({ content: "❌ You need **Manage Server** to review suggestions.", flags: MessageFlags.Ephemeral });

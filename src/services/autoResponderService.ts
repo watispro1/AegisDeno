@@ -137,7 +137,10 @@ export async function processAutoResponders(message: Message): Promise<boolean> 
           .replace(/{member_count}/g, String(message.guild.memberCount));
 
         if ("send" in message.channel && typeof message.channel.send === "function") {
-          await message.channel.send(truncate(formattedResponse, DISCORD_LIMITS.content)).catch(() => null);
+          await message.channel.send({
+            content: truncate(formattedResponse, DISCORD_LIMITS.content),
+            allowedMentions: { parse: ["users"] },
+          }).catch(() => null);
         }
         return true;
       }

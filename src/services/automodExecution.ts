@@ -94,10 +94,14 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
     }
   }
 
-  // 2. Blocked Words
+  // 2. Blocked Words (normalizes zero-width obfuscation and soft hyphens)
   if (!triggeredRule && config.words.enabled && config.words.list.length > 0) {
-    const content = message.content.toLowerCase();
-    if (config.words.list.some(word => content.includes(word.toLowerCase()))) {
+    const raw = message.content.toLowerCase();
+    const normalized = raw.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "");
+    if (config.words.list.some(w => {
+      const needle = w.toLowerCase().trim();
+      return needle && (raw.includes(needle) || normalized.includes(needle));
+    })) {
       triggeredRule = config.words;
       ruleName = "Blocked Words";
     }

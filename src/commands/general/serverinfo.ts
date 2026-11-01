@@ -12,6 +12,20 @@ import {
 import { Command } from "../../types/discord";
 import { isObfuscatedChannel } from "../../utils/channels";
 
+const VERIFICATION_LEVELS: Record<number, string> = {
+  0: "None (Unrestricted)",
+  1: "Low (Verified Email)",
+  2: "Medium (Registered > 5m)",
+  3: "High (Member > 10m)",
+  4: "Highest (Verified Phone)",
+};
+
+const EXPLICIT_FILTER_LEVELS: Record<number, string> = {
+  0: "Disabled",
+  1: "Members Without Roles",
+  2: "All Members",
+};
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("serverinfo")
@@ -44,7 +58,8 @@ export const command: Command = {
         { name: "📅 Created", value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:R>`, inline: true },
         { name: "👥 Members", value: `**${guild.memberCount.toLocaleString()}** members`, inline: true },
         { name: "💎 Server Boosts", value: `Level **${guild.premiumTier}** (${guild.premiumSubscriptionCount ?? 0} boosts)`, inline: true },
-        { name: "🔒 Verification Level", value: `\`${guild.verificationLevel}\``, inline: true },
+        { name: "🔒 Verification", value: VERIFICATION_LEVELS[guild.verificationLevel] ?? `Level ${guild.verificationLevel}`, inline: true },
+        { name: "🛡️ Content Filter", value: EXPLICIT_FILTER_LEVELS[guild.explicitContentFilter] ?? "Default", inline: true },
         {
           name: "💬 Channels",
           value: `Text: **${textChannels}** | Voice: **${voiceChannels}** | Forums: **${forumChannels}** | Categories: **${categories}**`,

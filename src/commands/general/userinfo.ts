@@ -137,8 +137,10 @@ export const command: Command = {
       );
     }
 
-    const modButtons = viewerIsMod
-      ? [
+    const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+    if (viewerIsMod) {
+      rows.push(
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder()
             .setCustomId(`userinfo_warns_${user.id}`)
             .setLabel("Warn History")
@@ -149,31 +151,33 @@ export const command: Command = {
             .setLabel("Mod Cases")
             .setStyle(ButtonStyle.Secondary)
             .setEmoji("📂"),
-        ]
-      : [];
+        ),
+      );
+    }
 
-    const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      ...modButtons,
-      new ButtonBuilder()
-        .setCustomId(`userinfo_roles_${user.id}`)
-        .setLabel("All Roles")
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji("🎭"),
-      new ButtonBuilder()
-        .setCustomId(`userinfo_perms_${user.id}`)
-        .setLabel("Permissions")
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji("🔑"),
-      new ButtonBuilder()
-        .setLabel("Avatar")
-        .setStyle(ButtonStyle.Link)
-        .setURL(user.displayAvatarURL({ size: 1024, forceStatic: false }))
-        .setEmoji("🖼️"),
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`userinfo_roles_${user.id}`)
+          .setLabel("All Roles")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("🎭"),
+        new ButtonBuilder()
+          .setCustomId(`userinfo_perms_${user.id}`)
+          .setLabel("Permissions")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("🔑"),
+        new ButtonBuilder()
+          .setLabel("Avatar")
+          .setStyle(ButtonStyle.Link)
+          .setURL(user.displayAvatarURL({ size: 1024, forceStatic: false }))
+          .setEmoji("🖼️"),
+      ),
     );
 
     const sent = await interaction.reply({
       embeds: [embed],
-      components: [buttons],
+      components: rows,
       fetchReply: true,
       ...(viewerIsMod ? { flags: MessageFlags.Ephemeral as const } : {}),
     });

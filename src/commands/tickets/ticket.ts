@@ -70,6 +70,12 @@ export const command: Command = {
     )
     .addSubcommand(sub =>
       sub
+        .setName("rename")
+        .setDescription("Rename the current support ticket channel.")
+        .addStringOption(opt => opt.setName("name").setDescription("New channel name").setRequired(true).setMaxLength(100))
+    )
+    .addSubcommand(sub =>
+      sub
         .setName("settings")
         .setDescription("View or change the transcript log channel and inactivity auto-close.")
         .addChannelOption(opt =>
@@ -164,6 +170,23 @@ export const command: Command = {
         content: ok ? `✅ Removed <@${targetUser.id}> from the ticket.` : "❌ Failed to remove user.",
         flags: MessageFlags.Ephemeral,
       });
+      return;
+    }
+
+    if (subcommand === "rename") {
+      const channel = interaction.channel as TextChannel | null;
+      if (!channel || !("setName" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
+        await interaction.reply({ content: "❌ This command can only be used by support staff inside an active ticket channel.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const rawName = interaction.options.getString("name", true).trim().toLowerCase().replace(/\s+/g, "-");
+      const cleanName = rawName.slice(0, 100);
+      try {
+        await channel.setName(cleanName, `Ticket renamed by ${interaction.user.tag}`);
+        await interaction.reply({ content: `✅ Ticket channel renamed to \`${cleanName}\`.` });
+      } catch (err) {
+        await interaction.reply({ content: "❌ Failed to rename ticket channel. Check bot permissions.", flags: MessageFlags.Ephemeral });
+      }
       return;
     }
 

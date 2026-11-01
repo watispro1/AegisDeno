@@ -76,6 +76,7 @@ async function deliverPersonalReminder(client: Client, task: ScheduledTask): Pro
       if (isSendableChannel(channel)) {
         await channel.send({
           content: `<@${task.creatorId}> ⏰ **Reminder:** ${payload.text}`,
+          allowedMentions: { users: [task.creatorId] },
         }).catch(() => null);
       }
     }

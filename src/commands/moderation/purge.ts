@@ -92,6 +92,9 @@ export const command: Command = {
         .addStringOption(opt =>
       opt.setName("before_message").setDescription("Only scan messages sent before this message ID (right-click a message → Copy ID)").setRequired(false)
     )
+    .addBooleanOption(opt =>
+      opt.setName("keep_pinned").setDescription("Protect pinned messages from being deleted (default: true)").setRequired(false)
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
   guildOnly: true,
@@ -105,6 +108,7 @@ export const command: Command = {
     const keyword = interaction.options.getString("keyword");
     const reason  = interaction.options.getString("reason") ?? "Channel message cleanup";
     const beforeMsgId = interaction.options.getString("before_message") ?? undefined;
+    const keepPinned = interaction.options.getBoolean("keep_pinned") ?? true;
     const channel = interaction.channel;
     const guildId = interaction.guildId!;
 
@@ -152,11 +156,11 @@ export const command: Command = {
         scanned.push(...batch);
         before = batch[batch.length - 1].id;
         const oldest = batch[batch.length - 1];
-        const plan = planPurge(scanned, { mode: filter, userId: target?.id, contains: keyword }, amount, scanStartedAt);
+        const plan = planPurge(scanned, { mode: filter, userId: target?.id, contains: keyword, skipPinned: keepPinned }, amount, scanStartedAt);
         if (plan.toDelete.length >= amount || !isBulkDeletable(oldest.createdTimestamp, scanStartedAt) || page.size < 100) break;
       }
 
-      const plan = planPurge(scanned, { mode: filter, userId: target?.id, contains: keyword }, amount, Date.now());
+      const plan = planPurge(scanned, { mode: filter, userId: target?.id, contains: keyword, skipPinned: keepPinned }, amount, Date.now());
       const toDelete = plan.toDelete.map((c) => c.message);
       const skippedNote = [
         plan.tooOld > 0 ? `${plan.tooOld} matching message(s) are 14+ days old and can't be bulk-deleted` : null,
