@@ -1,3 +1,4 @@
+import { noteIncidentDeletes } from "./incidentHooks";
 import { Client, Message, GuildMember, PermissionFlagsBits } from "discord.js";
 import { codeBlock } from "../utils/safeText";
 import { getAutomodConfig } from "./automod";
@@ -186,9 +187,11 @@ async function enforceAutomod(
 
   // Delete the message for all enforcement actions
   if (action === "delete" || action === "warn" || action === "timeout") {
-    await message.delete().catch(err => {
+    const deleted = await message.delete().then(() => true).catch(err => {
       logger.warn(`Automod: failed to delete message ${message.id} in guild ${message.guildId}`, err);
+      return false;
     });
+    if (deleted) noteIncidentDeletes(message.guildId, 1, `automod (${ruleName})`, message.author.id);
   }
 
   if (action === "warn") {

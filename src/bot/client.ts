@@ -39,6 +39,8 @@ import { isObfuscatedChannel } from "../utils/channels";
 import { DEFAULT_ALLOWED_MENTIONS } from "./mentions";
 import { isContentEdit } from "./eventFilters";
 import { codeBlock } from "../utils/safeText";
+import { incidentService, joinActionable } from "../services/incidentDiscord";
+import { recordMemberFlow } from "../services/memberFlow";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -85,6 +87,8 @@ export function setupEvents(client: Client): void {
 
     applyPresence(c);
     startWatchlistSync();
+    // Restores incidents that ended while the bot was down and resumes expiry checks.
+    incidentService(c).boot().catch(err => logger.error("Incident Mode boot failed:", err));
   });
 
   // Discord drops a presence that is not refreshed, so re-send it periodically.
@@ -238,6 +242,20 @@ export function setupEvents(client: Client): void {
 
   // ─── Member Join ──────────────────────────────────────────────────────────
   client.on(Events.GuildMemberAdd, async (member: GuildMember) => {
+    recordMemberFlow(member.guild.id, "join").catch(() => undefined);
+    // Incident Mode first: a gated join gets no welcome or auto-role, and the
+    // join counts toward the optional join-burst auto-trigger.
+    const gate = await incidentService(client).onMemberJoin(member.guild.id, {
+      userId: member.id,
+      tag: member.user?.tag ?? member.id,
+      isBot: member.user?.bot === true,
+      createdAt: member.user?.createdAt ?? new Date(),
+      actionable: joinActionable(member, "timeout") || joinActionable(member, "kick"),
+    }).catch((err) => {
+      logger.warn(`Incident join check failed in ${member.guild.id}:`, err);
+      return { act: "none" as const, why: "error" };
+    });
+
     // Log event
     const userTag = member.user?.tag ?? "Unknown User";
     const avatarUrl = member.user?.displayAvatarURL?.();
@@ -255,6 +273,8 @@ export function setupEvents(client: Client): void {
 
     // Ghost Watch — notify watchers on join
     watchlistOnJoin(client, member).catch(err => logger.warn("Watchlist join error:", err));
+
+    if (gate.act !== "none") return;
 
     // Welcome message and Auto-role
     const config = await getGuildConfig(member.guild.id);
@@ -306,6 +326,7 @@ export function setupEvents(client: Client): void {
 
   // ─── Member Leave ─────────────────────────────────────────────────────────
   client.on(Events.GuildMemberRemove, async (member) => {
+    recordMemberFlow(member.guild.id, "leave").catch(() => undefined);
     const user = member.user;
     const tag = user?.tag ?? "Unknown User";
     const id = member.id;

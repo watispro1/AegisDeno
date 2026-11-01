@@ -1,3 +1,4 @@
+import { noteIncidentDeletes } from "../../services/incidentHooks";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -243,6 +244,7 @@ export const command: Command = {
 
           // Record the case before the result so the confirmation can link to it.
           const caseOwnerId = target?.id ?? interaction.user.id;
+          noteIncidentDeletes(guildId, deletedCount, `/purge by ${interaction.user.tag}`);
           const caseId = await addModerationCase({
             guildId,
             userId: caseOwnerId,
