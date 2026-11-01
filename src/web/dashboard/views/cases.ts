@@ -1,6 +1,6 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord } from "../data";
-import { CASE_REASON_MAX, CASE_TYPES, CASE_QUERY_MAX, type CaseFilter } from "../validation";
+import { CASE_REASON_MAX, CASE_TYPES, CASE_QUERY_MAX, type CaseFilter, CASE_PAGE_SIZES } from "../validation";
 import { type GuildContext, csrfField, fmtDate, head, notice, person, shell } from "./layout";
 import { caseTable } from "./overview";
 
@@ -12,6 +12,7 @@ export function casesQuery(filter: CaseFilter, page: number): string {
   if (filter.userId) q.set("user", filter.userId);
   if (filter.moderatorId) q.set("moderator", filter.moderatorId);
   if (filter.query) q.set("q", filter.query);
+  if (filter.per && filter.per !== 25) q.set("per", String(filter.per));
   if (page > 1) q.set("page", String(page));
   const s = q.toString();
   return s ? `?${s}` : "";
@@ -53,10 +54,13 @@ export function renderCases(
     <div><label for="f-type">Type</label><select id="f-type" name="type">${typeOptions}</select></div>
     <div><label for="f-user">Member ID</label><input id="f-user" name="user" type="text" inputmode="numeric" autocomplete="off" value="${esc(filter.userId ?? "")}" placeholder="123456789012345678"></div>
     <div><label for="f-mod">Moderator ID</label><input id="f-mod" name="moderator" type="text" inputmode="numeric" autocomplete="off" value="${esc(filter.moderatorId ?? "")}" placeholder="123456789012345678"></div>
+    <div><label for="f-per">Per page</label><select id="f-per" name="per">${CASE_PAGE_SIZES.map(n => `<option value="${n}"${(filter.per ?? 25) === n ? " selected" : ""}>${n}</option>`).join("")}</select></div>
     <div><label for="f-q">Reason contains</label><input id="f-q" name="q" type="search" maxlength="${CASE_QUERY_MAX}" autocomplete="off" value="${esc(filter.query ?? "")}" placeholder="spam"></div>
     <div class="btn-row"><button class="btn" type="submit">Filter</button>${filter.type || filter.userId || filter.moderatorId || filter.query ? `<a class="btn ghost" href="${base}">Clear</a>` : ""}</div>
   </form>
-  ${result.items.length ? caseTable(ctx, result.items, "Cases matching the filter") : `<div class="empty-state"><strong>Nothing matches.</strong>Try a different filter, or clear it.</div>`}
+  ${result.items.length ? caseTable(ctx, result.items, "Cases matching the filter") : (filter.type || filter.userId || filter.moderatorId || filter.query
+    ? `<div class="empty-state"><strong>Nothing matches.</strong> Try a different filter, or <a href="${base}">clear it</a>.</div>`
+    : `<div class="empty-state"><strong>No cases yet.</strong> Cases appear here when someone is warned, timed out, kicked or banned with Aegis.</div>`)}
   ${pager}`,
   });
 }

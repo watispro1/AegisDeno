@@ -148,6 +148,17 @@ const APP_CHROME = `<div class="toast-region" data-toasts aria-live="polite" ari
     <ul id="palette-list" class="palette-list" role="listbox" data-palette-list></ul>
     <p class="faint palette-hint">↑ ↓ to move · Enter to open · Esc to close</p>
   </dialog>
+  <dialog class="palette shortcuts" data-shortcuts aria-labelledby="shortcuts-h">
+    <h2 id="shortcuts-h">Keyboard shortcuts</h2>
+    <dl class="shortcut-list">
+      <div><dt><kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd></dt><dd>Jump to a page or search cases</dd></div>
+      <div><dt><kbd>/</kbd></dt><dd>Focus the table filter on this page</dd></div>
+      <div><dt><kbd>Ctrl</kbd> <kbd>S</kbd> / <kbd>⌘</kbd> <kbd>S</kbd></dt><dd>Save the form you changed</dd></div>
+      <div><dt><kbd>?</kbd></dt><dd>Show this list</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>Close dialogs and menus</dd></div>
+    </dl>
+    <form method="dialog"><button class="btn sm" type="submit">Close</button></form>
+  </dialog>
   <dialog class="confirm-dialog" data-confirm-dialog aria-labelledby="confirm-title">
     <form method="dialog">
       <h2 id="confirm-title">Are you sure?</h2>
@@ -174,6 +185,7 @@ export function shell(cfg: SiteConfig, o: { title: string; path: string; body: s
           <input type="search" id="top-q" name="q" maxlength="64" placeholder="Search cases, members…" autocomplete="off">
         </form>
         <button class="btn ghost sm palette-btn" type="button" data-palette-open aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" title="Jump to (Ctrl+K)">⌘K</button>
+        <button class="btn ghost sm" type="button" data-shortcuts-open aria-haspopup="dialog" aria-keyshortcuts="Shift+Slash" title="Keyboard shortcuts (?)">?</button>
         ${userMenu(o.viewer)}
       </div>
       <div class="app-content">${o.body}</div>

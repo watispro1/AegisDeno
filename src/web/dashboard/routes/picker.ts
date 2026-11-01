@@ -4,7 +4,9 @@ import { logger } from "../../../utils/logger";
 import { fetchUserGuilds } from "../discordOAuth";
 import { guildInviteUrl, partitionGuilds } from "../permissions";
 import { renderLanding, renderPicker } from "../views";
-import { type RouteKit, type Authed } from "./context";
+import { LAST_GUILD_COOKIE, type RouteKit, type Authed } from "./context";
+import { isSnowflake } from "../permissions";
+import { parseCookies } from "../security";
 
 /** Re-fetch the user's guild list on the picker when it is older than this. */
 const GUILD_LIST_MAX_AGE_MS = 10 * 60 * 1000;
@@ -40,6 +42,7 @@ export function registerPickerRoutes(router: Router, k: RouteKit): void {
         manageable,
         invitable.map(guild => ({ guild, inviteUrl: guildInviteUrl(deps.site.inviteUrl, guild.id) })),
         noticeParam(req),
+        (() => { const id = parseCookies(req.headers.cookie)[LAST_GUILD_COOKIE]; return id && isSnowflake(id) ? id : null; })(),
       ));
     } catch (err) {
       next(err);
