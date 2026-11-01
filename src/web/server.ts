@@ -5,6 +5,10 @@ import { Client } from "discord.js";
 import { logger } from "../utils/logger";
 import { styles } from "./theme";
 import { clientScript } from "./client";
+import { statusScript } from "./client/status";
+import { buildStatusPayload, type StatusPayload } from "./statusData";
+import { loadNotices } from "./statusNotices";
+import { databaseConnected, statusMonitor } from "../services/statusMonitor";
 import { faviconSvg, ogImageSvg, ogImagePng, manifest, themeInitScript } from "./assets";
 import { botPermissionBitfield, buildCatalog, catalogStats, getCommand } from "./catalog";
 import {
@@ -70,6 +74,7 @@ const ASSET_VERSION = createHash("sha256")
   .update(clientScript)
   .update(themeInitScript)
   .update(dashboardScript)
+  .update(statusScript)
   .digest("hex")
   .slice(0, 8);
 
@@ -162,7 +167,7 @@ function compression(req: Request, res: Response, next: NextFunction): void {
 
 interface RouteDef {
   path: string;
-  render: (cfg: SiteConfig, ctx: RenderContext) => string;
+  render: (cfg: SiteConfig, ctx: RenderContext) => string | Promise<string>;
   priority: string;
   /** Pages that embed live metrics must never be served stale. */
   live?: boolean;
@@ -172,6 +177,7 @@ interface RenderContext {
   stats: Stats;
   online: boolean;
   startedAt: number;
+  status: () => Promise<StatusPayload>;
 }
 
 const ROUTES: RouteDef[] = [
@@ -184,7 +190,7 @@ const ROUTES: RouteDef[] = [
   // Public and static, so it is served (and indexed) even when the dashboard is off.
   // Registered before the /dashboard router, which would otherwise treat it as a server ID.
   { path: "/dashboard/changelog", render: c => renderDashboardChangelog(c), priority: "0.4" },
-  { path: "/status", render: (c, x) => renderStatus(c, x.stats, x.online, x.startedAt), priority: "0.6", live: true },
+  { path: "/status", render: async (c, x) => renderStatus(c, await x.status()), priority: "0.6", live: true },
   { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },
   { path: "/terms", render: c => renderTerms(c), priority: "0.4" },
   { path: "/security", render: c => renderSecurity(c), priority: "0.3" },
@@ -241,6 +247,29 @@ export function startWebServer(client: Client) {
   const online = (): boolean => Boolean(client?.isReady?.());
   const isOnline = (): boolean => online();
 
+  // Heartbeat samples for the status page's uptime history (memory + capped Mongo).
+  const monitor = statusMonitor(() => ({ gateway: online(), ping: Math.max(0, Math.round(client?.ws?.ping ?? 0)) }));
+  monitor.start().then(() => monitor.tick()).catch(() => undefined);
+  const statusPayload = async (): Promise<StatusPayload> => {
+    const stats = collectStats(client);
+    return buildStatusPayload({
+      nowMs: Date.now(),
+      online: online(),
+      ping: stats.ping,
+      guilds: stats.guilds,
+      shards: Number((client?.ws as { shards?: { size?: number } } | undefined)?.shards?.size ?? 1) || 1,
+      memoryRss: process.memoryUsage().rss,
+      version: SITE_VERSION,
+      startedAt: STARTED_AT,
+      commands: stats.commands,
+      dbConnected: databaseConnected(),
+      dbLatency: monitor.lastDbLatency(),
+      registration: monitor.registration(),
+      samples: monitor.samples(),
+      notices: await loadNotices().catch(() => []),
+    });
+  };
+
   const asset = (res: Response, type: string, body: string | Buffer, maxAge = 3600) => {
     res.setHeader("Cache-Control", `public, max-age=${maxAge}, immutable`);
     res.type(type).send(body);
@@ -249,6 +278,7 @@ export function startWebServer(client: Client) {
   app.get("/assets/site.css", (_req, res) => asset(res, "text/css", styles, 31536000));
   app.get("/assets/site.js", (_req, res) => asset(res, "text/javascript", clientScript, 31536000));
   app.get("/assets/dashboard.js", (_req, res) => asset(res, "text/javascript", dashboardScript, 31536000));
+  app.get("/assets/status.js", (_req, res) => asset(res, "text/javascript", statusScript, 31536000));
   app.get("/assets/theme-init.js", (_req, res) => asset(res, "text/javascript", themeInitScript, 31536000));
   app.get("/assets/favicon.svg", (_req, res) => asset(res, "image/svg+xml", faviconSvg, 31536000));
   app.get("/assets/og.svg", (_req, res) => asset(res, "image/svg+xml", ogImageSvg, 31536000));
@@ -285,6 +315,19 @@ export function startWebServer(client: Client) {
       commands: stats.commands,
       catalog: cs,
     });
+  });
+
+  // Public status as JSON: states, counts and times only (no hostnames, env or error text).
+  app.get("/api/status", async (_req, res, next) => {
+    try {
+      const payload = await statusPayload();
+      res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("X-Robots-Tag", "noindex");
+      res.json(payload);
+    } catch (err) {
+      next(err);
+    }
   });
 
   app.get("/api/commands", (_req, res) => {
@@ -416,13 +459,18 @@ export function startWebServer(client: Client) {
   };
 
   for (const route of ROUTES) {
-    app.get(route.path, (_req, res) => {
-      const ctx: RenderContext = {
-        stats: collectStats(client),
-        online: online(),
-        startedAt: STARTED_AT,
-      };
-      send(res, route.render(cfg, ctx), 200, route.live ? "no-cache" : undefined);
+    app.get(route.path, async (_req, res, next) => {
+      try {
+        const ctx: RenderContext = {
+          stats: collectStats(client),
+          online: online(),
+          startedAt: STARTED_AT,
+          status: statusPayload,
+        };
+        send(res, await route.render(cfg, ctx), 200, route.live ? "no-cache" : undefined);
+      } catch (err) {
+        next(err);
+      }
     });
   }
 

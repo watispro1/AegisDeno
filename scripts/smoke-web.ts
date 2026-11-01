@@ -38,6 +38,8 @@ const ROUTES: [string, number][] = [
   ["/health", 200],
   ["/api/stats", 200],
   ["/api/commands", 200],
+  ["/api/status", 200],
+  ["/assets/status.js", 200],
   ["/api/plugins", 404],
   ["/api/commands/ban", 200],
   ["/api/commands/timeout", 200],
@@ -210,6 +212,14 @@ async function main() {
   check("stats returns online: true", statsJson.online === true);
   check("stats returns valid ping", typeof statsJson.ping === "number");
   check("stats omits runtime internals", !("nodeVersion" in statsJson) && !("memoryMb" in statsJson) && !("startedAt" in statsJson));
+
+  const statusRes = await fetch(origin + "/api/status");
+  const statusText = await statusRes.text();
+  const statusJson = JSON.parse(statusText);
+  check("status api has components", Array.isArray(statusJson.components) && statusJson.components.length === 5);
+  check("status api has history", statusJson.history?.day?.buckets?.length === 24 && statusJson.history?.week?.buckets?.length === 28);
+  check("status api short public cache", (statusRes.headers.get("cache-control") ?? "").includes("max-age=15"));
+  check("status api leaks no hosts or env", !/127\.0\.0\.1|localhost|mongodb|fly\.dev|MONGO|TOKEN|SECRET/i.test(statusText));
 
   const commandsJson = await (await fetch(origin + "/api/commands")).json();
   check("commands api returns array", Array.isArray(commandsJson.commands));

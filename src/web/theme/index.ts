@@ -14,6 +14,7 @@ import { cssPages } from "./pages";
 import { cssDashboard } from "./dashboard";
 import { cssDashboardApp } from "./dashboardApp";
 import { cssResponsive } from "./responsive";
+import { cssStatus } from "./status";
 
 /* The parts are concatenated in this order; the result is byte-for-byte the
    single stylesheet that used to live in theme.ts. */
@@ -23,4 +24,5 @@ export const styles =
   cssPages +
   cssDashboard +
   cssDashboardApp +
+  cssStatus +
   cssResponsive;

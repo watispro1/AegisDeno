@@ -22,6 +22,17 @@ import { atomFeed as buildAtomFeed } from "../src/web/changelog";
 
 const atomFeed = () => buildAtomFeed("");
 import { botPermissionBitfield, buildCatalog, catalogStats, getCommand } from "../src/web/catalog";
+import { buildStatusPayload } from "../src/web/statusData";
+/** Status payload fixture for previews and audits. */
+function statusFixture(online: boolean, ping: number, startedAt = Date.now() - 3_723_000) {
+  const now = Date.now();
+  const samples = Array.from({ length: 2000 }, (_, i) => ({ at: now - i * 300_000, gateway: online || i > 3, db: true, ping }));
+  return buildStatusPayload({
+    nowMs: now, online, ping, guilds: 1, shards: 1, memoryRss: 150 * 1048576, version: "preview", startedAt, commands: 50,
+    dbConnected: true, dbLatency: 12, registration: { ok: true, count: 50, at: now }, samples, notices: [],
+  });
+}
+
 
 const cfg: SiteConfig = {
   inviteUrl: "https://discord.com/oauth2/authorize?client_id=123",
@@ -46,7 +57,7 @@ async function main() {
     ["docs.html", renderDocs(cfg)],
     ["troubleshooting.html", renderTroubleshooting(cfg)],
     ["changelog.html", renderChangelog(cfg)],
-    ["status.html", renderStatus(cfg, stats, false, startedAt)],
+    ["status.html", renderStatus(cfg, statusFixture(false, 0, startedAt))],
     ["privacy.html", renderPrivacy(cfg)],
     ["terms.html", renderTerms(cfg)],
     ["security.html", renderSecurity(cfg)],
