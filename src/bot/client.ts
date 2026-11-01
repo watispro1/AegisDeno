@@ -42,6 +42,7 @@ import { isContentEdit } from "./eventFilters";
 import { codeBlock } from "../utils/safeText";
 import { incidentService, joinActionable } from "../services/incidentDiscord";
 import { recordMemberFlow } from "../services/memberFlow";
+import { handleModmailDM, relayPrefixedStaffMessage } from "../services/modmailService";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -59,6 +60,8 @@ export function createClient(): Client {
       GatewayIntentBits.GuildVoiceStates,
       // Starboard: without this intent Discord never sends reaction events.
       GatewayIntentBits.GuildMessageReactions,
+      // ModMail: members DM Aegis. Not privileged; DM channels arrive as partials (Partials.Channel below).
+      GatewayIntentBits.DirectMessages,
     ],
     // Message, Channel and Reaction partials deliver reactions on messages that
     // are not in the cache (anything sent before the bot last started).
@@ -170,7 +173,17 @@ export function setupEvents(client: Client): void {
 
   // ─── Automod & Autoresponder (new messages) ──────────────────────────────
   client.on(Events.MessageCreate, async (message) => {
-    if (message.author.bot || !message.guildId) return;
+    if (message.author.bot) return;
+    if (!message.guildId) {
+      // ModMail: a DM to Aegis. Errors never reach the member as a crash.
+      await handleModmailDM(client, message).catch(err => logger.warn("ModMail DM error:", err));
+      return;
+    }
+
+    // ModMail: a staff message in a ticket thread starting with the relay prefix.
+    if (message.channel.isThread()) {
+      await relayPrefixedStaffMessage(client, message).catch(err => logger.warn("ModMail relay error:", err));
+    }
 
     // Activity, ticket and Ghost Watch bookkeeping run for every message.
     // Track message count / last active (debounced, no content) & first message of the day

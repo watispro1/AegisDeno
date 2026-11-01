@@ -52,6 +52,9 @@ const GuildConfigSchema = new mongoose.Schema({
   modules: { type: mongoose.Schema.Types.Mixed, default: null },
   // Trust Score v2 settings. Normalised in services/trustEngine.ts.
   trust: { type: mongoose.Schema.Types.Mixed, default: null },
+  // ModMail and the weekly staff digest. Normalised in modmailLogic.ts / digestLogic.ts.
+  modmail: { type: mongoose.Schema.Types.Mixed, default: null },
+  digest: { type: mongoose.Schema.Types.Mixed, default: null },
   logChannels: { type: mongoose.Schema.Types.Mixed, default: null },
   // Escalation: auto-actions when a user hits X warnings
   escalation: {

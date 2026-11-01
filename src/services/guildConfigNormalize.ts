@@ -7,6 +7,8 @@ import { normalizeAutoCloseHours } from "./ticketTranscript";
 import { normalizeEmbedSpec, type EmbedSpec } from "./embedSpec";
 import { normalizeIncidentConfig, type IncidentConfig } from "./incidentLogic";
 import { normalizeTrustConfig, type TrustConfig } from "./trustEngine";
+import { normalizeModmailConfig, type ModmailConfig } from "./modmailLogic";
+import { normalizeDigestConfig, type DigestConfig } from "./digestLogic";
 /** Per-guild ticket settings (set with /ticket settings or the dashboard). */
 export interface TicketSettings {
   /** Channel that receives HTML transcripts when a ticket closes. */
@@ -65,6 +67,10 @@ export interface GuildConfig {
   modules?: ModuleSwitches;
   /** Trust Score v2 settings and opt-in integrations (all off by default). */
   trust?: TrustConfig;
+  /** ModMail (DM tickets). Off by default. */
+  modmail?: ModmailConfig;
+  /** Weekly staff digest. Off by default. */
+  digest?: DigestConfig;
 }
 
 /** Modules a server can switch off as a whole. The bot refuses new use of an off module. */
@@ -123,6 +129,8 @@ const DEFAULT_CONFIG: Omit<GuildConfig, "guildId"> = {
   incident: normalizeIncidentConfig(undefined),
   modules: normalizeModuleSwitches(undefined),
   trust: normalizeTrustConfig(undefined),
+  modmail: normalizeModmailConfig(undefined),
+  digest: normalizeDigestConfig(undefined),
 };
 
 export const GOODBYE_MESSAGE_MAX = 1000;
@@ -240,6 +248,8 @@ export function normalizeGuildConfig(guildId: string, source?: StoredGuildConfig
     incident: normalizeIncidentConfig(config.incident),
     modules: normalizeModuleSwitches(config.modules),
     trust: normalizeTrustConfig(config.trust),
+    modmail: normalizeModmailConfig(config.modmail),
+    digest: normalizeDigestConfig(config.digest),
   };
 }
 
@@ -259,6 +269,8 @@ export function guildConfigSetPaths(update: GuildConfigUpdate): Record<string, u
     incident: normalizeIncidentConfig,
     modules: normalizeModuleSwitches,
     trust: normalizeTrustConfig,
+    modmail: normalizeModmailConfig,
+    digest: normalizeDigestConfig,
   };
   // Nested settings are normalised on the way in: their schema paths are typed.
   const nested: Record<string, Record<string, (value: unknown) => unknown>> = {

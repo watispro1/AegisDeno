@@ -1,3 +1,4 @@
+import { mongoModmailDashboard } from "./modmailData";
 import { mongoTrustDashboard } from "./trustData";
 /**
  * Production DashboardExtras: Discord through the live client, records through
@@ -178,6 +179,7 @@ export function mongoDashboardExtras(client: Client): DashboardExtras {
     },
 
     trust: mongoTrustDashboard(client),
+    modmail: mongoModmailDashboard(),
 
     async saveIncidentConfig(guildId, config) { await updateGuildConfig(guildId, { incident: config }); },
     async saveModuleSwitches(guildId, switches) { await updateGuildConfig(guildId, { modules: switches }); },
