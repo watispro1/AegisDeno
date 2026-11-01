@@ -31,20 +31,13 @@ async function registerCommands(): Promise<void> {
 
   logger.info(`📝 Commands to register (${commandData.length}): ${commandNames}`);
 
-  if (TEST_GUILD_ID) {
-    logger.info("⚡ Guild-scoped registration — commands appear instantly!");
-    logger.info("Clearing global commands to prevent duplicates...");
-    await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: [] });
-    logger.info(`Registering ${commandData.length} commands to test guild ${TEST_GUILD_ID}...`);
-    await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, TEST_GUILD_ID), { body: commandData });
-    logger.info(`✅ Guild commands registered instantly in guild ${TEST_GUILD_ID}.`);
-  } else {
-    const clearGuildIds = (process.env.DISCORD_CLEAR_GUILD_IDS ?? "")
-      .split(",")
-      .map(id => id.trim())
-      .filter(Boolean);
+  const clearGuildIds = (process.env.DISCORD_CLEAR_GUILD_IDS ?? "")
+    .split(",")
+    .map(id => id.trim())
+    .filter(Boolean);
 
-    for (const guildId of clearGuildIds) {
+  for (const guildId of clearGuildIds) {
+    try {
       const existing = (await rest.get(
         Routes.applicationGuildCommands(APPLICATION_ID, guildId)
       )) as { body?: unknown[] };
@@ -53,13 +46,25 @@ async function registerCommands(): Promise<void> {
         logger.info(`Clearing ${body.length} stale guild command(s) in ${guildId}...`);
         await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] });
       }
+    } catch (err) {
+      logger.warn(`Could not clear stale guild commands for ${guildId}:`, err);
     }
+  }
 
-    logger.warn("🌐 Global registration mode — new commands may take UP TO 1 HOUR to appear in Discord.");
-    logger.warn("   TIP: Set DISCORD_TEST_GUILD_ID in .env to your server ID for instant command registration.");
-    logger.info(`Registering ${commandData.length} commands globally...`);
-    await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
-    logger.info(`✅ Global commands registered (${commandData.length} total). Propagation delay: up to 60 minutes.`);
+  // 1. Always register globally so every server the bot is in or added to gets commands
+  logger.info(`Registering ${commandData.length} commands globally...`);
+  await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
+  logger.info(`✅ Global commands registered (${commandData.length} total).`);
+
+  // 2. If a test guild is set, also register to it directly so updates appear instantly without propagation delay
+  if (TEST_GUILD_ID) {
+    try {
+      logger.info(`⚡ Registering ${commandData.length} commands to test guild ${TEST_GUILD_ID} (instant)...`);
+      await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, TEST_GUILD_ID), { body: commandData });
+      logger.info(`✅ Guild commands registered instantly in guild ${TEST_GUILD_ID}.`);
+    } catch (err) {
+      logger.warn(`Could not register guild commands to test guild ${TEST_GUILD_ID}:`, err);
+    }
   }
 }
 

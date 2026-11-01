@@ -12,11 +12,12 @@
     "start": "node dist/main.js",
     "preview:site": "tsx scripts/preview-site.ts",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck"
+    "check": "npm run typecheck",
+    "deploy": "tsx scripts/deploy-commands.ts"
   },
   "keywords": [],
   "author": "",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "discord.js": "^14.27.0",

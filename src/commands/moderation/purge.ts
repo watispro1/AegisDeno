@@ -125,11 +125,11 @@ export const command: Command = {
       const missing = need.filter(([flag]) => !perms?.has(flag)).map(([, label]) => label);
       if (missing.length) {
         return interaction.reply({ content: `❌ I need **${missing.join("**, **")}** in this channel to purge it.`, flags: MessageFlags.Ephemeral });
+      }
     }
 
     if (beforeMsgId && !/^\d{17,20}$/.test(beforeMsgId)) {
       return interaction.reply({ content: "❌ `before_message` must be a valid Discord message ID (17–20 digits).", flags: MessageFlags.Ephemeral });
-    }
     }
 
     if (filter === "keyword" && !keyword) {

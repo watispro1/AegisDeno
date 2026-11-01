@@ -81,13 +81,6 @@ export const command: Command = {
     const proof        = interaction.options.getAttachment("proof");
     const guildId      = interaction.guildId!;
 
-    if (!preset && !customReason) {
-      return interaction.reply({
-        content: "❌ Please provide either a `preset` or a custom `reason` (or both).",
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
     const reason = combineReason(preset, customReason) ?? "No reason provided.";
 
     if (target.id === interaction.user.id) {

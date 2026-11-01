@@ -23,28 +23,53 @@ async function main(): Promise<void> {
   const rest = new REST({ version: "10" }).setToken(TOKEN);
   const commandData = Array.from(commands.values()).map(c => c.data.toJSON());
 
-  if (TEST_GUILD_ID) {
-    logger.info("Clearing global commands to prevent duplicates...");
-    await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: [] });
-    logger.info(`Registering ${commandData.length} commands to guild ${TEST_GUILD_ID}...`);
-    await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, TEST_GUILD_ID), { body: commandData });
-    logger.info("Guild commands registered (instant).");
-    return;
-  }
+  // 1. Always register globally so any server with the bot receives commands
+  logger.info(`Registering ${commandData.length} commands globally...`);
+  await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
+  logger.info("Global commands registered (propagating across Discord).");
 
+  // 2. Clear any specifically requested stale guild IDs
   for (const guildId of (CLEAR_GUILD_IDS ?? "").split(",").map(s => s.trim()).filter(Boolean)) {
-    const existing = (await rest.get(
-      Routes.applicationGuildCommands(APPLICATION_ID, guildId)
-    )) as { body?: unknown[] };
-    if (Array.isArray(existing.body) && existing.body.length > 0) {
-      logger.info(`Clearing ${existing.body.length} stale guild command(s) in ${guildId}...`);
-      await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] });
+    try {
+      const existing = (await rest.get(
+        Routes.applicationGuildCommands(APPLICATION_ID, guildId)
+      )) as { body?: unknown[] };
+      if (Array.isArray(existing.body) && existing.body.length > 0) {
+        logger.info(`Clearing ${existing.body.length} stale guild command(s) in ${guildId}...`);
+        await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] });
+      }
+    } catch (err) {
+      logger.warn(`Could not clear stale commands in ${guildId}:`, err);
     }
   }
 
-  logger.info(`Registering ${commandData.length} commands globally...`);
-  await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: commandData });
-  logger.info("Global commands registered (up to 1h propagation delay).");
+  // 3. Register directly to active guilds for instant availability (0s propagation delay)
+  const targetGuildIds = new Set<string>();
+  if (TEST_GUILD_ID) {
+    targetGuildIds.add(TEST_GUILD_ID);
+  }
+
+  try {
+    const guilds = (await rest.get(Routes.userGuilds())) as Array<{ id: string; name: string }>;
+    if (Array.isArray(guilds)) {
+      for (const g of guilds) {
+        targetGuildIds.add(g.id);
+      }
+    }
+  } catch (err) {
+    logger.warn("Could not list current guilds via REST:", err);
+  }
+
+  for (const guildId of targetGuildIds) {
+    try {
+      logger.info(`Registering ${commandData.length} commands instantly to guild ${guildId}...`);
+      await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: commandData });
+    } catch (err) {
+      logger.warn(`Failed to register instant commands for guild ${guildId}:`, err);
+    }
+  }
+
+  logger.info(`✅ Deployment complete. Commands active globally and instantly in ${targetGuildIds.size} guild(s).`);
 }
 
 main().catch(err => {

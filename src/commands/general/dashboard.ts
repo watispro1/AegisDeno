@@ -122,6 +122,8 @@ export const command: Command = {
           .setLabel("Server Health")
           .setStyle(ButtonStyle.Secondary)
           .setEmoji("❤️"),
+      );
+      const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId("dash_roles")
           .setLabel("Roles Overview")
@@ -133,7 +135,7 @@ export const command: Command = {
           .setURL("https://aegisdeno.fly.dev/dashboard")
           .setEmoji("🌐"),
       );
-      return [row1, row2];
+      return [row1, row2, row3];
     };
 
     const initialEmbed = await fetchStats();
