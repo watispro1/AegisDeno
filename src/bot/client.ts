@@ -43,6 +43,7 @@ import { codeBlock } from "../utils/safeText";
 import { incidentService, joinActionable } from "../services/incidentDiscord";
 import { recordMemberFlow } from "../services/memberFlow";
 import { handleModmailDM, relayPrefixedStaffMessage } from "../services/modmailService";
+import { reconcileDigestTasks } from "../services/digestService";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -93,6 +94,11 @@ export function setupEvents(client: Client): void {
     startWatchlistSync();
     // Restores incidents that ended while the bot was down and resumes expiry checks.
     incidentService(c).boot().catch(err => logger.error("Incident Mode boot failed:", err));
+    // After the scheduler has restored saved tasks, recreate any weekly digest task that went missing.
+    setTimeout(() => {
+      reconcileDigestTasks(c).then(n => { if (n) logger.info(`Staff digest: rescheduled ${n} guild(s).`); })
+        .catch(err => logger.warn("Staff digest reconcile failed:", err));
+    }, 30_000).unref?.();
   });
 
   // Discord drops a presence that is not refreshed, so re-send it periodically.

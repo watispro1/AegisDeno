@@ -53,6 +53,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   ],
   slowmode: ["/slowmode set duration:10 seconds", "/slowmode custom seconds:45 channel:#general"],
   trustscore: ["/trustscore user:@member"],
+  digest: ["/digest setup channel:#staff day:Monday hour:9 timezone:America/Chicago", "/digest preview"],
   modmail: [
     "/modmail setup channel:#modmail role:@Staff ping_staff:true",
     "/modmail reply message:Thanks, we're looking into it anonymous:true",

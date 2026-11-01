@@ -61,6 +61,7 @@ export const MODULE_NAV: ReadonlyArray<{ group: string; items: ReadonlyArray<Nav
     { key: "cases", label: "Cases", href: "/cases", icon: "▤" },
     { key: "appeals", label: "Appeals", href: "/appeals", icon: "✉" },
     { key: "modmail", label: "ModMail", href: "/modmail", icon: "✆" },
+    { key: "digest", label: "Staff digest", href: "/digest", icon: "☰" },
     { key: "watchlist", label: "Ghost Watch", href: "/watchlist", icon: "◉" },
     { key: "logging", label: "Logging", href: "/settings/logging", icon: "≡" },
   ] },

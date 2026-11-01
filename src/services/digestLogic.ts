@@ -19,7 +19,7 @@ export interface DigestConfig {
 export const DEFAULT_DIGEST_CONFIG: DigestConfig = { enabled: false, channelId: null, day: 1, hour: 9, timezone: "UTC" };
 export const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 
-export function isValidTimeZone(tz: unknown): tz is string {
+export function isValidTimeZone(tz: unknown): boolean {
   if (typeof tz !== "string" || !tz || tz.length > 64 || !/^[A-Za-z0-9_+\-/]+$/.test(tz)) return false;
   try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return true; } catch { return false; }
 }
@@ -32,7 +32,7 @@ export function normalizeDigestConfig(value: unknown): DigestConfig {
     channelId: typeof o.channelId === "string" && SNOWFLAKE.test(o.channelId) ? o.channelId : null,
     day: int(o.day, 0, 6, DEFAULT_DIGEST_CONFIG.day),
     hour: int(o.hour, 0, 23, DEFAULT_DIGEST_CONFIG.hour),
-    timezone: isValidTimeZone(o.timezone) ? o.timezone : "UTC",
+    timezone: isValidTimeZone(o.timezone) ? o.timezone as string : "UTC",
   };
 }
 

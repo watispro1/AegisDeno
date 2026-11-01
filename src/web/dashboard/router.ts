@@ -23,6 +23,7 @@ import { registerCommunityRoutes } from "./routes/community";
 import { registerIncidentRoutes } from "./routes/incident";
 import { registerTrustRoutes } from "./routes/trust";
 import { registerModmailRoutes } from "./routes/modmail";
+import { registerDigestRoutes } from "./routes/digest";
 import { registerMemberRoutes } from "./routes/members";
 import { registerInsightRoutes } from "./routes/insights";
 
@@ -70,6 +71,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   registerIncidentRoutes(router, kit);
   registerTrustRoutes(router, kit);
   registerModmailRoutes(router, kit);
+  registerDigestRoutes(router, kit);
   registerMemberRoutes(router, kit);
   registerInsightRoutes(router, kit);
   registerSettingsRoutes(router, kit);

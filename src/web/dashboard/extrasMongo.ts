@@ -1,3 +1,4 @@
+import { liveDigestDashboard } from "./digestData";
 import { mongoModmailDashboard } from "./modmailData";
 import { mongoTrustDashboard } from "./trustData";
 /**
@@ -180,6 +181,7 @@ export function mongoDashboardExtras(client: Client): DashboardExtras {
 
     trust: mongoTrustDashboard(client),
     modmail: mongoModmailDashboard(),
+    digest: liveDigestDashboard(client),
 
     async saveIncidentConfig(guildId, config) { await updateGuildConfig(guildId, { incident: config }); },
     async saveModuleSwitches(guildId, switches) { await updateGuildConfig(guildId, { modules: switches }); },
