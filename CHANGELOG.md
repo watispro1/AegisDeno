@@ -80,6 +80,29 @@ back to production.
 - **Features page:** Incident Mode is listed with the other modules.
 - **Tests:** `tests/incidentMode.test.ts`, `tests/statusPage.test.ts`,
   `tests/dashboardUpgrades.test.ts` and `tests/codexFixes362.test.ts`.
+- **Trust Score v2 (`/trust user`, `/trust config`):** an explainable 0–100
+  score per member from account age, time in the server, verification, active
+  days in the last 30, cases and warnings weighted by severity and recency (a
+  timeout still in effect counts more), automod hits in 30 days and Incident
+  Mode join-gate flags. Each factor is listed with its + or − points.
+  `/trust user` needs Moderate Members and is always ephemeral; `/trust config`
+  needs Manage Server and sets the weights preset (strict, balanced, lenient),
+  the low-trust threshold and three integrations that are **off by default**:
+  link filtering only for low-trust members, a trust threshold for Incident
+  Mode's join gate, and a low-trust role on join (checked against Aegis's and
+  your highest role). `/userinfo` shows the same score to moderators.
+  `/trustscore` keeps working unchanged.
+- **Features page rework:** `/features` is organised by category (Moderation,
+  Automod & Safety, Incident Mode, Trust Score, Community, Tickets & Appeals,
+  Dashboard, Status & Reliability) with an icon sprite, a headline hero, in-page
+  navigation, "on the dashboard" badges, a "Why Aegis" comparison and invite and
+  dashboard calls to action. Command names on the page come from the real
+  command definitions and link to their `/commands` anchors; a test fails if
+  one stops existing.
+- **Command options:** `/nickname reason:`, `/serverinfo ephemeral:`, reason
+  suggestions on `/kick`, note-ID suggestions on `/note delete`.
+- **Tests:** `tests/trustScoreV2.test.ts`, `tests/featuresPage.test.ts`,
+  `tests/commandsRound4.test.ts` and `tests/bugFixesRound4.test.ts`.
 
 ### Changed
 - Hardcoded `aegisdeno.fly.dev` and support-invite URLs in `/help`, `/about`,
@@ -95,6 +118,16 @@ back to production.
   moved to `src/services/guildConfigNormalize.ts`; `server.ts` was split into
   `serverMiddleware.ts` and `statusRoutes.ts`. No behaviour change from the
   splits themselves.
+- Member activity tracking now also keeps the UTC days a member was active in
+  the last 30 days (a short list of dates, never message content) for Trust
+  Score; `/userinfo` uses the Trust Score v2 engine.
+- `/nickname` shows the old and new name, logs the reason to the mod log, says
+  when nothing would change, and refuses the server owner up front.
+- `/slowmode` prints custom values as "1 minute 30 seconds" (was "1.5
+  minutes") and its channel pickers only offer channels that have slowmode.
+- Dashboard, starboard, watchlist, appeal, automod-hit and activity models moved
+  out of `src/database/mongo.ts` into `dashboardModels.ts` and `extraModels.ts`
+  (re-exported, so imports are unchanged).
 
 ### Fixed
 - `server.md` documents `/welcome message` as the form it is, explains `{user}`,
@@ -116,6 +149,20 @@ back to production.
   membership screening (which let them skip the rules gate); they get it once
   they pass. A role above Aegis is skipped with one warning instead of an API
   error on every join.
+- Every button/menu collector in the commands now catches its own errors: an
+  expired interaction or a Discord error is logged and answered with a short
+  ephemeral notice instead of an unhandled promise rejection and "This
+  interaction failed".
+- `/slowmode set|custom` checks Manage Channels in the target channel (for
+  both you and Aegis), so channel overwrites that deny it are respected; the
+  quick-adjust buttons use the same check.
+- `/announce` and `/embed` refuse to post into a channel you can't post in
+  yourself, and `/announce` pings need Mention Everyone in that channel.
+- `/note delete` rejects malformed IDs with a clear message (they used to hit
+  a database error), and deleting another moderator's note needs Manage Server.
+- `/userinfo` and `/serverinfo` defer before their lookups so large servers or
+  a slow database don't run past Discord's three-second window; `/userinfo`'s
+  trust field no longer counted only the five newest cases of any type.
 - Codex review on #18/#19: `/autoresponder` toggling reports the real result,
   embed size limits are checked after template placeholders are expanded, and
   `server.md` uses the current command names.
@@ -129,6 +176,10 @@ back to production.
   Discord OAuth are validated before use.
 - Incident Mode records each change before making it and restores only what it
   recorded, so a crash part-way through still puts back everything it touched.
+- Trust Score stores no message content: only counts, dates and the 30-day
+  active-day list. Activity records of members silent for 180 days expire, and
+  when Aegis is removed from a server its activity records are deleted. Trust
+  settings changes are written to the mod log and the dashboard audit log.
 
 ## [3.6.2] - 2026-10-31
 

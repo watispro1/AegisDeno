@@ -86,6 +86,16 @@ fixes. No new environment variables, Discord intents or OAuth scopes.
 - **Scheduled messages can carry an embed** (optional), built with the same
   editor and Discord limits as Announcements; the message text is posted above
   it.
+- **Trust Score page** (Moderation → Trust Score): a distribution chart of
+  member scores (plain SVG with a text table), the lowest-trust members linked
+  to their member pages, and the settings form: integrations switch, weights
+  preset, low-trust threshold, link filter for low-trust members only, Incident
+  Mode join-gate threshold and a low-trust role (the role picker follows the
+  same hierarchy rule as every other role picker). Saving is CSRF-protected,
+  rate limited and written to the audit log. Scores refresh every few minutes;
+  large servers score the first 1,000 cached members.
+- **Trust Score card on the member page**, listing every factor with its + or
+  − points.
 
 ### Changed
 - Role pickers for the verified role and the join role grey out roles you
