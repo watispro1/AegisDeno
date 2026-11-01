@@ -205,7 +205,12 @@ export const command: Command = {
         return;
       }
       const enabled = interaction.options.getBoolean("enabled") ?? current.enabled === false;
-      await setAutoResponderEnabled(interaction.guild.id, id, enabled);
+      const saved = await setAutoResponderEnabled(interaction.guild.id, id, enabled).catch(() => false);
+      if (!saved) {
+        // The update failed or the responder was removed after the read above: say so instead of claiming success.
+        await interaction.reply({ content: `❌ Couldn't change autoresponder \`${current.trigger.slice(0, 60)}\`. It may have just been removed; run \`/autoresponder list\` and try again.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
       const serverOff = (await getGuildConfig(interaction.guild.id)).autorespondersEnabled === false;
       await interaction.reply({
         content: `✅ Autoresponder for \`${current.trigger.slice(0, 60)}\` is now **${enabled ? "on" : "off"}**.` +
