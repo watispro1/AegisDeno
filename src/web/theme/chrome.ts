@@ -81,10 +81,23 @@ export const cssChrome = String.raw`/* ── Header ─────────
   color: var(--text); text-decoration: none; border-bottom: 1px solid var(--border);
 }
 .site-search-result:hover, .site-search-result:focus-visible { background: var(--bg-sunk); color: var(--text); }
+.site-search-result.is-active { background: var(--bg-sunk); box-shadow: inset 2px 0 0 var(--accent); }
 .site-search-result-icon { font-family: var(--mono); color: var(--accent); width: 1rem; flex-shrink: 0; }
 .site-search-result-copy { display: flex; flex-direction: column; min-width: 0; }
 .site-search-result-copy strong { font-weight: 500; font-family: var(--mono); font-size: .9rem; }
 .site-search-result-copy small { color: var(--muted); font-size: .82rem; }
+.site-search-group {
+  margin: .55rem 0 .2rem; padding: 0 .5rem;
+  font: 500 .72rem/1.3 var(--mono); letter-spacing: .05em; text-transform: uppercase;
+  color: var(--faint);
+}
+.site-search-recent-row { display: flex; flex-wrap: wrap; gap: .4rem; padding: .25rem .5rem .5rem; }
+.site-search-recent {
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  border-radius: 999px; padding: .3rem .7rem; min-height: 32px;
+  font: 400 .82rem var(--sans); cursor: pointer;
+}
+.site-search-recent:hover, .site-search-recent:focus-visible { border-color: var(--accent); color: var(--accent); }
 .site-search-empty { color: var(--muted); font-size: .9rem; padding: .5rem; margin: 0; }
 
 /* ── Toast ──────────────────────────────────────────────────────────── */

@@ -9,6 +9,70 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.7.0] - 2026-11-01
+
+A documentation and quality-of-life release: the official-server playbook now
+documents every channel and its setup commands, the bot links straight to cases
+and docs, and the public site gained a faster search palette, saved command
+filters, copyable docs sections and a filterable changelog. Discord permissions,
+intents and environment variables are unchanged. Public URLs are now read from
+the environment, so a staging deployment no longer links back to production.
+
+### Added
+- **`server.md` channel reference:** every text, forum and voice channel now has
+  who posts, what it is for, what Aegis does there, and a topic written to paste
+  into Discord. The document also gained channel conventions, a "What Aegis
+  posts where" table, a setup order and a pre-launch QA checklist.
+- **`#welcome` channel:** the welcome system has its own target instead of
+  burying the rules in `#rules-and-info`; `server.md` and `/welcome` wiring were
+  updated together.
+- **CI drift check for the playbook:** `tests/serverDocs.test.ts` runs every
+  documented slash command through the same validator as the `/commands` page,
+  so a renamed option fails the build instead of shipping stale instructions.
+- **Env-driven public links:** `src/config/links.ts` builds site, docs, command,
+  case, user-history and invite URLs from `SITE_URL`, `SUPPORT_SERVER_URL` and
+  `BOT_INVITE_URL`, with safe fallbacks for malformed values.
+- **`/help` upgrades:** each result links to its category in the docs and to the
+  command's entry on the site, permission requirements are shown per command,
+  and there is an Add Aegis button.
+- **Case links in Discord:** warn, timeout, kick, ban and purge confirmations
+  and audit-log entries now carry buttons for the case page, the member's case
+  history and the server dashboard.
+- **Site search palette:** Ctrl/Cmd+K now matches fuzzily, groups results into
+  pages, commands and subcommands, supports arrow keys and Enter, remembers
+  recent searches, and deep-links straight to a subcommand anchor.
+- **Command filters and pins:** the commands page can filter by access level
+  (everyone, moderator, admin) and by subcommands or autocomplete, remembers
+  pinned commands locally, and keeps the whole filter state in the URL so a
+  filtered view can be shared.
+- **Docs navigation:** every heading has a copy-link button, inline `/command`
+  mentions link to the command reference, and a previous/next pager follows the
+  section in view.
+- **Changelog tools:** releases can be filtered by version, command or fix, the
+  newest release carries a Latest badge, and each release has its own copy link.
+- **Tests:** `tests/links.test.ts` pins the URL builders and mod-log rows;
+  `tests/siteQol.test.ts` covers the search, filters, docs and changelog hooks.
+
+### Changed
+- Hardcoded `aegisdeno.fly.dev` and support-invite URLs in `/help`, `/about`,
+  `/ping`, `/dashboard` and permission errors were replaced with the shared link
+  builders.
+- Permission errors now name the missing permission, link the permissions guide
+  and point at `/diagnostics` instead of stopping at "missing permissions".
+- Purge records its case before showing the result, so the confirmation can link
+  to the case and the member's history; timeout extensions link their new case
+  too.
+
+### Fixed
+- `server.md` documents `/welcome message` as the form it is, explains `{user}`,
+  `{username}`, `{server}` and `{count}`, and no longer shows the removed
+  `message:` option.
+- Retired forms (`/logging setup`, `/logging categories`, `/automod exempt role`,
+  `/automod exempt channel`, old `/starboard` and `/welcome` syntax) are gone,
+  and the docs test fails if they return.
+- Logging, automod, verify, rolepanel, ticket, welcome, starboard and escalation
+  examples in `server.md` use the choice labels Discord actually shows.
+
 ## [3.6.2] - 2026-10-31
 
 Bug fixes, security hardening across the bot, website and dashboard, upgrades

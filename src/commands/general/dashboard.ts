@@ -16,6 +16,7 @@ import { getGuildConfig } from "../../services/configuration";
 import { SuggestionModel, TicketModel, WarningModel, ModerationCaseModel, WatchlistEntryModel } from "../../database/mongo";
 import { getVerificationConfig } from "../../services/verificationService";
 import { isObfuscatedChannel } from "../../utils/channels";
+import { dashboardUrl } from "../../config/links";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -132,7 +133,7 @@ export const command: Command = {
         new ButtonBuilder()
           .setLabel("Web Dashboard")
           .setStyle(ButtonStyle.Link)
-          .setURL("https://aegisdeno.fly.dev/dashboard")
+          .setURL(dashboardUrl(interaction.guildId ?? undefined))
           .setEmoji("🌐"),
       );
       return [row1, row2, row3];

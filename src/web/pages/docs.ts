@@ -1,12 +1,12 @@
 import { REPO_URL } from "../layout";
 import { faqs } from "../content";
 import { type SiteConfig, breadcrumb, cmdBlock, escapeHtml, faqBlock, page, safeUrl } from "./shared";
-import { SUBCOMMAND_CHECKS, botPermissionTable, docHeading, docToc, permissionTable } from "./docsData";
+import { SUBCOMMAND_CHECKS, botPermissionTable, docHeading, docToc, linkCommandsInHtml, permissionTable } from "./docsData";
 
 export function renderDocs(cfg: SiteConfig): string {
   const toc = docToc();
 
-  const body = `
+  const body = linkCommandsInHtml(`
 <div class="wrap">
   ${breadcrumb("Docs")}
   <div class="page-head">
@@ -286,9 +286,14 @@ npm run dev             # or: npm run build && npm start`)}
         <li><a href="/troubleshooting#cat-hosting">Self-hosting</a>.</li>
       </ul>
       <p>Still stuck? Run <code>/diagnostics</code> and include its output when you ask${cfg.supportUrl ? ` in the <a href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">support server</a>` : ""} or <a href="${REPO_URL}/issues" rel="noopener noreferrer">open an issue on GitHub</a>.</p>
+
+      <nav class="doc-pager" data-doc-pager aria-label="Previous and next section">
+        <a class="doc-pager-link prev" data-doc-prev hidden><span class="doc-pager-label">Previous section</span><strong></strong></a>
+        <a class="doc-pager-link next" data-doc-next hidden><span class="doc-pager-label">Next section</span><strong></strong></a>
+      </nav>
     </article>
   </div>
-</div>`;
+</div>`);
 
   return page(cfg, {
     title: "Docs | Aegis",

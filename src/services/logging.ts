@@ -1,4 +1,4 @@
-import { Client, TextChannel, EmbedBuilder, EmbedData } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, Client, TextChannel, EmbedBuilder, EmbedData } from "discord.js";
 import { getGuildConfig } from "./configuration";
 import { logger } from "../utils/logger";
 import { isObfuscatedChannel } from "../utils/channels";
@@ -18,6 +18,7 @@ export async function sendGuildLog(
   guildId: string,
   embed: Omit<EmbedData, "timestamp">,
   category?: LogCategory,
+  components?: ActionRowBuilder<ButtonBuilder>[],
 ): Promise<void> {
   try {
     const config = await getGuildConfig(guildId);
@@ -40,7 +41,8 @@ export async function sendGuildLog(
       timestamp: new Date().toISOString(),
     });
 
-    await channel.send({ embeds: [built], allowedMentions: { parse: [] } });
+    const payload = { embeds: [built], allowedMentions: { parse: [] as const } };
+    await channel.send(components?.length ? { ...payload, components } : payload);
   } catch (error) {
     logger.error(`Failed to send log to guild ${guildId}:`, error);
   }

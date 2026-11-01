@@ -18,6 +18,7 @@ import { sendGuildLog } from "../../services/logging";
 import { checkEscalation } from "../../services/escalation";
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
 import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
+import { caseLinkButton, modLogRow } from "../../services/modLogLinks";
 
 const SEVERITY_CONFIG: Record<string, { color: number; label: string; emoji: string }> = {
   low:    { color: 0xFEE75C, label: "Low",    emoji: "🟡" },
@@ -139,6 +140,7 @@ export const command: Command = {
           .setLabel("Timeout (10m)")
           .setStyle(ButtonStyle.Primary)
           .setEmoji("⚡"),
+        caseLinkButton(guildId, warnId),
       );
 
       const sent = await interaction.editReply({ embeds: [embed], components: [buttons] });
@@ -199,7 +201,7 @@ export const command: Command = {
               title: "↩️ Warning Revoked",
               color: 0x95A5A6,
               description: `**User:** ${target.tag} (<@${target.id}>)\n**Warning ID:** \`${warnId}\`\n**Original reason:** ${reason}\n**Revoked by:** ${i.user.tag}`,
-            });
+            }, "modActions", [modLogRow(guildId, target.id, warnId)]);
           } else {
             await i.reply({ content: "❌ Could not find that warning — it may have already been revoked.", flags: MessageFlags.Ephemeral });
           }
@@ -229,7 +231,7 @@ export const command: Command = {
         title: `${sev.emoji} Warning Issued — ${sev.label}`,
         color: sev.color,
         description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Severity:** ${sev.label}\n**Moderator:** ${interaction.user.tag}\n**Total Warnings:** ${totalWarnings}${proof ? `\n**Proof:** ${proof.url}` : ""}`,
-      });
+      }, "modActions", [modLogRow(guildId, target.id, warnId)]);
 
       // Check escalation thresholds
       const esc = await checkEscalation(interaction.client, guildId, target.id, interaction.user.id);

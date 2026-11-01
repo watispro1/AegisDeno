@@ -16,6 +16,7 @@ import { sendGuildLog } from "../../services/logging";
 import { addModerationCase, revokeModerationCase } from "../../services/moderationCases";
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
 import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
+import { caseLinkButton, modLogRow } from "../../services/modLogLinks";
 import { BanAppealModel } from "../../database/mongo";
 import { generateAppealCode } from "./appeal";
 import { buildDurationSuggestions } from "../../utils/moderationPresets";
@@ -334,6 +335,7 @@ export const command: Command = {
 
         const postBanRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
           buildUndoButton(`ban_undo_${target.id}`),
+          ...(caseId ? [caseLinkButton(guildId, caseId)] : []),
         );
 
         const banMsg = await i.editReply({ content: null, embeds: [resultEmbed], components: [postBanRow] }).catch(() => null);
@@ -342,7 +344,7 @@ export const command: Command = {
           title: "🔨 Member Banned",
           color: 0xED4245,
           description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Length:** ${durationLabel}\n**Moderator:** ${interaction.user.tag}\n**Msg Deletion:** ${deleteDays}d${proof ? `\n**Proof:** ${proof.url}` : ""}`,
-        });
+        }, "modActions", caseId ? [modLogRow(guildId, target.id, caseId)] : undefined);
 
         if (banMsg) {
           const postCollector = banMsg.createMessageComponentCollector({
@@ -380,7 +382,7 @@ export const command: Command = {
               title: "↩️ Ban Undone",
               color: 0x57F287,
               description: `**User:** ${target.tag} (<@${target.id}>)\n**Undone by:** ${bi.user.tag}${caseId ? `\n**Case:** \`${caseId}\`${revoked ? " (marked revoked)" : ""}` : ""}`,
-            });
+            }, "modActions", caseId ? [modLogRow(guildId, target.id, caseId)] : undefined);
             postCollector.stop("undone");
             await bi.editReply({
               embeds: [resultEmbed.setColor(0x57F287).setTitle("↩️ Ban Undone")],

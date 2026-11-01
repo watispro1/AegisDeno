@@ -56,20 +56,51 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
     };
   }
 
-  /* ── Command reference: search, category filter, keyboard, deep links ── */
+  /* ── Command reference: search, filters, pins, keyboard, deep links ── */
   var search = document.getElementById('cmd-search');
   var cards = Array.prototype.slice.call(document.querySelectorAll('.cmd-card'));
   var groups = Array.prototype.slice.call(document.querySelectorAll('.cmd-group'));
   var filterBar = document.getElementById('cmd-filter');
+  var accessBar = document.getElementById('cmd-access');
   var countEl = document.getElementById('cmd-count');
 
   if (search && cards.length) {
+    var PINS_KEY = 'aegis-command-pins';
     var activeCat = 'all';
+    var activeAccess = 'all';
+    var flags = { pinned: false, subs: false, autocomplete: false };
     var chips = filterBar ? Array.prototype.slice.call(filterBar.querySelectorAll('.tab')) : [];
+    var accessChips = accessBar ? Array.prototype.slice.call(accessBar.querySelectorAll('[data-access]')) : [];
+    var flagChips = accessBar ? Array.prototype.slice.call(accessBar.querySelectorAll('[data-flag]')) : [];
     var expandBtn = document.getElementById('cmd-expand');
     var suggestEl = document.getElementById('cmd-didyoumean');
     var suggestDefault = suggestEl ? suggestEl.textContent : '';
     var names = cards.map(function (c) { return c.getAttribute('data-name') || ''; });
+
+    var readPins = function () {
+      try {
+        var raw = JSON.parse(localStorage.getItem(PINS_KEY) || '[]');
+        return Array.isArray(raw) ? raw.filter(function (n) { return typeof n === 'string'; }) : [];
+      } catch (err) { return []; }
+    };
+    var pins = readPins();
+    var isPinned = function (name) { return pins.indexOf(name) !== -1; };
+    var setPinned = function (name, on) {
+      if (on && !isPinned(name)) pins.push(name);
+      if (!on) pins = pins.filter(function (n) { return n !== name; });
+      try { localStorage.setItem(PINS_KEY, JSON.stringify(pins)); } catch (err) {}
+    };
+
+    var syncPins = function () {
+      var buttons = document.querySelectorAll('[data-pin]');
+      Array.prototype.forEach.call(buttons, function (b) {
+        var name = b.getAttribute('data-pin') || '';
+        var on = isPinned(name);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.setAttribute('aria-label', (on ? 'Unpin /' : 'Pin /') + name);
+        b.setAttribute('title', on ? 'Unpin /' + name : 'Pin /' + name + ' to the top of this page');
+      });
+    };
 
     var highlight = function (card, query) {
       var nameEl = card.querySelector('[data-cmd-name]');
@@ -126,13 +157,32 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
       });
     };
 
-    var syncUrl = function (query) {
+    /* q, category, access level and the feature toggles all live in the URL. */
+    var syncUrl = function () {
       if (!window.history || !window.history.replaceState) return;
       try {
         var url = new URL(window.location.href);
+        var query = search.value.trim();
         if (query) url.searchParams.set('q', query); else url.searchParams.delete('q');
+        if (activeCat !== 'all') url.searchParams.set('cat', activeCat); else url.searchParams.delete('cat');
+        if (activeAccess !== 'all') url.searchParams.set('access', activeAccess); else url.searchParams.delete('access');
+        if (flags.pinned) url.searchParams.set('pinned', '1'); else url.searchParams.delete('pinned');
+        if (flags.subs) url.searchParams.set('subs', '1'); else url.searchParams.delete('subs');
+        if (flags.autocomplete) url.searchParams.set('auto', '1'); else url.searchParams.delete('auto');
         window.history.replaceState(null, '', url.pathname + url.search + url.hash);
       } catch (e) {}
+    };
+
+    var syncControls = function () {
+      chips.forEach(function (c) {
+        c.setAttribute('aria-pressed', String((c.getAttribute('data-cat') || 'all') === activeCat));
+      });
+      accessChips.forEach(function (c) {
+        c.setAttribute('aria-pressed', String((c.getAttribute('data-access') || 'all') === activeAccess));
+      });
+      flagChips.forEach(function (c) {
+        c.setAttribute('aria-pressed', String(Boolean(flags[c.getAttribute('data-flag')])));
+      });
     };
 
     var visibleCards = function () {
@@ -147,8 +197,15 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
       cards.forEach(function (card) {
         var haystack = card.getAttribute('data-search') || '';
         var cat = card.getAttribute('data-category') || '';
+        var access = card.getAttribute('data-access') || 'everyone';
+        var name = card.getAttribute('data-name') || '';
         var q = query.charAt(0) === '/' ? query.slice(1) : query;
-        var show = (!q || haystack.indexOf(q) !== -1) && (activeCat === 'all' || cat === activeCat);
+        var show = (!q || haystack.indexOf(q) !== -1) &&
+          (activeCat === 'all' || cat === activeCat) &&
+          (activeAccess === 'all' || access === activeAccess) &&
+          (!flags.pinned || isPinned(name)) &&
+          (!flags.subs || card.getAttribute('data-subs') === '1') &&
+          (!flags.autocomplete || card.getAttribute('data-autocomplete') === '1');
         card.hidden = !show;
         if (show) {
           visible++;
@@ -169,14 +226,19 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
 
     var selectChip = function (chip) {
       activeCat = chip.getAttribute('data-cat') || 'all';
-      chips.forEach(function (c) { c.setAttribute('aria-pressed', String(c === chip)); });
+      syncControls();
       apply();
+      syncUrl();
     };
 
     var clearAll = function () {
       search.value = '';
-      if (chips.length) selectChip(chips[0]); else apply();
-      syncUrl('');
+      activeCat = 'all';
+      activeAccess = 'all';
+      flags = { pinned: false, subs: false, autocomplete: false };
+      syncControls();
+      apply();
+      syncUrl();
       search.focus();
     };
 
@@ -188,7 +250,7 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
 
     search.addEventListener('input', debounce(function () {
       apply();
-      syncUrl(search.value.trim());
+      syncUrl();
     }, 80));
 
     search.addEventListener('keydown', function (e) {
@@ -197,7 +259,7 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
           e.preventDefault();
           search.value = '';
           apply();
-          syncUrl('');
+          syncUrl();
         }
       } else if (e.key === 'Enter') {
         e.preventDefault();
@@ -252,6 +314,37 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
       });
     }
 
+    if (accessBar) {
+      accessBar.addEventListener('click', function (e) {
+        var accessChip = e.target.closest('[data-access]');
+        if (accessChip) {
+          activeAccess = accessChip.getAttribute('data-access') || 'all';
+          syncControls();
+          apply();
+          syncUrl();
+          return;
+        }
+        var flagChip = e.target.closest('[data-flag]');
+        if (flagChip) {
+          var key = flagChip.getAttribute('data-flag');
+          flags[key] = !flags[key];
+          syncControls();
+          apply();
+          syncUrl();
+        }
+      });
+      accessBar.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        var chips2 = accessChips.concat(flagChips);
+        var current = chips2.indexOf(document.activeElement);
+        if (current === -1) return;
+        e.preventDefault();
+        chips2[e.key === 'ArrowRight'
+          ? (current + 1) % chips2.length
+          : (current - 1 + chips2.length) % chips2.length].focus();
+      });
+    }
+
     document.addEventListener('click', function (e) {
       var clear = e.target.closest && e.target.closest('[data-cmd-clear]');
       if (clear) {
@@ -259,12 +352,25 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
         clearAll();
         return;
       }
+      var pin = e.target.closest && e.target.closest('[data-pin]');
+      if (pin) {
+        e.preventDefault();
+        var pinnedName = pin.getAttribute('data-pin') || '';
+        var on = !isPinned(pinnedName);
+        setPinned(pinnedName, on);
+        syncPins();
+        showToast(on ? 'Pinned /' + pinnedName : 'Unpinned /' + pinnedName);
+        if (flags.pinned) apply();
+        return;
+      }
       var pick = e.target.closest && e.target.closest('[data-cmd-suggest]');
       if (pick) {
         e.preventDefault();
         search.value = pick.getAttribute('data-cmd-suggest') || '';
-        if (chips.length) selectChip(chips[0]); else apply();
-        syncUrl(search.value);
+        activeCat = 'all';
+        syncControls();
+        apply();
+        syncUrl();
       }
     });
 
@@ -296,12 +402,24 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
       target.scrollIntoView({ block: 'start' });
     };
 
-    /* ?q=ban (from the 404 page or a shared link) pre-fills the filter. */
-    var initialQuery = '';
-    try { initialQuery = new URLSearchParams(window.location.search).get('q') || ''; } catch (e) {}
-    if (initialQuery) {
-      search.value = initialQuery.slice(0, 100);
+    /* Read q, cat, access and toggles from the URL so filters can be shared. */
+    var params = null;
+    try { params = new URLSearchParams(window.location.search); } catch (err) {}
+    if (params) {
+      var initialQuery = (params.get('q') || '').slice(0, 100);
+      if (initialQuery) search.value = initialQuery;
+      var initialCat = params.get('cat');
+      if (initialCat && chips.some(function (c) { return c.getAttribute('data-cat') === initialCat; })) {
+        activeCat = initialCat;
+      }
+      var initialAccess = params.get('access');
+      if (['everyone', 'moderator', 'admin'].indexOf(initialAccess) !== -1) activeAccess = initialAccess;
+      flags.pinned = params.get('pinned') === '1';
+      flags.subs = params.get('subs') === '1';
+      flags.autocomplete = params.get('auto') === '1';
     }
+    syncControls();
+    syncPins();
     apply();
     openHash();
     window.addEventListener('hashchange', openHash);

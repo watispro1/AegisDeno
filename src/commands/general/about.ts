@@ -12,6 +12,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { VERSION } from "../../version";
+import { dashboardUrl, docsUrl, siteUrl } from "../../config/links";
 import mongoose from "mongoose";
 import { isObfuscatedChannel } from "../../utils/channels";
 
@@ -207,13 +208,13 @@ export const command: Command = {
           .setEmoji("🔄").setDisabled(disabled),
         new ButtonBuilder()
           .setLabel("Status Page").setStyle(ButtonStyle.Link)
-          .setURL("https://aegisdeno.fly.dev/status"),
+          .setURL(siteUrl("/status")),
         new ButtonBuilder()
           .setLabel("Documentation").setStyle(ButtonStyle.Link)
-          .setURL("https://aegisdeno.fly.dev/docs"),
+          .setURL(docsUrl()),
         new ButtonBuilder()
           .setLabel("Dashboard").setStyle(ButtonStyle.Link)
-          .setURL("https://aegisdeno.fly.dev/dashboard"),
+          .setURL(dashboardUrl()),
       );
 
     let view = "overview";

@@ -1,3 +1,4 @@
+import { buildCatalog } from "../catalog";
 import { permissionMatrix, botPermissionRows } from "../catalog";
 import { escapeHtml } from "./shared";
 
@@ -132,8 +133,34 @@ export function botPermissionTable(): string {
 
 /** An h2 with a copyable # link, so every section can be shared. */
 export function docHeading(id: string, label: string, level: 2 | 3 = 2): string {
-  return `<h${level} id="${id}" class="doc-h">${escapeHtml(label)} <a class="h-anchor" href="#${id}" aria-label="Link to ${escapeHtml(label)}">#</a></h${level}>`;
+  const safeLabel = escapeHtml(label);
+  return `<h${level} id="${id}" class="doc-h">${safeLabel} <span class="h-actions"><a class="h-anchor" href="#${id}" aria-label="Link to ${safeLabel}">#</a><button class="h-copy" type="button" data-copy-link="#${id}" aria-label="Copy a link to ${safeLabel}">Copy link</button></span></h${level}>`;
 }
+
+/**
+ * Turn `<code>/command</code>` mentions in the docs prose into links to the
+ * command reference. Code that is already inside a "cmd-link" anchor is left
+ * alone, and so is a command block (a <pre> of copyable lines).
+ */
+export function linkCommandsInHtml(html: string): string {
+  const names = new Set(buildCatalog().map((c) => c.name));
+  const saved: string[] = [];
+
+  // Park links that already point at the command reference.
+  let out = html.replace(/<a [^>]*class="cmd-link"[^>]*><code[^>]*>\/[a-z][\w-]*<\/code><\/a>/g, (match) => {
+    saved.push(match);
+    return `\u0000${saved.length - 1}\u0000`;
+  });
+
+  out = out.replace(/(?<!<pre class="block">)<code( class="inline")?>(\/[a-z][\w-]*)<\/code>/g, (match, cls: string | undefined, cmd: string) => {
+    const name = cmd.slice(1);
+    if (!names.has(name)) return match;
+    return `<a class="cmd-link" href="/commands#cmd-${name}"><code${cls ?? ""}>${cmd}</code></a>`;
+  });
+
+  return out.replace(/\u0000(\d+)\u0000/g, (_match, index: string) => saved[Number(index)]);
+}
+
 
 export function docToc(): string {
   return DOC_GROUPS.map(g => `<p class="side-title">${escapeHtml(g.title)}</p>

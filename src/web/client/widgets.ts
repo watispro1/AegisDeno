@@ -29,23 +29,70 @@ export const jsWidgets = String.raw`  /* ── Troubleshooting filter ───
     });
   }
 
-  /* ── Table of contents: mark the section in view ─────────────────── */
-  var tocLinks = document.querySelectorAll('.toc a[href^="#"]');
-  if (tocLinks.length && 'IntersectionObserver' in window) {
+  /* ── Table of contents: mark the section in view, drive the section pager ── */
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#"]'));
+  var docPrev = document.querySelector('[data-doc-prev]');
+  var docNext = document.querySelector('[data-doc-next]');
+  if (tocLinks.length) {
     var targets = [];
     tocLinks.forEach(function (link) {
       var el = document.getElementById(link.getAttribute('href').slice(1));
-      if (el) targets.push({ el: el, link: link });
+      var known = targets.some(function (t) { return t.el === el; });
+      if (el && !known) targets.push({ el: el, link: link });
     });
-    var spy = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (!entry.isIntersecting) return;
-        targets.forEach(function (t) {
-          t.link.classList.toggle('active', t.el === entry.target);
-        });
+
+    var renderPager = function (index) {
+      if (!docPrev || !docNext) return;
+      var prev = targets[index - 1];
+      var next = targets[index + 1];
+      if (prev) {
+        docPrev.hidden = false;
+        docPrev.href = '#' + prev.el.id;
+        docPrev.querySelector('strong').textContent = prev.link.textContent.trim();
+      } else {
+        docPrev.hidden = true;
+      }
+      if (next) {
+        docNext.hidden = false;
+        docNext.href = '#' + next.el.id;
+        docNext.querySelector('strong').textContent = next.link.textContent.trim();
+      } else {
+        docNext.hidden = true;
+      }
+    };
+
+    /*
+     * Position-based scrollspy: the current section is the last heading whose
+     * top has passed the reading line. This survives anchor jumps and restored
+     * scroll positions, where an IntersectionObserver band would stay stale.
+     */
+    var updateSpy = function () {
+      var line = (document.querySelector('.nav') || { offsetHeight: 64 }).offsetHeight + 24;
+      var index = 0;
+      for (var i = 0; i < targets.length; i++) {
+        if (targets[i].el.getBoundingClientRect().top <= line) index = i;
+        else break;
+      }
+      targets.forEach(function (t, i) {
+        t.link.classList.toggle('active', i === index);
       });
-    }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
-    targets.forEach(function (t) { spy.observe(t.el); });
+      renderPager(index);
+    };
+
+    var spyTick = false;
+    var onSpyScroll = function () {
+      if (spyTick) return;
+      spyTick = true;
+      window.requestAnimationFrame(function () {
+        spyTick = false;
+        updateSpy();
+      });
+    };
+
+    window.addEventListener('scroll', onSpyScroll, { passive: true });
+    window.addEventListener('resize', onSpyScroll, { passive: true });
+    window.addEventListener('hashchange', onSpyScroll);
+    updateSpy();
   }
 
   /* ── Uptime ticker ───────────────────────────────────────────────── */
@@ -109,6 +156,37 @@ export const jsWidgets = String.raw`  /* ── Troubleshooting filter ───
       });
     }
     setInterval(refresh, 30000);
+  }
+  /* ── Changelog: filter releases and their version list ────────────── */
+  var clSearch = document.getElementById('cl-search');
+  if (clSearch) {
+    var clReleases = Array.prototype.slice.call(document.querySelectorAll('.release'));
+    var clCount = document.getElementById('cl-count');
+    var clEmpty = document.getElementById('cl-empty');
+    var clToc = Array.prototype.slice.call(document.querySelectorAll('li[data-release]'));
+    var applyChangelog = function () {
+      var q = clSearch.value.trim().toLowerCase();
+      var shown = 0;
+      clReleases.forEach(function (release) {
+        var match = !q || (release.getAttribute('data-search') || '').indexOf(q) !== -1;
+        release.hidden = !match;
+        if (match) shown++;
+        clToc.forEach(function (li) {
+          if (li.getAttribute('data-release') === release.id) li.hidden = !match;
+        });
+      });
+      if (clCount) clCount.textContent = shown === 1 ? '1 release' : shown + ' releases';
+      if (clEmpty) clEmpty.hidden = shown !== 0;
+    };
+    clSearch.addEventListener('input', debounce(applyChangelog, 80));
+    document.addEventListener('click', function (e) {
+      var clear = e.target.closest && e.target.closest('[data-cl-clear]');
+      if (!clear) return;
+      e.preventDefault();
+      clSearch.value = '';
+      applyChangelog();
+      clSearch.focus();
+    });
   }
 })();
 `;

@@ -128,8 +128,13 @@ function commandCard(cmd: CommandInfo, catalog: CommandInfo[]): string {
   const name = escapeHtml(cmd.name);
   const hasAutocomplete = options.some(o => o.autocomplete);
   const topLevelExamples = cmd.subcommands.length ? [] : examples;
+  // Server-wide settings count as admin: no command declares Administrator itself,
+  // but Manage Server is the permission that gates configuration.
+  const access = perms.includes("Administrator") || perms.includes("Manage Server")
+    ? "admin"
+    : perms.length ? "moderator" : "everyone";
 
-  return `<details class="cmd-card" id="${anchor}" data-category="${escapeHtml(cmd.category)}" data-name="${name}" data-search="${escapeHtml(searchBlob)}">
+  return `<details class="cmd-card" id="${anchor}" data-category="${escapeHtml(cmd.category)}" data-name="${name}" data-access="${access}" data-subs="${cmd.subcommands.length ? "1" : "0"}" data-autocomplete="${hasAutocomplete ? "1" : "0"}" data-search="${escapeHtml(searchBlob)}">
   <summary>
     <a class="cmd-anchor" href="#${anchor}" aria-label="Link to /${name}">#</a>
     <span class="cmd-slash" data-cmd-name>/${name}</span>
@@ -139,6 +144,7 @@ function commandCard(cmd: CommandInfo, catalog: CommandInfo[]): string {
       ${hasAutocomplete ? `<span class="tag">autocomplete</span>` : ""}
       ${perms.length ? `<span class="tag warn">${escapeHtml(perms[0])}${perms.length > 1 ? ` +${perms.length - 1}` : ""}</span>` : ""}
     </span>
+    <button class="cmd-pin" type="button" data-pin="${name}" aria-pressed="false" aria-label="Pin /${name}" title="Pin to the top of this page">★</button>
     <span class="cmd-chevron" aria-hidden="true"></span>
   </summary>
   <div class="cmd-body">
@@ -224,6 +230,17 @@ export function renderCommands(cfg: SiteConfig): string {
 
     <div class="tabs" id="cmd-filter" role="group" aria-label="Filter by category">
       ${filterChips}
+    </div>
+
+    <div class="tabs cmd-tabs-secondary" id="cmd-access" role="group" aria-label="Filter by access and features">
+      <button class="tab" type="button" data-access="all" aria-pressed="true">Any access</button>
+      <button class="tab" type="button" data-access="everyone" aria-pressed="false" title="Commands without a required permission">Everyone</button>
+      <button class="tab" type="button" data-access="moderator" aria-pressed="false" title="Commands that need Ban Members, Kick Members, Moderate Members, Manage Messages, Manage Channels, Manage Roles or Manage Nicknames">Moderator</button>
+      <button class="tab" type="button" data-access="admin" aria-pressed="false" title="Commands that need Administrator or Manage Server">Admin</button>
+      <span class="tabs-sep" aria-hidden="true"></span>
+      <button class="tab" type="button" data-flag="pinned" aria-pressed="false">★ Pinned</button>
+      <button class="tab" type="button" data-flag="subs" aria-pressed="false">Has subcommands</button>
+      <button class="tab" type="button" data-flag="autocomplete" aria-pressed="false">Autocomplete</button>
     </div>
   </div>
 

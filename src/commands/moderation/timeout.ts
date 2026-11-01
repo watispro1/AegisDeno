@@ -17,6 +17,7 @@ import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { addModerationCase, revokeModerationCase } from "../../services/moderationCases";
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
 import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
+import { caseLinkButton, modLogRow } from "../../services/modLogLinks";
 import { ModerationCaseModel } from "../../database/mongo";
 import { buildDurationSuggestions } from "../../utils/moderationPresets";
 import { formatDurationLong, parseFriendlyDuration } from "../../utils/duration";
@@ -295,6 +296,7 @@ export const command: Command = {
             .setLabel("Case History")
             .setStyle(ButtonStyle.Primary)
             .setEmoji("📜"),
+          ...(caseId ? [caseLinkButton(guildId, caseId)] : []),
         );
 
         const resultMsg = await i.editReply({ content: null, embeds: [resultEmbed], components: [actionRow] });
@@ -303,7 +305,7 @@ export const command: Command = {
           title: "⏱️ Member Timed Out",
           color: 0xFEE75C,
           description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Duration:** ${durationLabel}\n**Until:** <t:${Math.floor(until.getTime() / 1000)}:R>\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
-        });
+        }, "modActions", [modLogRow(guildId, target.id, caseId)]);
 
         // Handle post-timeout quick actions
         const actionCollector = resultMsg.createMessageComponentCollector({
@@ -353,7 +355,7 @@ export const command: Command = {
               title: "↩️ Timeout Undone",
               color: 0x57F287,
               description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Undone by:** ${bi.user.tag}${caseId ? `\n**Case:** \`${caseId}\`${revoked ? " (marked revoked)" : ""}` : ""}`,
-            });
+            }, "modActions", caseId ? [modLogRow(guildId, target.id, caseId)] : undefined);
             actionCollector.stop("undone");
             await bi.editReply({
               embeds: [resultEmbed.setColor(0x57F287).setTitle("↩️ Timeout Undone")],
@@ -380,7 +382,7 @@ export const command: Command = {
               await bi.followUp({ content: "❌ Could not extend the timeout. Check my permissions and role position.", flags: MessageFlags.Ephemeral });
               return;
             }
-            await addModerationCase({
+            const extendCaseId = await addModerationCase({
               guildId,
               userId: target.id,
               moderatorId: bi.user.id,
@@ -392,7 +394,7 @@ export const command: Command = {
               title: "⏱️ Timeout Extended (+1h)",
               color: 0xFEE75C,
               description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Extended by:** ${bi.user.tag}\n**New Expiry:** <t:${Math.floor(newUntil.getTime() / 1000)}:R>`,
-            });
+            }, "modActions", [modLogRow(guildId, target.id, extendCaseId)]);
             await bi.followUp({
               content: `⏩ Timeout extended. New expiry: <t:${Math.floor(newUntil.getTime() / 1000)}:R>`,
               flags: MessageFlags.Ephemeral,

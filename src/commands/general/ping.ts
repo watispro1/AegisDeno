@@ -9,6 +9,7 @@ import {
   Colors,
 } from "discord.js";
 import { Command } from "../../types/discord";
+import { siteUrl } from "../../config/links";
 import mongoose from "mongoose";
 
 /** Formats a millisecond uptime into a human-readable string. */
@@ -89,7 +90,7 @@ export const command: Command = {
         new ButtonBuilder()
           .setLabel("Live Status")
           .setStyle(ButtonStyle.Link)
-          .setURL("https://aegisdeno.fly.dev/status")
+          .setURL(siteUrl("/status"))
           .setEmoji("📊"),
       );
     };

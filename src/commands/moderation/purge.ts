@@ -14,6 +14,7 @@ import {
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { addModerationCase } from "../../services/moderationCases";
+import { caseActionsRow, modLogRow } from "../../services/modLogLinks";
 import {
   type PurgeCandidate,
   type PurgeFilterMode as FilterMode,
@@ -240,6 +241,17 @@ export const command: Command = {
             }
           }
 
+          // Record the case before the result so the confirmation can link to it.
+          const caseOwnerId = target?.id ?? interaction.user.id;
+          const caseId = await addModerationCase({
+            guildId,
+            userId: caseOwnerId,
+            moderatorId: interaction.user.id,
+            action: "purge",
+            reason,
+            details: `Channel: #${channel.name || channel.id} | Deleted ${deletedCount} message(s) [Filter: ${filter}]`,
+          });
+
           // Build a progress bar representation
           const pct = Math.round((deletedCount / toDelete.length) * 100);
           const barFilled = Math.round(pct / 10);
@@ -258,25 +270,21 @@ export const command: Command = {
             .setFooter({ text: [
               deletedCount < toDelete.length ? "Some messages were already gone or crossed the 14-day limit." : "All selected messages deleted.",
               skippedNote,
+              caseId ? `Case ID: ${caseId}` : "",
             ].filter(Boolean).join(" · ") })
             .setTimestamp();
 
-          await i.editReply({ content: null, embeds: [resultEmbed], components: [] });
+          await i.editReply({
+            content: null,
+            embeds: [resultEmbed],
+            components: caseId ? [caseActionsRow(guildId, caseOwnerId, caseId)] : [],
+          });
 
           await sendGuildLog(interaction.client, guildId, {
             title: "🗑️ Messages Purged",
             color: 0xED4245,
             description: `**Channel:** <#${channel.id}>\n**Deleted:** ${deletedCount}/${toDelete.length}\n**Filter:** \`${filter}\`${keyword ? ` — \`${keyword}\`` : ""}\n**User Filter:** ${target ? `<@${target.id}>` : "None"}\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
-          });
-
-          await addModerationCase({
-            guildId,
-            userId: target?.id ?? interaction.user.id,
-            moderatorId: interaction.user.id,
-            action: "purge",
-            reason,
-            details: `Channel: #${channel.name || channel.id} | Deleted ${deletedCount} message(s) [Filter: ${filter}]`,
-          });
+          }, "modActions", caseId ? [modLogRow(guildId, caseOwnerId, caseId)] : undefined);
         } catch (err) {
           logger.error(`Failed to purge messages in channel ${channel.id} guild ${guildId}`, err);
           await i.editReply({ content: "❌ Failed to delete messages. Messages older than 14 days cannot be bulk-deleted.", embeds: [], components: [] });

@@ -96,6 +96,21 @@
 - [x] Add release checklist and operational verification notes before publishing new versions
 - [x] Update all project documentation (`.md` files) across bot guides, server setup, and changelogs for v3.3.1
 
+### v3.7.0 Milestone (Official Server Playbook & Website QoL)
+
+- [x] Rewrite `server.md` with a per-channel reference: who posts, purpose, Aegis behaviour and a pasteable Discord topic for all 31 channels
+- [x] Add `#welcome` as the welcome target and document channel naming, category order, slowmode and read-only conventions
+- [x] Add "What Aegis posts where", setup order and a pre-launch QA checklist to `server.md`
+- [x] Add `tests/serverDocs.test.ts` so documented slash commands are validated against the live command registry
+- [x] Centralise public URLs in `src/config/links.ts` (`SITE_URL`, `SUPPORT_SERVER_URL`, `BOT_INVITE_URL`)
+- [x] Upgrade `/help` with category docs links, per-command permission tags, deep command links and an Add Aegis button
+- [x] Add case, user-history and dashboard link buttons to moderation confirmations and audit-log entries
+- [x] Upgrade the Ctrl/Cmd+K palette with fuzzy matching, grouped results, subcommand anchors, arrow keys and recent searches
+- [x] Add access-level/subcommand/autocomplete filters and locally saved pinned commands to `/commands`, with state in the URL
+- [x] Add per-heading copy links, inline command links and a previous/next section pager to `/docs`
+- [x] Add release search, a Latest badge and per-release copy links to `/changelog`
+- [x] Add `tests/links.test.ts` and `tests/siteQol.test.ts` coverage for the new links and site hooks
+
 ### v3.4.0 Milestone (Exclusive Features & Proprietary Transition)
 
 - [x] Transition to proprietary platform: removed all public GitHub repository links, issue trackers, and copyleft licenses; updated `package.json` to `UNLICENSED` / `private: true`

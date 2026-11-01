@@ -159,7 +159,7 @@ ${o.headExtra || ""}
       <input id="site-search-input" type="search" autocomplete="off" placeholder="ban, automod, tickets…" aria-describedby="site-search-help">
       <kbd>Esc</kbd>
     </div>
-    <p class="site-search-help" id="site-search-help">Two characters or more. Enter opens the first result.</p>
+    <p class="site-search-help" id="site-search-help">Type two characters or more. ↑/↓ to move, Enter to open, Esc to close.</p>
     <div class="site-search-results" id="site-search-results" role="listbox" aria-live="polite"></div>
   </section>
 </div>

@@ -12,6 +12,7 @@ import {
 } from "discord.js";
 import type { Command } from "../types/discord";
 import { logger } from "../utils/logger";
+import { docsUrl } from "../config/links";
 
 const PERMISSION_NAMES: Partial<Record<string, string>> = {
   [String(PermissionFlagsBits.Administrator)]:      "Administrator",
@@ -100,7 +101,10 @@ function precheck(command: Command, interaction: ChatInputCommandInteraction): s
         `Permission denied: /${interaction.commandName} by ${interaction.user.tag} ` +
           `(${interaction.user.id}) in guild ${interaction.guildId ?? "DM"} — missing: ${formatPermissions(missing)}`,
       );
-      return `❌ You are missing the following permission(s): **${formatPermissions(missing)}**.`;
+      return (
+        `❌ You are missing the following permission(s): **${formatPermissions(missing)}**. ` +
+        `Ask a server admin to grant them to your role. What each one unlocks: ${docsUrl("permissions")}`
+      );
     }
   }
 
@@ -112,7 +116,8 @@ function precheck(command: Command, interaction: ChatInputCommandInteraction): s
       logger.warn(`Bot missing permissions for /${interaction.commandName} in guild ${interaction.guildId}: ${formatPermissions(missing)}`);
       return (
         `❌ I am missing the following permission(s): **${formatPermissions(missing)}**. ` +
-        "Please ask a server admin to grant these to my role."
+        "Grant these to my role, then run `/diagnostics` to confirm. " +
+        `Permissions guide: ${docsUrl("permissions")}`
       );
     }
   }

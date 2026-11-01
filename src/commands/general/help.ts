@@ -16,6 +16,7 @@ import {
 import { Command } from "../../types/discord";
 import { commands, COMMAND_CATEGORIES } from "../loader";
 import { canUseCommand, searchCommands } from "../../services/commandAccess";
+import { DOC_ANCHORS, commandUrl, docsUrl, inviteUrl, siteUrl, supportServerUrl } from "../../config/links";
 
 type Invoker = Pick<ChatInputCommandInteraction | AutocompleteInteraction, "inGuild" | "memberPermissions">;
 
@@ -75,6 +76,42 @@ const CATEGORIES: Record<string, string> = Object.fromEntries(
     `${CATEGORY_ICONS[cat] ?? "•"} ${cat[0].toUpperCase()}${cat.slice(1)}`,
   ]),
 );
+
+/** Docs section that explains each command category. */
+const CATEGORY_DOC_ANCHORS: Record<string, string> = {
+  general: DOC_ANCHORS.quickstart,
+  moderation: DOC_ANCHORS.moderation,
+  config: DOC_ANCHORS.configuration,
+  logging: DOC_ANCHORS.logging,
+  automod: DOC_ANCHORS.automod,
+  welcome: DOC_ANCHORS.welcome,
+  community: DOC_ANCHORS.community,
+  automation: DOC_ANCHORS.automation,
+  tickets: DOC_ANCHORS.tickets,
+  verification: DOC_ANCHORS.verification,
+  autoresponder: DOC_ANCHORS.autoresponder,
+  roles: DOC_ANCHORS.rolePanels,
+  developer: DOC_ANCHORS.configuration,
+};
+
+function categoryDocsUrl(category: string | null | undefined): string {
+  return docsUrl(category ? CATEGORY_DOC_ANCHORS[category] : undefined);
+}
+
+/** Short access label for a command, or null when everyone can run it. */
+function accessLabel(cmd: Command): string | null {
+  if (cmd.userPermissions?.length) return formatPermissions(cmd.userPermissions);
+  const json = cmd.data.toJSON() as { default_member_permissions?: string | null };
+  const declared = json.default_member_permissions;
+  if (declared && declared !== "0") {
+    try {
+      return formatPermissions([BigInt(declared)]);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 const PERMISSION_LABELS: Partial<Record<string, string>> = {
   [String(PermissionFlagsBits.Administrator)]: "Administrator",
@@ -174,17 +211,22 @@ export const command: Command = {
         new ButtonBuilder()
           .setLabel("View on Web")
           .setStyle(ButtonStyle.Link)
-          .setURL(`https://aegisdeno.fly.dev/commands#cmd-${shownName}`)
+          .setURL(commandUrl(shownName))
           .setEmoji("🌐"),
         new ButtonBuilder()
-          .setLabel("Documentation")
+          .setLabel("Category docs")
           .setStyle(ButtonStyle.Link)
-          .setURL("https://aegisdeno.fly.dev/docs")
+          .setURL(categoryDocsUrl(foundCmd.category))
           .setEmoji("📖"),
+        new ButtonBuilder()
+          .setLabel("Add Aegis")
+          .setStyle(ButtonStyle.Link)
+          .setURL(inviteUrl())
+          .setEmoji("➕"),
         new ButtonBuilder()
           .setLabel("Support Server")
           .setStyle(ButtonStyle.Link)
-          .setURL("https://discord.gg/DkZUgm3q4F")
+          .setURL(supportServerUrl())
           .setEmoji("💬")
       );
 
@@ -216,7 +258,10 @@ export const command: Command = {
         .setDescription(
           cmds.length
             ? cmds
-                .map((c) => `**/${c.data.name}** — ${c.data.description}`)
+                .map((c) => {
+                  const access = accessLabel(c);
+                  return `**/${c.data.name}** — ${c.data.description}${access ? `\n> 🔒 ${access}` : ""}`;
+                })
                 .join("\n")
             : "No commands found in this category.",
         )
@@ -250,22 +295,27 @@ export const command: Command = {
       new ButtonBuilder()
         .setLabel("Web Catalog")
         .setStyle(ButtonStyle.Link)
-        .setURL("https://aegisdeno.fly.dev/commands")
+        .setURL(siteUrl("/commands"))
         .setEmoji("📋"),
       new ButtonBuilder()
         .setLabel("Documentation")
         .setStyle(ButtonStyle.Link)
-        .setURL("https://aegisdeno.fly.dev/docs")
+        .setURL(docsUrl())
         .setEmoji("📖"),
       new ButtonBuilder()
         .setLabel("Status")
         .setStyle(ButtonStyle.Link)
-        .setURL("https://aegisdeno.fly.dev/status")
+        .setURL(siteUrl("/status"))
         .setEmoji("📊"),
+      new ButtonBuilder()
+        .setLabel("Add Aegis")
+        .setStyle(ButtonStyle.Link)
+        .setURL(inviteUrl())
+        .setEmoji("➕"),
       new ButtonBuilder()
         .setLabel("Support")
         .setStyle(ButtonStyle.Link)
-        .setURL("https://discord.gg/DkZUgm3q4F")
+        .setURL(supportServerUrl())
         .setEmoji("💬"),
     );
 

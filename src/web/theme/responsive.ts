@@ -19,6 +19,7 @@ export const cssResponsive = String.raw`/* ── Responsive ──────�
   .cmd-slash { grid-column: 1; }
   .cmd-summary-text { grid-column: 1; grid-row: 2; }
   .cmd-chevron { grid-column: 2; grid-row: 1; }
+  .cmd-pin { grid-column: 2; grid-row: 2; justify-self: end; }
   .cmd-body { padding-left: 0; }
   .cmd-jump { display: none; }
   .cmd-sticky { padding-top: .4rem; }

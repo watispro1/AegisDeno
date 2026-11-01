@@ -20,6 +20,7 @@ import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid, isBotHierarchyValid } from "../../permissions/hierarchy";
 import { addModerationCase } from "../../services/moderationCases";
+import { caseActionsRow, modLogRow } from "../../services/modLogLinks";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -188,7 +189,7 @@ export const command: Command = {
 
           await target.kick(auditReason(`${finalReason} | Kicked by ${interaction.user.tag}`));
 
-          await addModerationCase({
+          const caseId = await addModerationCase({
             guildId,
             userId: target.id,
             moderatorId: interaction.user.id,
@@ -207,15 +208,20 @@ export const command: Command = {
               { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
               { name: "🔕 DM Sent",   value: !silent ? "✅ Yes" : "❌ No (silent)", inline: true },
             )
+            .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)
             .setTimestamp();
 
-          await i.editReply({ content: null, embeds: [resultEmbed], components: [] }).catch(() => null);
+          await i.editReply({
+            content: null,
+            embeds: [resultEmbed],
+            components: caseId ? [caseActionsRow(guildId, target.id, caseId)] : [],
+          }).catch(() => null);
 
           await sendGuildLog(interaction.client, guildId, {
             title: "👢 Member Kicked",
             color: 0xE67E22,
             description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Reason:** ${finalReason}\n**Moderator:** ${interaction.user.tag}\n**DM Sent:** ${!silent ? "Yes" : "No (silent)"}`,
-          });
+          }, "modActions", caseId ? [modLogRow(guildId, target.id, caseId)] : undefined);
         } catch (err) {
           logger.error(`Failed to kick user ${target.user.id} in guild ${guildId}`, err);
           await i.editReply({ content: "❌ Failed to kick the member. Check my permissions and role hierarchy.", embeds: [], components: [] }).catch(() => null);
