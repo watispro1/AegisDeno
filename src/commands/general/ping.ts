@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -120,7 +121,7 @@ export const command: Command = {
       filter: (i) => i.customId === "ping_refresh" && i.user.id === interaction.user.id,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("ping", i, async () => {
       const clickStart = Date.now();
       await i.deferUpdate();
       const dbPing = await measureDb();
@@ -131,7 +132,7 @@ export const command: Command = {
         embeds: [buildEmbed(roundtrip, wsPing, dbPing)],
         components: [buildButtonRow(false)],
       });
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction.editReply({ components: [buildButtonRow(true)] }).catch(() => null);

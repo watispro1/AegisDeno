@@ -1,3 +1,5 @@
+import { memberPermsIn, postRefusal } from "../../utils/channelAccess";
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -100,6 +102,8 @@ export const command: Command = {
       if (!isSendableChannel(channel)) {
         return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
       }
+      const quickRefusal = postRefusal(await memberPermsIn(interaction, channel.id), channel.id);
+      if (quickRefusal) return interaction.reply({ content: `❌ ${quickRefusal}`, flags: MessageFlags.Ephemeral });
 
       // Concurrency lock to prevent duplicate submissions from rapid clicks or gateway retries
       const lockKey = `${interaction.user.id}:${channel.id}`;
@@ -145,6 +149,8 @@ export const command: Command = {
     if (!isSendableChannel(channel)) {
       return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
     }
+    const refusal = postRefusal(await memberPermsIn(interaction, channel.id), channel.id);
+    if (refusal) return interaction.reply({ content: `❌ ${refusal}`, flags: MessageFlags.Ephemeral });
 
     const buildEmbed = () => {
       const e = new EmbedBuilder()
@@ -209,7 +215,7 @@ export const command: Command = {
 
     let posted = false;
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("embed", i, async () => {
       if (i.customId === "embed_cancel") {
         collector.stop();
         await i.update({ content: "❌ Embed creation cancelled.", embeds: [], components: [] });
@@ -362,7 +368,7 @@ export const command: Command = {
         }
         return;
       }
-    });
+    }));
 
     collector.on("end", async (_, reason) => {
       if (reason === "time" && !posted) {

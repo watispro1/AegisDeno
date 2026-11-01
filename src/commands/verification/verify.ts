@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   ChannelType,
   PermissionFlagsBits,
@@ -238,7 +239,7 @@ export const command: Command = {
           max: 1,
         });
 
-        collector.on("collect", async (i) => {
+        collector.on("collect", (i) => guardCollect("verify", i, async () => {
           if (i.customId === "verify_disable_quick") {
             await i.deferUpdate();
             await VerificationModel.updateOne({ guildId }, { $set: { enabled: false } });
@@ -247,7 +248,7 @@ export const command: Command = {
             await i.editReply({ embeds: [buildEmbed(updatedConfig)], components: [] });
             await i.followUp({ content: "🔴 Verification system has been disabled.", flags: MessageFlags.Ephemeral });
           }
-        });
+        }));
       }
       return;
     }

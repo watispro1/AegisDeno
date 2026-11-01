@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -191,7 +192,7 @@ export const command: Command = {
         filter: (i) => i.memberPermissions?.has(PermissionFlagsBits.ModerateMembers) === true,
       });
 
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("infractions", i, async () => {
         try {
           await i.deferUpdate().catch(() => null);
 
@@ -225,7 +226,7 @@ export const command: Command = {
         } catch (colErr) {
           logger.warn("Infractions collector error", colErr);
         }
-      });
+      }));
 
       collector.on("end", async () => {
         await interaction.editReply({ components: [] }).catch(() => null);

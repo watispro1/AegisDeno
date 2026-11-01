@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -138,14 +139,14 @@ export const command: Command = {
       filter: (i) => i.user.id === interaction.user.id,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("modstats", i, async () => {
       await i.deferUpdate();
       if (i.customId === "modstats_7d") currentPeriod = "7d";
       else if (i.customId === "modstats_30d") currentPeriod = "30d";
       // modstats_refresh keeps the same period
       const updated = await buildEmbed(currentPeriod);
       await i.editReply({ embeds: [updated], components: [buildButtons(currentPeriod)] });
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction.editReply({ components: [] }).catch(() => null);

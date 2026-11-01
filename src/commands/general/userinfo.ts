@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { getGuildConfig } from "../../services/configuration";
 import { memberPageUrl } from "../../config/links";
 import {
@@ -194,7 +195,7 @@ export const command: Command = {
       time: 90_000,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("userinfo", i, async () => {
       const isModRecord = i.customId.startsWith("userinfo_warns_") || i.customId.startsWith("userinfo_cases_");
       if (isModRecord && !hasModerationPermissions(i.memberPermissions?.bitfield ?? null)) {
         await i.reply({ content: "❌ Moderation records are only visible to moderators.", flags: MessageFlags.Ephemeral });
@@ -229,7 +230,7 @@ export const command: Command = {
           flags: MessageFlags.Ephemeral,
         });
       }
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction.editReply({ components: [] }).catch(() => null);

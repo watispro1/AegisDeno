@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -220,7 +221,7 @@ export const command: Command = {
         filter: (i) => i.inCachedGuild() && i.member.permissionsIn(targetChan.id).has(PermissionFlagsBits.ManageChannels),
       });
 
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("slowmode", i, async () => {
         const parts = i.customId.split("_");
         const key = parts.slice(1, -1).join("_");
         const newRate = quickPresets[key] ?? 0;
@@ -239,7 +240,7 @@ export const command: Command = {
         } catch (err) {
           logger.warn("Quick-adjust slowmode failed", err);
         }
-      });
+      }));
 
       collector.on("end", async () => {
         await interaction.editReply({ components: [] }).catch(() => null);

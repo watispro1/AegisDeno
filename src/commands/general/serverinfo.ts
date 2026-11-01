@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   ChatInputCommandInteraction,
   EmbedBuilder,
@@ -131,7 +132,7 @@ export const command: Command = {
       time: 90_000,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("serverinfo", i, async () => {
       if (i.customId === "serverinfo_channels") {
         await i.reply({
           content: `💬 **Channel Breakdown for ${guild.name}:**\n- Text Channels: **${textChannels}**\n- Voice Rooms: **${voiceChannels}**\n- Forum Forums: **${forumChannels}**\n- Categories: **${categories}**\n- Total Channels: **${channels.size}**`,
@@ -154,7 +155,7 @@ export const command: Command = {
           flags: MessageFlags.Ephemeral,
         });
       }
-    });
+    }));
 
     collector.on("end", async () => {
       if (linkButtons.length > 0) {

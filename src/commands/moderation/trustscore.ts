@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -176,7 +177,7 @@ export const command: Command = {
       filter: (i) => i.memberPermissions?.has(PermissionFlagsBits.ModerateMembers) === true,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("trustscore", i, async () => {
       await i.deferUpdate();
       if (i.customId === "ts_main") {
         currentView = "main";
@@ -192,7 +193,7 @@ export const command: Command = {
           : buildMainEmbed(currentProfile);
         await interaction.editReply({ embeds: [embed], components: [buildButtonRow(currentView)] });
       }
-    });
+    }));
 
     collector.on("end", () => {
       interaction.editReply({ components: [] }).catch(() => null);

@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -285,7 +286,7 @@ export const command: Command = {
         filter: (i) => i.user.id === modId,
       });
 
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("watchlist", i, async () => {
         if (i.customId === `wl_remove_${target.id}`) {
           await WatchlistEntryModel.deleteOne({ guildId, targetId: target.id, moderatorId: modId });
           removeWatchFromCache(guildId, target.id, modId);
@@ -300,7 +301,7 @@ export const command: Command = {
             components: [],
           });
         }
-      });
+      }));
 
       collector.on("end", () => {
         interaction.editReply({ components: [] }).catch(() => null);

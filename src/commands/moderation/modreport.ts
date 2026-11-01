@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -266,7 +267,7 @@ export const command: Command = {
         filter: (i) => i.memberPermissions?.has(PermissionFlagsBits.ModerateMembers) === true,
       });
 
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("modreport", i, async () => {
         await i.deferUpdate();
         if (i.customId === "mr_refresh") {
           embedCache.clear();
@@ -286,7 +287,7 @@ export const command: Command = {
         currentSection = newSection;
         const embed = await getEmbed(currentSection);
         await interaction.editReply({ embeds: [embed], components: [buildRow(currentSection)] });
-      });
+      }));
 
       collector.on("end", () => {
         interaction.editReply({ components: [] }).catch(() => null);

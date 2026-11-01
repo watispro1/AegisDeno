@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -229,7 +230,7 @@ export const command: Command = {
       filter: (i) => i.user.id === interaction.user.id,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("about", i, async () => {
       await i.deferUpdate();
       if (i.componentType === ComponentType.StringSelect && i.customId === "about_view") {
         view = i.values[0] ?? "overview";
@@ -242,7 +243,7 @@ export const command: Command = {
         default:         embed = buildOverviewEmbed();          break;
       }
       await interaction.editReply({ embeds: [embed], components: [buildSelectMenu(view), buildButtonRow()] });
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction.editReply({ components: [buildButtonRow(true)] }).catch(() => null);

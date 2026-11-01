@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -95,7 +96,7 @@ export const command: Command = {
       filter: (i) => i.user.id === interaction.user.id,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("activitysummary", i, async () => {
       let newDays = 7;
       if (i.customId === "act_tf_1") newDays = 1;
       if (i.customId === "act_tf_7") newDays = 7;
@@ -104,7 +105,7 @@ export const command: Command = {
       await i.deferUpdate();
       const updated = await buildEmbedAndButtons(newDays);
       await interaction.editReply({ embeds: [updated.embed], components: [updated.buttons] });
-    });
+    }));
 
     collector.on("end", async () => {
       await interaction.editReply({ components: [] }).catch(() => null);

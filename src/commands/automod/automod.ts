@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { Command } from "../../types/discord";
@@ -192,7 +193,7 @@ export const command: Command = {
           filter: (i) => i.user.id === interaction.user.id,
         });
 
-        collector.on("collect", async (i) => {
+        collector.on("collect", (i) => guardCollect("automod", i, async () => {
           if (i.customId === "am_toggle_words") config.words.enabled = !config.words.enabled;
           if (i.customId === "am_toggle_links") config.links.enabled = !config.links.enabled;
           if (i.customId === "am_toggle_mentions") config.mentions.enabled = !config.mentions.enabled;
@@ -202,7 +203,7 @@ export const command: Command = {
           await i.deferUpdate();
           const updated = buildStatusPayload(config);
           await interaction.editReply({ embeds: [updated.embed], components: [updated.buttons] });
-        });
+        }));
 
         collector.on("end", async () => {
           await interaction.editReply({ components: [] }).catch(() => null);

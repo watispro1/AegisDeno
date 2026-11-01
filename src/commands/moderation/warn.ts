@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { auditReason } from "../../utils/safeText";
 import { logger } from "../../utils/logger";
 import {
@@ -165,7 +166,7 @@ export const command: Command = {
         time: UNDO_WINDOW_MS,
       });
 
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("warn", i, async () => {
         if (!canPressUndo("warn", i.memberPermissions)) {
           await i.reply({ content: "❌ Only moderators can use these buttons.", flags: MessageFlags.Ephemeral });
           return;
@@ -221,7 +222,7 @@ export const command: Command = {
           await interaction.editReply({ embeds: [embed], components: [buttons] }).catch(() => null);
           await i.reply({ content: `⚡ **<@${target.id}>** has been placed in a **10-minute timeout** by <@${i.user.id}>.` });
         }
-      });
+      }));
 
       collector.on("end", async () => {
         await interaction.editReply({ components: [] }).catch(() => null);

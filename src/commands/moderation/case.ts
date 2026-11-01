@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -220,10 +221,10 @@ export const command: Command = {
         time: 120_000,
         filter: (i) => i.user.id === interaction.user.id && (i.customId === prevId || i.customId === nextId),
       });
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("case", i, async () => {
         page = stepPage(page, i.customId === nextId ? "next" : "prev", records.length);
         await i.update(render(page)).catch(() => null);
-      });
+      }));
       collector.on("end", () => {
         interaction.editReply({ components: [] }).catch(() => null);
       });

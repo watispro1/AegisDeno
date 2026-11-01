@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -121,10 +122,10 @@ export const command: Command = {
       time: PAGER_TIMEOUT_MS,
       filter: (i) => i.user.id === interaction.user.id && (i.customId === prevId || i.customId === nextId),
     });
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("warnings", i, async () => {
       page = stepPage(page, i.customId === nextId ? "next" : "prev", warnings.length, WARNINGS_PER_PAGE);
       await i.update(view(page)).catch(() => null);
-    });
+    }));
     collector.on("end", () => {
       interaction.editReply({ components: [] }).catch(() => null);
     });

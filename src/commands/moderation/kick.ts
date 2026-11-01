@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { auditReason } from "../../utils/safeText";
 import { logger } from "../../utils/logger";
 import {
@@ -137,7 +138,7 @@ export const command: Command = {
       max: 5,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("kick", i, async () => {
       if (handled) return;
 
       if (i.customId === "kick_cancel") {
@@ -231,7 +232,7 @@ export const command: Command = {
           await i.editReply({ content: "❌ Failed to kick the member. Check my permissions and role hierarchy.", embeds: [], components: [] }).catch(() => null);
         }
       }
-    });
+    }));
 
     collector.on("end", async (_, stopReason) => {
       if (stopReason === "time") {

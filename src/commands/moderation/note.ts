@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -258,7 +259,7 @@ export const command: Command = {
           filter: (i) => i.user.id === interaction.user.id,
         });
 
-        collector.on("collect", async (i) => {
+        collector.on("collect", (i) => guardCollect("note", i, async () => {
           try {
             await i.deferUpdate().catch(() => null);
 
@@ -288,7 +289,7 @@ export const command: Command = {
           } catch (btnErr) {
             logger.warn("Error handling note button interaction", btnErr);
           }
-        });
+        }));
 
         collector.on("end", async () => {
           await interaction.editReply({ components: [] }).catch(() => null);
@@ -393,7 +394,7 @@ export const command: Command = {
           max: 1,
         });
 
-        collector.on("collect", async (i) => {
+        collector.on("collect", (i) => guardCollect("note", i, async () => {
           try {
             if (i.customId === "note_clear_cancel") {
               await i.update({ content: "❌ Clear cancelled.", embeds: [], components: [] }).catch(() => null);
@@ -420,7 +421,7 @@ export const command: Command = {
           } catch (clearErr) {
             logger.warn("Error clearing notes", clearErr);
           }
-        });
+        }));
 
         collector.on("end", async (_, stopReason) => {
           if (stopReason === "time") {

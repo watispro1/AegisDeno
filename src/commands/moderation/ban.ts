@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -206,7 +207,7 @@ export const command: Command = {
       max: 1,
     });
 
-    collector.on("collect", async (i) => {
+    collector.on("collect", (i) => guardCollect("ban", i, async () => {
       if (i.customId === "ban_cancel") {
         await i.update({ content: "❌ Ban cancelled.", embeds: [], components: [] }).catch(() => null);
         return;
@@ -399,7 +400,7 @@ export const command: Command = {
         logger.error(`Failed to ban user ${target.id} in guild ${guildId}`, err);
         await i.editReply({ content: "❌ Failed to ban the user. Check my permissions and role hierarchy.", embeds: [], components: [] }).catch(() => null);
       }
-    });
+    }));
 
     collector.on("end", async (_, reason) => {
       if (reason === "time") {

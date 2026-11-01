@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { noteIncidentDeletes } from "../../services/incidentHooks";
 import { logger } from "../../utils/logger";
 import {
@@ -222,7 +223,7 @@ export const command: Command = {
         max: 1,
       });
 
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("purge", i, async () => {
         if (i.customId === "purge_cancel") {
           await i.update({ content: "❌ Purge cancelled.", embeds: [], components: [] });
           return;
@@ -291,7 +292,7 @@ export const command: Command = {
           logger.error(`Failed to purge messages in channel ${channel.id} guild ${guildId}`, err);
           await i.editReply({ content: "❌ Failed to delete messages. Messages older than 14 days cannot be bulk-deleted.", embeds: [], components: [] });
         }
-      });
+      }));
 
       collector.on("end", async (_, stopReason) => {
         if (stopReason === "time") {

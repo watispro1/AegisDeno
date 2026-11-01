@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -98,7 +99,7 @@ export const command: Command = {
         max: 1,
       });
 
-      collector.on("collect", async (i) => {
+      collector.on("collect", (i) => guardCollect("unban", i, async () => {
         if (i.customId === "unban_cancel") {
           await i.update({ content: "❌ Unban cancelled.", embeds: [], components: [] });
           return;
@@ -128,7 +129,7 @@ export const command: Command = {
           .setTimestamp();
 
         await i.editReply({ content: null, embeds: [resultEmbed], components: [] });
-      });
+      }));
 
       collector.on("end", async (_, stopReason) => {
         if (stopReason === "time") {
