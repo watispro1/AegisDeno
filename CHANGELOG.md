@@ -14,9 +14,13 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 A documentation and quality-of-life release: the official-server playbook now
 documents every channel and its setup commands, the bot links straight to cases
 and docs, and the public site gained a faster search palette, saved command
-filters, copyable docs sections and a filterable changelog. Discord permissions,
-intents and environment variables are unchanged. Public URLs are now read from
-the environment, so a staging deployment no longer links back to production.
+filters, copyable docs sections and a filterable changelog. It also adds
+Incident Mode (raid protection that restores the server exactly when it ends), a
+reworked public status page and a round of command fixes. Discord intents and
+environment variables are unchanged; Incident Mode uses Manage Channels, Manage
+Roles and Manage Server when they are granted, and skips what it can't do. Public
+URLs are now read from the environment, so a staging deployment no longer links
+back to production.
 
 ### Added
 - **`server.md` channel reference:** every text, forum and voice channel now has
@@ -53,6 +57,30 @@ the environment, so a staging deployment no longer links back to production.
 - **Tests:** `tests/links.test.ts` pins the URL builders and mod-log rows;
   `tests/siteQol.test.ts` covers the search, filters, docs and changelog hooks.
 
+- **Incident Mode (`/incident start|end|status|auto`):** one command applies
+  slowmode to public channels, locks every public channel, one channel or the
+  channels saved on the dashboard, gates new accounts younger than a set age
+  (time out or kick), and can pause server invites. It ends on its own after a
+  set time (up to 24 hours, default 1 hour) or with `/incident end`, and puts
+  back exactly what it changed, from state saved in Mongo, so a restart mid-
+  incident still restores cleanly. Every step is recorded on the incident's
+  timeline. `/incident auto` can start it when many accounts join at once
+  (off by default; joins and window are configurable). Needs Manage Channels
+  for slowmode and locks, Manage Roles for overwrites, Manage Server to pause
+  invites, and Moderate Members or Kick Members for the join gate.
+- **Status page rework:** `/status` shows each component (bot gateway, Discord
+  API latency, database, command registration, dashboard and website) with its
+  state, live metrics, 24-hour and 7-day uptime bars built from heartbeat
+  samples, and posted notices (incidents and maintenance). The same data is
+  served as JSON at `/api/status`.
+- **`/ping`** shows 24-hour uptime from the same heartbeat samples as the
+  status page, and explains a slow or still-connecting gateway in plain words.
+- **`/userinfo`** has a Member page button that opens the member on the
+  dashboard (cases, warnings, notes and quick actions in one place).
+- **Features page:** Incident Mode is listed with the other modules.
+- **Tests:** `tests/incidentMode.test.ts`, `tests/statusPage.test.ts`,
+  `tests/dashboardUpgrades.test.ts` and `tests/codexFixes362.test.ts`.
+
 ### Changed
 - Hardcoded `aegisdeno.fly.dev` and support-invite URLs in `/help`, `/about`,
   `/ping`, `/dashboard` and permission errors were replaced with the shared link
@@ -62,6 +90,11 @@ the environment, so a staging deployment no longer links back to production.
 - Purge records its case before showing the result, so the confirmation can link
   to the case and the member's history; timeout extensions link their new case
   too.
+- Channel locking moved from `/lock` into `src/services/channelLock.ts` so
+  `/lock` and Incident Mode share one implementation; guild config normalisers
+  moved to `src/services/guildConfigNormalize.ts`; `server.ts` was split into
+  `serverMiddleware.ts` and `statusRoutes.ts`. No behaviour change from the
+  splits themselves.
 
 ### Fixed
 - `server.md` documents `/welcome message` as the form it is, explains `{user}`,
@@ -72,6 +105,30 @@ the environment, so a staging deployment no longer links back to production.
   and the docs test fails if they return.
 - Logging, automod, verify, rolepanel, ticket, welcome, starboard and escalation
   examples in `server.md` use the choice labels Discord actually shows.
+- `/lock server` skips channels hidden from Aegis (their overwrites are only a
+  placeholder, and editing them would clobber the real permissions), private
+  channels @everyone can't see, and channels already locked. Auto-unlocks are
+  persisted so a restart can't leave a channel locked, and giving both
+  `duration` and `duration_minutes` is refused instead of silently picking one.
+- `/ping` bounds the database check at 2 seconds and says "Timed out" instead
+  of hanging when the database stalls.
+- The welcome auto-role is no longer given to members still in Discord's
+  membership screening (which let them skip the rules gate); they get it once
+  they pass. A role above Aegis is skipped with one warning instead of an API
+  error on every join.
+- Codex review on #18/#19: `/autoresponder` toggling reports the real result,
+  embed size limits are checked after template placeholders are expanded, and
+  `server.md` uses the current command names.
+
+### Security
+- New Mongo collections: `incidents` (incident state and timeline),
+  `statussamples` (heartbeat samples, expire after 8 days), `statusnotices`
+  (status page notices) and `memberflows` (daily join/leave counts for analytics, expire after 120 days).
+- The Content Security Policy now allows images from `https://cdn.discordapp.com`
+  only, for real avatars and server icons on the dashboard; avatar hashes from
+  Discord OAuth are validated before use.
+- Incident Mode records each change before making it and restores only what it
+  recorded, so a crash part-way through still puts back everything it touched.
 
 ## [3.6.2] - 2026-10-31
 

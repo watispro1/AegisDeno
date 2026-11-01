@@ -62,6 +62,30 @@ fixes. No new environment variables, Discord intents or OAuth scopes.
 - Notices also show as toasts, destructive buttons ask in an in-page dialog,
   tables have a filter box, long text boxes count characters, and module pages
   show an Enabled / Disabled badge.
+- **Real avatars and server icons** from Discord's CDN in the server
+  switcher, account menu and member pages (hashes are validated; no image is
+  shown when there is none).
+- **Ctrl/Cmd+K command palette** to jump to any page or server, and a
+  **global search** page that finds pages, members (by name or ID, including
+  people who left) and cases in a server.
+- **Member page** (`/dashboard/<server>/members/<user>`): a member's cases,
+  warnings and notes in one place, with quick actions (warn, time out, remove
+  timeout, kick, ban). Each action needs the same Discord permission as the
+  slash command, checked live, follows the role-hierarchy rule (never yourself,
+  the owner, or anyone at or above you), and is written to the Activity log. `/userinfo` links here.
+- **Analytics:** joins and leaves, cases and warnings, and automod hits per
+  day, plus cases by type and by moderator and automod hits by rule.
+- **Incident page:** start or end Incident Mode, set its defaults and the
+  auto-trigger, and read every past incident with its timeline. Needs Manage
+  Channels, Manage Roles and Manage Server for Aegis to apply every step.
+- **Module switches:** turn whole modules on or off from Modules & backup; the overview's
+  module cards show each module's state, and an Incident card shows whether
+  Incident Mode is active.
+- **Settings export and import:** download a server's settings as JSON and
+  load them back, validated before anything is saved.
+- **Scheduled messages can carry an embed** (optional), built with the same
+  editor and Discord limits as Announcements; the message text is posted above
+  it.
 
 ### Changed
 - Role pickers for the verified role and the join role grey out roles you
@@ -128,6 +152,13 @@ fixes. No new environment variables, Discord intents or OAuth scopes.
 - Stricter page headers, shared with the rest of the site: no inline styles
   allowed by the Content Security Policy, no `<base>` changes, no frames or
   workers, and cross-origin isolation of the window and its resources.
+- The Content Security Policy now allows images from
+  `https://cdn.discordapp.com` and nowhere else new, for avatars and icons.
+  Avatar hashes from Discord are validated before a URL is built.
+- Quick actions, Incident Mode controls, module switches and settings import
+  use the same sign-in, CSRF, same-origin, live permission, rate-limit and
+  operator-key protections as the rest of the dashboard. Imports are size-
+  limited and validated field by field.
 
 ## [1.2.2] - 2026-10-30
 
