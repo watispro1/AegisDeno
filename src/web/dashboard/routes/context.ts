@@ -22,6 +22,8 @@ import { type FormBody, type ValidationContext } from "../validation";
 import { renderError, type GuildContext, type Viewer } from "../views";
 
 export const CASES_PER_PAGE = 25;
+/** Cookie holding the last server opened (an ID only; access is re-checked on every request). */
+export const LAST_GUILD_COOKIE = "aegis_last_guild";
 export const APPEALS_PER_PAGE = 25;
 export const AUDIT_PER_PAGE = 50;
 /** Body limit for ordinary dashboard forms. */
@@ -272,6 +274,8 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
       const servers = partitionGuilds(authed.session.guilds ?? [], (id) => deps.bot.hasGuild(id)).manageable.map(s => ({ id: s.id, name: s.name, iconUrl: guildIconUrl(s.id, s.icon) }));
       const ctx: GuildContext = { guild, viewer: authed.viewer, nameOf: (id) => deps.bot.userName(id), roleLimit, servers };
       res.locals.dash = { ...authed, ctx } satisfies GuildLocals;
+      // Remember the last server opened, so the picker can offer it first. Only an ID, never trusted for access.
+      if (req.method === "GET") res.append("Set-Cookie", serializeCookie(LAST_GUILD_COOKIE, guildId, { maxAgeSeconds: 30 * 86_400, secure: cfg.secureCookies, path: "/dashboard" }));
       next();
     } catch (err) {
       next(err);

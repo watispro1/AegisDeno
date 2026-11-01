@@ -455,7 +455,12 @@ export interface CaseFilter {
   /** Case-insensitive text the reason must contain. */
   query?: string | null;
   page: number;
+  /** Rows per page; one of CASE_PAGE_SIZES. Absent means the default (25). */
+  per?: number;
 }
+
+/** Page sizes offered on the Cases page. */
+export const CASE_PAGE_SIZES = [10, 25, 50, 100] as const;
 
 export const CASE_QUERY_MAX = 100;
 
@@ -472,6 +477,7 @@ export function parseCaseFilter(query: Record<string, unknown>): CaseFilter {
   const user = id(pick("user"));
   const mod = id(pick("moderator"));
   const page = Number(pick("page"));
+  const per = Number(pick("per"));
   const q = pick("q").replace(/\s+/g, " ").slice(0, CASE_QUERY_MAX);
   return {
     type: (CASE_TYPES as readonly string[]).includes(type) ? type : null,
@@ -479,6 +485,8 @@ export function parseCaseFilter(query: Record<string, unknown>): CaseFilter {
     moderatorId: /^\d{17,20}$/.test(mod) ? mod : null,
     query: q || null,
     page: Number.isInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
+    // Only a non-default allowed size is kept, so the default filter shape is unchanged.
+    ...(per !== 25 && (CASE_PAGE_SIZES as readonly number[]).includes(per) ? { per } : {}),
   };
 }
 

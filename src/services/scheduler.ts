@@ -11,6 +11,7 @@ const OVERDUE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
  * - verify_kick: kick a member still unverified after the configured delay (payload is JSON)
  * - poll_close: timed `/poll` auto-close (payload is JSON `{ messageId }`)
  * - timed_unban: lift a `/ban duration:` ban (creatorId is the banned user, payload is JSON, see timedActions.ts)
+ * - staff_digest: the weekly staff digest (one per guild, see digestService.ts; each run schedules the next)
  */
 export type TaskType =
   | "reminder"
@@ -20,10 +21,11 @@ export type TaskType =
   | "ticket_autoclose"
   | "verify_kick"
   | "poll_close"
-  | "timed_unban";
+  | "timed_unban"
+  | "staff_digest";
 
 /** Restored on boot however overdue: each re-checks current state before acting. */
-const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick", "poll_close", "timed_unban"];
+const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick", "poll_close", "timed_unban", "staff_digest"];
 
 /** Most tasks one listing returns (a guild's automation list, a user's reminders). */
 export const MAX_LISTED_TASKS = 200;
@@ -163,13 +165,43 @@ export async function deleteTask(guildId: string, id: string): Promise<boolean> 
   }
 }
 
+export type RestorePlan = { kind: "schedule" } | { kind: "fire" } | { kind: "reschedule"; at: Date } | { kind: "drop" };
+
+/**
+ * What boot does with a saved task. Future → schedule. Overdue within a day, or
+ * a type that re-checks state → fire now. A recurring task overdue by more than
+ * a day skips the missed runs and resumes at its next slot (no burst of stale
+ * posts). Anything else is stale and dropped from the database.
+ */
+export function planRestore(task: Pick<ScheduledTask, "type" | "executeAt" | "intervalMs">, nowMs: number): RestorePlan {
+  const at = new Date(task.executeAt).getTime();
+  if (at > nowMs) return { kind: "schedule" };
+  if (ALWAYS_RESTORE_TYPES.includes(task.type)) return { kind: "fire" };
+  const overdue = nowMs - at;
+  if (task.intervalMs && task.intervalMs > 0 && overdue > OVERDUE_RESTORE_WINDOW_MS) {
+    const skips = Math.floor(overdue / task.intervalMs) + 1;
+    return { kind: "reschedule", at: new Date(at + skips * task.intervalMs) };
+  }
+  if (overdue <= OVERDUE_RESTORE_WINDOW_MS) return { kind: "fire" };
+  return { kind: "drop" };
+}
+
+/** Delete one-off tasks too old to ever run (they used to stay in the database forever). */
+export async function deleteStaleTasks(nowMs = Date.now()): Promise<number> {
+  const cutoff = new Date(nowMs - OVERDUE_RESTORE_WINDOW_MS);
+  const r = await TaskModel.deleteMany({ executeAt: { $lt: cutoff }, type: { $nin: [...ALWAYS_RESTORE_TYPES] }, $or: [{ intervalMs: null }, { intervalMs: { $lte: 0 } }] });
+  return r.deletedCount ?? 0;
+}
+
 export async function getAllPendingTasks(): Promise<ScheduledTask[]> {
   const cutoff = new Date(Date.now() - OVERDUE_RESTORE_WINDOW_MS);
   // Auto-unlocks and poll closes are always restored, however overdue: a channel
   // must never stay locked (or a poll open) forever because the bot was down a day.
   // Ticket inactivity checks and verification kicks re-check state, so they are too.
   const docs = await TaskModel.find({
-    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: [...ALWAYS_RESTORE_TYPES] } }],
+    // Recurring tasks are restored too: before 3.7.0 a repeating message whose run
+    // was missed by more than a day was never loaded again and silently stopped.
+    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: [...ALWAYS_RESTORE_TYPES] } }, { intervalMs: { $gt: 0 } }],
   })
     .select("guildId channelId creatorId type payload executeAt intervalMs createdAt")
     .sort({ executeAt: 1 })

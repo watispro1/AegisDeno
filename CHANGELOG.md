@@ -104,6 +104,31 @@ back to production.
 - **Tests:** `tests/trustScoreV2.test.ts`, `tests/featuresPage.test.ts`,
   `tests/commandsRound4.test.ts` and `tests/bugFixesRound4.test.ts`.
 
+- **ModMail.** Members DM Aegis to reach a server's staff. One shared server
+  with ModMail on opens a private thread (or a forum post) in the staff channel;
+  several show a server picker. Staff answer with `/modmail reply`, the
+  Reply / Reply anonymously buttons (modal), saved snippets
+  (`/modmail snippet add|remove|use|list`) or by starting a thread message with
+  the relay prefix (default `=`; ordinary thread chat is never relayed).
+  `/modmail close [reason]` (with confirmation) tells the member, locks the
+  thread, posts a summary to the mod log and keeps the transcript for 90 days.
+  `/modmail block|unblock`, `/modmail setup channel role` (Manage Server).
+  Per-user DM and ticket-open rate limits, one open ticket per member per
+  server (enforced by a unique index), attachments relayed as links up to
+  25 MB. Never pings anyone except the optional staff-role ping on a new thread.
+- **Weekly staff digest** (opt-in). `/digest setup|preview|disable` posts one
+  embed a week to the mod log or a chosen channel: cases by type and moderator,
+  joins and leaves, automod hits, incidents, the change in low-trust members,
+  open tickets/appeals/ModMail, top moderators and the lowest-trust members
+  (named, never pinged). Day and hour in an IANA time zone (default UTC). Runs
+  on the task scheduler, survives restarts, and posts at most once per server
+  per ISO week.
+- `utils/embedStyle.ts`: shared house footer ("Aegis · …") and actionable
+  permission hints; `/note delete` now asks for confirmation.
+- **Tests:** `tests/modmail.test.ts`, `tests/digest.test.ts`,
+  `tests/trustAlias.test.ts`, `tests/qolRound5.test.ts`,
+  `tests/bugFixesRound5.test.ts`.
+
 ### Changed
 - Hardcoded `aegisdeno.fly.dev` and support-invite URLs in `/help`, `/about`,
   `/ping`, `/dashboard` and permission errors were replaced with the shared link
@@ -128,6 +153,20 @@ back to production.
 - Dashboard, starboard, watchlist, appeal, automod-hit and activity models moved
   out of `src/database/mongo.ts` into `dashboardModels.ts` and `extraModels.ts`
   (re-exported, so imports are unchanged).
+
+- `/trust user` is the canonical Trust Score command. `/trustscore` is now a
+  deprecated alias: same v2 reply (it keeps its `user` and `ephemeral`
+  options) plus a note pointing at `/trust user`. Docs, features page, home
+  demo and command examples updated; ModMail and the digest added to docs,
+  features and `/commands` examples.
+- Permission errors from the command executor say where to fix them (Server
+  Settings → Roles / Integrations, or the channel's permissions); `/help`
+  footers use the house style.
+- Gateway: adds the non-privileged `DirectMessages` intent (Partials.Channel
+  was already on) for ModMail. No privileged intents added.
+- `commands/community/giveaway.ts` split into the command and
+  `services/giveawayService.ts`; reminder/unlock/unban delivery moved from
+  `schedulerRunner.ts` to `scheduledActions.ts`.
 
 ### Fixed
 - `server.md` documents `/welcome message` as the form it is, explains `{user}`,
@@ -167,6 +206,12 @@ back to production.
   embed size limits are checked after template placeholders are expanded, and
   `server.md` uses the current command names.
 
+- Recurring scheduled messages whose run was missed by more than a day (bot
+  down) were never loaded again and silently stopped. Boot now resumes them at
+  their next slot without a burst of stale posts.
+- One-off tasks too old to run were left in the database forever; boot prunes
+  them.
+
 ### Security
 - New Mongo collections: `incidents` (incident state and timeline),
   `statussamples` (heartbeat samples, expire after 8 days), `statusnotices`
@@ -180,6 +225,13 @@ back to production.
   active-day list. Activity records of members silent for 180 days expire, and
   when Aegis is removed from a server its activity records are deleted. Trust
   settings changes are written to the mod log and the dashboard audit log.
+- ModMail and digest: explicit `allowedMentions` on every message (relays and
+  digests never ping; only the opt-in staff-role ping on a new thread), hidden
+  channels refused, staff checks (role or Manage Server) on every command,
+  button and modal, `$`-free snowflake validation on IDs, DM rate limits.
+- New Mongo collections: `modmailthreads` (transcripts expire 90 days after
+  close), `modmailsnippets`, `digestruns` (idempotency keys, expire after 400
+  days).
 
 ## [3.6.2] - 2026-10-31
 

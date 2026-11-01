@@ -41,7 +41,7 @@ export type GuildSection =
   | "moderation" | "automod" | "cases" | "appeals" | "watchlist" | "logging"
   | "welcome" | "verification" | "panels" | "tickets" | "starboard" | "suggestions" | "giveaways"
   | "autoresponders" | "automations" | "announce"
-  | "activity" | "incident" | "trust" | "members" | "analytics" | "tools";
+  | "activity" | "incident" | "trust" | "members" | "analytics" | "tools" | "modmail" | "digest";
 
 interface NavItem { key: GuildSection; label: string; href: string; icon: string }
 
@@ -60,6 +60,8 @@ export const MODULE_NAV: ReadonlyArray<{ group: string; items: ReadonlyArray<Nav
     { key: "automod", label: "Automod", href: "/settings/automod", icon: "⛨" },
     { key: "cases", label: "Cases", href: "/cases", icon: "▤" },
     { key: "appeals", label: "Appeals", href: "/appeals", icon: "✉" },
+    { key: "modmail", label: "ModMail", href: "/modmail", icon: "✆" },
+    { key: "digest", label: "Staff digest", href: "/digest", icon: "☰" },
     { key: "watchlist", label: "Ghost Watch", href: "/watchlist", icon: "◉" },
     { key: "logging", label: "Logging", href: "/settings/logging", icon: "≡" },
   ] },
@@ -146,6 +148,17 @@ const APP_CHROME = `<div class="toast-region" data-toasts aria-live="polite" ari
     <ul id="palette-list" class="palette-list" role="listbox" data-palette-list></ul>
     <p class="faint palette-hint">↑ ↓ to move · Enter to open · Esc to close</p>
   </dialog>
+  <dialog class="palette shortcuts" data-shortcuts aria-labelledby="shortcuts-h">
+    <h2 id="shortcuts-h">Keyboard shortcuts</h2>
+    <dl class="shortcut-list">
+      <div><dt><kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd></dt><dd>Jump to a page or search cases</dd></div>
+      <div><dt><kbd>/</kbd></dt><dd>Focus the table filter on this page</dd></div>
+      <div><dt><kbd>Ctrl</kbd> <kbd>S</kbd> / <kbd>⌘</kbd> <kbd>S</kbd></dt><dd>Save the form you changed</dd></div>
+      <div><dt><kbd>?</kbd></dt><dd>Show this list</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>Close dialogs and menus</dd></div>
+    </dl>
+    <form method="dialog"><button class="btn sm" type="submit">Close</button></form>
+  </dialog>
   <dialog class="confirm-dialog" data-confirm-dialog aria-labelledby="confirm-title">
     <form method="dialog">
       <h2 id="confirm-title">Are you sure?</h2>
@@ -172,6 +185,7 @@ export function shell(cfg: SiteConfig, o: { title: string; path: string; body: s
           <input type="search" id="top-q" name="q" maxlength="64" placeholder="Search cases, members…" autocomplete="off">
         </form>
         <button class="btn ghost sm palette-btn" type="button" data-palette-open aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" title="Jump to (Ctrl+K)">⌘K</button>
+        <button class="btn ghost sm" type="button" data-shortcuts-open aria-haspopup="dialog" aria-keyshortcuts="Shift+Slash" title="Keyboard shortcuts (?)">?</button>
         ${userMenu(o.viewer)}
       </div>
       <div class="app-content">${o.body}</div>
@@ -243,6 +257,24 @@ export function notice(code: string | null | undefined): string {
 export function fmtDate(d: Date): string {
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "unknown";
   return d.toISOString().replace("T", " ").slice(0, 16) + " UTC";
+}
+
+/** "3 days ago" with the exact UTC time as a tooltip, in a <time> element. */
+export function relTime(d: Date | null | undefined, now = Date.now()): string {
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "unknown";
+  const diff = now - d.getTime();
+  const abs = Math.abs(diff);
+  const units: Array<[number, string]> = [[31_536_000_000, "year"], [2_592_000_000, "month"], [604_800_000, "week"], [86_400_000, "day"], [3_600_000, "hour"], [60_000, "minute"]];
+  let text = "just now";
+  for (const [ms, name] of units) {
+    if (abs >= ms) { const n = Math.floor(abs / ms); text = diff >= 0 ? `${n} ${name}${n === 1 ? "" : "s"} ago` : `in ${n} ${name}${n === 1 ? "" : "s"}`; break; }
+  }
+  return `<time datetime="${d.toISOString()}" title="${fmtDate(d)}">${text}</time>`;
+}
+
+/** A small button that copies an ID (dashboard.js); the ID stays selectable without JavaScript. */
+export function copyId(id: string, label = "Copy ID"): string {
+  return `<button class="btn sm ghost copy-id" type="button" data-copy="${esc(id)}" aria-label="${esc(label)} ${esc(id)}">⧉</button>`;
 }
 
 export function person(ctx: GuildContext, id: string): string {

@@ -97,6 +97,19 @@ fixes. No new environment variables, Discord intents or OAuth scopes.
 - **Trust Score card on the member page**, listing every factor with its + or
   − points.
 
+- **ModMail page**: turn ModMail on, pick the staff channel and staff role,
+  staff-role ping, anonymous-by-default, thread reply prefix, greeting and
+  close messages with the embed builder; open conversations (with a link to
+  the thread), transcripts (filterable) and a transcript viewer; blocked
+  members with Unblock buttons and a block-by-ID form.
+- **Staff digest page**: day, hour, time zone and channel, with a live preview
+  of the last 7 days.
+- **Keyboard shortcuts** dialog (`?` or the ? button): Ctrl/⌘+K jump, `/`
+  focuses the table filter, Ctrl/⌘+S saves the form you changed.
+- Copy-ID buttons, and relative times ("3 days ago") with the exact UTC time
+  as a tooltip, on the new pages.
+- Cases: choose 10, 25, 50 or 100 per page; the choice is kept across pages.
+
 ### Changed
 - Role pickers for the verified role and the join role grey out roles you
   can't hand out and say why: "Aegis cannot assign" or "above your highest
@@ -112,6 +125,12 @@ fixes. No new environment variables, Discord intents or OAuth scopes.
 - When you are rate limited while sending a form, the page says nothing was
   saved.
 - A server Aegis is not in links straight to adding Aegis to that server.
+
+- The server picker lists the server you last opened first, tagged "Last
+  opened" (an ID-only cookie; access is re-checked on every request).
+- Cases empty state tells a new server what will appear, and "Clear" is a link
+  when a filter matches nothing; the unsaved-changes bar has a shadow so it
+  stands out from the page.
 
 ### Fixed
 - **Roles above your own could be handed out.** The verified role (Panels and
@@ -134,6 +153,9 @@ fixes. No new environment variables, Discord intents or OAuth scopes.
   "Database unavailable" (503, with Retry-After) and keep you signed in.
 - A form sent after your session ended now says nothing was saved and offers
   a Log in button.
+
+- ModMail settings refuse @everyone as the staff role (it would have made
+  every member ModMail staff).
 
 ### Security
 - Every new page and action uses the same protections as the rest of the
@@ -169,6 +191,11 @@ fixes. No new environment variables, Discord intents or OAuth scopes.
   use the same sign-in, CSRF, same-origin, live permission, rate-limit and
   operator-key protections as the rest of the dashboard. Imports are size-
   limited and validated field by field.
+- The ModMail and digest pages use the same protections as every other page:
+  sign-in, Manage Server on the server, CSRF token and same-origin check on
+  every form, body size caps (embed forms 128 KB), rate limits, role-hierarchy
+  check on the staff role, hidden channels never listed or accepted, and an
+  audit-log entry for every save, block and unblock.
 
 ## [1.2.2] - 2026-10-30
 

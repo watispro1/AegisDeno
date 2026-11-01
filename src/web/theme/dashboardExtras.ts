@@ -73,4 +73,23 @@ tr.revoked td { opacity: .6; }
   .rank-bars li { grid-template-columns: 1fr auto; }
   .rank-svg { grid-column: 1 / -1; grid-row: 2; }
 }
+
+/* ModMail, digest and QoL (3.7.0 / 1.2.3) */
+.copy-id { padding: 0 .4rem; min-height: 0; line-height: 1.4; }
+.plain-list { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: .4rem; }
+.plain-list li { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.transcript { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; }
+.transcript li { border-left: 3px solid var(--line, #ccc); padding: .25rem .75rem; }
+.transcript li.staff { border-left-color: var(--accent, #5865f2); }
+.transcript p { margin: .25rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.embed-fields-preview { display: grid; gap: .5rem; margin: .5rem 0; }
+.embed-fields-preview dt { font-weight: 600; }
+.embed-fields-preview dd { margin: 0; }
+.guild-item.last-used { outline: 2px solid var(--accent, #5865f2); outline-offset: -2px; }
+.guild-item .tag { margin-left: auto; margin-right: .5rem; }
+.shortcuts h2 { margin-top: 0; font-size: 1.1rem; }
+.shortcut-list { display: grid; gap: .5rem; margin: 0 0 1rem; }
+.shortcut-list div { display: flex; justify-content: space-between; gap: 1rem; }
+.shortcut-list dd { margin: 0; color: var(--muted, inherit); }
+.unsaved-bar { box-shadow: 0 -4px 16px rgba(0,0,0,.12); }
 `;

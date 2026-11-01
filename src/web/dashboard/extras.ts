@@ -4,6 +4,8 @@
  * switches and settings import. One interface so routes run in tests with the
  * in-memory version below; production uses extrasMongo.ts.
  */
+import { memoryModmailDashboard, type ModmailDashboard } from "./modmailData";
+import { memoryDigestDashboard, type DigestDashboard } from "./digestData";
 import { outranks } from "../../permissions/hierarchy";
 import type { IncidentConfig, IncidentOptions } from "../../services/incidentLogic";
 import type { IncidentRecord } from "../../services/incidentStore";
@@ -94,6 +96,8 @@ export interface DashboardExtras {
   analytics(guildId: string, days: number): Promise<AnalyticsData>;
   incidents: IncidentDashboard;
   trust: TrustDashboard;
+  modmail: ModmailDashboard;
+  digest: DigestDashboard;
   saveIncidentConfig(guildId: string, config: IncidentConfig): Promise<void>;
   saveModuleSwitches(guildId: string, switches: ModuleSwitches): Promise<void>;
   applySettingsImport(guildId: string, update: GuildConfigUpdate, automod: Record<string, unknown> | null): Promise<void>;
@@ -140,6 +144,8 @@ export function memoryDashboardExtras(seed: {
   analytics?: AnalyticsData;
   incidents?: IncidentDashboard;
   trust?: { overview?: Partial<TrustOverview>; members?: Record<string, TrustResult> };
+  modmail?: ModmailDashboard;
+  digest?: DigestDashboard;
 } = {}): DashboardExtras & { actions: Array<{ guildId: string; userId: string; input: MemberActionInput; by: string }>; saved: Record<string, unknown[]> } {
   const actions: Array<{ guildId: string; userId: string; input: MemberActionInput; by: string }> = [];
   const saved: Record<string, unknown[]> = { incident: [], modules: [], import: [], trust: [] };
@@ -162,6 +168,8 @@ export function memoryDashboardExtras(seed: {
       member: async (_g, id) => seed.trust?.members?.[id] ?? null,
       saveConfig: async (_g, c) => { saved.trust.push(c); },
     },
+    modmail: seed.modmail ?? memoryModmailDashboard(),
+    digest: seed.digest ?? memoryDigestDashboard(),
     saveIncidentConfig: async (_g, c) => { saved.incident.push(c); },
     saveModuleSwitches: async (_g, s) => { saved.modules.push(s); },
     applySettingsImport: async (_g, u, a) => { saved.import.push({ update: u, automod: a }); },
