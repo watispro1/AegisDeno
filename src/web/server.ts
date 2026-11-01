@@ -1,14 +1,12 @@
 import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { Client } from "discord.js";
 import { logger } from "../utils/logger";
 import { styles } from "./theme";
 import { clientScript } from "./client";
 import { statusScript } from "./client/status";
-import { buildStatusPayload, type StatusPayload } from "./statusData";
-import { loadNotices } from "./statusNotices";
-import { databaseConnected, statusMonitor } from "../services/statusMonitor";
+import { type StatusPayload } from "./statusData";
+import { registerStatusRoutes } from "./statusRoutes";
 import { faviconSvg, ogImageSvg, ogImagePng, manifest, themeInitScript } from "./assets";
 import { botPermissionBitfield, buildCatalog, catalogStats, getCommand } from "./catalog";
 import {
@@ -44,27 +42,12 @@ import { mongoAuditStore } from "./dashboard/audit";
 import { mongoDashboardExtras } from "./dashboard/extrasMongo";
 import { dashboardScript } from "./dashboard/client";
 import { clientIp, secretMatches, securityHeaders } from "./securityHeaders";
+import { apiRateLimit, compression, siteErrorHandler } from "./serverMiddleware";
+
+export { siteErrorHandler };
 
 /** Largest request body the site accepts at all; route parsers set tighter limits. */
 const MAX_REQUEST_BYTES = 600 * 1024;
-
-/**
- * Final Express error handler: logs the error server-side and answers with a
- * generic message (JSON under /api, plain text elsewhere). Never echoes the
- * error, its message or a stack trace.
- */
-export function siteErrorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
-  const status = typeof (err as { status?: unknown })?.status === "number" ? (err as { status: number }).status : 500;
-  const code = status >= 400 && status < 600 ? status : 500;
-  if (code >= 500) logger.error(`Web error on ${req.method} ${req.path}:`, err instanceof Error ? err.message : err);
-  if (res.headersSent) return;
-  res.setHeader("Cache-Control", "no-store");
-  if (req.path.startsWith("/api/")) {
-    res.status(code).json({ error: code === 413 ? "payload_too_large" : code === 400 ? "bad_request" : "server_error" });
-    return;
-  }
-  res.status(code).type("text/plain").send(code === 413 ? "Request too large" : code === 400 ? "Bad request" : "Something went wrong");
-}
 
 const SITE_VERSION = VERSION;
 const STARTED_AT = Date.now();
@@ -78,34 +61,6 @@ const ASSET_VERSION = createHash("sha256")
   .update(statusScript)
   .digest("hex")
   .slice(0, 8);
-
-const COMPRESSIBLE = /^(text\/|application\/(json|xml|manifest\+json|atom\+xml|rss\+xml)|image\/svg)/;
-const RATE_WINDOW_MS = 60_000;
-const API_REQUESTS_PER_WINDOW = 120;
-const requestCounts = new Map<string, { count: number; windowStartedAt: number }>();
-
-function apiRateLimit(req: Request, res: Response, next: NextFunction): void {
-  const now = Date.now();
-  // Behind Fly's proxy req.ip is the proxy, so every visitor shared one bucket.
-  const key = clientIp(req);
-  const current = requestCounts.get(key);
-  const entry = !current || now - current.windowStartedAt >= RATE_WINDOW_MS
-    ? { count: 0, windowStartedAt: now }
-    : current;
-  entry.count++;
-  requestCounts.set(key, entry);
-  if (requestCounts.size > 10_000) {
-    for (const [address, value] of requestCounts) {
-      if (now - value.windowStartedAt >= RATE_WINDOW_MS) requestCounts.delete(address);
-    }
-  }
-  if (entry.count > API_REQUESTS_PER_WINDOW) {
-    res.setHeader("Retry-After", "60");
-    res.status(429).json({ error: "rate_limited" });
-    return;
-  }
-  next();
-}
 
 function siteConfig(): SiteConfig {
   const appId = process.env.DISCORD_APPLICATION_ID?.trim();
@@ -135,35 +90,6 @@ function collectStats(client: Client | undefined): Stats {
 
 function applySecurityHeaders(req: Request, res: Response): void {
   for (const [name, value] of Object.entries(securityHeaders(req.path))) res.setHeader(name, value);
-}
-
-/** Gzip text responses. Fly terminates TLS and does not compress upstream. */
-function compression(req: Request, res: Response, next: NextFunction): void {
-  const accepted = String(req.headers["accept-encoding"] ?? "");
-  res.setHeader("Vary", "Accept-Encoding");
-
-  if (!accepted.includes("gzip")) {
-    next();
-    return;
-  }
-
-  const original = res.send.bind(res) as (body?: unknown) => Response;
-
-  res.send = function send(this: Response, body?: unknown): Response {
-    if (this.headersSent || typeof body !== "string" || this.getHeader("Content-Encoding")) {
-      return original(body);
-    }
-    if (!COMPRESSIBLE.test(String(this.getHeader("Content-Type") ?? ""))) {
-      return original(body);
-    }
-
-    const packed = gzipSync(Buffer.from(body, "utf8"), { level: 6 });
-    this.setHeader("Content-Encoding", "gzip");
-    this.setHeader("Content-Length", String(packed.byteLength));
-    return original(packed);
-  };
-
-  next();
 }
 
 interface RouteDef {
@@ -248,28 +174,10 @@ export function startWebServer(client: Client) {
   const online = (): boolean => Boolean(client?.isReady?.());
   const isOnline = (): boolean => online();
 
-  // Heartbeat samples for the status page's uptime history (memory + capped Mongo).
-  const monitor = statusMonitor(() => ({ gateway: online(), ping: Math.max(0, Math.round(client?.ws?.ping ?? 0)) }));
-  monitor.start().then(() => monitor.tick()).catch(() => undefined);
-  const statusPayload = async (): Promise<StatusPayload> => {
-    const stats = collectStats(client);
-    return buildStatusPayload({
-      nowMs: Date.now(),
-      online: online(),
-      ping: stats.ping,
-      guilds: stats.guilds,
-      shards: Number((client?.ws as { shards?: { size?: number } } | undefined)?.shards?.size ?? 1) || 1,
-      memoryRss: process.memoryUsage().rss,
-      version: SITE_VERSION,
-      startedAt: STARTED_AT,
-      commands: stats.commands,
-      dbConnected: databaseConnected(),
-      dbLatency: monitor.lastDbLatency(),
-      registration: monitor.registration(),
-      samples: monitor.samples(),
-      notices: await loadNotices().catch(() => []),
-    });
-  };
+  // Heartbeat samples, the public status payload and /api/status (statusRoutes.ts).
+  const statusPayload = registerStatusRoutes(app, {
+    online, stats: () => collectStats(client), client, version: SITE_VERSION, startedAt: STARTED_AT,
+  });
 
   const asset = (res: Response, type: string, body: string | Buffer, maxAge = 3600) => {
     res.setHeader("Cache-Control", `public, max-age=${maxAge}, immutable`);
@@ -316,19 +224,6 @@ export function startWebServer(client: Client) {
       commands: stats.commands,
       catalog: cs,
     });
-  });
-
-  // Public status as JSON: states, counts and times only (no hostnames, env or error text).
-  app.get("/api/status", async (_req, res, next) => {
-    try {
-      const payload = await statusPayload();
-      res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("X-Robots-Tag", "noindex");
-      res.json(payload);
-    } catch (err) {
-      next(err);
-    }
   });
 
   app.get("/api/commands", (_req, res) => {

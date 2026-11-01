@@ -1,3 +1,4 @@
+import { memberPageUrl } from "../../config/links";
 import {
   ChatInputCommandInteraction,
   EmbedBuilder,
@@ -151,6 +152,12 @@ export const command: Command = {
             .setLabel("Mod Cases")
             .setStyle(ButtonStyle.Secondary)
             .setEmoji("📂"),
+          // The dashboard's member page: cases, warnings, notes and quick actions in one place.
+          new ButtonBuilder()
+            .setLabel("Member page")
+            .setStyle(ButtonStyle.Link)
+            .setURL(memberPageUrl(interaction.guildId!, user.id))
+            .setEmoji("🧭"),
         ),
       );
     }
