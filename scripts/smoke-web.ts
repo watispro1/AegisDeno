@@ -108,6 +108,16 @@ async function main() {
     check(`${path} -> ${target}`, res.headers.get("location") === target, `got ${res.headers.get("location")}`);
   }
 
+  console.log("\nFeatures page");
+  const featuresHtml = await (await fetch(origin + "/features")).text();
+  for (const id of ["moderation", "automod", "incident", "trust", "community", "tickets", "dashboard", "reliability", "why"]) {
+    check(`/features has #${id}`, featuresHtml.includes(`id="${id}"`));
+  }
+  check("/features links commands to /commands anchors", /href="\/commands#cmd-trust-user"/.test(featuresHtml));
+  check("/features has no unlinked command refs", !/<li><code>\/[a-z]/.test(featuresHtml));
+  check("/features has invite and dashboard CTAs", featuresHtml.includes('href="/invite"') && featuresHtml.includes('href="/dashboard"'));
+  check("/features has no inline style or script", !/\sstyle=|<script(?![^>]*\bsrc=)(?![^>]*application\/ld\+json)/.test(featuresHtml));
+
   console.log("\nInvite");
   const inviteHomeHtml = await (await fetch(origin + "/")).text();
   const hrefs = Array.from(inviteHomeHtml.matchAll(/href="(https:\/\/discord\.com\/oauth2\/authorize[^"]*)"/g)).map(m => m[1].replace(/&amp;/g, "&"));

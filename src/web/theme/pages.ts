@@ -343,4 +343,34 @@ footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.
 }
 
 
+
+/* ── Features page ──────────────────────────────────────────────── */
+.f-head .btn-row { margin-top: 1rem; }
+.f-icon { width: 1.5rem; height: 1.5rem; flex: none; fill: none; stroke: var(--accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.f-icon.lg { width: 2rem; height: 2rem; }
+.f-hero { list-style: none; padding: 0; margin: 0 0 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: 1rem; }
+.f-hero-card a { display: flex; flex-direction: column; gap: .5rem; height: 100%; padding: 1.25rem; border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: 4px; color: inherit; text-decoration: none; }
+.f-hero-card a:hover, .f-hero-card a:focus-visible { border-color: var(--accent); }
+.f-hero-card strong { font-size: 1.15rem; }
+.f-nav { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--border); margin: 0 0 2rem; }
+.f-nav ul { list-style: none; display: flex; gap: .25rem 1rem; flex-wrap: nowrap; overflow-x: auto; padding: .6rem 0; margin: 0; }
+.f-nav a { white-space: nowrap; }
+.f-cat { scroll-margin-top: 4rem; margin: 0 0 2.5rem; }
+.f-lead { color: var(--muted); max-width: 46rem; }
+.f-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr)); gap: 1rem; }
+.f-card { padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: 4px; scroll-margin-top: 4rem; }
+.f-card-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.f-card-head h3 { margin: 0; font-size: 1.05rem; flex: 1 1 auto; }
+.f-card p { margin: .6rem 0; }
+.f-badge { font-size: .75rem; padding: .1rem .45rem; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); }
+.f-cmds { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: .35rem; }
+.f-cmds code { font-size: .8rem; }
+.f-why { width: 100%; border-collapse: collapse; }
+.f-why th, .f-why td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+@media (max-width: 640px) {
+  .f-hero-card a { padding: 1rem; }
+  .f-why thead { display: none; }
+  .f-why tr { display: block; padding: .5rem 0; border-bottom: 1px solid var(--border); }
+  .f-why th, .f-why td { display: block; border: 0; padding: .15rem 0; }
+}
 `;
