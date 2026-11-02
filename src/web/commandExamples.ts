@@ -104,6 +104,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   ],
   giveaway: [
     "/giveaway start prize:Nitro duration:24h winners:1 booster_multiplier:2",
+    "/giveaway start prize:Server role duration:3d min_account_age:30 min_server_days:7",
     "/giveaway end message_id:https://discord.com/channels/123456789012345678/123456789012345679/123456789012345680",
     "/giveaway reroll message_id:123456789012345678",
   ],

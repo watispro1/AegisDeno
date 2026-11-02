@@ -24,7 +24,7 @@ import { MAX_TIMEOUT_MS } from "../services/timedActions";
 import { formatDurationLong, parseFriendlyDuration } from "../utils/duration";
 import { DISCORD_LIMITS, truncate } from "../utils/safeText";
 import { pickWeightedWinners } from "../services/communityLogic";
-import { enterGiveaway, type GiveawayEntryStore } from "../services/giveawayEntry";
+import { enterGiveaway, giveawayEntryBlock, needsMemberLookup, type GiveawayEntryStore } from "../services/giveawayEntry";
 import {
   endTransition, finalizeEnd, rerollTransition,
   type GiveawayTransitionStore, type TransitionGiveaway, type TransitionResult,
@@ -169,13 +169,17 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const multiplier = giveaway.boosterMultiplier ?? 1;
-  const needMember = Boolean(giveaway.requiredRoleId) || multiplier > 1;
-  const member = needMember
+  const member = needsMemberLookup(giveaway, multiplier)
     ? await interaction.guild.members.fetch(interaction.user.id).catch(() => null)
     : null;
 
-  if (giveaway.requiredRoleId && !member?.roles.cache.has(giveaway.requiredRoleId)) {
-    await interaction.editReply({ content: `❌ You need the <@&${giveaway.requiredRoleId}> role to enter this giveaway.` });
+  const blocked = giveawayEntryBlock(giveaway, {
+    hasRequiredRole: Boolean(giveaway.requiredRoleId && member?.roles.cache.has(giveaway.requiredRoleId)),
+    accountCreatedAt: interaction.user.createdAt,
+    joinedAt: member?.joinedAt ?? null,
+  });
+  if (blocked) {
+    await interaction.editReply({ content: blocked, allowedMentions: { parse: [] } });
     return;
   }
 

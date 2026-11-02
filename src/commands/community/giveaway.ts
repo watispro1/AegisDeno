@@ -23,7 +23,7 @@ import { MAX_TIMEOUT_MS } from "../../services/timedActions";
 import { formatDurationLong, parseFriendlyDuration } from "../../utils/duration";
 import { DISCORD_LIMITS, truncate } from "../../utils/safeText";
 import { pickWeightedWinners } from "../../services/communityLogic";
-import { enterGiveaway, type GiveawayEntryStore } from "../../services/giveawayEntry";
+import { enterGiveaway, requirementLines, type GiveawayEntryStore } from "../../services/giveawayEntry";
 
 import {
   fmtDuration,
@@ -77,6 +77,12 @@ export const command: Command = {
         )
         .addIntegerOption(opt =>
           opt.setName("booster_multiplier").setDescription("Entries each server booster gets (default 1 = no bonus)").setMinValue(1).setMaxValue(10).setRequired(false)
+        )
+        .addIntegerOption(opt =>
+          opt.setName("min_account_age").setDescription("Discord account must be at least this many days old (default: none)").setMinValue(1).setMaxValue(3650).setRequired(false)
+        )
+        .addIntegerOption(opt =>
+          opt.setName("min_server_days").setDescription("Must have been in this server this many days (default: none)").setMinValue(1).setMaxValue(365).setRequired(false)
         )
     )
     .addSubcommand(sub =>
@@ -145,6 +151,12 @@ export const command: Command = {
       const description = interaction.options.getString("description") ?? null;
       const targetChan  = interaction.options.getChannel("channel") ?? interaction.channel;
       const boosterMult = interaction.options.getInteger("booster_multiplier") ?? 1;
+      const requirements = {
+        requiredRoleId: reqRole?.id ?? null,
+        minAccountAgeDays: interaction.options.getInteger("min_account_age") ?? 0,
+        minMemberDays: interaction.options.getInteger("min_server_days") ?? 0,
+      };
+      const reqLines = requirementLines(requirements);
 
       const durationSec = parseFriendlyDuration(durationRaw);
       if (!durationSec || durationSec < 10) {
@@ -180,9 +192,9 @@ export const command: Command = {
         .setDescription(
           `${description ? `${description}\n\n` : ""}` +
           `Click **🎉 Enter Giveaway** below to participate!\n\n` +
-          `${reqRole ? `> ⚠️ **Required Role:** <@&${reqRole.id}>\n` : ""}` +
+          `${reqLines.map(l => `${l}\n`).join("")}` +
           `${boosterMult > 1 ? `> 🚀 **Server boosters** get **${boosterMult}×** entries\n` : ""}` +
-          `${reqRole || boosterMult > 1 ? "\n" : ""}` +
+          `${reqLines.length || boosterMult > 1 ? "\n" : ""}` +
           `**Ends:** <t:${endsTs}:R> (<t:${endsTs}:f>)`
         )
         .addFields(
@@ -217,7 +229,7 @@ export const command: Command = {
         prize,
         description,
         winnerCount,
-        requiredRoleId: reqRole?.id ?? null,
+        ...requirements,
         boosterMultiplier: boosterMult,
         hostId: interaction.user.id,
         entrants: [],

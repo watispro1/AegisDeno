@@ -280,6 +280,8 @@ const GiveawaySchema = new mongoose.Schema({
   winnerCount:   { type: Number, default: 1 },
   requiredRoleId:{ type: String, default: null },
   requiredLevel: { type: Number, default: 0 },
+  minAccountAgeDays: { type: Number, default: 0, min: 0, max: 3650 },
+  minMemberDays: { type: Number, default: 0, min: 0, max: 365 },
   hostId:        { type: String, required: true },
   entrants:      { type: [String], default: [] },
   winners:       { type: [String], default: [] },
