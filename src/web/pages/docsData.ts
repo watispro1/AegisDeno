@@ -45,6 +45,7 @@ export const DOC_GROUPS: { title: string; sections: DocSection[] }[] = [
         { id: "welcome", label: "Welcome messages" },
         { id: "role-panels", label: "Role panels" },
         { id: "autoresponder", label: "Auto-responder" },
+        { id: "economy", label: "Economy" },
       ] },
       { id: "automation", label: "Reminders and schedules" },
     ],

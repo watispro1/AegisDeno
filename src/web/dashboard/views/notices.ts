@@ -57,4 +57,12 @@ export const NOTICES: Record<string, { text: string; bad?: boolean }> = {
   "member-done": { text: "Done. The action was recorded as a case and posted to your log channel." },
   "member-failed": { text: "Discord refused that action. Check Aegis's permissions and role position; nothing was recorded.", bad: true },
   "import-done": { text: "Settings imported. Aegis uses them from now on." },
+  "economy-on": { text: "The economy is on. Members can use /daily, /work, /pay and the shop." },
+  "economy-off": { text: "The economy is off. Balances and the shop are kept." },
+  "economy-saved": { text: "Economy settings saved." },
+  "economy-item-added": { text: "Item added to the shop." },
+  "economy-item-saved": { text: "Item saved." },
+  "economy-item-removed": { text: "Item removed. Members who bought it keep it." },
+  "economy-item-missing": { text: "That item was already removed.", bad: true },
+  "economy-adjusted": { text: "Balance changed. It was logged here, in Activity and in your mod log." },
 };

@@ -191,3 +191,24 @@ test("3.7.0 and dashboard 1.2.3: dated 2026-11-02, grouped Added/Changed/Fixed/S
     assert.equal(new Set(items).size, items.length, `${r.version} has duplicate entries`);
   }
 });
+
+test("3.7.1 and dashboard 1.2.4: dated 2026-11-02, carry the economy and the entry-point notes moved from 3.7.0", () => {
+  const releases = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
+  const bot = releases.find((r) => r.version === "3.7.1")!;
+  const older = releases.find((r) => r.version === "3.7.0")!;
+  const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases.find((r) => r.version === "1.2.4")!;
+  assert.equal(releases[0].version, "3.7.1");
+  assert.equal(VERSION, "3.7.1");
+  assert.equal(DASHBOARD_VERSION, "1.2.4");
+  assert.equal(bot.date, "2026-11-02");
+  assert.equal(dash.date, "2026-11-02");
+  const botText = bot.sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["/economy toggle", "/daily", "/pay", "/shop", "/leaderboard", "a!help", "JOIN_WELCOME"]) assert.ok(botText.includes(needle), `3.7.1 mentions ${needle}`);
+  const olderText = older.sections.flatMap((s) => s.items).join(" ");
+  assert.ok(!olderText.includes("a!help") && !olderText.includes("JOIN_WELCOME"), "entry-point notes moved out of 3.7.0");
+  assert.ok(dash.sections.flatMap((s) => s.items).join(" ").includes("Economy page"));
+  for (const r of [bot, dash]) {
+    const items = r.sections.flatMap((s) => s.items);
+    assert.equal(new Set(items).size, items.length, `${r.version} has duplicate entries`);
+  }
+});

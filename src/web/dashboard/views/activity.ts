@@ -29,6 +29,14 @@ const AUDIT_LABELS: Record<string, string> = {
   "suggestion.deny": "Denied a suggestion",
   "suggestion.consider": "Marked a suggestion as considered",
   "watchlist.remove": "Removed a member from their Ghost Watch list",
+  "economy.toggle": "Turned the economy on or off",
+  "economy.settings": "Changed economy settings",
+  "economy.shop.add": "Added a shop item",
+  "economy.shop.edit": "Edited a shop item",
+  "economy.shop.remove": "Removed a shop item",
+  "economy.give": "Gave a member coins",
+  "economy.take": "Took coins from a member",
+  "economy.reset": "Reset a member's balance",
 };
 
 export function auditLabel(action: string): string {

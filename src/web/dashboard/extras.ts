@@ -6,6 +6,7 @@
  */
 import { memoryModmailDashboard, type ModmailDashboard } from "./modmailData";
 import { memoryDigestDashboard, type DigestDashboard } from "./digestData";
+import { memoryEconomy, type EconomyService } from "../../services/economyService";
 import { outranks } from "../../permissions/hierarchy";
 import type { IncidentConfig, IncidentOptions } from "../../services/incidentLogic";
 import type { IncidentRecord } from "../../services/incidentStore";
@@ -98,6 +99,8 @@ export interface DashboardExtras {
   trust: TrustDashboard;
   modmail: ModmailDashboard;
   digest: DigestDashboard;
+  /** Economy page and the member page's balance card. */
+  economy: EconomyService;
   saveIncidentConfig(guildId: string, config: IncidentConfig): Promise<void>;
   saveModuleSwitches(guildId: string, switches: ModuleSwitches): Promise<void>;
   applySettingsImport(guildId: string, update: GuildConfigUpdate, automod: Record<string, unknown> | null): Promise<void>;
@@ -146,6 +149,7 @@ export function memoryDashboardExtras(seed: {
   trust?: { overview?: Partial<TrustOverview>; members?: Record<string, TrustResult> };
   modmail?: ModmailDashboard;
   digest?: DigestDashboard;
+  economy?: EconomyService;
 } = {}): DashboardExtras & { actions: Array<{ guildId: string; userId: string; input: MemberActionInput; by: string }>; saved: Record<string, unknown[]> } {
   const actions: Array<{ guildId: string; userId: string; input: MemberActionInput; by: string }> = [];
   const saved: Record<string, unknown[]> = { incident: [], modules: [], import: [], trust: [] };
@@ -170,6 +174,7 @@ export function memoryDashboardExtras(seed: {
     },
     modmail: seed.modmail ?? memoryModmailDashboard(),
     digest: seed.digest ?? memoryDigestDashboard(),
+    economy: seed.economy ?? memoryEconomy().service,
     saveIncidentConfig: async (_g, c) => { saved.incident.push(c); },
     saveModuleSwitches: async (_g, s) => { saved.modules.push(s); },
     applySettingsImport: async (_g, u, a) => { saved.import.push({ update: u, automod: a }); },

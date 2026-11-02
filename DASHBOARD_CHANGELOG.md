@@ -8,6 +8,41 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.2.4] - 2026-11-02
+
+Dashboard 1.2.4. A new Economy page, a balance card on member pages and small
+fixes. Released alongside bot version 3.7.1. No new environment variables or
+OAuth scopes.
+
+### Added
+- **Economy page** (Community → Economy), for people with Manage Server:
+  - A switch to turn the economy on or off (off by default; turning it off
+    keeps balances and the shop).
+  - Settings: currency name and emoji, daily amount, streak bonus and
+    cooldown, work range and cooldown, and the amount at which `/pay` asks for
+    confirmation. Invalid values are explained next to the field and nothing
+    is saved until they are fixed.
+  - Shop editor: add, edit and remove items with price, description, stock
+    and an optional role. The role picker only lists roles below Aegis's
+    highest role and below yours.
+  - Leaderboard, 25 members per page, linking to each member's page.
+  - Recent transactions: claims, payments, purchases and staff changes, with
+    who did it and why.
+  - Adjust a member's balance (give, take or reset to 0). Every change is
+    recorded in the transactions, the Activity page and the mod log.
+- **Economy card on member pages** with the member's balance and daily streak
+  while the economy is on (or while they still hold coins).
+
+### Changed
+- Activity entries for economy changes read as sentences ("Changed economy
+  settings", "Gave a member coins").
+
+### Security
+- Every Economy form needs a valid CSRF token and Manage Server, and balance
+  adjustments have their own rate limit (10 a minute) on top of the usual
+  form limit. A shop role at or above Aegis's or your highest role, or
+  @everyone, is refused even if it is sent by hand.
+
 ## [1.2.3] - 2026-11-02
 
 Dashboard 1.2.3. A redesigned, module-based dashboard with a sidebar, new

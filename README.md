@@ -13,7 +13,7 @@ dashboard.
 | Command reference | https://aegisdeno.fly.dev/commands |
 | Web dashboard | https://aegisdeno.fly.dev/dashboard |
 | Status | https://aegisdeno.fly.dev/status |
-| Current version | bot 3.7.0, dashboard 1.2.3 |
+| Current version | bot 3.7.1, dashboard 1.2.4 |
 
 Despite the repository name, Aegis is a **Node.js** app (TypeScript,
 discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
@@ -73,6 +73,15 @@ posted to a staff channel leave out text from private channels.
 **Mod reports.** `/modreport` shows the last 24 hours or 7 days in four views:
 overview, top offenders, moderator activity and automod hits. `/modstats` and
 `/activitysummary` give simpler counts.
+
+**Economy (opt-in).** Off until a server manager runs `/economy toggle`.
+Members earn coins with `/daily` (streak bonus) and `/work`, send them with
+`/pay`, and spend them in a `/shop` that can sell roles; `/balance`,
+`/inventory` and a `/leaderboard` that never pings round it out. Staff tune it
+with `/economy config`, adjust balances with `/economy give|take|reset`
+(posted to the mod log) and manage everything on the dashboard's Economy page.
+Cooldowns are stored in MongoDB and every balance change is a single atomic
+update, so coins can't be spent twice.
 
 **Everything else.** Logging to a channel (`/logging`), tickets with claim,
 inactivity auto-close and HTML transcripts (`/ticket`), button or math-captcha

@@ -5,8 +5,8 @@ import { type SiteConfig, breadcrumb, escapeHtml, page, safeUrl } from "./shared
 /* ── Legal ─────────────────────────────────────────────────────────── */
 
 /** Shown on /terms and /privacy. Change both pages together. */
-export const LEGAL_LAST_UPDATED = "October 30, 2026";
-const LEGAL_LAST_UPDATED_ISO = "2026-10-30";
+export const LEGAL_LAST_UPDATED = "November 2, 2026";
+const LEGAL_LAST_UPDATED_ISO = "2026-11-02";
 
 /** How to reach the maintainer, built only from what is actually configured. */
 function contactLine(cfg: SiteConfig, topic: string): string {
@@ -235,6 +235,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
           ${row("Watchlist entries", "Watched member's ID, moderator's ID, reason, chosen events, alert count and optional alert channel.", "Until staff remove the entry or its set expiry passes.")}
           ${row("Member activity", "Per member and server: a message count and the time of their last message. No message content.", "No automatic expiry.")}
           ${row("Community features", "Suggestions (author ID, text, voter IDs, staff review); giveaways (host, entrant and winner IDs); polls (creator, question, and each voter's choice by user ID, including for anonymous polls, where votes are hidden from members but still stored to count them); starboard entries.", "No automatic expiry.")}
+          ${row("Economy (only if a server turns it on)", "Per member and server: coin balance, daily streak and the times of their last /daily and /work; shop items (name, price, role, stock); what each member bought; and a transaction log (type, amount, the other member for payments, and the staff member and reason for adjustments).", "Transactions: 90 days. Balances, items and inventories: until staff reset or remove them.")}
           ${row("Reminders and scheduled posts", "Creator's user ID, channel, message text and timing.", "Until they run, or until cancelled if they repeat.")}
           ${row("Dashboard sessions", "Your Discord user ID, username, display name, the Discord access token for this login, and your server list with your permissions in each. Only a hash of the session ID is stored.", "7 days after login, or when you log out.")}
           ${row("Dashboard activity", "Server ID, your user ID and username, what you changed, and when. Shown on the server's Activity page.", "Deleted automatically after 180 days.")}

@@ -404,7 +404,8 @@ Run the following commands inside the server using the bot to configure its nati
 4. **Tickets, welcome, suggestions and starboard** (7.5–7.8).
 5. **Automod and escalation** (7.9–7.10).
 6. **Staff tools:** ModMail, staff digest, Incident Mode, Trust Score and Ghost Watch (7.11).
-7. **Test everything** with the checklist in §10.
+7. **Optional:** the playground economy (7.12).
+8. **Test everything** with the checklist in §10.
 
 ### 7.2 General & Audit Logging Setup
 
@@ -548,6 +549,22 @@ Links, mention floods, message floods and caps are filtered everywhere except th
 - **Incident Mode:** `/incident auto` starts it when 10 accounts join within 30 seconds. Start it by hand during a raid with `/incident start` (defaults: 1 hour, gates accounts younger than 7 days) and end it early with `/incident end`, which puts back every slowmode, lock and invite it changed. Each step is logged to `#mod-logs`.
 - **Trust Score:** `/trust user` shows a member's 0–100 score and why. With `incident_gate:true`, Incident Mode's join gate also catches low-trust joins. The link-filter and low-trust-role integrations stay off unless you turn them on.
 - **Ghost Watch:** `/watchlist add user:@member reason:Suspected alt account alert_channel:#watchlist-alerts`, then `/watchlist list` to review.
+
+### 7.12 Economy (Optional, for the Playground)
+
+The economy is off by default. Turn it on here so visitors can try it in `#bot-playground-1`; it is a demo, so keep rewards modest and never sell staff or ping roles.
+
+```bash
+/economy toggle enabled:true
+/economy config currency_name:credits currency_emoji:🪙 daily_amount:100 work_min:20 work_max:80
+/shop add name:Playground Badge price:2500 description:Bragging rights for active testers stock:100
+/shop view
+/leaderboard
+```
+
+- Members use `/daily`, `/work`, `/pay`, `/balance`, `/shop buy` and `/inventory`. The leaderboard never pings.
+- `/economy give`, `/economy take` and `/economy reset` are posted to `#mod-logs`. Use them for event prizes, not to settle disputes.
+- The badge is an inventory item with no role. If you ever sell a role, keep it cosmetic and below `Aegis Bot` and your own role; Aegis refuses anything higher.
 
 ---
 

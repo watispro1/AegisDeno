@@ -1,4 +1,6 @@
 import { trustCard } from "./trust";
+import { economyCard } from "./economy";
+import type { EconomyConfig } from "../../../services/economyLogic";
 import type { TrustConfig, TrustResult } from "../../../services/trustEngine";
 /** Member lookup (/:guildId/members[/:userId]) and global search (/:guildId/search). */
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
@@ -47,7 +49,7 @@ export function renderMemberSearch(cfg: SiteConfig, ctx: GuildContext, o: { q: s
   });
 }
 
-export function renderMember(cfg: SiteConfig, ctx: GuildContext, o: { member: MemberProfile; records: MemberRecords; noticeCode: string | null; errors?: Record<string, string>; values?: Record<string, string>; trust?: { result: TrustResult | null; config: TrustConfig } }): string {
+export function renderMember(cfg: SiteConfig, ctx: GuildContext, o: { member: MemberProfile; records: MemberRecords; noticeCode: string | null; errors?: Record<string, string>; values?: Record<string, string>; trust?: { result: TrustResult | null; config: TrustConfig }; economy?: { config: EconomyConfig; balance: number; streak: number } }): string {
   const m = o.member;
   const base = `/dashboard/${esc(ctx.guild.id)}/members/${esc(m.id)}`;
   const now = Date.now();
@@ -91,6 +93,7 @@ export function renderMember(cfg: SiteConfig, ctx: GuildContext, o: { member: Me
   </div>
   <section class="panel-card" aria-labelledby="act-h"><h2 id="act-h">Quick actions</h2>${quick}</section>
   ${o.trust ? trustCard(ctx.guild.id, o.trust.result, o.trust.config) : ""}
+  ${o.economy && !o.member.bot ? economyCard(ctx.guild.id, o.economy.config, o.economy.balance, o.economy.streak) : ""}
   <section class="panel-card"><h2>Cases</h2>${caseRows(ctx, o.records.cases)}</section>
   <section class="panel-card"><h2>Warnings</h2>${caseRows(ctx, o.records.warnings)}</section>
   <section class="panel-card"><h2>Staff notes</h2>${o.records.notes.length ? `<ul class="note-list">${o.records.notes.map(n => `<li><p>${esc(n.note)}</p><p class="faint">${person(ctx, n.moderatorId)} · ${relTime(n.createdAt)}${n.id ? ` ${copyId(String(n.id), "Copy note ID")}` : ""}</p></li>`).join("")}</ul>` : `<p class="muted">No notes. Add one with <code class="inline">/note add</code>.</p>`}</section>`,

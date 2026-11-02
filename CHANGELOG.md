@@ -9,6 +9,89 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.7.1] - 2026-11-02
+
+The economy release. Servers can turn on a simple, per-server economy with
+daily rewards, work, payments, a shop that can sell roles and a leaderboard,
+managed from slash commands or the new dashboard Economy page. It also adds a
+clear starting point for people new to Aegis (from the top.gg review) and a
+round of improvements and fixes. Includes dashboard 1.2.4 (see
+`DASHBOARD_CHANGELOG.md`).
+
+Upgrade notes: eight new slash commands (`/balance`, `/daily`, `/work`,
+`/pay`, `/leaderboard`, `/shop`, `/inventory`, `/economy`), so commands are
+re-registered on deploy. The economy is off in every server until a server
+manager turns it on. No new environment variables or permissions are
+required; selling roles uses Manage Roles when Aegis has it.
+
+### Added
+- **Economy (opt-in, per server).** Off by default; a server manager turns it
+  on with `/economy toggle` or on the dashboard.
+  - `/balance [user]` shows coins, and for yourself when `/daily` and `/work`
+    are next ready.
+  - `/daily` pays once every 24 hours (configurable) with a streak bonus for
+    up to 7 days in a row; `/work` pays a random amount once an hour. Both
+    say exactly when you can try again ("in 3 hours"), and cooldowns are kept
+    in the database, so a restart never resets them.
+  - `/pay user amount` sends coins to another member. It refuses yourself,
+    bots and people who aren't in the server, and asks you to confirm large
+    amounts (1,000 or more by default). Only the recipient is pinged.
+  - `/leaderboard` lists the richest members ten per page with Prev and Next
+    buttons, and never pings anyone.
+  - `/shop view`, `/shop buy item` (the item list suggests names, prices and
+    stock as you type) and `/inventory [user]`. Items can have limited stock
+    and can hand out a role.
+  - Staff (Manage Server): `/economy config` sets the currency name and
+    emoji, daily and work amounts, cooldowns and the pay confirmation amount;
+    `/economy give|take|reset` adjust a member's balance and are posted to the
+    mod log with who did it and why; `/shop add|remove|edit` manage the shop.
+  - Balances are whole coins, never negative and capped at one trillion.
+    Transactions are kept for 90 days.
+- **A clear starting point for new users.** Mentioning Aegis on its own
+  (`@Aegis`, or `@Aegis help`) now answers with a short help card: "I use
+  slash commands. Start with /help", the main areas with example commands,
+  and Commands, Dashboard, Support server and Invite buttons. The card never
+  pings, answers each channel at most once every 10 seconds, stays silent
+  where Aegis can't send embeds, and runs after automod and before
+  autoresponders.
+  - Typing exactly `a!help`, `!help` or `aegis help` (any case) shows the
+    same card. This is not a prefix-command system; nothing else is read.
+  - In DMs, `help`, `/help`, `!help`, `hi` or `hello` get the help card with
+    a note on how to reach a server's staff through ModMail, instead of
+    opening a ticket. A greeting sent during an open ModMail conversation is
+    still passed to the staff. Someone whose first DM finds no ModMail server
+    in common also gets the card.
+  - When Aegis is added to a server it posts one short welcome ("Thanks for
+    adding Aegis! Run /help to get started", with a Dashboard button) in the
+    system channel, or the highest text channel it can post in. It never
+    pings, skips silently without permission, and is not repeated if the
+    server re-adds Aegis within 30 days. Set `JOIN_WELCOME=off` to turn it
+    off.
+  - `/help` has a "New here?" line pointing at `/dashboard` and
+    `/diagnostics` when the member can run them.
+- `/help`, the commands page, the features page and the docs have an Economy
+  section.
+
+### Changed
+- The privacy policy lists what the economy stores and for how long.
+
+### Fixed
+- `/help` in a DM with Aegis answered "I couldn't verify my permissions in
+  this server" instead of the help menu. Bot permissions are now only checked
+  in servers, and `/help` is registered explicitly for servers and DMs.
+- A `/help` category page with very many commands is cut at Discord's embed
+  limit instead of failing to load.
+
+### Security
+- Every balance change is one atomic database update with its guard in the
+  query (enough coins, under the cap, cooldown not already claimed), so two
+  commands at once can't spend the same coins twice, overdraw a balance or
+  claim `/daily` twice.
+- Shop roles must be below Aegis's highest role and below the staff member's
+  own (the server owner is exempt), never @everyone or an integration role.
+  Aegis checks again at the moment of purchase and refunds the buyer if the
+  role can't be given.
+
 ## [3.7.0] - 2026-11-02
 
 The safety and staff-tools release. It adds ModMail (members DM Aegis to reach
@@ -120,28 +203,6 @@ existing options keep their names.
   plus channel conventions, a setup order using real commands and a
   pre-launch checklist. A test checks every command it documents against the
   live command definitions.
-- **A clear starting point for new users.** Mentioning Aegis on its own
-  (`@Aegis`, or `@Aegis help`) now answers with a short help card: "I use
-  slash commands. Start with /help", the main areas with example commands,
-  and Commands, Dashboard, Support server and Invite buttons. The card never
-  pings, answers each channel at most once every 10 seconds, stays silent
-  where Aegis can't send embeds, and runs after automod and before
-  autoresponders.
-  - Typing exactly `a!help`, `!help` or `aegis help` (any case) shows the
-    same card. This is not a prefix-command system; nothing else is read.
-  - In DMs, `help`, `/help`, `!help`, `hi` or `hello` get the help card with
-    a note on how to reach a server's staff through ModMail, instead of
-    opening a ticket. A greeting sent during an open ModMail conversation is
-    still passed to the staff. Someone whose first DM finds no ModMail server
-    in common also gets the card.
-  - When Aegis is added to a server it posts one short welcome ("Thanks for
-    adding Aegis! Run /help to get started", with a Dashboard button) in the
-    system channel, or the highest text channel it can post in. It never
-    pings, skips silently without permission, and is not repeated if the
-    server re-adds Aegis within 30 days. Set `JOIN_WELCOME=off` to turn it
-    off.
-  - `/help` has a "New here?" line pointing at `/dashboard` and
-    `/diagnostics` when the member can run them.
 
 ### Changed
 - `/trust user` is the main Trust Score command. `/trustscore` still works
@@ -202,11 +263,6 @@ existing options keep their names.
 - `server.md` no longer documents removed command forms (`/logging setup`,
   `/automod exempt role`, the old `/starboard` and `/welcome message` syntax)
   and uses the option labels Discord shows.
-- `/help` in a DM with Aegis answered "I couldn't verify my permissions in
-  this server" instead of the help menu. Bot permissions are now only checked
-  in servers, and `/help` is registered explicitly for servers and DMs.
-- A `/help` category page with very many commands is cut at Discord's embed
-  limit instead of failing to load.
 
 ### Security
 - ModMail and the digest never ping anyone (the only exception is the

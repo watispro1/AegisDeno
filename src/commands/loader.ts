@@ -17,6 +17,7 @@ export const COMMAND_CATEGORIES = [
   "verification",
   "autoresponder",
   "roles",
+  "economy",
   "developer",
 ] as const;
 

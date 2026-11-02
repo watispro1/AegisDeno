@@ -97,6 +97,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { id: "welcome", icon: "people", title: "Welcome and goodbye", text: "Messages with embeds, placeholders and a join role that waits for membership screening.", commands: ["welcome channel", "welcome message", "welcome preview"], dashboard: "Welcome & Goodbye" },
       { id: "roles", icon: "role", title: "Role panels", text: "Self-assign roles with buttons or menus, limited to roles below yours and Aegis's.", commands: ["rolepanel create"], dashboard: "Role panels" },
       { id: "engage", icon: "star", title: "Polls, giveaways, starboard, suggestions", text: "Polls, giveaways with rerolls, a starboard for great posts, and a suggestion queue staff can approve or deny.", commands: ["poll", "giveaway start", "starboard setup", "suggest submit"], dashboard: "Giveaways" },
+      { id: "economy", icon: "star", title: "Economy (opt-in)", text: "Per-server coins with /daily streaks, /work, /pay, a leaderboard that never pings, and a shop that can sell roles below Aegis's and yours. Off until you turn it on.", commands: ["economy toggle", "daily", "work", "pay", "shop buy", "leaderboard"], dashboard: "Economy" },
       { id: "automation", icon: "clock", title: "Reminders and scheduled messages", text: "Personal reminders, repeating announcements and autoresponders.", commands: ["remindme set", "automation message", "autoresponder add", "announce", "embed builder"], dashboard: "Scheduled messages" },
     ],
   },

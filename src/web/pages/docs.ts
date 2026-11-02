@@ -222,6 +222,21 @@ export function renderDocs(cfg: SiteConfig): string {
 /autoresponder remove id:ar-…`)}
       <p>Aegis replies in the channel when a member's message contains, starts with or exactly matches the trigger, ignoring case. Bots are ignored. Adding and removing needs Manage Server; the <code>id</code> option on remove suggests your triggers as you type, and a trigger that already exists with the same match type is refused. Triggers can be up to 100 characters and responses up to 2,000. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{tag}</code>, <code>{user_id}</code>, <code>{server}</code>, <code>{server_id}</code>, <code>{channel}</code>, <code>{channel_id}</code>, <code>{member_count}</code>.</p>
 
+      ${docHeading("economy", "Economy", 3)}
+      ${cmdBlock(`/economy toggle enabled:true
+/economy config currency_name:gems currency_emoji:💎 daily_amount:150
+/balance
+/daily
+/work
+/pay user:@Member amount:250
+/leaderboard
+/shop add name:VIP price:5000 role:@VIP stock:10
+/shop view
+/shop buy item:(pick from the list)
+/inventory
+/economy give user:@Member amount:500 reason:Event winner`)}
+      <p>The economy is per server and <strong>off until a server manager turns it on</strong> with <code>/economy toggle</code> or on the dashboard's Economy page. <code>/daily</code> pays once per cooldown (24 hours by default) with a streak bonus for up to 7 days in a row; <code>/work</code> pays a random amount once an hour. Cooldowns are stored in the database, so a restart never resets them, and Aegis shows when you can try again. <code>/pay</code> refuses yourself and bots, and asks you to confirm large amounts. Balances are whole coins, never negative, and capped at one trillion; every change is a single atomic database update, so two commands at once cannot spend the same coins twice. Shop items can hand out a role: the role must be below Aegis's highest role and below your own (the server owner is exempt), and Aegis checks again at the moment of purchase, refunding the buyer if the role can't be given. <code>/economy give</code>, <code>take</code> and <code>reset</code> are posted to the mod log. The leaderboard never pings anyone. Transactions are kept for 90 days.</p>
+
       ${docHeading("automation", "Reminders and schedules")}
       ${cmdBlock(`/remindme set reminder:Review appeals duration:2h
 /remindme set reminder:Stand-up notes duration:1d repeat:Daily
@@ -282,7 +297,7 @@ npm run dev             # or: npm run build && npm start`)}
       <p>The web dashboard stays off until <code>DISCORD_CLIENT_SECRET</code> and <code>DASHBOARD_SESSION_SECRET</code> are both set; <code>DASHBOARD_REDIRECT_URI</code> must match a redirect added under OAuth2 in the Developer Portal. <code>fly.toml</code> and <code>DEPLOYMENT.md</code> in the repository cover deploying to Fly.io, and <a href="${REPO_URL}/blob/main/CONTRIBUTING.md" rel="noopener noreferrer">CONTRIBUTING.md</a> covers the tests and the pull request rules.</p>
 
       ${docHeading("data", "Data and storage")}
-      <p>Settings, cases, warnings, tickets, appeals and the other records Aegis needs are stored in MongoDB, keyed by server ID. Warnings, cases and staff notes are deleted automatically after one year, and the dashboard's Activity log after 180 days. Log entries and ticket transcripts are posted to your channels rather than kept in the database. Removing Aegis does not delete a server's records on its own. The <a href="/privacy#stored">privacy policy</a> lists every kind of record and how long it is kept.</p>
+      <p>Settings, cases, warnings, tickets, appeals and the other records Aegis needs are stored in MongoDB, keyed by server ID. Warnings, cases and staff notes are deleted automatically after one year, and the dashboard's Activity log after 180 days. Economy transactions are deleted after 90 days; balances, shop items and inventories stay until staff reset or remove them. Log entries and ticket transcripts are posted to your channels rather than kept in the database. Removing Aegis does not delete a server's records on its own. The <a href="/privacy#stored">privacy policy</a> lists every kind of record and how long it is kept.</p>
 
       ${docHeading("faq", "FAQ")}
       ${faqBlock(faqs)}

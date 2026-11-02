@@ -70,6 +70,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   verification: "🛡️",
   autoresponder: "🤖",
   roles: "🎭",
+  economy: "💰",
   developer: "🔧",
 };
 
@@ -94,6 +95,7 @@ const CATEGORY_DOC_ANCHORS: Record<string, string> = {
   verification: DOC_ANCHORS.verification,
   autoresponder: DOC_ANCHORS.autoresponder,
   roles: DOC_ANCHORS.rolePanels,
+  economy: DOC_ANCHORS.economy,
   developer: DOC_ANCHORS.configuration,
 };
 

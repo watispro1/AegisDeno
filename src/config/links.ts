@@ -110,6 +110,7 @@ export const DOC_ANCHORS = {
   community: "community",
   welcome: "welcome",
   rolePanels: "role-panels",
+  economy: "economy",
   autoresponder: "autoresponder",
   automation: "automation",
   starboard: "starboard",

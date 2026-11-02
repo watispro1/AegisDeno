@@ -1,5 +1,7 @@
 import { liveDigestDashboard } from "./digestData";
 import { mongoModmailDashboard } from "./modmailData";
+import { economyWith } from "../../services/economyService";
+import { dashboardAdjustLogger } from "../../services/economyDiscord";
 import { mongoTrustDashboard } from "./trustData";
 /**
  * Production DashboardExtras: Discord through the live client, records through
@@ -181,6 +183,8 @@ export function mongoDashboardExtras(client: Client): DashboardExtras {
 
     trust: mongoTrustDashboard(client),
     modmail: mongoModmailDashboard(),
+    // Same Mongo store as the slash commands; adjustments made here are also posted to the mod log.
+    economy: economyWith({ onAdjust: dashboardAdjustLogger(client) }),
     digest: liveDigestDashboard(client),
 
     async saveIncidentConfig(guildId, config) { await updateGuildConfig(guildId, { incident: config }); },
