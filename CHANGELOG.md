@@ -88,6 +88,23 @@ required; selling roles uses Manage Roles when Aegis has it.
   transcripts and auto-close; settings). No behaviour change.
 
 ### Fixed
+- **`/lock` asked for the wrong permission (top.gg review).** It declared
+  that Aegis needs Manage Channels, but a lock only changes @everyone's Send
+  Messages override, which Discord gates on **Manage Roles** (called *Manage
+  Permissions* in a channel's settings). `/lock channel`, `/lock category`,
+  `/lock unlock`, `/lock server`, `/lock status`, the timed auto-unlock, the
+  Undo button and Incident Mode's lockdown now need Manage Roles, plus View
+  Channel and Send Messages in each channel (Discord only lets a bot deny a
+  permission it holds itself), and never Manage Channels. The code only edits
+  permission overwrites; nothing renames or otherwise edits the channel.
+  - Aegis checks those three permissions in the target channel before it
+    posts anything and explains what to fix, privately. A refused edit says
+    whether it was Missing Permissions or Missing Access instead of "Check my
+    permissions". `/lock category` and `/lock server` skip channels where
+    Aegis lacks them and say how many.
+  - Members running `/lock` still need **Manage Channels** (unchanged): it is
+    the usual channel-moderation permission and, unlike Manage Roles, doesn't
+    also let a moderator hand out roles.
 - The Security button on `/serverinfo` showed Discord's raw numbers (for
   example "Verification Level: 2") instead of names; it now reads like the
   main card. The Roles button no longer runs past Discord's message limit on

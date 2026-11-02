@@ -79,7 +79,7 @@ const PERMISSION_WHY: Record<string, string> = {
   "Kick Members": "Removing a member without a ban.",
   "Moderate Members": "Applying and lifting timeouts; most staff-only views.",
   "Manage Messages": "Bulk deletes, automod deletes and panel messages.",
-  "Manage Channels": "Ticket channels, channel locks and slowmode.",
+  "Manage Channels": "Running /lock and /slowmode, and setting up ticket panels.",
   "Manage Roles": "Verification roles and role panels.",
   "Manage Server": "Server-wide settings and automod rules.",
   "Manage Nicknames": "Changing member nicknames.",

@@ -89,7 +89,7 @@ export function renderDocs(cfg: SiteConfig): string {
 /escalation expiry days:30
 /escalation toggle enabled:true`)}
       ${docHeading("channel-tools", "Purge, lock and slowmode", 3)}
-      <p><code>/purge</code> can combine a filter with <code>user</code> and <code>keyword</code>, leaves pinned messages alone, and reports how many were deleted and how many were skipped for being older than 14 days. <code>/lock server</code> and <code>/lock category</code> skip channels Aegis cannot see.</p>
+      <p><code>/purge</code> can combine a filter with <code>user</code> and <code>keyword</code>, leaves pinned messages alone, and reports how many were deleted and how many were skipped for being older than 14 days. <code>/lock server</code> and <code>/lock category</code> skip channels Aegis cannot see. A lock only changes @everyone&rsquo;s <strong>Send Messages</strong> override, so Aegis needs <strong>Manage Roles</strong> (called <em>Manage Permissions</em> in a channel&rsquo;s settings) plus View Channel and Send Messages there, not Manage Channels; <code>/slowmode</code> edits the channel itself and needs <strong>Manage Channels</strong>. Members running <code>/lock</code> need Manage Channels.</p>
       ${cmdBlock(`/purge amount:50 filter:Bot messages only
 /purge amount:200 filter:Messages with links user:@member
 /lock channel channel:#general duration_minutes:15 message:Back in 15 minutes
