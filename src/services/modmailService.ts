@@ -18,6 +18,8 @@ import {
 import { isObfuscatedChannel } from "../utils/channels";
 import { TtlCache } from "../utils/ttlCache";
 import { siteUrl } from "../config/links";
+import { firstDmFrom, sendDmHelp } from "./entryPoint";
+import { shouldDmHelp } from "./entryPointLogic";
 import { logger } from "../utils/logger";
 
 /** 5 DMs per 10 s per member, and 3 new tickets per hour. */
@@ -155,10 +157,17 @@ export async function handleModmailDM(client: Client, message: Message): Promise
 
   const open = (await ModmailThreadModel.find({ userId: user.id, status: "open" }).select("-lines").lean()) as TicketDoc[];
   const openHere = open.filter(t => client.guilds.cache.has(t.guildId));
+  // "help", "/help", "hi"… get the help card instead of opening a ticket (a greeting mid-conversation is relayed).
+  if (shouldDmHelp({ content, hasAttachments: attachments.length > 0, hasOpenTicket: openHere.length > 0 })) {
+    await sendDmHelp(message, { hasOpenTicket: openHere.length > 0 });
+    return;
+  }
   const route = routeDm(openHere.map(t => t.guildId), openHere.length ? [] : await eligibleGuilds(client, user));
 
   if (route.kind === "none") {
-    await message.reply({ content: "Hi! I couldn't find a server we share that takes ModMail. To reach a server's staff, ask them to turn on ModMail.", allowedMentions: RELAY_MENTIONS }).catch(() => null);
+    // First DM from someone with no ModMail server in common: show what Aegis is and where to start.
+    if (firstDmFrom(user.id)) { await sendDmHelp(message); return; }
+    await message.reply({ content: "Hi! I couldn't find a server we share that takes ModMail. To reach a server's staff, ask them to turn on ModMail. Run `/help` to see what I can do.", allowedMentions: RELAY_MENTIONS }).catch(() => null);
     return;
   }
   if (route.kind === "relay") {

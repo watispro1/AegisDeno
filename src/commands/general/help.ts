@@ -13,6 +13,7 @@ import {
   MessageFlags,
   PermissionsBitField,
   type AutocompleteInteraction,
+  InteractionContextType,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { footer } from "../../utils/embedStyle";
@@ -137,13 +138,23 @@ function truncate(value: string, limit = 1_000): string {
   return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 }
 
+/** Where a first-time user should go next, naming only commands they can run here. */
+export function newHereLine(inGuild: boolean, visibleNames: ReadonlySet<string>): string {
+  if (!inGuild) return "Add me to a server with **Add Aegis**, then run `/help` there. In a server, `/dashboard` shows an overview.";
+  const starters = ["setup", "dashboard", "diagnostics"].filter(n => visibleNames.has(n)).map(n => `\`/${n}\``);
+  const lead = starters.length ? `Try ${starters.join(" or ")}` : "Ask a server admin to set me up";
+  return `${lead}, or open the web dashboard with the button below. @mention me any time for a quick start.`;
+}
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("help")
     .setDescription("Browse the commands you can use, or search for one.")
     .addStringOption(opt =>
       opt.setName("command").setDescription("Search commands by name, description or subcommand (e.g. warn, transcript)").setAutocomplete(true).setRequired(false)
-    ),
+    )
+    // Usable in servers and in DMs with Aegis, by anyone (no default member permissions).
+    .setContexts(InteractionContextType.Guild, InteractionContextType.BotDM),
 
   botPermissions: [PermissionFlagsBits.EmbedLinks],
 
@@ -246,7 +257,10 @@ export const command: Command = {
             `Select a category from the dropdown below to view specific commands.\n\n` +
             `💡 *Tip: Type \`/help command:name\` (e.g. \`/help command:warn\`) for detailed options & permission rules.*`
           )
-          .addFields({ name: "📊 Your Commands", value: `**${allCmds.length}** of ${commands.size} commands are available to you, across ${categories.length} categories`, inline: false })
+          .addFields(
+            { name: "📊 Your Commands", value: `**${allCmds.length}** of ${commands.size} commands are available to you, across ${categories.length} categories`, inline: false },
+            { name: "🚀 New here?", value: newHereLine(interaction.inGuild(), visibleNames), inline: false },
+          )
           .setFooter(footer("Pick a category below · /help command:<name> for details"))
           .setTimestamp();
       }
@@ -259,13 +273,13 @@ export const command: Command = {
         .setTitle(`${label} Commands (${cmds.length})`)
         .setDescription(
           cmds.length
-            ? cmds
+            ? truncate(cmds
                 .map((c) => {
                   const access = accessLabel(c);
                   return `**/${c.data.name}** — ${c.data.description}${access ? `\n> 🔒 ${access}` : ""}`;
                 })
-                .join("\n")
-            : "No commands found in this category.",
+                .join("\n"), 4_000)
+            : "No commands you can use in this category.",
         )
         .setFooter(footer("Pick a category below · /help command:<name> for details"))
         .setTimestamp();

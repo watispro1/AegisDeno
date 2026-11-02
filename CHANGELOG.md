@@ -120,6 +120,28 @@ existing options keep their names.
   plus channel conventions, a setup order using real commands and a
   pre-launch checklist. A test checks every command it documents against the
   live command definitions.
+- **A clear starting point for new users.** Mentioning Aegis on its own
+  (`@Aegis`, or `@Aegis help`) now answers with a short help card: "I use
+  slash commands. Start with /help", the main areas with example commands,
+  and Commands, Dashboard, Support server and Invite buttons. The card never
+  pings, answers each channel at most once every 10 seconds, stays silent
+  where Aegis can't send embeds, and runs after automod and before
+  autoresponders.
+  - Typing exactly `a!help`, `!help` or `aegis help` (any case) shows the
+    same card. This is not a prefix-command system; nothing else is read.
+  - In DMs, `help`, `/help`, `!help`, `hi` or `hello` get the help card with
+    a note on how to reach a server's staff through ModMail, instead of
+    opening a ticket. A greeting sent during an open ModMail conversation is
+    still passed to the staff. Someone whose first DM finds no ModMail server
+    in common also gets the card.
+  - When Aegis is added to a server it posts one short welcome ("Thanks for
+    adding Aegis! Run /help to get started", with a Dashboard button) in the
+    system channel, or the highest text channel it can post in. It never
+    pings, skips silently without permission, and is not repeated if the
+    server re-adds Aegis within 30 days. Set `JOIN_WELCOME=off` to turn it
+    off.
+  - `/help` has a "New here?" line pointing at `/dashboard` and
+    `/diagnostics` when the member can run them.
 
 ### Changed
 - `/trust user` is the main Trust Score command. `/trustscore` still works
@@ -180,6 +202,11 @@ existing options keep their names.
 - `server.md` no longer documents removed command forms (`/logging setup`,
   `/automod exempt role`, the old `/starboard` and `/welcome message` syntax)
   and uses the option labels Discord shows.
+- `/help` in a DM with Aegis answered "I couldn't verify my permissions in
+  this server" instead of the help menu. Bot permissions are now only checked
+  in servers, and `/help` is registered explicitly for servers and DMs.
+- A `/help` category page with very many commands is cut at Discord's embed
+  limit instead of failing to load.
 
 ### Security
 - ModMail and the digest never ping anyone (the only exception is the
