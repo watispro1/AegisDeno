@@ -1,6 +1,6 @@
 /**
  * Dashboard QoL script (appended to /assets/dashboard.js): copy-ID buttons,
- * the "?" shortcuts dialog, "/" to focus a table filter, and Ctrl/⌘+S to save
+ * relative times kept current (<time data-rel>, rendered by views/layout relTime), the "?" shortcuts dialog, "/" to focus a table filter, and Ctrl/⌘+S to save
  * the changed form. Plain ES5, data attributes only, nothing inline (CSP).
  */
 export const dashboardQolScript = String.raw`
@@ -16,6 +16,28 @@ export const dashboardQolScript = String.raw`
     var done = function () { var old = btn.textContent; btn.textContent = '✓'; btn.setAttribute('aria-label', 'Copied'); setTimeout(function () { btn.textContent = old; }, 1200); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () {});
   });
+
+  /* Relative times: same wording as relTime() on the server, refreshed each minute. */
+  var REL_UNITS = [[31536000000, 'year'], [2592000000, 'month'], [604800000, 'week'], [86400000, 'day'], [3600000, 'hour'], [60000, 'minute']];
+  function relText(ms, now) {
+    var diff = now - ms, abs = Math.abs(diff);
+    for (var i = 0; i < REL_UNITS.length; i++) {
+      if (abs >= REL_UNITS[i][0]) {
+        var n = Math.floor(abs / REL_UNITS[i][0]), unit = REL_UNITS[i][1] + (n === 1 ? '' : 's');
+        return diff >= 0 ? n + ' ' + unit + ' ago' : 'in ' + n + ' ' + unit;
+      }
+    }
+    return 'just now';
+  }
+  function refreshRel() {
+    var now = Date.now(), els = doc.querySelectorAll('time[data-rel][datetime]');
+    for (var i = 0; i < els.length; i++) {
+      var ms = Date.parse(els[i].getAttribute('datetime') || '');
+      if (!isNaN(ms)) els[i].textContent = relText(ms, now);
+    }
+  }
+  refreshRel();
+  setInterval(refreshRel, 60000);
 
   var dlg = doc.querySelector('[data-shortcuts]');
   function openShortcuts() { if (dlg && dlg.showModal && !dlg.open) dlg.showModal(); }

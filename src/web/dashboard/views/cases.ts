@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord } from "../data";
 import { CASE_REASON_MAX, CASE_TYPES, CASE_QUERY_MAX, type CaseFilter, CASE_PAGE_SIZES } from "../validation";
-import { type GuildContext, csrfField, fmtDate, head, notice, person, shell } from "./layout";
+import { type GuildContext, csrfField, head, idCode, notice, person, personId, relTime, shell } from "./layout";
 import { caseTable } from "./overview";
 
 /* ── Cases ─────────────────────────────────────────────────────────── */
@@ -81,7 +81,7 @@ export function renderCase(
     : "";
 
   const revoke = record.revoked
-    ? `<p class="muted">Revoked${record.revokedBy ? ` by ${person(ctx, record.revokedBy)}` : ""}${record.revokedAt ? `, ${esc(fmtDate(record.revokedAt))}` : ""}.</p>`
+    ? `<p class="muted">Revoked${record.revokedBy ? ` by ${person(ctx, record.revokedBy)}` : ""}${record.revokedAt ? `, ${relTime(record.revokedAt)}` : ""}.</p>`
     : `<form class="dash-action" method="post" action="${action}/revoke" data-confirm="Revoke this ${kind.toLowerCase()}? It stays in the record but stops counting.">
       ${csrfField(ctx.viewer)}
       <p class="muted">Revoking keeps the record but stops it counting toward totals, escalation and the trust score.${
@@ -103,11 +103,11 @@ export function renderCase(
     body: `${head(`${kind}: ${record.action}`, "", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Cases", `/dashboard/${g.id}/cases`], [record.id, null]])}
   ${notice(o.noticeCode)}
   <dl class="detail-list">
-    <dt>ID</dt><dd><code class="inline">${esc(record.id)}</code></dd>
+    <dt>ID</dt><dd>${idCode(record.id, "Copy case ID")}</dd>
     <dt>Action</dt><dd>${esc(record.action)}${record.revoked ? ' <span class="tag warn">revoked</span>' : ""}</dd>
-    <dt>Member</dt><dd>${person(ctx, record.userId)} <a class="text-link" href="/dashboard/${esc(g.id)}/cases?user=${esc(record.userId)}">Their history</a></dd>
-    <dt>Moderator</dt><dd>${person(ctx, record.moderatorId)}</dd>
-    <dt>When</dt><dd>${esc(fmtDate(record.createdAt))}</dd>
+    <dt>Member</dt><dd>${personId(ctx, record.userId)} <a class="text-link" href="/dashboard/${esc(g.id)}/cases?user=${esc(record.userId)}">Their history</a></dd>
+    <dt>Moderator</dt><dd>${personId(ctx, record.moderatorId)}</dd>
+    <dt>When</dt><dd>${relTime(record.createdAt)}</dd>
     <dt>Reason</dt><dd>${esc(record.reason)}</dd>
     ${record.details ? `<dt>Details</dt><dd>${esc(record.details)}</dd>` : ""}
     ${record.proofUrl && /^https:\/\//i.test(record.proofUrl) ? `<dt>Proof</dt><dd><a href="${esc(record.proofUrl)}" rel="noopener noreferrer nofollow">Open attachment</a></dd>` : ""}

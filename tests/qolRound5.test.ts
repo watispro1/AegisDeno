@@ -33,7 +33,7 @@ test("cases: page size from the query, only allowed sizes, kept across pages", (
 
 test("relative time has an exact tooltip; copy-ID button escapes", () => {
   const now = Date.parse("2026-11-01T12:00:00Z");
-  assert.match(relTime(new Date(now - 3 * 86_400_000), now), /<time datetime="2026-10-29T12:00:00.000Z" title="2026-10-29 12:00 UTC">3 days ago<\/time>/);
+  assert.match(relTime(new Date(now - 3 * 86_400_000), now), /<time datetime="2026-10-29T12:00:00.000Z" title="2026-10-29 12:00 UTC" data-rel>3 days ago<\/time>/);
   assert.match(relTime(new Date(now + 2 * 3_600_000), now), /in 2 hours/);
   assert.equal(relTime(null), "unknown");
   assert.match(copyId('1"><x'), /data-copy="1&quot;&gt;&lt;x"/);

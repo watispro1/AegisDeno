@@ -107,7 +107,11 @@ fixes. No new environment variables, Discord intents or OAuth scopes.
 - **Keyboard shortcuts** dialog (`?` or the ? button): Ctrl/⌘+K jump, `/`
   focuses the table filter, Ctrl/⌘+S saves the form you changed.
 - Copy-ID buttons, and relative times ("3 days ago") with the exact UTC time
-  as a tooltip, on the new pages.
+  as a tooltip, on the new pages and now on the older ones too: cases and the
+  case page, member pages (joined, account created, timeout, cases, warnings
+  and staff notes), appeals, open tickets on the overview, analytics
+  (moderator IDs), Incident Mode and its reports, Trust Score and the activity
+  (audit) log. Relative times on a page left open update every minute.
 - Cases: choose 10, 25, 50 or 100 per page; the choice is kept across pages.
 
 ### Changed

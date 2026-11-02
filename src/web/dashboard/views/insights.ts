@@ -4,7 +4,7 @@ import type { AnalyticsData } from "../extras";
 import { MODULE_SWITCH_KEYS, type ModuleSwitches } from "../../../services/guildConfigNormalize";
 import { MODULE_LABELS } from "../../../services/moduleSwitches";
 import { SETTINGS_IMPORT_MAX_CHARS } from "../settingsTransfer";
-import { type GuildContext, csrfField, notice } from "./layout";
+import { type GuildContext, copyId, csrfField, notice } from "./layout";
 import { modulePage } from "./parts";
 import { barChart, lineChart, rankBars } from "./charts";
 
@@ -29,7 +29,7 @@ export function renderAnalytics(cfg: SiteConfig, ctx: GuildContext, o: { days: n
     <section class="panel-card"><h2>Cases and warnings per day</h2>${barChart(d.cases, d.days, "Cases and warnings per day")}</section>
     <section class="panel-card"><h2>Automod hits per day</h2>${barChart(d.automod, d.days, "Automod hits per day", "bar alt")}</section>
     <section class="panel-card"><h2>Cases by type</h2>${rankBars(d.casesByType, k => esc(k), "No cases in this range.")}</section>
-    <section class="panel-card"><h2>Cases by moderator</h2>${rankBars(d.casesByModerator, k => { const n = ctx.nameOf(k); return n ? esc(n) : `<code class="inline">${esc(k)}</code>`; }, "No cases in this range.")}</section>
+    <section class="panel-card"><h2>Cases by moderator</h2>${rankBars(d.casesByModerator, k => { const n = ctx.nameOf(k); return `${n ? esc(n) : `<code class="inline">${esc(k)}</code>`} ${copyId(k, "Copy user ID")}`; }, "No cases in this range.")}</section>
     <section class="panel-card"><h2>Automod hits by rule</h2>${rankBars(d.automodByRule, k => esc(k), "No automod hits in this range.")}</section>
   </div>`,
   });

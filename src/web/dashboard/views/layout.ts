@@ -259,7 +259,10 @@ export function fmtDate(d: Date): string {
   return d.toISOString().replace("T", " ").slice(0, 16) + " UTC";
 }
 
-/** "3 days ago" with the exact UTC time as a tooltip, in a <time> element. */
+/**
+ * "3 days ago" with the exact UTC time as a tooltip, in a <time> element.
+ * `data-rel` lets dashboard.js keep the wording current on a page left open.
+ */
 export function relTime(d: Date | null | undefined, now = Date.now()): string {
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "unknown";
   const diff = now - d.getTime();
@@ -269,12 +272,27 @@ export function relTime(d: Date | null | undefined, now = Date.now()): string {
   for (const [ms, name] of units) {
     if (abs >= ms) { const n = Math.floor(abs / ms); text = diff >= 0 ? `${n} ${name}${n === 1 ? "" : "s"} ago` : `in ${n} ${name}${n === 1 ? "" : "s"}`; break; }
   }
-  return `<time datetime="${d.toISOString()}" title="${fmtDate(d)}">${text}</time>`;
+  return `<time datetime="${d.toISOString()}" title="${fmtDate(d)}" data-rel>${text}</time>`;
 }
 
 /** A small button that copies an ID (dashboard.js); the ID stays selectable without JavaScript. */
 export function copyId(id: string, label = "Copy ID"): string {
   return `<button class="btn sm ghost copy-id" type="button" data-copy="${esc(id)}" aria-label="${esc(label)} ${esc(id)}">⧉</button>`;
+}
+
+/** relTime for an optional date, with a dash when there is none. */
+export function relTimeOr(d: Date | null | undefined, fallback = "—"): string {
+  return d instanceof Date && !Number.isNaN(d.getTime()) ? relTime(d) : fallback;
+}
+
+/** person() followed by a copy button for the user ID. */
+export function personId(ctx: GuildContext, id: string): string {
+  return `${person(ctx, id)} ${copyId(id, "Copy user ID")}`;
+}
+
+/** An ID as inline code with a copy button. */
+export function idCode(id: string, label = "Copy ID"): string {
+  return `<code class="inline">${esc(id)}</code> ${copyId(id, label)}`;
 }
 
 export function person(ctx: GuildContext, id: string): string {

@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { AuditEntry } from "../audit";
 import { SECTION_TITLES, SETTINGS_SECTIONS, type SettingsSection } from "../validation";
-import { type GuildContext, fmtDate, head, shell } from "./layout";
+import { type GuildContext, copyId, head, relTime, shell } from "./layout";
 import { pagerNav, tableFilter } from "./parts";
 
 /* ── Activity ──────────────────────────────────────────────────────── */
@@ -50,9 +50,9 @@ export function renderActivity(
   const pages = Math.max(1, Math.ceil(result.total / perPage));
   const current = Math.min(page, pages);
   const rows = result.items.map(e => `<tr>
-      <td data-label="When">${esc(fmtDate(e.createdAt))}</td>
-      <td data-label="Who">${esc(e.username)} <span class="faint">${esc(e.userId)}</span></td>
-      <td data-label="What">${esc(auditLabel(e.action))}${e.target ? ` <code class="inline">${esc(e.target)}</code>` : ""}</td>
+      <td data-label="When">${relTime(e.createdAt)}</td>
+      <td data-label="Who">${esc(e.username)} <span class="faint">${esc(e.userId)}</span> ${copyId(e.userId, "Copy user ID")}</td>
+      <td data-label="What">${esc(auditLabel(e.action))}${e.target ? ` <code class="inline">${esc(e.target)}</code> ${copyId(e.target, "Copy")}` : ""}</td>
       <td data-label="Details">${e.summary ? esc(e.summary) : `<span class="faint">No field changed</span>`}</td>
     </tr>`).join("");
 

@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { AppealRecord } from "../data";
 import { APPEAL_FILTERS, APPEAL_REVIEW_NOTE_MAX, type AppealFilter } from "../validation";
-import { type GuildContext, csrfField, fmtDate, head, notice, person, shell } from "./layout";
+import { type GuildContext, copyId, csrfField, head, idCode, notice, person, personId, relTime, shell } from "./layout";
 import { errorSummary, pagerNav, permissionNote } from "./parts";
 
 /* ── Appeals ───────────────────────────────────────────────────────── */
@@ -38,9 +38,9 @@ export function renderAppeals(
     `<li><a href="${base}${s === "pending" ? "" : `?status=${s}`}"${s === filter.status ? ' aria-current="page"' : ""}>${APPEAL_FILTER_LABELS[s]}</a></li>`).join("")}</ul></nav>`;
 
   const rows = result.items.map(a => `<tr>
-      <td data-label="Filed">${esc(fmtDate(a.createdAt))}</td>
-      <td data-label="Code"><a class="case-link" href="${base}/${esc(a.code)}">${esc(a.code)}</a> ${appealTag(a.status)}</td>
-      <td data-label="Member">${person(ctx, a.userId)}</td>
+      <td data-label="Filed">${relTime(a.createdAt)}</td>
+      <td data-label="Code"><a class="case-link" href="${base}/${esc(a.code)}">${esc(a.code)}</a> ${copyId(a.code, "Copy appeal code")} ${appealTag(a.status)}</td>
+      <td data-label="Member">${personId(ctx, a.userId)}</td>
       <td data-label="Banned by">${person(ctx, a.moderatorId)}</td>
       <td data-label="Statement">${a.appealText ? esc(a.appealText.length > 120 ? a.appealText.slice(0, 117) + "…" : a.appealText) : `<span class="faint">Not submitted yet</span>`}</td>
     </tr>`).join("");
@@ -93,7 +93,7 @@ export function renderAppeal(
   <dl class="detail-list">
     <dt>Status</dt><dd>${appealTag(appeal.status)}</dd>
     ${appeal.reviewedBy ? `<dt>Reviewed by</dt><dd>${person(ctx, appeal.reviewedBy)}</dd>` : ""}
-    ${appeal.reviewedAt ? `<dt>Reviewed</dt><dd>${esc(fmtDate(appeal.reviewedAt))}</dd>` : ""}
+    ${appeal.reviewedAt ? `<dt>Reviewed</dt><dd>${relTime(appeal.reviewedAt)}</dd>` : ""}
     <dt>Note</dt><dd>${appeal.reviewNote ? esc(appeal.reviewNote) : `<span class="faint">None</span>`}</dd>
   </dl>`;
 
@@ -107,10 +107,10 @@ export function renderAppeal(
   ${notice(o.noticeCode)}
   ${permissionNote(o.missingPermission ?? null)}
   <dl class="detail-list">
-    <dt>Code</dt><dd><code class="inline">${esc(appeal.code)}</code> ${appealTag(appeal.status)}</dd>
-    <dt>Member</dt><dd>${person(ctx, appeal.userId)} <a class="text-link" href="/dashboard/${esc(g.id)}/cases?user=${esc(appeal.userId)}">Their history</a></dd>
-    <dt>Banned by</dt><dd>${person(ctx, appeal.moderatorId)}</dd>
-    <dt>Filed</dt><dd>${esc(fmtDate(appeal.createdAt))}</dd>
+    <dt>Code</dt><dd>${idCode(appeal.code, "Copy appeal code")} ${appealTag(appeal.status)}</dd>
+    <dt>Member</dt><dd>${personId(ctx, appeal.userId)} <a class="text-link" href="/dashboard/${esc(g.id)}/cases?user=${esc(appeal.userId)}">Their history</a></dd>
+    <dt>Banned by</dt><dd>${personId(ctx, appeal.moderatorId)}</dd>
+    <dt>Filed</dt><dd>${relTime(appeal.createdAt)}</dd>
     <dt>Ban reason</dt><dd>${esc(appeal.banReason)}</dd>
     <dt>Statement</dt><dd class="prewrap">${appeal.appealText ? esc(appeal.appealText) : `<span class="faint">Not submitted yet. They send it with /appeal submit.</span>`}</dd>
   </dl>

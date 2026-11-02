@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord, OverviewData, SettingsSnapshot } from "../data";
 import type { OverviewExtras } from "../moduleData";
-import { type GuildContext, fmtDate, head, moduleStatus, person, shell } from "./layout";
+import { type GuildContext, copyId, head, moduleStatus, person, personId, relTime, shell } from "./layout";
 
 /* ── Overview ──────────────────────────────────────────────────────── */
 
@@ -9,9 +9,9 @@ function caseRows(ctx: GuildContext, cases: CaseRecord[]): string {
   const g = esc(ctx.guild.id);
   return cases
     .map(c => `<tr>
-      <td data-label="When">${esc(fmtDate(c.createdAt))}</td>
-      <td data-label="Action"><a class="case-link" href="/dashboard/${g}/cases/${esc(c.id)}">${esc(c.action)}</a>${c.revoked ? ' <span class="tag warn">revoked</span>' : ""}</td>
-      <td data-label="Member">${person(ctx, c.userId)}</td>
+      <td data-label="When">${relTime(c.createdAt)}</td>
+      <td data-label="Action"><a class="case-link" href="/dashboard/${g}/cases/${esc(c.id)}">${esc(c.action)}</a>${c.revoked ? ' <span class="tag warn">revoked</span>' : ""} ${copyId(c.id, "Copy case ID")}</td>
+      <td data-label="Member">${personId(ctx, c.userId)}</td>
       <td data-label="Moderator">${person(ctx, c.moderatorId)}</td>
       <td data-label="Reason">${esc(c.reason.length > 120 ? c.reason.slice(0, 117) + "…" : c.reason)}</td>
     </tr>`)
@@ -149,7 +149,7 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
   const x = model.extras;
   const tickets = data.openTickets.length
     ? `<ul class="feed">${data.openTickets
-        .map(t => `<li><strong>#${esc(t.id)}</strong> opened by ${person(ctx, t.userId)}, ${esc(fmtDate(t.createdAt))}${
+        .map(t => `<li><strong>#${esc(t.id)}</strong> ${copyId(String(t.id), "Copy ticket ID")} opened by ${personId(ctx, t.userId)}, ${relTime(t.createdAt)}${
           t.claimedBy ? `, claimed by ${person(ctx, t.claimedBy)}` : ", unclaimed"
         }</li>`)
         .join("")}</ul>${data.openTicketCount > data.openTickets.length ? `<p class="muted">Showing the newest ${data.openTickets.length} of ${data.openTicketCount}.</p>` : ""}`
