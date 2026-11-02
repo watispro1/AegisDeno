@@ -1,8 +1,27 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, PermissionsBitField, EmbedBuilder, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig } from "../../services/configuration";
 import { getAutomodConfig } from "../../services/automod";
 import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
+import { botPermissionBitfield } from "../../web/catalogPermissions";
+import { BOT_PERMISSION_WHY } from "../../permissions/botPermissionGuide";
+import { permissionName } from "../../utils/embedStyle";
+import { inviteUrl } from "../../config/links";
+
+/**
+ * One line per permission the invite asks for (✅/❌ with what it is for),
+ * and the flag names Aegis lacks. Exported for tests.
+ */
+export function invitePermissionReport(have: Pick<PermissionsBitField, "has">): { lines: string; missing: string[] } {
+  const flags = new PermissionsBitField(botPermissionBitfield()).toArray();
+  const missing = flags.filter(f => !have.has(f));
+  const render = (withWhy: boolean) => flags
+    .map(f => have.has(f) ? `✅ ${permissionName(f)}` : `❌ ${permissionName(f)}${withWhy ? ` — ${BOT_PERMISSION_WHY[f] ?? "needed by some commands"}` : ""}`)
+    .join("\n");
+  const detailed = render(true);
+  // An embed field holds 1024 characters; drop the reasons before cutting a line.
+  return { lines: detailed.length <= 1024 ? detailed : render(false), missing };
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -27,29 +46,10 @@ export const command: Command = {
     // 1. Fetch Configs
     const [guildConfig, automodConfig] = await Promise.all([getGuildConfig(guild.id), getAutomodConfig(guild.id)]);
 
-    // 2. Check Permissions
-    const p = botMember.permissions;
-    const hasManageMessages = p.has(PermissionFlagsBits.ManageMessages);
-    const hasModerateMembers = p.has(PermissionFlagsBits.ModerateMembers);
-    const hasBanMembers = p.has(PermissionFlagsBits.BanMembers);
-    const hasKickMembers = p.has(PermissionFlagsBits.KickMembers);
-    const hasViewAuditLog = p.has(PermissionFlagsBits.ViewAuditLog);
-    const hasManageChannels = p.has(PermissionFlagsBits.ManageChannels);
-    const hasManageRoles = p.has(PermissionFlagsBits.ManageRoles);
-    const hasReadHistory = p.has(PermissionFlagsBits.ReadMessageHistory);
-
-    const permissionsCheck = [
-      `${hasManageMessages ? "✅" : "❌"} Manage Messages`,
-      `${hasModerateMembers ? "✅" : "❌"} Moderate Members (Timeout)`,
-      `${hasBanMembers ? "✅" : "❌"} Ban Members`,
-      `${hasKickMembers ? "✅" : "❌"} Kick Members`,
-      `${hasViewAuditLog ? "✅" : "❌"} View Audit Log`,
-      `${hasManageChannels ? "✅" : "❌"} Manage Channels (Tickets)`,
-      `${hasManageRoles ? "✅" : "❌"} Manage Roles (Role Panels)`,
-      `${hasReadHistory ? "✅" : "❌"} Read Message History (Transcripts)`,
-    ].join("\n");
-
-    const missingPermissions = !(hasManageMessages && hasModerateMembers && hasBanMembers && hasKickMembers && hasViewAuditLog && hasManageChannels && hasManageRoles && hasReadHistory);
+    // 2. Check Permissions: exactly the set the invite asks for, so a fresh
+    // invite with the default permissions reports nothing missing.
+    const { lines: permissionsCheck, missing: missingFlags } = invitePermissionReport(botMember.permissions);
+    const missingPermissions = missingFlags.length > 0;
 
     // 3. Check Channels
     let loggingStatus = "❌ Not configured";
@@ -117,7 +117,7 @@ export const command: Command = {
 
     const recommendations: string[] = [];
     if (missingPermissions) {
-      recommendations.push("• Grant missing permissions to the bot's role in server settings.");
+      recommendations.push(`• Give Aegis's role ${missingFlags.map(f => `**${permissionName(f)}**`).join(", ")} (Server Settings → Roles → Aegis), or re-invite it from ${inviteUrl()}.`);
     }
     if (!guildConfig.loggingEnabled || !guildConfig.loggingChannelId) {
       recommendations.push("• Set up a logging channel using `/logging channel`.");

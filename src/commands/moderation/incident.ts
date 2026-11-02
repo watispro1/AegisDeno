@@ -92,6 +92,8 @@ export const command: Command = {
   category: "moderation",
   userPermissions: [PermissionFlagsBits.ManageGuild],
   guildOnly: true,
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+  featurePermissions: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ModerateMembers, PermissionFlagsBits.KickMembers],
   cooldownMs: 3000,
 
   async execute(interaction: ChatInputCommandInteraction) {

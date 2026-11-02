@@ -1,5 +1,6 @@
 import { buildCatalog } from "../catalog";
 import { permissionMatrix, botPermissionRows } from "../catalog";
+import { OPTIONAL_BOT_PERMISSIONS } from "../../permissions/botPermissionGuide";
 import { escapeHtml } from "./shared";
 
 /* ── Docs ──────────────────────────────────────────────────────────── */
@@ -123,15 +124,17 @@ export function botPermissionTable(): string {
   const rows = botPermissionRows();
   return `<div class="table-wrap">
     <table>
-      <thead><tr><th>Aegis needs</th><th>Used by</th></tr></thead>
+      <thead><tr><th>Aegis needs</th><th>Why</th><th>Used by</th></tr></thead>
       <tbody>
         ${rows.map(r => `<tr>
           <td><strong>${escapeHtml(r.permission)}</strong></td>
+          <td>${escapeHtml(r.why)}</td>
           <td>${r.commands.length ? r.commands.map(c => `<code class="inline">${escapeHtml(c)}</code>`).join(" ") : "Reading and posting in the channels Aegis works in"}</td>
         </tr>`).join("\n        ")}
       </tbody>
     </table>
-  </div>`;
+  </div>
+  <p>Not requested, optional: ${OPTIONAL_BOT_PERMISSIONS.map(o => `<strong>${escapeHtml(o.name)}</strong> (${escapeHtml(o.why)})`).join("; ")}</p>`;
 }
 
 /** An h2 with a copyable # link, so every section can be shared. */

@@ -41,6 +41,10 @@ OAuth scopes.
   settings", "Gave a member coins").
 
 ### Fixed
+- The "Aegis is missing permissions" notice checked a fixed list that
+  included View Audit Log (unused) and left out the ModMail thread
+  permissions, so a fresh invite always looked incomplete. It now checks
+  exactly what the invite asks for (top.gg review).
 - Saving the Automod page now keeps per-rule exemptions set with
   `/automod exempt … rule:`, and the page says how to set them.
 

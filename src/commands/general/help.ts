@@ -1,3 +1,4 @@
+import { formatPermissions as formatPermissionNames } from "../executor";
 import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
@@ -118,22 +119,9 @@ function accessLabel(cmd: Command): string | null {
   return null;
 }
 
-const PERMISSION_LABELS: Partial<Record<string, string>> = {
-  [String(PermissionFlagsBits.Administrator)]: "Administrator",
-  [String(PermissionFlagsBits.BanMembers)]: "Ban Members",
-  [String(PermissionFlagsBits.KickMembers)]: "Kick Members",
-  [String(PermissionFlagsBits.ManageChannels)]: "Manage Channels",
-  [String(PermissionFlagsBits.ManageGuild)]: "Manage Server",
-  [String(PermissionFlagsBits.ManageMessages)]: "Manage Messages",
-  [String(PermissionFlagsBits.ManageRoles)]: "Manage Roles",
-  [String(PermissionFlagsBits.ModerateMembers)]: "Moderate Members",
-  [String(PermissionFlagsBits.SendMessages)]: "Send Messages",
-  [String(PermissionFlagsBits.EmbedLinks)]: "Embed Links",
-};
-
 function formatPermissions(permissions?: PermissionResolvable[]): string {
   if (!permissions?.length) return "Everyone";
-  return permissions.map(permission => PERMISSION_LABELS[String(permission)] ?? "Required permission").join(", ");
+  return formatPermissionNames(permissions);
 }
 
 function truncate(value: string, limit = 1_000): string {
@@ -191,7 +179,8 @@ export const command: Command = {
 
       const json = foundCmd.data.toJSON();
       const userPerms = formatPermissions(foundCmd.userPermissions);
-      const botPerms = foundCmd.botPermissions?.length ? formatPermissions(foundCmd.botPermissions) : "Send Messages";
+      const botPerms = (foundCmd.botPermissions?.length ? formatPermissions(foundCmd.botPermissions) : "Send Messages") +
+        (foundCmd.featurePermissions?.length ? `\nSome parts also use: ${formatPermissions(foundCmd.featurePermissions)}` : "");
 
       const shownName = json.name;
       const subcommands = json.options?.filter((o: any) => o.type === 1 || o.type === 2) ?? [];

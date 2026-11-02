@@ -7,12 +7,14 @@
 import {
   MessageFlags,
   PermissionFlagsBits,
+  PermissionsBitField,
   type ChatInputCommandInteraction,
   type PermissionResolvable,
 } from "discord.js";
 import type { Command } from "../types/discord";
 import { logger } from "../utils/logger";
 import { docsUrl } from "../config/links";
+import { permissionName } from "../utils/embedStyle";
 
 const PERMISSION_NAMES: Partial<Record<string, string>> = {
   [String(PermissionFlagsBits.Administrator)]:      "Administrator",
@@ -33,8 +35,19 @@ const PERMISSION_NAMES: Partial<Record<string, string>> = {
   [String(PermissionFlagsBits.ReadMessageHistory)]: "Read Message History",
 };
 
+/** Human names for permissions, e.g. "Ban Members, Manage Nicknames" (never a raw bit number). */
 export function formatPermissions(permissions: readonly PermissionResolvable[]): string {
-  return permissions.map((p) => PERMISSION_NAMES[String(p)] ?? String(p)).join(", ");
+  return permissions
+    .flatMap((p) => {
+      const known = PERMISSION_NAMES[String(p)];
+      if (known) return [known];
+      try {
+        return new PermissionsBitField(p).toArray().map(permissionName);
+      } catch {
+        return [String(p)];
+      }
+    })
+    .join(", ");
 }
 
 /** Default per-user cooldown when a command does not set `cooldownMs`. */

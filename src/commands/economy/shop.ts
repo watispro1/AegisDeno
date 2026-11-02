@@ -48,6 +48,8 @@ export const command: Command = {
       .addBooleanOption(o => o.setName("unlimited").setDescription("Make stock unlimited"))),
   category: "economy",
   guildOnly: true,
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+  featurePermissions: [PermissionFlagsBits.ManageRoles],
   async execute(interaction: ChatInputCommandInteraction) {
     const sub = interaction.options.getSubcommand();
     const staff = sub === "add" || sub === "remove" || sub === "edit";

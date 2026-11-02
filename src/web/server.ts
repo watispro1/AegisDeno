@@ -275,6 +275,7 @@ export function startWebServer(client: Client) {
         declared: found.declaredPermissions,
         enforced: found.enforcedPermissions,
         bot: found.botPermissions,
+        botFeatures: found.featurePermissions,
       },
       options: found.options,
       subcommands: found.subcommands,

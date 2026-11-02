@@ -65,6 +65,10 @@ export const command: Command = {
       .addSubcommand(s => s.setName("list").setDescription("List saved replies"))),
 
   guildOnly: true,
+
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+
+  featurePermissions: [PermissionFlagsBits.CreatePrivateThreads, PermissionFlagsBits.SendMessagesInThreads, PermissionFlagsBits.ManageThreads],
   cooldownMs: 1500,
 
   async autocomplete(interaction: AutocompleteInteraction) {

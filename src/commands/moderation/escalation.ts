@@ -52,6 +52,10 @@ export const command: Command = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   guildOnly: true,
+
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+
+  featurePermissions: [PermissionFlagsBits.ModerateMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers],
   userPermissions: [PermissionFlagsBits.ManageGuild],
 
   execute: async (interaction: ChatInputCommandInteraction) => {

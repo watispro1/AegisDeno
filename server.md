@@ -383,7 +383,7 @@ Category defaults; the per-channel rows in §5 override these.
 | 🛡️ Verification & Roles | `#verify` only | `#get-roles` only | View | Send, Embed Links, Manage Roles (below its own role) |
 | 💬 Community Chat | View off | View, send, Embed Links; Mention @everyone off | Manage Messages, Moderate Members | View, Manage Messages, Moderate Members |
 | 🧪 Testing & Playground | View off | Playgrounds only | All three channels | View, send |
-| 🎫 Support & Tickets | View off | View; forum Create Posts; panel channel no send | View, Manage Threads | Manage Channels (creates `ticket-` channels) |
+| 🎫 Support & Tickets | View off | View; forum Create Posts; panel channel no send | View, Manage Threads | Manage Channels (creates `ticket-` channels), Manage Roles (adds members), Attach Files (transcripts) |
 | 💡 Feedback & Bugs | View off | Use Application Commands; forum Create Posts | Manage Threads | Send, Embed Links |
 | 🔒 Staff Command & Audit | View off | View off | View; send in `#staff-chat` and `#modmail` | Send, Embed Links, Attach Files, Create Private Threads, Manage Threads |
 
@@ -399,7 +399,7 @@ Run the following commands inside the server using the bot to configure its nati
 ### 7.1 Setup Order
 
 1. **Invite Aegis** from https://aegisdeno.fly.dev/invite (`bot` and `applications.commands` scopes) and drag `Aegis Bot` above every role it must manage (§2).
-2. **Run `/diagnostics`** and fix every missing permission. Aegis needs View Channels, Send Messages, Send Messages in Threads, Create Private Threads, Manage Threads, Embed Links, Attach Files, Read Message History, Manage Messages, Moderate Members, Kick Members, Ban Members, Manage Channels, Manage Roles and Manage Server (Incident Mode pauses invites with it).
+2. **Run `/diagnostics`** and fix every missing permission. Aegis needs what its invite asks for (permissions integer `1460691659798`): View Channels, Send Messages, Send Messages in Threads, Create Private Threads, Manage Threads, Embed Links, Attach Files, Read Message History, Manage Messages, Moderate Members, Kick Members, Ban Members, Manage Nicknames, Manage Channels (slowmode, tickets) and Manage Roles (locks, roles, ticket members). `/lock` needs Manage Roles, not Manage Channels. Manage Server is optional: only Incident Mode's "pause invites" uses it.
 3. **Logging** (7.2), then **verification** and **role panels** (7.3–7.4).
 4. **Tickets, welcome, suggestions and starboard** (7.5–7.8).
 5. **Automod and escalation** (7.9–7.10).

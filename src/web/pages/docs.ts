@@ -263,7 +263,7 @@ export function renderDocs(cfg: SiteConfig): string {
         </table>
       </div>
       <h3 id="permissions-bot">What Aegis needs</h3>
-      <p>The invite link asks for exactly these, built from the commands' own declarations. Administrator is never requested. Aegis checks the ones a command needs before it runs and tells you which are missing.</p>
+      <p>The invite link asks for exactly these, built from the commands' own declarations. Administrator is never requested. Aegis checks the ones a command needs before it runs, and the ones only a subcommand, button or background feature uses when that part runs, and tells you which are missing. A lock (<code>/lock</code>, Incident Mode) needs <strong>Manage Roles</strong>, not Manage Channels.</p>
       ${botPermissionTable()}
 
       ${docHeading("hidden-channels", "Hidden channels")}

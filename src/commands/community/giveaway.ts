@@ -113,7 +113,7 @@ export const command: Command = {
 
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ManageGuild],
-  botPermissions: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions],
+  botPermissions: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks],
 
   /** `message_id` on end/reroll: the server's running (end) or finished (reroll) giveaways. */
   autocomplete: async (interaction: AutocompleteInteraction) => {

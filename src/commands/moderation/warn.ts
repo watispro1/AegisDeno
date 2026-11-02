@@ -70,6 +70,10 @@ export const command: Command = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
   guildOnly: true,
+
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+
+  featurePermissions: [PermissionFlagsBits.ModerateMembers],
   userPermissions: [PermissionFlagsBits.ModerateMembers],
 
   autocomplete: handleReasonAutocomplete,

@@ -123,8 +123,11 @@ export const command: Command = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   guildOnly: true,
+
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+
+  featurePermissions: [PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ModerateMembers],
   userPermissions: [PermissionFlagsBits.ManageGuild],
-  botPermissions: [PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ModerateMembers],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const group   = interaction.options.getSubcommandGroup(false);

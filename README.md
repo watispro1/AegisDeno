@@ -21,6 +21,7 @@ discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
 ## Contents
 
 - [What it does](#what-it-does)
+- [Permissions](#permissions)
 - [Running it yourself](#running-it-yourself)
 - [Deploying to Fly.io](#deploying-to-flyio)
 - [Development and tests](#development-and-tests)
@@ -103,6 +104,30 @@ Everything it does is also available as a slash command.
 What the bot and dashboard store, and for how long, is in the
 [privacy policy](https://aegisdeno.fly.dev/privacy). The rules for using them
 are in the [terms of service](https://aegisdeno.fly.dev/terms).
+
+## Permissions
+
+The invite asks for exactly what the commands use, computed from each
+command's declarations: permissions integer **`1460691659798`**. Administrator,
+Manage Server and View Audit Log are never requested.
+
+| Permission | Why |
+|---|---|
+| View Channel, Send Messages, Embed Links, Read Message History | Reading and posting where Aegis works; purge, starboard, transcripts |
+| Manage Roles | `/lock` and Incident Mode lockdowns (they change @everyone's override), ticket members, verification, role panels, welcome, low-trust and shop roles |
+| Manage Channels | `/slowmode`, Incident Mode slowmode, ticket channels |
+| Manage Messages | `/purge`, automod deletes |
+| Moderate Members | Timeouts (`/timeout`, automod, escalations, the join gate) |
+| Kick Members, Ban Members | `/kick`, `/ban`, `/unban`, appeals, escalations, verification auto-kick |
+| Manage Nicknames | `/nickname` |
+| Attach Files | Ticket transcripts |
+| Create Private Threads, Send Messages in Threads, Manage Threads | ModMail threads |
+
+A lock needs **Manage Roles** (shown as *Manage Permissions* in a channel's
+settings), plus View Channel and Send Messages in that channel, not Manage
+Channels. Members running `/lock` need Manage Channels. `/diagnostics` lists
+anything Aegis is missing. The full table is on the
+[docs page](https://aegisdeno.fly.dev/docs#permissions-bot).
 
 ## Running it yourself
 

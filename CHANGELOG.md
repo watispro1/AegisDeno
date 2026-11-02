@@ -21,8 +21,12 @@ round of improvements and fixes. Includes dashboard 1.2.4 (see
 Upgrade notes: eight new slash commands (`/balance`, `/daily`, `/work`,
 `/pay`, `/leaderboard`, `/shop`, `/inventory`, `/economy`), so commands are
 re-registered on deploy. The economy is off in every server until a server
-manager turns it on. No new environment variables or permissions are
-required; selling roles uses Manage Roles when Aegis has it.
+manager turns it on. No new environment variables. The invite's permissions
+changed after the top.gg permission review (integer `1099645938774` →
+`1460691659798`: adds Manage Roles, Attach Files and the ModMail thread
+permissions, drops Add Reactions). Servers that already have Aegis keep the
+permissions they granted; `/diagnostics` lists anything missing, and
+re-inviting from `/invite` grants the rest without kicking the bot.
 
 ### Added
 - **Economy (opt-in, per server).** Off by default; a server manager turns it
@@ -105,6 +109,46 @@ required; selling roles uses Manage Roles when Aegis has it.
   - Members running `/lock` still need **Manage Channels** (unchanged): it is
     the usual channel-moderation permission and, unlike Manage Roles, doesn't
     also let a moderator hand out roles.
+- **Permission audit of every command (top.gg review).** Each command's
+  declared bot permissions were checked against the Discord API calls it
+  makes. Permissions only a subcommand, button or background feature uses are
+  now declared separately (`featurePermissions`): they are requested on the
+  invite and listed on the command reference ("Some parts use"), but checked
+  where they are used, so the rest of the command works without them.
+
+  | Command | Aegis needed (before) | Aegis needs (after) |
+  |---|---|---|
+  | `/lock` | Manage Channels | Manage Roles (+ View Channel, Send Messages in the channel) |
+  | `/purge` | Manage Messages | Manage Messages, Read Message History |
+  | `/giveaway` | Send Messages, Add Reactions | Send Messages, Embed Links (entries are a button) |
+  | `/automod` | Manage Messages, Moderate Members (blocked every subcommand) | none up front; parts use Manage Messages, Moderate Members |
+  | `/ticket` | none | parts use Manage Channels, Manage Roles, Attach Files |
+  | `/modmail` | none | parts use Create Private Threads, Send Messages in Threads, Manage Threads |
+  | `/incident` | none | parts use Manage Channels, Manage Roles, Moderate Members, Kick Members |
+  | `/escalation` | none | parts use Moderate Members, Kick Members, Ban Members |
+  | `/verify` | none | parts use Manage Roles, Kick Members |
+  | `/appeal` | none | parts use Ban Members |
+  | `/warn` | none | parts use Moderate Members (quick timeout) |
+  | `/welcome`, `/trust`, `/rolepanel`, `/shop` | none | parts use Manage Roles |
+
+  Every other command was already right (`/slowmode` Manage Channels,
+  `/timeout` and `/removetimeout` Moderate Members, `/nickname` Manage
+  Nicknames, `/ban` and `/unban` Ban Members, `/kick` Kick Members).
+- **The invite asks for the right permissions.** Permissions integer
+  `1099645938774` → **`1460691659798`**. Added: Manage Roles (locks, roles
+  and ticket members were missing from the invite entirely), Attach Files
+  (ticket transcripts), Create Private Threads, Send Messages in Threads and
+  Manage Threads (ModMail). Removed: Add Reactions (nothing reacts in a
+  server). Administrator, Manage Server and View Audit Log are not requested;
+  Manage Server is documented as optional (Incident Mode's "pause invites").
+- `/diagnostics` and the dashboard's missing-permission notice now check
+  exactly the invite's permissions, with what each one is for. They used to
+  ask for View Audit Log (unused) and report it missing on every fresh invite.
+- Permission errors named some permissions as raw numbers (for example
+  `/nickname` said "134217728"), and `/help` showed "Required permission" for
+  them. Both now use Discord's names.
+- The docs' "What Aegis needs" table explains why each permission is
+  requested; README and DEPLOYMENT list the permissions and the integer.
 - The Security button on `/serverinfo` showed Discord's raw numbers (for
   example "Verification Level: 2") instead of names; it now reads like the
   main card. The Roles button no longer runs past Discord's message limit on

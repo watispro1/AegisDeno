@@ -25,8 +25,15 @@ export interface Command {
   category?: string;
   /** Discord permissions required from the invoking member. */
   userPermissions?: PermissionResolvable[];
-  /** Discord permissions required from the bot member. */
+  /** Discord permissions required from the bot member, checked before every use of the command. */
   botPermissions?: PermissionResolvable[];
+  /**
+   * Bot permissions only some subcommands, buttons or background features of
+   * this command use (a ticket channel, a verified role, a timeout from a
+   * button). Requested on the invite and listed in the docs, but checked
+   * where they are used, so the rest of the command keeps working without them.
+   */
+  featurePermissions?: PermissionResolvable[];
   /** Whether the command may only be invoked inside a guild. */
   guildOnly?: boolean;
   /** Per-user cooldown in milliseconds; defaults to 1500. 0 turns it off. */

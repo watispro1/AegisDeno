@@ -89,6 +89,8 @@ export const command: Command = {
 
   category: "verification",
   guildOnly: true,
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+  featurePermissions: [PermissionFlagsBits.ManageRoles, PermissionFlagsBits.KickMembers],
   userPermissions: [PermissionFlagsBits.ManageGuild],
 
   async execute(interaction) {

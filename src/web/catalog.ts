@@ -36,6 +36,8 @@ export interface CommandInfo {
   enforcedPermissions: string[];
   /** Permissions the bot itself needs to run this command. */
   botPermissions: string[];
+  /** Permissions only some subcommands or features of this command use (checked where used). */
+  featurePermissions: string[];
   /** Per-member wait between uses, in seconds (0 = none), as the executor applies it. */
   cooldownSeconds: number;
   subcommands: SubcommandInfo[];
@@ -186,7 +188,7 @@ function resolvePermissions(bitfield: unknown): string[] {
 /** Flags whose name in Discord's UI differs from the API name. */
 const UI_NAMES: Record<string, string> = { ManageGuild: "Manage Server" };
 
-function permissionLabel(flag: string): string {
+export function permissionLabel(flag: string): string {
   if (UI_NAMES[flag]) return UI_NAMES[flag];
   return flag
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
@@ -259,6 +261,7 @@ export function buildCatalog(): CommandInfo[] {
       declaredPermissions: normalise(permissionLabels(json.default_member_permissions)),
       enforcedPermissions: enforcedLabels(cmd.userPermissions),
       botPermissions: enforcedLabels(cmd.botPermissions),
+      featurePermissions: enforcedLabels(cmd.featurePermissions).filter(p => !enforcedLabels(cmd.botPermissions).includes(p)),
       cooldownSeconds: Math.max(0, (cmd.cooldownMs ?? DEFAULT_COOLDOWN_MS) / 1000),
       subcommands,
       options,
@@ -320,96 +323,8 @@ export function groupByCategory(list: CommandInfo[] = buildCatalog()): CategoryG
     .filter((group) => group.commands.length > 0);
 }
 
-export function permissionMatrix(): {
-  permission: string;
-  flag: bigint;
-  commands: string[];
-}[] {
-  const used = new Map<string, { flag: bigint; commands: string[] }>();
-
-  const add = (flag: string, command: string) => {
-    const bit = (PermissionFlagsBits as Record<string, bigint | undefined>)[flag];
-    if (bit === undefined) return;
-
-    const key = permissionLabel(flag);
-    const entry = used.get(key) ?? { flag: bit, commands: [] };
-    entry.commands.push(command);
-    used.set(key, entry);
-  };
-
-  for (const cmd of commands.values()) {
-    for (const permission of cmd.userPermissions ?? []) {
-      try {
-        for (const flag of new PermissionsBitField(permission as PermissionResolvable)) {
-          add(flag, `/${cmd.data.name}`);
-        }
-      } catch {
-        /* ignore unresolvable permissions */
-      }
-    }
-  }
-
-  return [...used.entries()]
-    .map(([permission, value]) => ({
-      permission,
-      flag: value.flag,
-      commands: value.commands,
-    }))
-    .sort((a, b) => a.permission.localeCompare(b.permission));
-}
-
-/**
- * Bitfield of every permission the bot needs at runtime, excluding
- * Administrator. Used to build the OAuth2 invite URL so the invite screen
- * asks for exactly what the command set requires.
- */
-export function botPermissionBitfield(): bigint {
-  let bits = 0n;
-
-  for (const cmd of commands.values()) {
-    for (const permission of cmd.botPermissions ?? []) {
-      try {
-        bits |= new PermissionsBitField(permission as PermissionResolvable).bitfield;
-      } catch {
-        /* ignore unresolvable permissions */
-      }
-    }
-  }
-
-  // Implicitly required to read and post in the channels Aegis is pointed at.
-  bits |=
-    PermissionFlagsBits.ViewChannel |
-    PermissionFlagsBits.SendMessages |
-    PermissionFlagsBits.ReadMessageHistory |
-    PermissionFlagsBits.EmbedLinks;
-
-  // Administrator must never be requested on the invite screen.
-  bits &= ~PermissionFlagsBits.Administrator;
-
-  return bits;
-}
-
-/**
- * Each permission in the invite bitfield, with the commands that declare it.
- * The implicit channel permissions have no commands listed.
- */
-export function botPermissionRows(): { permission: string; commands: string[] }[] {
-  const bits = botPermissionBitfield();
-  const rows: { permission: string; commands: string[] }[] = [];
-  for (const flag of new PermissionsBitField(bits).toArray()) {
-    const bit = (PermissionFlagsBits as Record<string, bigint | undefined>)[flag];
-    const users: string[] = [];
-    for (const cmd of commands.values()) {
-      const declared = new PermissionsBitField();
-      for (const p of cmd.botPermissions ?? []) {
-        try { declared.add(p as PermissionResolvable); } catch { /* ignore unresolvable permissions */ }
-      }
-      if (bit !== undefined && declared.has(bit)) users.push(`/${cmd.data.name}`);
-    }
-    rows.push({ permission: permissionLabel(flag), commands: users.sort() });
-  }
-  return rows.sort((a, b) => a.permission.localeCompare(b.permission));
-}
+import { permissionMatrix } from "./catalogPermissions";
+export { permissionMatrix, botPermissionBitfield, botPermissionRows } from "./catalogPermissions";
 
 export function catalogStats(): {
   commands: number;

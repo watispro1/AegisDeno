@@ -99,6 +99,8 @@ export const command: Command = {
 
   category: "tickets",
   guildOnly: true,
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+  featurePermissions: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.AttachFiles],
 
   async execute(interaction) {
     if (!interaction.guild) return;
