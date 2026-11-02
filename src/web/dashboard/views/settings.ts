@@ -87,6 +87,7 @@ function sectionForm(
       </fieldset>
       <h2 class="section-title">Exemptions</h2>
       <p class="muted">Members with an exempt role, and messages in an exempt channel, skip every automod rule.</p>
+      <p class="muted">To exempt a role or channel from one rule only, use <code class="inline">/automod exempt addrole</code> or <code class="inline">addchannel</code> with <code class="inline">rule:</code>. Saving this form keeps those per-rule exemptions; <code class="inline">/automod status</code> lists them.</p>
       ${f.multi("exempt_roles", "Exempt roles", rolePicks(roles))}
       ${f.multi("exempt_channels", "Exempt channels", channelPicks(channels, hidden, f.str("exempt_channels")), "Text and announcement channels are listed. Other channels exempted with /automod stay exempt and show as Unknown.")}`;
 

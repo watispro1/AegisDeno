@@ -69,6 +69,13 @@ required; selling roles uses Manage Roles when Aegis has it.
     off.
   - `/help` has a "New here?" line pointing at `/dashboard` and
     `/diagnostics` when the member can run them.
+- **Per-rule automod exemptions.** `/automod exempt addrole|removerole|
+  addchannel|removechannel` take an optional `rule:` (blocked words, links,
+  mention spam, message spam, caps and floods), so a role or channel can skip
+  one filter and still be covered by the others, for example links allowed
+  in #links. Without `rule:` an exemption still covers every rule. A thread
+  follows its parent channel's exemptions, and `/automod status` lists the
+  per-rule ones.
 - `/help`, the commands page, the features page and the docs have an Economy
   section.
 
@@ -76,6 +83,14 @@ required; selling roles uses Manage Roles when Aegis has it.
 - The privacy policy lists what the economy stores and for how long.
 
 ### Fixed
+- Applying a preset (`/preset apply`) reset the caps filter to off and
+  cleared every automod role and channel exemption. Automod saves now only
+  change the fields they name, so presets, the dashboard form and commands
+  keep everything else.
+- The quick-toggle buttons under `/automod status` saved the settings as they
+  were when the message was posted, undoing any change made elsewhere in the
+  three minutes the buttons stay active. Each press now reads the current
+  settings first.
 - `/help` in a DM with Aegis answered "I couldn't verify my permissions in
   this server" instead of the help menu. Bot permissions are now only checked
   in servers, and `/help` is registered explicitly for servers and DMs.

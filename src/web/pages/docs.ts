@@ -98,9 +98,10 @@ export function renderDocs(cfg: SiteConfig): string {
 /slowmode custom seconds:10`)}
 
       ${docHeading("automod", "Automod")}
-      <p>Five filters: blocked words, links, mentions, spam rate and caps. Each one is toggled separately and has its own action (delete, delete and warn, or delete and timeout). Exempt your staff roles before turning filters on.</p>
+      <p>Five filters: blocked words, links, mentions, spam rate and caps. Each one is toggled separately and has its own action (delete, delete and warn, or delete and timeout). Exempt your staff roles before turning filters on. An exemption covers every rule unless you pick one with <code>rule:</code> (for example, allow links in #links but keep the other filters there); <code>/automod status</code> lists per-rule exemptions, and saving the dashboard's Automod page keeps them.</p>
       ${cmdBlock(`/automod status
 /automod exempt addrole role:@Staff
+/automod exempt addchannel channel:#links rule:Links
 /automod words add word:free nitro
 /automod words action action:Delete and warn
 /automod mentions limit count:5

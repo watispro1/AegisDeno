@@ -37,6 +37,10 @@ OAuth scopes.
 - Activity entries for economy changes read as sentences ("Changed economy
   settings", "Gave a member coins").
 
+### Fixed
+- Saving the Automod page now keeps per-rule exemptions set with
+  `/automod exempt … rule:`, and the page says how to set them.
+
 ### Security
 - Every Economy form needs a valid CSRF token and Manage Server, and balance
   adjustments have their own rate limit (10 a minute) on top of the usual
