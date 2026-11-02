@@ -10,6 +10,7 @@
  */
 import { hasOperatorKeys } from "../../utils/mongoSafe";
 import { normalizeGuildConfig, type GuildConfig, type GuildConfigUpdate } from "../../services/guildConfigNormalize";
+import { normalizeEconomyConfig, type EconomyConfig } from "../../services/economyLogic";
 import type { AutomodConfig } from "../../services/automod";
 import type { ValidationContext } from "./validation";
 
@@ -25,16 +26,18 @@ export interface SettingsExport {
   source: { guildId: string; guildName: string };
   config: Omit<GuildConfig, "guildId" | "prefix" | "language">;
   automod: Omit<AutomodConfig, "guildId">;
+  /** Economy settings only; balances, inventory and shop items are not exported. */
+  economy: EconomyConfig;
 }
 
-export function exportSettings(guildId: string, guildName: string, config: GuildConfig, automod: AutomodConfig, nowMs = Date.now()): SettingsExport {
+export function exportSettings(guildId: string, guildName: string, config: GuildConfig, automod: AutomodConfig, economy: EconomyConfig, nowMs = Date.now()): SettingsExport {
   const { guildId: _g, prefix: _p, language: _l, ...rest } = config;
   const { guildId: _a, ...rules } = automod;
-  return { format: SETTINGS_FORMAT, version: SETTINGS_FORMAT_VERSION, exportedAt: new Date(nowMs).toISOString(), source: { guildId, guildName }, config: rest, automod: rules };
+  return { format: SETTINGS_FORMAT, version: SETTINGS_FORMAT_VERSION, exportedAt: new Date(nowMs).toISOString(), source: { guildId, guildName }, config: rest, automod: rules, economy };
 }
 
 export type ImportResult =
-  | { ok: true; update: GuildConfigUpdate; automod: Partial<Omit<AutomodConfig, "guildId">> | null; warnings: string[] }
+  | { ok: true; update: GuildConfigUpdate; automod: Partial<Omit<AutomodConfig, "guildId">> | null; economy: EconomyConfig | null; warnings: string[] }
   | { ok: false; error: string };
 
 function rec(v: unknown): Record<string, unknown> {
@@ -115,5 +118,6 @@ export function parseSettingsImport(text: string, ctx: ValidationContext): Impor
     // updateAutomodConfig re-normalises every rule (actions, thresholds, word list caps).
     automod = { words: a.words, links: a.links, mentions: a.mentions, spam: a.spam, caps: a.caps, exemptChannelIds, exemptRoleIds } as Partial<Omit<AutomodConfig, "guildId">>;
   }
-  return { ok: true, update, automod, warnings };
+  const economy = doc.economy === undefined ? null : normalizeEconomyConfig(rec(doc.economy));
+  return { ok: true, update, automod, economy, warnings };
 }

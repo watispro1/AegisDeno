@@ -7,6 +7,7 @@
 import { memoryModmailDashboard, type ModmailDashboard } from "./modmailData";
 import { memoryDigestDashboard, type DigestDashboard } from "./digestData";
 import { memoryEconomy, type EconomyService } from "../../services/economyService";
+import type { EconomyConfig } from "../../services/economyLogic";
 import { outranks } from "../../permissions/hierarchy";
 import type { IncidentConfig, IncidentOptions } from "../../services/incidentLogic";
 import type { IncidentRecord } from "../../services/incidentStore";
@@ -103,7 +104,7 @@ export interface DashboardExtras {
   economy: EconomyService;
   saveIncidentConfig(guildId: string, config: IncidentConfig): Promise<void>;
   saveModuleSwitches(guildId: string, switches: ModuleSwitches): Promise<void>;
-  applySettingsImport(guildId: string, update: GuildConfigUpdate, automod: Record<string, unknown> | null): Promise<void>;
+  applySettingsImport(guildId: string, update: GuildConfigUpdate, automod: Record<string, unknown> | null, economy: EconomyConfig | null): Promise<void>;
 }
 
 /** Which Discord permission each quick action needs, as its slash command does. */
@@ -177,6 +178,6 @@ export function memoryDashboardExtras(seed: {
     economy: seed.economy ?? memoryEconomy().service,
     saveIncidentConfig: async (_g, c) => { saved.incident.push(c); },
     saveModuleSwitches: async (_g, s) => { saved.modules.push(s); },
-    applySettingsImport: async (_g, u, a) => { saved.import.push({ update: u, automod: a }); },
+    applySettingsImport: async (_g, u, a, e) => { saved.import.push({ update: u, automod: a, economy: e }); },
   };
 }

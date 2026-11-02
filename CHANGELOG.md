@@ -51,6 +51,10 @@ re-inviting from `/invite` grants the rest without kicking the bot.
     mod log with who did it and why; `/shop add|remove|edit` manage the shop.
   - Balances are whole coins, never negative and capped at one trillion.
     Transactions are kept for 90 days.
+- **Economy settings in the dashboard backup.** The Modules & backup export
+  now includes the economy's settings (currency, amounts, cooldowns and the
+  pay confirmation threshold), and importing a file restores them. Balances,
+  inventory and shop items are deliberately not exported.
 - **A clear starting point for new users.** Mentioning Aegis on its own
   (`@Aegis`, or `@Aegis help`) now answers with a short help card: "I use
   slash commands. Start with /help", the main areas with example commands,
@@ -84,6 +88,9 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   section.
 
 ### Changed
+- Server-only commands are registered for servers only, so Discord no longer
+  lists them in the slash menu in DMs. Commands that work in DMs (`/help`,
+  `/about`, `/ping` and the like) are unchanged.
 - `/userinfo` shows when a member's timeout ends, and their balance when the
   economy is on.
 - `/serverinfo` shows the creation date as well as how long ago it was.

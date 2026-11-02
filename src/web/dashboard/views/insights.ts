@@ -57,11 +57,11 @@ export function renderTools(cfg: SiteConfig, ctx: GuildContext, o: { switches: M
     </form>
   </section>
   <section class="panel-card" aria-labelledby="exp-h"><h2 id="exp-h">Export settings</h2>
-    <p class="muted">Downloads logging, welcome and goodbye, escalation, tickets, role panel limits, automod, Incident Mode and module settings as JSON. Cases, warnings and members are never included.</p>
+    <p class="muted">Downloads logging, welcome and goodbye, escalation, tickets, role panel limits, economy settings, automod, Incident Mode and module settings as JSON. Cases, warnings, members, economy balances and shop items are never included.</p>
     <p><a class="btn" href="${base}/export" download>Download settings (.json)</a></p>
   </section>
   <section class="panel-card" aria-labelledby="imp-h"><h2 id="imp-h">Import settings</h2>
-    <p class="muted">Restores a file from Export, here or from another server. Channels and roles that don't exist here, that Aegis can't see, or that are above your highest role are skipped and listed. Verification and starboard are not included.</p>
+    <p class="muted">Restores a file from Export, here or from another server. Channels and roles that don't exist here, that Aegis can't see, or that are above your highest role are skipped and listed. Economy settings are restored; balances, inventory and shop items are not. Verification and starboard are not included.</p>
     ${o.importError ? `<div class="error-summary" role="alert" tabindex="-1" data-error-summary><h2>Nothing was changed.</h2><p>${esc(o.importError)}</p></div>` : ""}
     ${o.importWarnings?.length ? `<div class="callout warn" role="status"><p>Imported, with these adjustments:</p><ul>${o.importWarnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
     <form class="dash-form" method="post" action="${base}/import" data-confirm="Replace this server's settings with the imported file?">
