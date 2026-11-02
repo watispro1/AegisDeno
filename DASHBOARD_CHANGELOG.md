@@ -34,6 +34,9 @@ OAuth scopes.
   while the economy is on (or while they still hold coins).
 
 ### Changed
+- Save buttons read "Saving…" while the form is on its way, on top of the
+  existing double-submit guard, and go back to normal if you return with the
+  Back button.
 - Activity entries for economy changes read as sentences ("Changed economy
   settings", "Gave a member coins").
 

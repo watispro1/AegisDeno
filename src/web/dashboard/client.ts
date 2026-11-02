@@ -101,6 +101,9 @@ const baseScript = String.raw`
     setTimeout(function () {
       var buttons = form.querySelectorAll('button[type="submit"]');
       for (var b = 0; b < buttons.length; b++) buttons[b].disabled = true;
+      /* Say that it is working: the save button reads "Saving…" until the next page loads. */
+      var save = form.querySelector('[data-save-button]');
+      if (save && !save.hasAttribute('data-label')) { save.setAttribute('data-label', save.textContent); save.textContent = 'Saving…'; }
     }, 0);
   });
 
@@ -112,6 +115,8 @@ const baseScript = String.raw`
       busy[f].removeAttribute('aria-busy');
       var bs = busy[f].querySelectorAll('button[type="submit"]');
       for (var k = 0; k < bs.length; k++) bs[k].disabled = false;
+      var sv = busy[f].querySelector('[data-save-button][data-label]');
+      if (sv) { sv.textContent = sv.getAttribute('data-label'); sv.removeAttribute('data-label'); }
     }
   });
 

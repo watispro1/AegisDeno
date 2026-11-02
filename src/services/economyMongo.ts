@@ -67,6 +67,7 @@ const isDuplicateKey = (err: unknown) => (err as { code?: unknown })?.code === 1
 
 export function mongoEconomyStore(models: EconomyModels = defaultModels()): EconomyStore {
   const configCache = new TtlCache<EconomyConfig>(30_000, 5_000);
+  // The upsert copies guildId/userId from the filter; only the other fields are set on insert.
   const blankCooldowns = { balance: 0, lastDaily: null, dailyStreak: 0, lastWork: null };
 
   return {
@@ -88,7 +89,7 @@ export function mongoEconomyStore(models: EconomyModels = defaultModels()): Econ
     },
     async ensureAccount(guildId, userId) {
       try {
-        await models.account.updateOne({ guildId, userId }, { $setOnInsert: { guildId, userId, ...blankCooldowns } }, { upsert: true });
+        await models.account.updateOne({ guildId, userId }, { $setOnInsert: { ...blankCooldowns } }, { upsert: true });
       } catch (err) {
         // Two first-time commands raced on the upsert; the other one created it.
         if (!isDuplicateKey(err)) throw err;
@@ -111,7 +112,7 @@ export function mongoEconomyStore(models: EconomyModels = defaultModels()): Econ
     async setBalance(guildId, userId, balance) {
       const d = await models.account.findOneAndUpdate(
         { guildId, userId },
-        { $set: { balance }, $setOnInsert: { guildId, userId, lastDaily: null, dailyStreak: 0, lastWork: null } },
+        { $set: { balance }, $setOnInsert: { lastDaily: null, dailyStreak: 0, lastWork: null } },
         { ...AFTER, upsert: true },
       ).lean();
       return toAccount(d ?? { balance }, guildId, userId);
