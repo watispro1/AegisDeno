@@ -117,3 +117,15 @@ UserActivitySchema.index({ guildId: 1, userId: 1 }, { unique: true });
 UserActivitySchema.index({ lastMessageAt: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
 export const UserActivityModel = mongoose.model('UserActivity', UserActivitySchema);
 
+
+/**
+ * Servers Aegis has posted its one-time "thanks for adding Aegis" welcome in.
+ * The unique key makes the claim race-safe; the TTL lets a server that re-adds
+ * Aegis more than 30 days later see the welcome again.
+ */
+const JoinWelcomeSchema = new mongoose.Schema({
+  guildId: { type: String, required: true, unique: true },
+  sentAt: { type: Date, default: Date.now },
+});
+JoinWelcomeSchema.index({ sentAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
+export const JoinWelcomeModel = mongoose.model("JoinWelcome", JoinWelcomeSchema);

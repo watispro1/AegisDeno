@@ -207,6 +207,7 @@ After inviting Aegis to a server:
 | `SITE_URL`                | Optional | Public site URL, used for SEO and canonical links               |
 | `BOT_INVITE_URL`          | Optional | Custom OAuth2 invite URL                                        |
 | `SUPPORT_SERVER_URL`      | Optional | Discord support server invite                                   |
+| `JOIN_WELCOME`            | Optional | `off` disables the one-time welcome posted on server join     |
 | `CONTACT_EMAIL`           | Optional | Contact email shown in web footer                               |
 | `DISCORD_CLIENT_SECRET`   | Dashboard | OAuth2 client secret; the dashboard is off without it          |
 | `DASHBOARD_SESSION_SECRET`| Dashboard | Signs session cookies and CSRF tokens; 32+ characters          |

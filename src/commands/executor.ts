@@ -109,10 +109,11 @@ function precheck(command: Command, interaction: ChatInputCommandInteraction): s
     }
   }
 
-  if (command.botPermissions?.length) {
-    const me = interaction.guild?.members.me;
-    if (!me) return "❌ I couldn't verify my permissions in this server.";
-    const missing = command.botPermissions.filter((p) => !me.permissions.has(p));
+  // In DMs there are no server permissions to check (Aegis can always embed there).
+  if (command.botPermissions?.length && interaction.inGuild()) {
+    const have = interaction.guild?.members.me?.permissions ?? interaction.appPermissions ?? null;
+    if (!have) return "❌ I couldn't verify my permissions in this server.";
+    const missing = command.botPermissions.filter((p) => !have.has(p));
     if (missing.length) {
       logger.warn(`Bot missing permissions for /${interaction.commandName} in guild ${interaction.guildId}: ${formatPermissions(missing)}`);
       return (

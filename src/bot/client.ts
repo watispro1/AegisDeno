@@ -6,7 +6,6 @@ import {
   Collection,
   Events,
   GuildMember,
-  PartialGuildMember,
   Message,
   TextChannel,
   ActivityType,
@@ -44,6 +43,8 @@ import { incidentService, joinActionable } from "../services/incidentDiscord";
 import { recordMemberFlow } from "../services/memberFlow";
 import { handleModmailDM, relayPrefixedStaffMessage } from "../services/modmailService";
 import { reconcileDigestTasks } from "../services/digestService";
+import { assignWelcomeRole, sendGoodbye } from "../services/memberGreetings";
+import { handleGuildEntryHelp, sendJoinWelcome } from "../services/entryPoint";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -211,6 +212,9 @@ export function setupEvents(client: Client): void {
     });
     if (removed) return;
 
+    // A bare @mention or a typed help phrase gets the help card (and skips autoresponders).
+    if (await handleGuildEntryHelp(client, message).catch(err => { logger.warn("Entry help error:", err); return false; })) return;
+
     await processAutoResponders(message).catch(err => {
       logger.error("Autoresponder error:", err);
       return false;
@@ -376,6 +380,10 @@ export function setupEvents(client: Client): void {
   // ─── Guild Join / Discovery ────────────────────────────────────────────────
   client.on(Events.GuildCreate, (guild) => {
     logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
+    // One short, non-pinging "Run /help to get started" (once per server per 30 days; JOIN_WELCOME=off disables).
+    sendJoinWelcome(guild)
+      .then(r => { if (r !== "sent") logger.debug(`Join welcome skipped in ${guild.id}: ${r}`); })
+      .catch(err => logger.warn(`Join welcome failed in ${guild.id}:`, err));
   });
 
   // Leaving a server drops the per-member activity counters kept for Trust Score.
@@ -386,40 +394,4 @@ export function setupEvents(client: Client): void {
       .then(n => logger.info(`Left guild ${guild.id}; removed ${n} activity record(s).`))
       .catch(err => logger.warn(`Trust data cleanup failed for ${guild.id}:`, err));
   });
-}
-
-/**
- * Gives a new member the welcome auto-role. Adding a role during membership
- * screening would skip the server's rules gate, so pending members wait; a
- * role above Aegis is skipped with a warning instead of an API error per join.
- */
-async function assignWelcomeRole(member: GuildMember, roleId: string): Promise<void> {
-  const role = member.guild.roles.cache.get(roleId);
-  if (role && !role.editable) {
-    logger.warn(`Auto-role ${roleId} in ${member.guild.id} is above Aegis's highest role (or managed); skipping it.`);
-    return;
-  }
-  if (member.roles.cache.has(roleId)) return;
-  await member.roles.add(roleId, "Welcome auto-role").catch(err =>
-    logger.warn(`Failed to assign auto-role ${roleId} to ${member.user?.tag ?? member.id} in ${member.guild.id}:`, err),
-  );
-}
-
-/** Posts the goodbye message for a member who left, if the server turned it on. */
-async function sendGoodbye(member: GuildMember | PartialGuildMember): Promise<void> {
-  const config = await getGuildConfig(member.guild.id);
-  if (!config.goodbyeEnabled || !config.goodbyeChannelId) return;
-  const channel = member.guild.channels.cache.get(config.goodbyeChannelId)
-    ?? await member.guild.channels.fetch(config.goodbyeChannelId).catch(() => null);
-  if (!channel || isObfuscatedChannel(channel)) {
-    if (channel) logger.warn(`Goodbye channel ${config.goodbyeChannelId} in ${member.guild.id} is hidden from Aegis (no View Channel); skipping the goodbye message.`);
-    return;
-  }
-  if (!channel.isTextBased() || !("send" in channel)) return;
-  const name = member.user?.username ?? "A member";
-  const values = { user: name, username: name, server: member.guild.name, memberCount: member.guild.memberCount };
-  const content = renderTemplate(config.goodbyeMessage ?? "", values).slice(0, 2000);
-  const embeds = config.goodbyeEmbed ? [buildEmbedFromSpec(config.goodbyeEmbed, values)] : [];
-  if (!content && embeds.length === 0) return;
-  await channel.send({ content: content || undefined, embeds, allowedMentions: { parse: [] } }).catch(() => null);
 }
