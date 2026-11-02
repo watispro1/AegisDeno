@@ -80,9 +80,18 @@ required; selling roles uses Manage Roles when Aegis has it.
   section.
 
 ### Changed
+- `/userinfo` shows when a member's timeout ends, and their balance when the
+  economy is on.
+- `/serverinfo` shows the creation date as well as how long ago it was.
 - The privacy policy lists what the economy stores and for how long.
+- Internal: the ticket service is split into smaller modules (closing,
+  transcripts and auto-close; settings). No behaviour change.
 
 ### Fixed
+- The Security button on `/serverinfo` showed Discord's raw numbers (for
+  example "Verification Level: 2") instead of names; it now reads like the
+  main card. The Roles button no longer runs past Discord's message limit on
+  servers with many or long role names, and "Forum Forums" reads "Forums".
 - Applying a preset (`/preset apply`) reset the caps filter to off and
   cleared every automod role and channel exemption. Automod saves now only
   change the fields they name, so presets, the dashboard form and commands

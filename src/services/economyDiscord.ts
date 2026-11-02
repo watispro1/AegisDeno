@@ -112,3 +112,23 @@ export async function shopItemAutocomplete(interaction: AutocompleteInteraction)
   })), String(interaction.options.getFocused() ?? ""));
   await interaction.respond(choices).catch(() => undefined);
 }
+
+/**
+ * "🪙 1,250 coins" for /userinfo when the economy is on, else null. Bounded
+ * by `timeoutMs` so a slow database never delays the reply past Discord's
+ * 3-second window.
+ */
+export async function balanceSummary(guildId: string, userId: string, timeoutMs = 1200): Promise<string | null> {
+  const lookup = (async () => {
+    const cfg = await economy().config(guildId);
+    if (!cfg.enabled) return null;
+    return formatCoins(cfg, (await economy().balance(guildId, userId)).balance);
+  })().catch(() => null);
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), timeoutMs); });
+  try {
+    return await Promise.race([lookup, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
