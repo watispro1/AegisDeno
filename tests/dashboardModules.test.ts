@@ -323,3 +323,28 @@ test("operator-looking input is refused on the new routes", async () => {
   assert.equal(res.status, 400);
   assert.equal(modules.calls.length, 0);
 });
+
+test("automod: Test a message checks the saved rules, saves nothing, and needs CSRF", async () => {
+  const page = await (await get(`/dashboard/${GUILD}/settings/automod`)).text();
+  assert.match(page, /id="automod-test"/);
+  assert.match(page, new RegExp(`action="/dashboard/${GUILD}/settings/automod/test"`));
+
+  let res = await post(`/dashboard/${GUILD}/settings/automod/test`, { content: "SEE HTTPS://EXAMPLE.COM NOW EVERYONE" });
+  assert.equal(res.status, 200);
+  let html = await res.text();
+  assert.match(html, /Would pass/);
+  assert.match(html, /Would match if switched on: Links, Capitals/);
+  assert.match(html, /SEE HTTPS:\/\/EXAMPLE\.COM NOW EVERYONE<\/textarea>/, "the tested text is kept in the box");
+  assert.equal(saved.length, 0, "nothing saved");
+
+  res = await post(`/dashboard/${GUILD}/settings/automod/test`, { content: "   " });
+  assert.equal(res.status, 400);
+  assert.match(await res.text(), /Type a message to test/);
+
+  res = await post(`/dashboard/${GUILD}/settings/automod/test`, { content: "<script>alert(1)</script>" });
+  html = await res.text();
+  assert.ok(!html.includes("<script>alert(1)"), "escaped");
+
+  assert.equal((await post(`/dashboard/${GUILD}/settings/automod/test`, { content: "hi" }, { csrf: false })).status, 403);
+  assert.notEqual((await post(`/dashboard/${GUILD_NO_ACCESS}/settings/automod/test`, { content: "hi" })).status, 200);
+});

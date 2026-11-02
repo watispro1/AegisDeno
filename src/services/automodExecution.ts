@@ -4,12 +4,12 @@ import { noteIncidentDeletes } from "./incidentHooks";
 import { Client, Message, GuildMember, PermissionFlagsBits } from "discord.js";
 import { codeBlock } from "../utils/safeText";
 import { getAutomodConfig } from "./automod";
+import { blockedWordHit, capsOrFlood, hasLink } from "./automodChecks";
 import { addWarning } from "./warnings";
 import { sendGuildLog } from "./logging";
 import { logger } from "../utils/logger";
 import { AutomodHitModel } from "../database/mongo";
 
-const LINK_REGEX = /https?:\/\/[^\s]+/gi;
 
 // ─── In-memory spam rate limiter ─────────────────────────────────────────────
 // Maps `guildId:userId` → timestamps of recent messages
@@ -115,12 +115,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
 
   // 2. Blocked Words (normalizes zero-width obfuscation and soft hyphens)
   if (!triggeredRule && config.words.enabled && config.words.list.length > 0) {
-    const raw = message.content.toLowerCase();
-    const normalized = raw.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "");
-    if (config.words.list.some(w => {
-      const needle = w.toLowerCase().trim();
-      return needle && (raw.includes(needle) || normalized.includes(needle));
-    })) {
+    if (blockedWordHit(config.words.list, message.content)) {
       triggeredRule = config.words;
       ruleName = "Blocked Words";
     }
@@ -136,8 +131,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
 
   // 4. Link Filtering
   if (!triggeredRule && config.links.enabled) {
-    LINK_REGEX.lastIndex = 0; // Reset regex state (global flag)
-    if (LINK_REGEX.test(message.content) && await linkFilterAppliesTo(message)) {
+    if (hasLink(message.content) && await linkFilterAppliesTo(message)) {
       triggeredRule = config.links;
       ruleName = "Link Filtering";
     }
@@ -145,20 +139,10 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
 
   // 5. Caps and character flood filters
   if (!triggeredRule && config.caps?.enabled) {
-    const letters = message.content.match(/[a-z]/gi) ?? [];
-    const uppercase = letters.filter(letter => letter === letter.toUpperCase()).length;
-    const percentage = letters.length ? (uppercase / letters.length) * 100 : 0;
-    if (letters.length >= 8 && percentage >= (config.caps.threshold ?? 70)) {
+    const hit = capsOrFlood(message.content, config.caps.threshold);
+    if (hit) {
       triggeredRule = config.caps;
-      ruleName = "Excessive Caps";
-    }
-
-    if (!triggeredRule) {
-      const runMatches = message.content.match(/(.)\1{4,}/gi) ?? [];
-      if (runMatches.length > 0) {
-        triggeredRule = config.caps;
-        ruleName = "Character Flood";
-      }
+      ruleName = hit;
     }
   }
 

@@ -7,6 +7,7 @@ import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../../services/ticketTranscript";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
 import { type GuildContext, type GuildSection, csrfField, head, moduleStatus, notice, shell } from "./layout";
 import { embedBuilder } from "./embedBuilder";
+import { automodTestPanel, type AutomodTestState } from "./automodTest";
 import { GOODBYE_MESSAGE_MAX } from "../../../services/configuration";
 import { ACTION_OPTIONS, Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
 
@@ -220,6 +221,7 @@ export function renderSettings(
   roles: RoleOption[],
   noticeCode: string | null,
   hiddenChannelIds: ReadonlySet<string> = new Set(),
+  automodTest: AutomodTestState | null = null,
 ): string {
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}/settings`;
@@ -248,6 +250,7 @@ export function renderSettings(
     ${csrfField(ctx.viewer)}
     ${sectionForm(section, f, ctx, channels, roles, snapshot, hiddenChannelIds)}
     ${canSave ? `<button class="btn" type="submit" data-save-button>Save ${SECTION_TITLES[section].toLowerCase()} settings</button>` : ""}
-  </form>`,
+  </form>
+  ${section === "automod" ? automodTestPanel(ctx, automodTest) : ""}`,
   });
 }
