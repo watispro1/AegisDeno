@@ -54,6 +54,9 @@ new environment variables or OAuth scopes.
     the lowest-trust members, and the Trust Score settings.
   - Settings: every module with its state, plus Aegis's server-wide
     permissions.
+- **Test a message** on the Automod settings page: paste text and see
+  whether automod would catch it, which rule, and what it would do, using
+  the saved rules. Nothing is posted or stored.
 - **Members.** A member page with cases, warnings, notes and the Trust Score
   breakdown in one place, and quick actions (warn, time out, remove timeout,
   kick, ban). Each action needs the same Discord permission as the slash
@@ -74,10 +77,11 @@ new environment variables or OAuth scopes.
   cases; `?` opens a keyboard shortcuts list; `/` focuses the table filter;
   Ctrl/Cmd+S saves the form you changed. The server picker lists the server
   you opened last first.
-- **Times and IDs.** Times show as "3 days ago" with the exact time on hover
-  and update while the page is open, and IDs have copy buttons, across cases,
-  members, appeals, tickets, analytics, Incident Mode, Trust Score and the
-  Activity log.
+- **Times and IDs.** Times show as "3 days ago" or "in 2 hours" with the
+  exact time on hover and update while the page is open, and IDs have copy
+  buttons, across cases, members, appeals, tickets, analytics, Incident
+  Mode, Trust Score, giveaways, suggestions, Ghost Watch, scheduled messages
+  and the Activity log.
 - **Working with forms and tables.** An unsaved-changes bar with Reset and
   Save (and a warning before you leave with unsaved changes), notices as
   toasts, in-page confirmation for destructive buttons, filter boxes on

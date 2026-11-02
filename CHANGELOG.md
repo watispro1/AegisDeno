@@ -82,6 +82,18 @@ existing options keep their names.
   - `/help` links each command to its docs section and its entry on the
     website, shows the permissions each command needs, and has an Add Aegis
     button.
+- **Undo for quick changes.** `/lock` (one channel), `/slowmode` and
+  `/nickname` replies have an Undo button for 60 seconds. Only the moderator
+  who made the change can press it; it checks their permissions again and
+  puts back exactly what was there before (the previous slowmode, nickname
+  or channel permission).
+- **Pick IDs instead of pasting them.** `/automation cancel` suggests your
+  scheduled tasks (every task in the server with Manage Server), and
+  `/appeal view` and `/appeal review` suggest appeal codes to members with
+  Ban Members (`review` only offers pending appeals).
+- **Giveaway requirements:** `/giveaway start` takes `min_account_age` and
+  `min_server_days`, shown on the giveaway post. Members who don't qualify
+  are told privately how many days they have left.
 - **`/ping`** shows 24-hour uptime and explains a slow or still-connecting
   gateway in plain words.
 - **New options:** `/nickname reason:`, `/serverinfo ephemeral:`, reason
