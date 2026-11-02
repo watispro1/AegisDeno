@@ -25,6 +25,10 @@ import { formatDurationLong, parseFriendlyDuration } from "../utils/duration";
 import { DISCORD_LIMITS, truncate } from "../utils/safeText";
 import { pickWeightedWinners } from "../services/communityLogic";
 import { enterGiveaway, type GiveawayEntryStore } from "../services/giveawayEntry";
+import {
+  endTransition, finalizeEnd, rerollTransition,
+  type GiveawayTransitionStore, type TransitionGiveaway, type TransitionResult,
+} from "../services/giveawayTransitions";
 
 const giveawayTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -97,7 +101,18 @@ export async function initGiveawayScheduler(client: Client): Promise<void> {
   for (const giveaway of active) {
     scheduleGiveawayEnd(client, giveaway.guildId, giveaway.messageId, new Date(giveaway.endsAt));
   }
-  logger.info(`Giveaway scheduler initialised: ${active.length} active giveaway(s).`);
+  // A restart between claiming an end and storing its winners leaves the
+  // giveaway "ending"; finish those so they can be rerolled.
+  const halfEnded = await GiveawayModel.find({ ended: true, winnersDrawn: false }).lean();
+  for (const giveaway of halfEnded) {
+    try {
+      const result = await finalizeEnd(giveawayTransitionStore, giveaway as unknown as TransitionGiveaway, drawWinners);
+      if (result.ok) await announceEnd(client, result.giveaway, result.winners);
+    } catch (error) {
+      logger.error(`Finishing half-ended giveaway ${giveaway.messageId} failed`, error);
+    }
+  }
+  logger.info(`Giveaway scheduler initialised: ${active.length} active giveaway(s)${halfEnded.length ? `, ${halfEnded.length} finished after restart` : ""}.`);
 }
 
 /** Process persistent giveaway controls after the originating command has finished. */
@@ -197,6 +212,12 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
   }
 }
 
+/** Mongo-backed store for the end/reroll transitions. */
+const giveawayTransitionStore: GiveawayTransitionStore = {
+  update: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { new: true }).lean() as Promise<TransitionGiveaway | null>,
+  find: (filter) => GiveawayModel.findOne(filter).lean() as Promise<TransitionGiveaway | null>,
+};
+
 /** Mongo-backed store for enterGiveaway. */
 const giveawayEntryStore: GiveawayEntryStore = {
   enter: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { new: true }).lean() as Promise<{ entrants?: string[] | null } | null>,
@@ -212,17 +233,16 @@ export async function endGiveaway(
   const timer = giveawayTimers.get(messageId);
   if (timer) clearTimeout(timer);
   giveawayTimers.delete(messageId);
-  const giveaway = await GiveawayModel.findOneAndUpdate(
-    { guildId, messageId, ended: false },
-    { $set: { ended: true, endedAt: new Date() } },
-    { new: false },
-  ).lean();
-  if (!giveaway) return { ok: false, error: "No active giveaway found with that message ID." };
+  const result = await endTransition(giveawayTransitionStore, { guildId, messageId }, drawWinners);
+  if (!result.ok) return { ok: false, error: result.error };
+  await announceEnd(client, result.giveaway, result.winners);
+  return { ok: true, winners: result.winners };
+}
 
-  const winners = drawWinners(giveaway, giveaway.winnerCount ?? 1);
-
-  await GiveawayModel.updateOne({ guildId, messageId }, { $set: { winners } });
-
+/** Post the ended embed, the winners message and the winner DMs. */
+async function announceEnd(client: Client, doc: TransitionGiveaway, winners: string[]): Promise<void> {
+  const giveaway = doc as TransitionGiveaway & { channelId: string; prize: string; hostId: string };
+  const messageId = giveaway.messageId;
   const channel = (client.channels.cache.get(giveaway.channelId)
     ?? await client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;
   if (channel && !isObfuscatedChannel(channel)) {
@@ -274,8 +294,6 @@ export async function endGiveaway(
       }
     }
   }
-
-  return { ok: true, winners };
 }
 
 // ─── Shared reroll logic ──────────────────────────────────────────────────────
@@ -291,22 +309,12 @@ export async function rerollGiveaway(
   count: number | null,
   rerolledBy: string,
 ): Promise<{ ok: boolean; winners?: string[]; error?: string }> {
-  const giveaway = await GiveawayModel.findOne({ guildId, messageId, ended: true }).lean();
-  if (!giveaway) return { ok: false, error: "No completed giveaway found with that message ID." };
-
-  const winners = drawWinners(giveaway, count ?? giveaway.winnerCount ?? 1, true);
-  if (winners.length === 0) {
-    return { ok: false, error: "Every entrant has already won this giveaway; there is nobody new to draw." };
-  }
-
-  // Compare-and-set on the current winners, so two rerolls pressed at once
-  // cannot both draw and both announce.
-  const swapped = await GiveawayModel.findOneAndUpdate(
-    { guildId, messageId, ended: true, winners: giveaway.winners ?? [] },
-    { $set: { winners }, $addToSet: { previousWinners: { $each: giveaway.winners ?? [] } } },
-    { new: true },
-  ).lean();
-  if (!swapped) return { ok: false, error: "Someone else rerolled this giveaway a moment ago. Check the channel for the new winners." };
+  // Compare-and-set on `rerollSeq`, so two rerolls pressed at once (or a
+  // reroll racing an end) cannot both draw and both announce.
+  const result: TransitionResult = await rerollTransition(giveawayTransitionStore, { guildId, messageId }, count, drawWinners);
+  if (!result.ok) return { ok: false, error: result.error };
+  const giveaway = result.giveaway as TransitionGiveaway & { channelId: string; prize: string };
+  const winners = result.winners;
 
   const channel = (client.channels.cache.get(giveaway.channelId)
     ?? await client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;

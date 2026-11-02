@@ -291,6 +291,10 @@ const GiveawaySchema = new mongoose.Schema({
   endsAt:        { type: Date, required: true },
   endedAt:       { type: Date, default: null },
   ended:         { type: Boolean, default: false },
+  // End/reroll guards (see services/giveawayTransitions): false while one end
+  // is drawing winners; rerollSeq is bumped by each successful reroll.
+  winnersDrawn:  { type: Boolean, default: null },
+  rerollSeq:     { type: Number, default: 0 },
   createdAt:     { type: Date, default: Date.now },
 });
 GiveawaySchema.index({ guildId: 1, ended: 1, endsAt: 1 });

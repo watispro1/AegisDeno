@@ -211,6 +211,14 @@ back to production.
   their next slot without a burst of stale posts.
 - One-off tasks too old to run were left in the database forever; boot prunes
   them.
+- Giveaways: ending and rerolling at the same moment (or two ends, such as a
+  moderator pressing End while the timer fires) could overwrite the winners.
+  Each transition is now one conditional database update: the end claims the
+  giveaway before drawing and only stores winners it drew itself, and a reroll
+  only swaps winners while the reroll counter (`rerollSeq`) still reads what
+  it saw. The loser gets a short ephemeral explanation instead. A giveaway left
+  half-ended by a restart is finished on boot. Tests in
+  `tests/giveawayRace.test.ts`.
 
 ### Security
 - New Mongo collections: `incidents` (incident state and timeline),
