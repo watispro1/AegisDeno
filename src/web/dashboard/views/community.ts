@@ -3,7 +3,7 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { ChannelOption } from "../botView";
 import type { GiveawayRow, SuggestionFilter, SuggestionRow, WatchView } from "../moduleData";
 import { SUGGESTION_NOTE_MAX } from "../moduleValidation";
-import { type GuildContext, csrfField, emptyState, fmtDate, moduleStatus, notice, person } from "./layout";
+import { type GuildContext, copyId, csrfField, emptyState, moduleStatus, notice, person, personId, relTime } from "./layout";
 import { Form, channelOptions, channelPickerEmptyNote, hiddenChannelNote, type FormState } from "./form";
 import { actionButton, errorSummary, modulePage, pagerNav, tableFilter } from "./parts";
 import { moduleGrid, type ModuleState } from "./overview";
@@ -17,9 +17,9 @@ export function renderGiveaways(cfg: SiteConfig, ctx: GuildContext, o: { rows: G
   const base = `/dashboard/${g}/giveaways`;
   const chan = (id: string) => o.channels.find(c => c.id === id)?.name;
   const row = (gw: GiveawayRow) => `<tr>
-      <td data-label="Prize"><strong>${esc(clip(gw.prize, 120))}</strong></td>
+      <td data-label="Prize"><strong>${esc(clip(gw.prize, 120))}</strong> ${copyId(gw.messageId, "Copy giveaway message ID")}</td>
       <td data-label="Channel">${chan(gw.channelId) ? `#${esc(chan(gw.channelId) as string)}` : `<span class="faint">hidden or deleted</span>`}</td>
-      <td data-label="${gw.ended ? "Ended" : "Ends"}">${esc(fmtDate(gw.endsAt))}</td>
+      <td data-label="${gw.ended ? "Ended" : "Ends"}">${relTime(gw.endsAt)}</td>
       <td data-label="Entries">${gw.entrants.toLocaleString("en-US")}</td>
       <td data-label="Winners">${gw.ended ? (gw.winners.length ? gw.winners.map(w => person(ctx, w)).join(", ") : `<span class="faint">none</span>`) : `${gw.winnerCount} to draw`}</td>
       <td data-label="Host">${person(ctx, gw.hostId)}</td>
@@ -63,7 +63,7 @@ export function renderSuggestions(cfg: SiteConfig, ctx: GuildContext, o: {
     const open = s.status === "pending" || s.status === "considered";
     return `<li class="item-card">
       <div class="item-head"><span class="status-pill ${open ? "neutral" : s.status === "approved" ? "on" : "off"}">${esc(STATUS_TAG[s.status] ?? s.status)}</span>
-        <span class="faint">${esc(fmtDate(s.createdAt))} · by ${person(ctx, s.authorId)} · 👍 ${s.up} 👎 ${s.down}</span></div>
+        <span class="faint">${relTime(s.createdAt)} · by ${personId(ctx, s.authorId)} · ID <code class="inline">${esc(s.id)}</code> ${copyId(s.id, "Copy suggestion ID")} · 👍 ${s.up} 👎 ${s.down}</span></div>
       <p class="prewrap">${esc(clip(s.content, 1200))}</p>
       ${s.reviewReason ? `<p class="muted"><strong>Staff note:</strong> ${esc(s.reviewReason)}</p>` : ""}
       ${open ? `<form class="review-form" method="post" action="${base}/${esc(s.id)}/review">
@@ -105,11 +105,11 @@ export function renderWatchlist(cfg: SiteConfig, ctx: GuildContext, o: { rows: W
   const g = esc(ctx.guild.id);
   const base = `/dashboard/${g}/watchlist`;
   const rows = o.rows.map(w => `<tr>
-      <td data-label="Member">${person(ctx, w.targetId)}</td>
+      <td data-label="Member">${personId(ctx, w.targetId)}</td>
       <td data-label="Reason">${w.reason ? esc(clip(w.reason, 140)) : `<span class="faint">none</span>`}</td>
       <td data-label="Watching">${esc(w.events.join(", ") || "everything")}</td>
       <td data-label="Alerts">${w.alertCount.toLocaleString("en-US")}</td>
-      <td data-label="Until">${w.expiresAt ? esc(fmtDate(w.expiresAt)) : "No end"}</td>
+      <td data-label="Until">${w.expiresAt ? relTime(w.expiresAt) : "No end"}</td>
       <td data-label="Actions">${actionButton(`${base}/${esc(w.targetId)}/remove`, ctx.viewer.csrf, "Stop watching", { danger: true, confirm: "Remove this member from your Ghost Watch list? Alerts stop at once." })}</td>
     </tr>`).join("");
   return modulePage(cfg, ctx, {

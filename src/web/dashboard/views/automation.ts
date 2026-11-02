@@ -4,7 +4,7 @@ import type { ChannelOption } from "../botView";
 import type { AutoResponderRow, AutomationRow } from "../moduleData";
 import { AUTORESPONDER_RESPONSE_MAX, AUTORESPONDER_TRIGGER_MAX, SCHEDULED_MESSAGE_MAX } from "../moduleValidation";
 import { EMBED_LIMITS } from "../../../services/embedSpec";
-import { type GuildContext, csrfField, emptyState, fmtDate, moduleStatus, notice, person } from "./layout";
+import { type GuildContext, copyId, csrfField, emptyState, moduleStatus, notice, personId, relTime } from "./layout";
 import { Form, channelOptions, channelPickerEmptyNote, type FormState } from "./form";
 import { actionButton, errorSummary, modulePage, tableFilter } from "./parts";
 import { embedBuilder, variableReference } from "./embedBuilder";
@@ -85,11 +85,11 @@ export function renderAutomations(cfg: SiteConfig, ctx: GuildContext, o: {
   const f = new Form(state, "task-");
   const chan = (id: string) => o.channels.find(c => c.id === id)?.name;
   const rows = o.rows.map(t => `<tr>
-      <td data-label="Next post">${esc(fmtDate(t.executeAt))}</td>
+      <td data-label="Next post">${relTime(t.executeAt)}</td>
       <td data-label="Channel">${chan(t.channelId) ? `#${esc(chan(t.channelId) as string)}` : `<span class="faint">hidden or deleted</span>`}</td>
       <td data-label="Repeats">${esc(every(t.intervalMs))}${t.type === "reminder" ? ' <span class="tag">reminder</span>' : ""}</td>
-      <td data-label="Message" class="prewrap">${esc(clip(t.payload, 140))}</td>
-      <td data-label="By">${person(ctx, t.creatorId)}</td>
+      <td data-label="Message" class="prewrap">${esc(clip(t.payload, 140))} <span class="faint">ID <code class="inline">${esc(t.id)}</code></span> ${copyId(t.id, "Copy task ID")}</td>
+      <td data-label="By">${personId(ctx, t.creatorId)}</td>
       <td data-label="Actions">${actionButton(`${base}/${esc(t.id)}/cancel`, ctx.viewer.csrf, "Cancel", { danger: true, confirm: "Cancel this scheduled message? It will not post." })}</td>
     </tr>`).join("");
   return modulePage(cfg, ctx, {

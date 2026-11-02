@@ -99,3 +99,29 @@ test("dashboard.js keeps relative times current from the datetime attribute, CSP
   for (const s of ["time[data-rel][datetime]", "setInterval(refreshRel, 60000)", "' ago'", "'just now'"]) assert.ok(dashboardScript.includes(s), s);
   assert.doesNotMatch(dashboardScript, /\beval\(|new Function|innerHTML\s*=/);
 });
+
+test("community and automation pages: giveaways, suggestions, Ghost Watch and scheduled messages use relative times and copy buttons", async () => {
+  const { renderGiveaways, renderSuggestions, renderWatchlist } = await import("../src/web/dashboard/views/community");
+  const { renderAutomations } = await import("../src/web/dashboard/views/automation");
+  const channels = [{ id: "700000000000000001", name: "general", parent: null }];
+  const SOON = new Date(Date.now() + 3 * 86_400_000 + 60_000);
+  const IN3 = /<time datetime="[^"]+" title="\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC" data-rel>in 3 days<\/time>/;
+
+  const gw = renderGiveaways(cfg, ctx, { rows: [{ messageId: "600000000000000001", channelId: channels[0].id, prize: "Nitro", winnerCount: 1, entrants: 4, winners: [], hostId: MEMBER, endsAt: SOON, ended: false }], channels, noticeCode: null });
+  assert.match(gw, IN3);
+  assert.match(gw, copy("600000000000000001"));
+
+  const sg = renderSuggestions(cfg, ctx, { items: [{ id: "65a1b2c3d4e5f60718293a4c", authorId: MEMBER, content: "Dark mode", status: "pending", up: 1, down: 0, reviewedBy: null, reviewReason: null, createdAt: AGO }], total: 1, page: 1, perPage: 10, filter: "open", channelId: null, channels, hidden: new Set(), noticeCode: null });
+  assert.match(sg, REL);
+  assert.match(sg, copy("65a1b2c3d4e5f60718293a4c"));
+  assert.match(sg, copy(MEMBER));
+
+  const wl = renderWatchlist(cfg, ctx, { rows: [{ targetId: MEMBER, reason: null, events: [], alertCount: 2, expiresAt: SOON, createdAt: AGO }], noticeCode: null });
+  assert.match(wl, IN3);
+  assert.match(wl, copy(MEMBER));
+
+  const au = renderAutomations(cfg, ctx, { rows: [{ id: "65a1b2c3d4e5f60718293a4d", channelId: channels[0].id, creatorId: MEMBER, type: "scheduled", payload: "Standup", executeAt: SOON, intervalMs: null }], channels, hidden: new Set(), noticeCode: null });
+  assert.match(au, IN3);
+  assert.match(au, copy("65a1b2c3d4e5f60718293a4d"));
+  for (const html of [gw, sg, wl, au]) assert.doesNotMatch(html, /\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC<\/td>/, "no bare UTC timestamps left in cells");
+});
