@@ -1,4 +1,5 @@
 import { guardCollect } from "../../utils/collectorGuard";
+import { offerQuickUndo, quickUndoId, quickUndoRow } from "../../utils/quickUndo";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -156,6 +157,7 @@ export const command: Command = {
     const reason = interaction.options.getString("reason") ?? "No reason provided.";
 
     await interaction.deferReply();
+    const previousRate = (targetChan as TextChannel).rateLimitPerUser ?? 0;
     try {
       await (targetChan as TextChannel).setRateLimitPerUser(
         seconds,
@@ -204,7 +206,25 @@ export const command: Command = {
         );
 
       const quickRow = buildQuickRow(seconds);
-      const sent = await interaction.editReply({ embeds: [embed], components: [quickRow] });
+      const undoId = quickUndoId(interaction.id);
+      let currentRate = seconds;
+      let quickOpen = true;
+      let undoState: "ready" | "done" = "ready";
+      const sent = await interaction.editReply({ embeds: [embed], components: [quickRow, quickUndoRow(undoId)] });
+      offerQuickUndo(interaction, {
+        message: sent, customId: undoId, actionAtMs: Date.now(),
+        otherRows: () => (quickOpen ? [buildQuickRow(currentRate)] : []),
+        undo: async (i) => {
+          if (!i.inCachedGuild() || !i.member.permissionsIn(targetChan.id).has(PermissionFlagsBits.ManageChannels)) {
+            return { ok: false, message: `❌ You no longer have **Manage Channels** in <#${targetChan.id}>.` };
+          }
+          await (targetChan as TextChannel).setRateLimitPerUser(previousRate, auditReason(`Undo by ${i.user.tag}`));
+          currentRate = previousRate;
+          undoState = "done";
+          await sendGuildLog(interaction.client, guildId, { title: "↩️ Slowmode Change Undone", color: 0x99aab5, description: `**Channel:** <#${targetChan.id}>\n**Restored:** ${formatDuration(previousRate)}\n**By:** ${i.user.tag}` });
+          return { ok: true, message: `↩️ Slowmode in <#${targetChan.id}> is back to ${formatDuration(previousRate)}.` };
+        },
+      });
 
       await sendGuildLog(interaction.client, guildId, {
         title: action,
@@ -218,7 +238,7 @@ export const command: Command = {
         componentType: ComponentType.Button,
         time: 60_000,
         // Channel-level check, same as the command itself.
-        filter: (i) => i.inCachedGuild() && i.member.permissionsIn(targetChan.id).has(PermissionFlagsBits.ManageChannels),
+        filter: (i) => i.customId.startsWith("slowmode_") && i.inCachedGuild() && i.member.permissionsIn(targetChan.id).has(PermissionFlagsBits.ManageChannels),
       });
 
       collector.on("collect", (i) => guardCollect("slowmode", i, async () => {
@@ -236,13 +256,15 @@ export const command: Command = {
             .setTitle(newRate === 0 ? "🔓 Slowmode Disabled" : "🐌 Slowmode Set")
             .setColor(newRate === 0 ? 0x57F287 : 0x3498DB)
             .spliceFields(1, 1, { name: "⏱️ New Duration", value: formatDuration(newRate), inline: true });
-          await interaction.editReply({ embeds: [updatedEmbed], components: [buildQuickRow(newRate)] }).catch(() => null);
+          currentRate = newRate;
+          await interaction.editReply({ embeds: [updatedEmbed], components: [buildQuickRow(newRate), quickUndoRow(undoId, undoState)] }).catch(() => null);
         } catch (err) {
           logger.warn("Quick-adjust slowmode failed", err);
         }
       }));
 
       collector.on("end", async () => {
+        quickOpen = false;
         await interaction.editReply({ components: [] }).catch(() => null);
       });
 

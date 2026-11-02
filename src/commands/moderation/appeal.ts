@@ -14,7 +14,9 @@ import {
   TextInputStyle,
   ModalSubmitInteraction,
   MessageFlags,
+  type AutocompleteInteraction,
 } from "discord.js";
+import { appealCodeSuggestions } from "../../utils/idSuggestions";
 import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { BanAppealModel } from "../../database/mongo";
@@ -57,14 +59,14 @@ export const command: Command = {
       sub.setName("view")
         .setDescription("View a specific appeal by its code")
         .addStringOption(o =>
-          o.setName("code").setDescription("Appeal code (e.g. AGS-K7X2)").setRequired(true).setMinLength(8).setMaxLength(8)
+          o.setName("code").setDescription("Appeal code (e.g. AGS-K7X2); start typing to pick one").setRequired(true).setMinLength(8).setMaxLength(8).setAutocomplete(true)
         )
     )
     .addSubcommand(sub =>
       sub.setName("review")
         .setDescription("Approve or deny a ban appeal by its code")
         .addStringOption(o =>
-          o.setName("code").setDescription("Appeal code (e.g. AGS-K7X2)").setRequired(true).setMinLength(8).setMaxLength(8)
+          o.setName("code").setDescription("Pending appeal code (e.g. AGS-K7X2); start typing to pick one").setRequired(true).setMinLength(8).setMaxLength(8).setAutocomplete(true)
         )
         .addStringOption(o =>
           o.setName("decision")
@@ -88,6 +90,22 @@ export const command: Command = {
     ),
 
   guildOnly: true,
+
+  /** Appeal codes for staff on view/review (Ban Members only; never for /appeal submit). */
+  autocomplete: async (interaction: AutocompleteInteraction) => {
+    const focused = interaction.options.getFocused(true);
+    const sub = interaction.options.getSubcommand(false);
+    if (focused.name !== "code" || !interaction.guildId || (sub !== "view" && sub !== "review")
+      || !interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers)) {
+      await interaction.respond([]).catch(() => null);
+      return;
+    }
+    const filter: Record<string, string> = sub === "review" ? { guildId: interaction.guildId, status: "pending" } : { guildId: interaction.guildId };
+    const rows = await BanAppealModel.find(filter).sort({ createdAt: -1 }).limit(100)
+      .select("appealCode userId status banReason createdAt").lean().catch(() => []);
+    await interaction.respond(appealCodeSuggestions(rows.map(r => ({ appealCode: r.appealCode, userId: r.userId, status: r.status ?? "pending", banReason: r.banReason, createdAt: new Date(r.createdAt) })), String(focused.value ?? ""), sub))
+      .catch(() => null);
+  },
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub     = interaction.options.getSubcommand();

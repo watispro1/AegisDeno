@@ -1,7 +1,8 @@
 import { scheduledPayloadPreview } from "../../services/scheduledPayload";
 import { moduleEnabled, moduleOffMessage } from "../../services/moduleSwitches";
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, TextChannel, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, TextChannel, MessageFlags, type AutocompleteInteraction } from "discord.js";
+import { taskIdSuggestions } from "../../utils/idSuggestions";
 import { Command } from "../../types/discord";
 import { createTask, getTasksForGuild, deleteTask, AUTOMATION_TASK_TYPES } from "../../services/scheduler";
 import { scheduleTask, cancelTask, getActiveTaskIds } from "../../services/schedulerRunner";
@@ -61,7 +62,7 @@ export const command: Command = {
         .setName("cancel")
         .setDescription("Cancel an active task.")
         .addStringOption(opt =>
-          opt.setName("id").setDescription("Task ID to cancel").setRequired(true)
+          opt.setName("id").setDescription("Task ID; start typing to pick one of your tasks").setRequired(true).setAutocomplete(true)
         )
     )
     .addSubcommand(sub =>
@@ -80,6 +81,17 @@ export const command: Command = {
     ),
 
   guildOnly: true,
+
+  /** Suggests tasks the member may cancel: their own, or all of the server's with Manage Server. */
+  autocomplete: async (interaction: AutocompleteInteraction) => {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== "id" || !interaction.guildId) { await interaction.respond([]).catch(() => null); return; }
+    const canManageServer = interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) ?? false;
+    const tasks = await getTasksForGuild(interaction.guildId, canManageServer ? undefined : interaction.user.id, AUTOMATION_TASK_TYPES).catch(() => []);
+    const rows = tasks.map(t => ({ id: t.id!, type: t.type, creatorId: t.creatorId, channelId: t.channelId, executeAt: t.executeAt, intervalMs: t.intervalMs, preview: scheduledPayloadPreview(t.payload) }));
+    await interaction.respond(taskIdSuggestions(rows, String(focused.value ?? ""), { userId: interaction.user.id, canManageServer })).catch(() => null);
+  },
+
   botPermissions: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
