@@ -15,7 +15,8 @@ import { checkExample, parseExample } from "../src/web/commandExamples";
 const SERVER_DOC = path.join(__dirname, "..", "server.md");
 
 function readDoc(): string {
-  return fs.readFileSync(SERVER_DOC, "utf8");
+  // The regexes below assume LF; git checks the file out as CRLF on Windows.
+  return fs.readFileSync(SERVER_DOC, "utf8").replace(/\r\n/g, "\n");
 }
 
 /** Lines that are a slash command invocation, not a website path mentioned in prose. */
