@@ -8,198 +8,136 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
-## [1.2.3] - 2026-10-31
+## [1.2.3] - 2026-11-02
 
-Dashboard 1.2.3. A redesigned, module-based dashboard with a sidebar and
-new pages for features that used to be slash-command only, a role-hierarchy
-fix, security hardening, clearer error and empty states, and small usability
-fixes. No new environment variables, Discord intents or OAuth scopes.
+Dashboard 1.2.3. A redesigned, module-based dashboard with a sidebar, new
+pages for features that used to be slash-command only (including ModMail,
+Incident Mode, Trust Score and the staff digest), member pages with quick
+actions, analytics, a role-hierarchy fix, security hardening and many
+usability improvements. Released alongside bot versions 3.6.2 and 3.7.0. No
+new environment variables or OAuth scopes.
 
 ### Added
-- **New layout.** Every server page now has a sidebar: a server switcher at
-  the top (your other servers with Aegis), then the modules grouped as
-  General, Moderation, Community, Automation and Records. A top bar shows the
-  server name and an account menu (your servers, what's new, log out). On a
-  phone the sidebar becomes a drawer behind a Menu button. Everything works
-  with the keyboard, and Escape closes the drawer and menus.
-- **Overview** now has stat cards (members, cases and warnings for 7 and 30
-  days, open tickets, pending appeals, active giveaways, automod hits), a
-  30-day cases-per-day chart, a grid of every module with its on/off state and
-  a link to it, and a setup checklist: permissions Aegis's role is missing,
-  configured channels Aegis can no longer see, logging or automod left off,
-  and how many channels are hidden from Aegis ahead of Discord's 2026-11-16
-  View Channel change.
-- **Settings** page listing every module with its state, plus Aegis's
-  server-wide permissions.
-- **Autoresponders:** add, turn on or off, and delete autoresponders, and
-  switch all of them off for the server at once (they are kept). Up to 50 per
-  server.
-- **Scheduled messages:** schedule a post to a channel in 1 minute to 28 days,
-  once or repeating (every 10 minutes to 28 days), and cancel pending ones.
-- **Announcements:** build an embed (title, description, colour, author,
-  footer, image and thumbnail links, up to 10 fields) with a live preview that
-  looks like Discord, and post it to a channel. Announcements never ping
-  anyone. Needs Manage Messages, as `/announce` does.
-- **Giveaways:** see running and finished giveaways, end one early, or reroll
-  a finished one.
-- **Suggestions:** pick the suggestions channel, filter open, approved, denied
-  or all suggestions, and approve, consider or deny with an optional staff
-  note. The post is restyled and the author told by DM, as with
-  `/suggest review`.
-- **Ghost Watch:** your own watch list (nobody else's), with Stop watching.
-  Needs Moderate Members, as `/watchlist` does.
-- **Goodbye messages:** a new Goodbye tab next to Welcome posts a message when
-  someone leaves. It never pings anyone.
-- **Embeds for welcome and goodbye:** both can send an embed built with the
-  same builder and preview. A variables list (`{user}`, `{username}`,
+- **New layout.** Every server page has a sidebar: a server switcher at the
+  top, then the modules grouped as General, Moderation, Community, Automation
+  and Records. A top bar shows the server name and an account menu (your
+  servers, what's new, log out). On a phone the sidebar becomes a drawer
+  behind a Menu button. Everything works with the keyboard.
+- **Overview:** stat cards (members, cases and warnings for 7 and 30 days,
+  open tickets, pending appeals, active giveaways, automod hits), a 30-day
+  cases chart, a card for every module with its on/off state, an Incident
+  Mode card, and a setup checklist (missing permissions, configured channels
+  Aegis can no longer see, logging or automod left off, and channels hidden
+  from Aegis ahead of Discord's 2026-11-16 View Channel change).
+- **New module pages.**
+  - Autoresponders: add, switch on or off, delete, or switch all off at once
+    (they are kept). Up to 50 per server.
+  - Scheduled messages: post to a channel in 1 minute to 28 days, once or
+    repeating (every 10 minutes to 28 days), optionally with an embed, and
+    cancel pending ones.
+  - Announcements: build an embed with a live Discord-style preview and post
+    it. Announcements never ping anyone.
+  - Giveaways: see running and finished giveaways, end one early or reroll a
+    finished one.
+  - Suggestions: pick the channel, filter by status, and approve, consider or
+    deny with a staff note; the author is told by DM.
+  - Ghost Watch: your own watch list, with Stop watching.
+  - ModMail: settings (staff channel and role, staff-role ping, anonymous
+    replies by default, reply prefix, greeting and close messages), open
+    conversations, searchable transcripts with a viewer, and blocked members
+    with Unblock and block-by-ID.
+  - Staff digest: day, hour, time zone and channel, with a live preview of
+    the last 7 days.
+  - Incident Mode: start or end it, set its defaults and the auto-trigger,
+    and read every past incident with its timeline.
+  - Trust Score: a distribution chart of member scores (with a text table),
+    the lowest-trust members, and the Trust Score settings.
+  - Settings: every module with its state, plus Aegis's server-wide
+    permissions.
+- **Members.** A member page with cases, warnings, notes and the Trust Score
+  breakdown in one place, and quick actions (warn, time out, remove timeout,
+  kick, ban). Each action needs the same Discord permission as the slash
+  command, follows the role-hierarchy rule and is written to the Activity
+  log. `/userinfo` links here.
+- **Analytics:** joins and leaves, cases, warnings and automod hits per day,
+  plus cases by type and by moderator and automod hits by rule.
+- **Goodbye messages** next to Welcome, and **embeds** for both, built with
+  the same builder and preview. A variables list (`{user}`, `{username}`,
   `{server}`, `{memberCount}` and its aliases) sits next to every text box.
-- **Logging per event type:** each log category (moderation actions, joins,
-  leaves, edits, deletes, role and channel changes) can go to its own channel;
+- **Logging per event type:** each log category can go to its own channel;
   the rest use the main log channel.
-- An **unsaved changes** bar ("You have unsaved changes — Reset / Save")
-  appears when you edit a settings form, and the browser asks before you
-  leave with unsaved changes.
-- Notices also show as toasts, destructive buttons ask in an in-page dialog,
-  tables have a filter box, long text boxes count characters, and module pages
-  show an Enabled / Disabled badge.
-- **Real avatars and server icons** from Discord's CDN in the server
-  switcher, account menu and member pages (hashes are validated; no image is
-  shown when there is none).
-- **Ctrl/Cmd+K command palette** to jump to any page or server, and a
-  **global search** page that finds pages, members (by name or ID, including
-  people who left) and cases in a server.
-- **Member page** (`/dashboard/<server>/members/<user>`): a member's cases,
-  warnings and notes in one place, with quick actions (warn, time out, remove
-  timeout, kick, ban). Each action needs the same Discord permission as the
-  slash command, checked live, follows the role-hierarchy rule (never yourself,
-  the owner, or anyone at or above you), and is written to the Activity log. `/userinfo` links here.
-- **Analytics:** joins and leaves, cases and warnings, and automod hits per
-  day, plus cases by type and by moderator and automod hits by rule.
-- **Incident page:** start or end Incident Mode, set its defaults and the
-  auto-trigger, and read every past incident with its timeline. Needs Manage
-  Channels, Manage Roles and Manage Server for Aegis to apply every step.
-- **Module switches:** turn whole modules on or off from Modules & backup; the overview's
-  module cards show each module's state, and an Incident card shows whether
-  Incident Mode is active.
-- **Settings export and import:** download a server's settings as JSON and
-  load them back, validated before anything is saved.
-- **Scheduled messages can carry an embed** (optional), built with the same
-  editor and Discord limits as Announcements; the message text is posted above
-  it.
-- **Trust Score page** (Moderation → Trust Score): a distribution chart of
-  member scores (plain SVG with a text table), the lowest-trust members linked
-  to their member pages, and the settings form: integrations switch, weights
-  preset, low-trust threshold, link filter for low-trust members only, Incident
-  Mode join-gate threshold and a low-trust role (the role picker follows the
-  same hierarchy rule as every other role picker). Saving is CSRF-protected,
-  rate limited and written to the audit log. Scores refresh every few minutes;
-  large servers score the first 1,000 cached members.
-- **Trust Score card on the member page**, listing every factor with its + or
-  − points.
-
-- **ModMail page**: turn ModMail on, pick the staff channel and staff role,
-  staff-role ping, anonymous-by-default, thread reply prefix, greeting and
-  close messages with the embed builder; open conversations (with a link to
-  the thread), transcripts (filterable) and a transcript viewer; blocked
-  members with Unblock buttons and a block-by-ID form.
-- **Staff digest page**: day, hour, time zone and channel, with a live preview
-  of the last 7 days.
-- **Keyboard shortcuts** dialog (`?` or the ? button): Ctrl/⌘+K jump, `/`
-  focuses the table filter, Ctrl/⌘+S saves the form you changed.
-- Copy-ID buttons, and relative times ("3 days ago") with the exact UTC time
-  as a tooltip, on the new pages and now on the older ones too: cases and the
-  case page, member pages (joined, account created, timeout, cases, warnings
-  and staff notes), appeals, open tickets on the overview, analytics
-  (moderator IDs), Incident Mode and its reports, Trust Score and the activity
-  (audit) log. Relative times on a page left open update every minute.
-- Cases: choose 10, 25, 50 or 100 per page; the choice is kept across pages.
+- **Module switches and backup:** turn whole modules on or off, and export a
+  server's settings as JSON and import them back (validated before anything
+  is saved).
+- **Finding things fast.** Ctrl/Cmd+K jumps to any page or server; a search
+  page finds pages, members (by name or ID, including people who left) and
+  cases; `?` opens a keyboard shortcuts list; `/` focuses the table filter;
+  Ctrl/Cmd+S saves the form you changed. The server picker lists the server
+  you opened last first.
+- **Times and IDs.** Times show as "3 days ago" with the exact time on hover
+  and update while the page is open, and IDs have copy buttons, across cases,
+  members, appeals, tickets, analytics, Incident Mode, Trust Score and the
+  Activity log.
+- **Working with forms and tables.** An unsaved-changes bar with Reset and
+  Save (and a warning before you leave with unsaved changes), notices as
+  toasts, in-page confirmation for destructive buttons, filter boxes on
+  tables, character counters, Enabled / Disabled badges on module pages, and
+  10, 25, 50 or 100 cases per page.
+- **Real avatars and server icons** from Discord, with no image when there
+  is none.
 
 ### Changed
-- Role pickers for the verified role and the join role grey out roles you
-  can't hand out and say why: "Aegis cannot assign" or "above your highest
-  role". When nothing can be picked, a note says which limit emptied the list.
-- When a channel list is empty, a note says whether Aegis can't see the
-  channels (they are hidden from it; give it View Channel) or the server has
-  no text channels. Hidden channels are still never listed.
-- A form can't be sent twice: its buttons are disabled while it is sending,
-  and work again if you come back with the Back button.
-- A "Saved" or other notice shows once: it is removed from the address bar,
-  so reloading or bookmarking the page doesn't repeat it.
-- Disabled buttons and fields now look disabled.
+- Role pickers grey out roles you can't hand out and say why ("Aegis cannot
+  assign" or "above your highest role"), and say which limit emptied the
+  list when nothing can be picked.
+- An empty channel list says whether the channels are hidden from Aegis or
+  the server has no text channels.
+- A form can't be sent twice, and a "Saved" notice shows once instead of
+  repeating on reload.
+- Disabled buttons and fields look disabled, and empty states explain what
+  will appear there.
 - When you are rate limited while sending a form, the page says nothing was
   saved.
-- A server Aegis is not in links straight to adding Aegis to that server.
-
-- The server picker lists the server you last opened first, tagged "Last
-  opened" (an ID-only cookie; access is re-checked on every request).
-- Cases empty state tells a new server what will appear, and "Clear" is a link
-  when a filter matches nothing; the unsaved-changes bar has a shadow so it
-  stands out from the page.
+- A server Aegis is not in links straight to adding Aegis.
 
 ### Fixed
-- **Roles above your own could be handed out.** The verified role (Panels and
-  Settings), the join role, and role panel re-posts only checked Aegis's role
-  position. They now also require the role to be below your highest role,
-  checked live on every request and enforced on the server whatever the form
-  sends. The server owner may pick any role Aegis can assign; Administrator is
-  still bounded by their highest role. If your role can't be read, no role
-  can be picked. A role already saved in Settings can be kept while you change
-  other settings there.
+- **Roles above your own could be handed out.** The verified role, the join
+  role and role panel re-posts only checked Aegis's role position. They now
+  also require the role to be below your highest role, checked on every
+  request. The server owner may pick any role Aegis can assign; a role
+  already saved can be kept while you change other settings.
 - A role panel that hands out a role above yours can't be re-posted by you;
-  its Re-post button is disabled with the reason.
-- A saved role that had become greyed out was dropped silently (or reported
-  as missing) the next time the form was saved. It now stays selected and is
-  checked like any other choice.
+  its Re-post button says why.
+- A saved role that had become greyed out was dropped silently the next time
+  the form was saved; it now stays selected.
 - Re-posting a role panel without picking a channel said Aegis couldn't see
   the channel; it now asks you to pick one.
-- A database outage showed "Something went wrong" (500), and a session
-  lookup that failed during an outage signed you out. Both now show
-  "Database unavailable" (503, with Retry-After) and keep you signed in.
+- A database outage showed "Something went wrong" and could sign you out. It
+  now shows "Database unavailable" and keeps you signed in.
 - A form sent after your session ended now says nothing was saved and offers
   a Log in button.
-
-- ModMail settings refuse @everyone as the staff role (it would have made
-  every member ModMail staff).
+- ModMail settings refuse @everyone as the staff role.
 
 ### Security
-- Every new page and action uses the same protections as the rest of the
-  dashboard: sign-in, a CSRF token and same-origin check on every form, a live
-  check that you may manage the server, the matching Discord permission for
-  actions that need more than Manage Server, refusal of operator-looking
-  input, rate limits, size limits on forms, and an entry in the Activity log.
-  Channels hidden from Aegis are never offered or accepted. Embed image links
-  must be https, and every length is checked against Discord's limits on the
-  server. All new styling and scripts are served from `/assets`; the Content
-  Security Policy still allows no inline script or style.
-- Session cookies are now `__Host-aegis_dash` and `__Host-aegis_oauth` on the
-  live site: the browser only accepts them over HTTPS from this exact host,
-  with `Path=/` and no `Domain`, so another subdomain or a plain-http
-  response can't set or overwrite them. They are still HttpOnly and
-  SameSite=Lax. If you were signed in with the old `aegis_dash` cookie, your
-  next visit moves you to the new one and clears the old one; you stay
-  signed in. (A local http copy keeps the old names under `/dashboard`.)
-- Every login starts a new session and deletes the one the browser had
-  before.
-- A query string or form with Mongo-operator-like keys (`$where`,
-  `user[$ne]`, dotted names) is refused with "Bad request" before anything
-  is read or saved.
-- Failed form checks (expired or foreign CSRF token, wrong Origin) are
-  written to the server log.
-- Stricter page headers, shared with the rest of the site: no inline styles
-  allowed by the Content Security Policy, no `<base>` changes, no frames or
-  workers, and cross-origin isolation of the window and its resources.
-- The Content Security Policy now allows images from
-  `https://cdn.discordapp.com` and nowhere else new, for avatars and icons.
-  Avatar hashes from Discord are validated before a URL is built.
-- Quick actions, Incident Mode controls, module switches and settings import
-  use the same sign-in, CSRF, same-origin, live permission, rate-limit and
-  operator-key protections as the rest of the dashboard. Imports are size-
-  limited and validated field by field.
-- The ModMail and digest pages use the same protections as every other page:
-  sign-in, Manage Server on the server, CSRF token and same-origin check on
-  every form, body size caps (embed forms 128 KB), rate limits, role-hierarchy
-  check on the staff role, hidden channels never listed or accepted, and an
-  audit-log entry for every save, block and unblock.
+- Every new page and action has the same protections as the rest of the
+  dashboard: sign-in, a CSRF token and same-origin check on every form, a
+  live check that you may manage the server, the matching Discord permission
+  for actions that need more than Manage Server, role-hierarchy checks, rate
+  limits, size limits and an Activity log entry. Channels hidden from Aegis
+  are never offered or accepted, and every length is checked against
+  Discord's limits on the server.
+- Session cookies are `__Host-aegis_dash` and `__Host-aegis_oauth` on the
+  live site, so only this exact host over HTTPS can set them. They are still
+  HttpOnly and SameSite=Lax. If you were signed in with the old cookie, you
+  are moved to the new one and stay signed in.
+- Every login starts a new session and deletes the old one.
+- Requests with database-operator-like keys (`$where`, `user[$ne]`, dotted
+  names) are refused before anything is read or saved, and failed form checks
+  are written to the server log.
+- Stricter page headers: no inline script or style, no `<base>` changes, no
+  frames or workers, cross-origin isolation, and images only from this site,
+  inline data images and `https://cdn.discordapp.com`. Avatar hashes are validated before a URL
+  is built.
 
 ## [1.2.2] - 2026-10-30
 

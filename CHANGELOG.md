@@ -9,237 +9,183 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
-## [3.7.0] - 2026-11-01
+## [3.7.0] - 2026-11-02
 
-A documentation and quality-of-life release: the official-server playbook now
-documents every channel and its setup commands, the bot links straight to cases
-and docs, and the public site gained a faster search palette, saved command
-filters, copyable docs sections and a filterable changelog. It also adds
-Incident Mode (raid protection that restores the server exactly when it ends), a
-reworked public status page and a round of command fixes. Discord intents and
-environment variables are unchanged; Incident Mode uses Manage Channels, Manage
-Roles and Manage Server when they are granted, and skips what it can't do. Public
-URLs are now read from the environment, so a staging deployment no longer links
-back to production.
+The safety and staff-tools release. It adds ModMail (members DM Aegis to reach
+staff), Incident Mode (raid protection that puts the server back exactly as it
+was), Trust Score v2 (an explainable 0–100 score per member), an opt-in weekly
+staff digest and a reworked public status page, plus a large round of command
+fixes, quality-of-life improvements across the bot, dashboard and website, and
+a rewritten official-server playbook. Includes the rest of dashboard 1.2.3 (see
+`DASHBOARD_CHANGELOG.md`).
+
+Upgrade notes: Aegis now asks for the non-privileged Direct Messages intent
+(for ModMail); no privileged intents were added and no environment variables
+are required. Incident Mode uses Manage Channels, Manage Roles and Manage
+Server when they are granted and skips what it can't do. Several commands
+gained subcommands or options, so slash commands are re-registered on deploy;
+existing options keep their names.
 
 ### Added
-- **`server.md` channel reference:** every text, forum and voice channel now has
-  who posts, what it is for, what Aegis does there, and a topic written to paste
-  into Discord. The document also gained channel conventions, a "What Aegis
-  posts where" table, a setup order and a pre-launch QA checklist.
-- **`#welcome` channel:** the welcome system has its own target instead of
-  burying the rules in `#rules-and-info`; `server.md` and `/welcome` wiring were
-  updated together.
-- **CI drift check for the playbook:** `tests/serverDocs.test.ts` runs every
-  documented slash command through the same validator as the `/commands` page,
-  so a renamed option fails the build instead of shipping stale instructions.
-- **Env-driven public links:** `src/config/links.ts` builds site, docs, command,
-  case, user-history and invite URLs from `SITE_URL`, `SUPPORT_SERVER_URL` and
-  `BOT_INVITE_URL`, with safe fallbacks for malformed values.
-- **`/help` upgrades:** each result links to its category in the docs and to the
-  command's entry on the site, permission requirements are shown per command,
-  and there is an Add Aegis button.
-- **Case links in Discord:** warn, timeout, kick, ban and purge confirmations
-  and audit-log entries now carry buttons for the case page, the member's case
-  history and the server dashboard.
-- **Site search palette:** Ctrl/Cmd+K now matches fuzzily, groups results into
-  pages, commands and subcommands, supports arrow keys and Enter, remembers
-  recent searches, and deep-links straight to a subcommand anchor.
-- **Command filters and pins:** the commands page can filter by access level
-  (everyone, moderator, admin) and by subcommands or autocomplete, remembers
-  pinned commands locally, and keeps the whole filter state in the URL so a
-  filtered view can be shared.
-- **Docs navigation:** every heading has a copy-link button, inline `/command`
-  mentions link to the command reference, and a previous/next pager follows the
-  section in view.
-- **Changelog tools:** releases can be filtered by version, command or fix, the
-  newest release carries a Latest badge, and each release has its own copy link.
-- **Tests:** `tests/links.test.ts` pins the URL builders and mod-log rows;
-  `tests/siteQol.test.ts` covers the search, filters, docs and changelog hooks.
-
-- **Incident Mode (`/incident start|end|status|auto`):** one command applies
-  slowmode to public channels, locks every public channel, one channel or the
-  channels saved on the dashboard, gates new accounts younger than a set age
-  (time out or kick), and can pause server invites. It ends on its own after a
-  set time (up to 24 hours, default 1 hour) or with `/incident end`, and puts
-  back exactly what it changed, from state saved in Mongo, so a restart mid-
-  incident still restores cleanly. Every step is recorded on the incident's
-  timeline. `/incident auto` can start it when many accounts join at once
-  (off by default; joins and window are configurable). Needs Manage Channels
-  for slowmode and locks, Manage Roles for overwrites, Manage Server to pause
-  invites, and Moderate Members or Kick Members for the join gate.
-- **Status page rework:** `/status` shows each component (bot gateway, Discord
-  API latency, database, command registration, dashboard and website) with its
-  state, live metrics, 24-hour and 7-day uptime bars built from heartbeat
-  samples, and posted notices (incidents and maintenance). The same data is
-  served as JSON at `/api/status`.
-- **`/ping`** shows 24-hour uptime from the same heartbeat samples as the
-  status page, and explains a slow or still-connecting gateway in plain words.
-- **`/userinfo`** has a Member page button that opens the member on the
-  dashboard (cases, warnings, notes and quick actions in one place).
-- **Features page:** Incident Mode is listed with the other modules.
-- **Tests:** `tests/incidentMode.test.ts`, `tests/statusPage.test.ts`,
-  `tests/dashboardUpgrades.test.ts` and `tests/codexFixes362.test.ts`.
-- **Trust Score v2 (`/trust user`, `/trust config`):** an explainable 0–100
-  score per member from account age, time in the server, verification, active
-  days in the last 30, cases and warnings weighted by severity and recency (a
-  timeout still in effect counts more), automod hits in 30 days and Incident
-  Mode join-gate flags. Each factor is listed with its + or − points.
-  `/trust user` needs Moderate Members and is always ephemeral; `/trust config`
-  needs Manage Server and sets the weights preset (strict, balanced, lenient),
-  the low-trust threshold and three integrations that are **off by default**:
-  link filtering only for low-trust members, a trust threshold for Incident
-  Mode's join gate, and a low-trust role on join (checked against Aegis's and
-  your highest role). `/userinfo` shows the same score to moderators.
-  `/trustscore` keeps working unchanged.
-- **Features page rework:** `/features` is organised by category (Moderation,
-  Automod & Safety, Incident Mode, Trust Score, Community, Tickets & Appeals,
-  Dashboard, Status & Reliability) with an icon sprite, a headline hero, in-page
-  navigation, "on the dashboard" badges, a "Why Aegis" comparison and invite and
-  dashboard calls to action. Command names on the page come from the real
-  command definitions and link to their `/commands` anchors; a test fails if
-  one stops existing.
-- **Command options:** `/nickname reason:`, `/serverinfo ephemeral:`, reason
-  suggestions on `/kick`, note-ID suggestions on `/note delete`.
-- **Tests:** `tests/trustScoreV2.test.ts`, `tests/featuresPage.test.ts`,
-  `tests/commandsRound4.test.ts` and `tests/bugFixesRound4.test.ts`.
-
-- **ModMail.** Members DM Aegis to reach a server's staff. One shared server
-  with ModMail on opens a private thread (or a forum post) in the staff channel;
-  several show a server picker. Staff answer with `/modmail reply`, the
-  Reply / Reply anonymously buttons (modal), saved snippets
-  (`/modmail snippet add|remove|use|list`) or by starting a thread message with
-  the relay prefix (default `=`; ordinary thread chat is never relayed).
-  `/modmail close [reason]` (with confirmation) tells the member, locks the
-  thread, posts a summary to the mod log and keeps the transcript for 90 days.
-  `/modmail block|unblock`, `/modmail setup channel role` (Manage Server).
-  Per-user DM and ticket-open rate limits, one open ticket per member per
-  server (enforced by a unique index), attachments relayed as links up to
-  25 MB. Never pings anyone except the optional staff-role ping on a new thread.
-- **Weekly staff digest** (opt-in). `/digest setup|preview|disable` posts one
-  embed a week to the mod log or a chosen channel: cases by type and moderator,
-  joins and leaves, automod hits, incidents, the change in low-trust members,
-  open tickets/appeals/ModMail, top moderators and the lowest-trust members
-  (named, never pinged). Day and hour in an IANA time zone (default UTC). Runs
-  on the task scheduler, survives restarts, and posts at most once per server
-  per ISO week.
-- `utils/embedStyle.ts`: shared house footer ("Aegis · …") and actionable
-  permission hints; `/note delete` now asks for confirmation.
-- **Tests:** `tests/modmail.test.ts`, `tests/digest.test.ts`,
-  `tests/trustAlias.test.ts`, `tests/qolRound5.test.ts`,
-  `tests/bugFixesRound5.test.ts`.
+- **ModMail (`/modmail`).** Members DM Aegis to reach a server's staff. If
+  they share one server with ModMail on, a private thread (or forum post)
+  opens in the staff channel; if several, Aegis asks which server.
+  - Staff answer with `/modmail reply`, the Reply and Reply anonymously
+    buttons, saved snippets (`/modmail snippet add|remove|use|list`) or by
+    starting a thread message with the relay prefix (default `=`). Ordinary
+    thread chat is never sent to the member.
+  - `/modmail close [reason]` asks for confirmation, tells the member, locks
+    the thread, posts a summary to the mod log and keeps the transcript for
+    90 days.
+  - `/modmail setup` (Manage Server) picks the staff channel and staff role;
+    `/modmail block` and `/modmail unblock` stop or allow a member.
+  - One open conversation per member per server, rate limits on DMs and new
+    conversations, and attachments relayed as links up to 25 MB.
+- **Incident Mode (`/incident start|end|status|auto`).** One command applies
+  slowmode, locks every public channel (or one channel, or the channels saved
+  on the dashboard), gates new accounts younger than a set age (time out or
+  kick) and can pause server invites.
+  - It ends on its own after a set time (up to 24 hours, default 1 hour) or
+    with `/incident end`, and restores exactly what it changed, even after a
+    restart mid-incident.
+  - Every step is recorded on the incident's timeline.
+  - `/incident auto` can start it when many accounts join at once (off by
+    default; the join count and window are configurable).
+- **Trust Score v2 (`/trust user`, `/trust config`).** An explainable 0–100
+  score per member built from account age, time in the server, verification,
+  active days in the last 30, cases and warnings (weighted by severity and
+  how recent they are), automod hits and Incident Mode join-gate flags. Each
+  factor is listed with its points.
+  - `/trust user` needs Moderate Members and is always private.
+  - `/trust config` (Manage Server) sets the weights preset (strict, balanced,
+    lenient), the low-trust threshold and three integrations, all off by
+    default: link filtering only for low-trust members, a trust threshold for
+    Incident Mode's join gate, and a low-trust role on join.
+  - `/userinfo` shows the same score to moderators.
+- **Weekly staff digest (`/digest setup|preview|disable`).** Opt-in. One
+  embed a week in the mod log or a chosen channel: cases by type and
+  moderator, joins and leaves, automod hits, incidents, the change in
+  low-trust members, open tickets, appeals and ModMail, top moderators and the
+  lowest-trust members (named, never pinged). Day and hour are set in your
+  time zone (default UTC); it posts at most once a week per server and
+  survives restarts.
+- **Public status page.** `/status` shows each component (bot gateway,
+  Discord API latency, database, command registration, dashboard and
+  website) with live metrics, 24-hour and 7-day uptime bars and posted
+  incident or maintenance notices. The same data is available as JSON at
+  `/api/status`.
+- **Links into the dashboard and docs from Discord.**
+  - Warn, timeout, kick, ban and purge confirmations and their mod-log
+    entries carry buttons for the case page, the member's case history and
+    the server dashboard.
+  - `/userinfo` has a Member page button.
+  - `/help` links each command to its docs section and its entry on the
+    website, shows the permissions each command needs, and has an Add Aegis
+    button.
+- **`/ping`** shows 24-hour uptime and explains a slow or still-connecting
+  gateway in plain words.
+- **New options:** `/nickname reason:`, `/serverinfo ephemeral:`, reason
+  suggestions on `/kick`, and note-ID suggestions on `/note delete`.
+- **Website.**
+  - A reworked `/features` page, organised by category with in-page
+    navigation, "on the dashboard" badges, a comparison section and invite
+    and dashboard buttons. Every command it names links to its entry on
+    `/commands`.
+  - Search (Ctrl/Cmd+K) matches loosely, groups pages, commands and
+    subcommands, works with the arrow keys, remembers recent searches and
+    jumps straight to a subcommand.
+  - The commands page filters by who can use a command (everyone, moderator,
+    admin) and by subcommands or autocomplete, lets you pin commands, and
+    keeps the filters in the address bar so a filtered view can be shared.
+  - Docs headings have copy-link buttons, `/command` mentions link to the
+    command reference, and a previous/next pager follows the section you are
+    reading.
+  - The changelog can be filtered by version, command or fix, marks the
+    newest release as Latest, and has a copy link per release.
+  - The footer links back to the top, Features, Commands and Docs.
+- **Official-server playbook (`server.md`).** Every channel now has a
+  paste-ready topic, its slowmode and permissions, and what Aegis posts there,
+  plus channel conventions, a setup order using real commands and a
+  pre-launch checklist. A test checks every command it documents against the
+  live command definitions.
 
 ### Changed
-- Hardcoded `aegisdeno.fly.dev` and support-invite URLs in `/help`, `/about`,
-  `/ping`, `/dashboard` and permission errors were replaced with the shared link
-  builders.
-- Permission errors now name the missing permission, link the permissions guide
-  and point at `/diagnostics` instead of stopping at "missing permissions".
-- Purge records its case before showing the result, so the confirmation can link
-  to the case and the member's history; timeout extensions link their new case
-  too.
-- Channel locking moved from `/lock` into `src/services/channelLock.ts` so
-  `/lock` and Incident Mode share one implementation; guild config normalisers
-  moved to `src/services/guildConfigNormalize.ts`; `server.ts` was split into
-  `serverMiddleware.ts` and `statusRoutes.ts`. No behaviour change from the
-  splits themselves.
-- Member activity tracking now also keeps the UTC days a member was active in
-  the last 30 days (a short list of dates, never message content) for Trust
-  Score; `/userinfo` uses the Trust Score v2 engine.
-- `/nickname` shows the old and new name, logs the reason to the mod log, says
-  when nothing would change, and refuses the server owner up front.
-- `/slowmode` prints custom values as "1 minute 30 seconds" (was "1.5
-  minutes") and its channel pickers only offer channels that have slowmode.
-- Dashboard, starboard, watchlist, appeal, automod-hit and activity models moved
-  out of `src/database/mongo.ts` into `dashboardModels.ts` and `extraModels.ts`
-  (re-exported, so imports are unchanged).
-
-- `/trust user` is the canonical Trust Score command. `/trustscore` is now a
-  deprecated alias: same v2 reply (it keeps its `user` and `ephemeral`
-  options) plus a note pointing at `/trust user`. Docs, features page, home
-  demo and command examples updated; ModMail and the digest added to docs,
-  features and `/commands` examples.
-- Permission errors from the command executor say where to fix them (Server
-  Settings → Roles / Integrations, or the channel's permissions); `/help`
-  footers use the house style.
-- Gateway: adds the non-privileged `DirectMessages` intent (Partials.Channel
-  was already on) for ModMail. No privileged intents added.
-- `commands/community/giveaway.ts` split into the command and
-  `services/giveawayService.ts`; reminder/unlock/unban delivery moved from
-  `schedulerRunner.ts` to `scheduledActions.ts`.
+- `/trust user` is the main Trust Score command. `/trustscore` still works
+  (same options) and now shows the v2 score with a note pointing at
+  `/trust user`.
+- Permission errors name the missing permission, say where to fix it (Server
+  Settings → Roles or Integrations, or the channel's permissions), link the
+  permissions guide and point at `/diagnostics`.
+- Replies share one footer style, and `/note delete` asks for confirmation.
+- `/nickname` shows the old and new name, logs the reason, says when nothing
+  would change and refuses the server owner up front.
+- `/slowmode` shows custom values as "1 minute 30 seconds" (was "1.5
+  minutes"), and its channel pickers only offer channels that support
+  slowmode.
+- Purge and timeout extensions record their case first, so the confirmation
+  can link to it.
+- Activity tracking also keeps the days a member was active in the last 30
+  days (dates only, never message content) for Trust Score.
+- Links to the website, docs, cases and the support server come from the
+  deployment's own settings, so a staging copy no longer links to production.
+- Large source files were split into smaller modules (channel locking, guild
+  settings, the web server, database models, giveaways, the scheduler and the
+  dashboard data layer). Behaviour is unchanged.
 
 ### Fixed
-- `server.md` documents `/welcome message` as the form it is, explains `{user}`,
-  `{username}`, `{server}` and `{count}`, and no longer shows the removed
-  `message:` option.
-- Retired forms (`/logging setup`, `/logging categories`, `/automod exempt role`,
-  `/automod exempt channel`, old `/starboard` and `/welcome` syntax) are gone,
-  and the docs test fails if they return.
-- Logging, automod, verify, rolepanel, ticket, welcome, starboard and escalation
-  examples in `server.md` use the choice labels Discord actually shows.
-- `/lock server` skips channels hidden from Aegis (their overwrites are only a
-  placeholder, and editing them would clobber the real permissions), private
-  channels @everyone can't see, and channels already locked. Auto-unlocks are
-  persisted so a restart can't leave a channel locked, and giving both
-  `duration` and `duration_minutes` is refused instead of silently picking one.
-- `/ping` bounds the database check at 2 seconds and says "Timed out" instead
-  of hanging when the database stalls.
+- **Giveaways:** ending and rerolling at the same moment, or two ends at once
+  (a moderator pressing End as the timer fires), could overwrite the winners.
+  Each step now happens in one database update, the slower action gets a
+  short explanation, and a giveaway left half-ended by a restart is finished
+  when Aegis starts.
+- **Scheduled messages:** a repeating message whose run was missed by more
+  than a day (bot offline) silently stopped; it now resumes at its next slot
+  without a burst of old posts. One-off tasks too old to run are cleaned up
+  instead of staying in the database forever.
+- `/lock server` skips channels hidden from Aegis, private channels and
+  channels that are already locked. Timed unlocks survive a restart, and
+  giving both `duration` and `duration_minutes` is refused instead of picking
+  one.
 - The welcome auto-role is no longer given to members still in Discord's
-  membership screening (which let them skip the rules gate); they get it once
-  they pass. A role above Aegis is skipped with one warning instead of an API
-  error on every join.
-- Every button/menu collector in the commands now catches its own errors: an
-  expired interaction or a Discord error is logged and answered with a short
-  ephemeral notice instead of an unhandled promise rejection and "This
-  interaction failed".
-- `/slowmode set|custom` checks Manage Channels in the target channel (for
-  both you and Aegis), so channel overwrites that deny it are respected; the
-  quick-adjust buttons use the same check.
-- `/announce` and `/embed` refuse to post into a channel you can't post in
-  yourself, and `/announce` pings need Mention Everyone in that channel.
-- `/note delete` rejects malformed IDs with a clear message (they used to hit
-  a database error), and deleting another moderator's note needs Manage Server.
-- `/userinfo` and `/serverinfo` defer before their lookups so large servers or
-  a slow database don't run past Discord's three-second window; `/userinfo`'s
-  trust field no longer counted only the five newest cases of any type.
-- Codex review on #18/#19: `/autoresponder` toggling reports the real result,
-  embed size limits are checked after template placeholders are expanded, and
-  `server.md` uses the current command names.
-
-- Recurring scheduled messages whose run was missed by more than a day (bot
-  down) were never loaded again and silently stopped. Boot now resumes them at
-  their next slot without a burst of stale posts.
-- One-off tasks too old to run were left in the database forever; boot prunes
-  them.
-- Giveaways: ending and rerolling at the same moment (or two ends, such as a
-  moderator pressing End while the timer fires) could overwrite the winners.
-  Each transition is now one conditional database update: the end claims the
-  giveaway before drawing and only stores winners it drew itself, and a reroll
-  only swaps winners while the reroll counter (`rerollSeq`) still reads what
-  it saw. The loser gets a short ephemeral explanation instead. A giveaway left
-  half-ended by a restart is finished on boot. Tests in
-  `tests/giveawayRace.test.ts`.
+  membership screening (it let them skip the rules); they get it once they
+  pass. A role above Aegis is skipped with one warning instead of an error on
+  every join.
+- Buttons and menus that expired or hit a Discord error answer with a short
+  notice instead of "This interaction failed".
+- `/slowmode` checks Manage Channels in the target channel, for you and for
+  Aegis, so channel overrides are respected; the quick-adjust buttons too.
+- `/announce` and `/embed` refuse to post where you can't post yourself, and
+  `/announce` pings need Mention Everyone in that channel.
+- `/note delete` rejects malformed IDs with a clear message, and deleting
+  another moderator's note needs Manage Server.
+- `/userinfo` and `/serverinfo` no longer time out on large servers or a slow
+  database, and the `/userinfo` trust field no longer counted only the five
+  newest cases.
+- `/ping` reports "Timed out" after 2 seconds instead of hanging when the
+  database stalls.
+- `/autoresponder` toggling reports the real result, and embed size limits
+  are checked after placeholders such as `{user}` are filled in.
+- `server.md` no longer documents removed command forms (`/logging setup`,
+  `/automod exempt role`, the old `/starboard` and `/welcome message` syntax)
+  and uses the option labels Discord shows.
 
 ### Security
-- New Mongo collections: `incidents` (incident state and timeline),
-  `statussamples` (heartbeat samples, expire after 8 days), `statusnotices`
-  (status page notices) and `memberflows` (daily join/leave counts for analytics, expire after 120 days).
-- The Content Security Policy now allows images from `https://cdn.discordapp.com`
-  only, for real avatars and server icons on the dashboard; avatar hashes from
-  Discord OAuth are validated before use.
-- Incident Mode records each change before making it and restores only what it
-  recorded, so a crash part-way through still puts back everything it touched.
-- Trust Score stores no message content: only counts, dates and the 30-day
-  active-day list. Activity records of members silent for 180 days expire, and
-  when Aegis is removed from a server its activity records are deleted. Trust
-  settings changes are written to the mod log and the dashboard audit log.
-- ModMail and digest: explicit `allowedMentions` on every message (relays and
-  digests never ping; only the opt-in staff-role ping on a new thread), hidden
-  channels refused, staff checks (role or Manage Server) on every command,
-  button and modal, `$`-free snowflake validation on IDs, DM rate limits.
-- New Mongo collections: `modmailthreads` (transcripts expire 90 days after
-  close), `modmailsnippets`, `digestruns` (idempotency keys, expire after 400
-  days).
+- ModMail and the digest never ping anyone (the only exception is the
+  optional staff-role ping on a new ModMail thread), never use channels
+  hidden from Aegis, check staff access on every command, button and form,
+  and validate every ID they receive.
+- Incident Mode records each change before making it and restores only what
+  it recorded, so a crash part-way through still puts back everything it
+  touched.
+- Trust Score stores no message content, only counts and dates. Activity
+  records of members silent for 180 days expire, and a server's records are
+  deleted when Aegis is removed. Trust settings changes are logged.
+- The website's Content Security Policy allows images from
+  `https://cdn.discordapp.com` only (for avatars and server icons), and avatar
+  hashes are validated before use.
+- Data kept for these features expires on its own: ModMail transcripts 90
+  days after closing, status samples after 8 days, daily join and leave counts
+  after 120 days, and digest run records after 400 days.
 
 ## [3.6.2] - 2026-10-31
 
