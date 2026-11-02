@@ -3,6 +3,7 @@ import { logger } from "../../utils/logger";
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { Command } from "../../types/discord";
 import { getAutomodConfig, updateAutomodConfig } from "../../services/automod";
+import { EXEMPT_SCOPE_CHOICES, editExemption, parseScope, perRuleExemptionLines } from "../../services/automodExempt";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -99,35 +100,34 @@ export const command: Command = {
               .addChoices({ name: "Delete message", value: "delete" }, { name: "Delete and warn", value: "warn" }, { name: "Delete and timeout", value: "timeout" }))
         )
     )
-    .addSubcommandGroup(group =>
-      group
-        .setName("exempt")
-        .setDescription("Safe-list roles or channels from automod")
-        .addSubcommand(sub =>
-          sub.setName("addrole").setDescription("Exempt a role from all automod rules")
-            .addRoleOption(opt => opt.setName("role").setDescription("Role to exempt").setRequired(true))
-        )
-        .addSubcommand(sub =>
-          sub.setName("removerole").setDescription("Remove a role from the automod exemption list")
-            .addRoleOption(opt => opt.setName("role").setDescription("Role to remove").setRequired(true))
-        )
-        .addSubcommand(sub =>
-          sub.setName("addchannel").setDescription("Exempt a channel from all automod rules")
-            .addChannelOption(opt => opt.setName("channel").setDescription("Channel to exempt").setRequired(true))
-        )
-        .addSubcommand(sub =>
-          sub.setName("removechannel").setDescription("Remove a channel from the automod exemption list")
-            .addChannelOption(opt => opt.setName("channel").setDescription("Channel to remove").setRequired(true))
-        )
-    )
+    .addSubcommandGroup(group => {
+      group.setName("exempt").setDescription("Safe-list roles or channels from all automod rules or one rule");
+      for (const [name, description, kind] of [
+        ["addrole", "Exempt a role from automod (all rules, or one)", "role"],
+        ["removerole", "Remove a role exemption", "role"],
+        ["addchannel", "Exempt a channel from automod (all rules, or one)", "channel"],
+        ["removechannel", "Remove a channel exemption", "channel"],
+      ] as const) {
+        group.addSubcommand(sub => {
+          sub.setName(name).setDescription(description);
+          if (kind === "role") sub.addRoleOption(opt => opt.setName("role").setDescription("Role").setRequired(true));
+          else sub.addChannelOption(opt => opt.setName("channel").setDescription("Channel").setRequired(true));
+          return sub.addStringOption(opt => opt.setName("rule").setDescription("Only this rule (default: all rules)").addChoices(...EXEMPT_SCOPE_CHOICES));
+        });
+      }
+      return group;
+    })
     .addSubcommand(sub =>
       sub.setName("status").setDescription("View current automod settings")
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   guildOnly: true,
+
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+
+  featurePermissions: [PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ModerateMembers],
   userPermissions: [PermissionFlagsBits.ManageGuild],
-  botPermissions: [PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ModerateMembers],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const group   = interaction.options.getSubcommandGroup(false);
@@ -156,6 +156,7 @@ export const command: Command = {
               { name: "🔠 Caps & Flood Filter", value: `${cfg.caps.enabled ? "✅ Enabled" : "❌ Disabled"} (${cfg.caps.threshold}% uppercase) · Action: \`${cfg.caps.action}\``, inline: false },
               { name: "🛡️ Exempt Roles",    value: exemptRoles, inline: false },
               { name: "📌 Exempt Channels", value: exemptChannels, inline: false },
+              ...(perRuleExemptionLines(cfg).length ? [{ name: "🎯 Per-rule exemptions", value: perRuleExemptionLines(cfg).join("\n").slice(0, 1024), inline: false }] : []),
             )
             .setTimestamp();
 
@@ -194,14 +195,13 @@ export const command: Command = {
         });
 
         collector.on("collect", (i) => guardCollect("automod", i, async () => {
-          if (i.customId === "am_toggle_words") config.words.enabled = !config.words.enabled;
-          if (i.customId === "am_toggle_links") config.links.enabled = !config.links.enabled;
-          if (i.customId === "am_toggle_mentions") config.mentions.enabled = !config.mentions.enabled;
-          if (i.customId === "am_toggle_spam") config.spam.enabled = !config.spam.enabled;
-
-          await updateAutomodConfig(guildId, config);
+          const key = ({ am_toggle_words: "words", am_toggle_links: "links", am_toggle_mentions: "mentions", am_toggle_spam: "spam" } as const)[i.customId as "am_toggle_words"];
+          if (!key) return;
+          // Re-read so a change made elsewhere since /automod status opened is not overwritten.
+          const fresh = await getAutomodConfig(guildId);
+          const saved = await updateAutomodConfig(guildId, { [key]: { ...fresh[key], enabled: !fresh[key].enabled } });
           await i.deferUpdate();
-          const updated = buildStatusPayload(config);
+          const updated = buildStatusPayload(saved);
           await interaction.editReply({ embeds: [updated.embed], components: [updated.buttons] });
         }));
 
@@ -339,42 +339,12 @@ export const command: Command = {
 
       // ── exempt ───────────────────────────────────────────────────────────────
       if (group === "exempt") {
-        if (sub === "addrole") {
-          const role = interaction.options.getRole("role", true);
-          if (config.exemptRoleIds.includes(role.id)) {
-            await interaction.editReply(`❌ <@&${role.id}> is already exempt.`);
-            return;
-          }
-          config.exemptRoleIds.push(role.id);
-          await updateAutomodConfig(guildId, config);
-          await interaction.editReply(`✅ <@&${role.id}> will now bypass all automod rules.`);
-          return;
-        }
-        if (sub === "removerole") {
-          const role = interaction.options.getRole("role", true);
-          config.exemptRoleIds = config.exemptRoleIds.filter(id => id !== role.id);
-          await updateAutomodConfig(guildId, config);
-          await interaction.editReply(`✅ Removed <@&${role.id}> from the automod exemption list.`);
-          return;
-        }
-        if (sub === "addchannel") {
-          const channel = interaction.options.getChannel("channel", true);
-          if (config.exemptChannelIds.includes(channel.id)) {
-            await interaction.editReply(`❌ <#${channel.id}> is already exempt.`);
-            return;
-          }
-          config.exemptChannelIds.push(channel.id);
-          await updateAutomodConfig(guildId, config);
-          await interaction.editReply(`✅ <#${channel.id}> will now bypass all automod rules.`);
-          return;
-        }
-        if (sub === "removechannel") {
-          const channel = interaction.options.getChannel("channel", true);
-          config.exemptChannelIds = config.exemptChannelIds.filter(id => id !== channel.id);
-          await updateAutomodConfig(guildId, config);
-          await interaction.editReply(`✅ Removed <#${channel.id}> from the automod exemption list.`);
-          return;
-        }
+        const kind = sub.endsWith("role") ? "role" : "channel";
+        const id = kind === "role" ? interaction.options.getRole("role", true).id : interaction.options.getChannel("channel", true).id;
+        const edit = editExemption(config, parseScope(interaction.options.getString("rule")), kind, id, sub.startsWith("add"));
+        if (edit.ok) await updateAutomodConfig(guildId, edit.patch);
+        await interaction.editReply({ content: edit.message, allowedMentions: { parse: [] } });
+        return;
       }
     } catch (err) {
       logger.error(`Failed to handle /automod ${group ?? ""}/${sub} for guild ${guildId}`, err);

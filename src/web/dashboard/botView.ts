@@ -2,7 +2,9 @@
  * What the dashboard needs from the live bot client, behind a small interface
  * so the routes can be exercised in tests with a fake.
  */
-import { ChannelType, PermissionFlagsBits, type Client, type Guild } from "discord.js";
+import { ChannelType, PermissionFlagsBits, PermissionsBitField, type Client, type Guild, type PermissionsString } from "discord.js";
+import { botPermissionBitfield } from "../catalogPermissions";
+import { permissionName } from "../../utils/embedStyle";
 import { logger } from "../../utils/logger";
 import { canManageGuild } from "./permissions";
 import { isObfuscatedChannel } from "../../utils/channels";
@@ -103,20 +105,14 @@ export interface BotView {
   botMissingPermissions?(guildId: string): string[];
 }
 
-/** What /diagnostics checks, in its order. */
-export const BOT_PERMISSION_CHECKS: ReadonlyArray<[keyof typeof PermissionFlagsBits, string]> = [
-  ["ViewChannel", "View Channels"],
-  ["SendMessages", "Send Messages"],
-  ["EmbedLinks", "Embed Links"],
-  ["ManageMessages", "Manage Messages"],
-  ["ModerateMembers", "Moderate Members"],
-  ["BanMembers", "Ban Members"],
-  ["KickMembers", "Kick Members"],
-  ["ViewAuditLog", "View Audit Log"],
-  ["ManageChannels", "Manage Channels"],
-  ["ManageRoles", "Manage Roles"],
-  ["ReadMessageHistory", "Read Message History"],
-];
+/**
+ * What /diagnostics checks: every permission the invite asks for, in Discord's
+ * bit order, so a server invited with the default permissions shows nothing
+ * missing. (View Audit Log used to be listed but nothing uses it.)
+ */
+export function botPermissionChecks(): Array<[string, string]> {
+  return new PermissionsBitField(botPermissionBitfield()).toArray().map(flag => [flag, permissionName(flag)]);
+}
 
 function sortChannels(guild: Guild) {
   return [...guild.channels.cache.values()]
@@ -221,7 +217,7 @@ export function discordBotView(client: Client): BotView {
       const me = get(guildId)?.members.me;
       if (!me) return [];
       if (me.permissions.has(PermissionFlagsBits.Administrator)) return [];
-      return BOT_PERMISSION_CHECKS.filter(([flag]) => !me.permissions.has(PermissionFlagsBits[flag])).map(([, label]) => label);
+      return botPermissionChecks().filter(([flag]) => !me.permissions.has(flag as PermissionsString)).map(([, label]) => label);
     },
   };
 }

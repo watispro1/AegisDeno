@@ -25,8 +25,12 @@ A step-by-step guide for deploying Aegis to production on Fly.io with MongoDB At
   - The bot also requests the message reactions intent for the starboard. It is
     not privileged, so there is nothing to enable for it.
 - [ ] Under **OAuth2 → URL Generator**, select scopes: `bot`, `applications.commands`
-- [ ] Select bot permissions: `Manage Messages`, `Kick Members`, `Ban Members`, `Moderate Members`, `Send Messages`, `Embed Links`, `Read Message History`, `View Audit Log`
-- [ ] Copy the generated OAuth2 URL → `BOT_INVITE_URL`
+- [ ] Nothing to pick by hand: the site's `/invite` adds the computed permissions
+  (`1460691659798`: View Channel, Send Messages, Embed Links, Read Message
+  History, Attach Files, Manage Messages, Manage Channels, Manage Roles,
+  Manage Nicknames, Manage Threads, Create Private Threads, Send Messages in
+  Threads, Moderate Members, Kick Members, Ban Members). A custom
+  `BOT_INVITE_URL` gets the same permissions added to it.
 
 ---
 
@@ -188,7 +192,7 @@ After inviting Aegis to a server:
 2. **Configure welcome messages** (optional) — `/welcome setup #welcome-channel`
 3. **Enable automod** — `/automod status` to see defaults, then configure rules as needed
 4. **Test moderation** — try `/warn`, `/timeout`, `/modhistory` in a private channel first
-5. **Check bot permissions** — Aegis needs **Manage Messages**, **Moderate Members**, and **Ban Members** at minimum
+5. **Check bot permissions** — run `/diagnostics`; it lists every invite permission Aegis is missing and what it is for. Locks need **Manage Roles** (not Manage Channels)
 
 ---
 

@@ -41,7 +41,7 @@ export type GuildSection =
   | "moderation" | "automod" | "cases" | "appeals" | "watchlist" | "logging"
   | "welcome" | "verification" | "panels" | "tickets" | "starboard" | "suggestions" | "giveaways"
   | "autoresponders" | "automations" | "announce"
-  | "activity" | "incident" | "trust" | "members" | "analytics" | "tools" | "modmail" | "digest";
+  | "activity" | "incident" | "trust" | "members" | "analytics" | "tools" | "modmail" | "digest" | "economy";
 
 interface NavItem { key: GuildSection; label: string; href: string; icon: string }
 
@@ -73,6 +73,7 @@ export const MODULE_NAV: ReadonlyArray<{ group: string; items: ReadonlyArray<Nav
     { key: "starboard", label: "Starboard", href: "/settings/starboard", icon: "★" },
     { key: "suggestions", label: "Suggestions", href: "/suggestions", icon: "?" },
     { key: "giveaways", label: "Giveaways", href: "/giveaways", icon: "✦" },
+    { key: "economy", label: "Economy", href: "/economy", icon: "¤" },
   ] },
   { group: "Automation", items: [
     { key: "autoresponders", label: "Autoresponders", href: "/autoresponders", icon: "↩" },

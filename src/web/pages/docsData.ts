@@ -1,5 +1,6 @@
 import { buildCatalog } from "../catalog";
 import { permissionMatrix, botPermissionRows } from "../catalog";
+import { OPTIONAL_BOT_PERMISSIONS } from "../../permissions/botPermissionGuide";
 import { escapeHtml } from "./shared";
 
 /* ── Docs ──────────────────────────────────────────────────────────── */
@@ -45,6 +46,7 @@ export const DOC_GROUPS: { title: string; sections: DocSection[] }[] = [
         { id: "welcome", label: "Welcome messages" },
         { id: "role-panels", label: "Role panels" },
         { id: "autoresponder", label: "Auto-responder" },
+        { id: "economy", label: "Economy" },
       ] },
       { id: "automation", label: "Reminders and schedules" },
     ],
@@ -78,7 +80,7 @@ const PERMISSION_WHY: Record<string, string> = {
   "Kick Members": "Removing a member without a ban.",
   "Moderate Members": "Applying and lifting timeouts; most staff-only views.",
   "Manage Messages": "Bulk deletes, automod deletes and panel messages.",
-  "Manage Channels": "Ticket channels, channel locks and slowmode.",
+  "Manage Channels": "Running /lock and /slowmode, and setting up ticket panels.",
   "Manage Roles": "Verification roles and role panels.",
   "Manage Server": "Server-wide settings and automod rules.",
   "Manage Nicknames": "Changing member nicknames.",
@@ -122,15 +124,17 @@ export function botPermissionTable(): string {
   const rows = botPermissionRows();
   return `<div class="table-wrap">
     <table>
-      <thead><tr><th>Aegis needs</th><th>Used by</th></tr></thead>
+      <thead><tr><th>Aegis needs</th><th>Why</th><th>Used by</th></tr></thead>
       <tbody>
         ${rows.map(r => `<tr>
           <td><strong>${escapeHtml(r.permission)}</strong></td>
+          <td>${escapeHtml(r.why)}</td>
           <td>${r.commands.length ? r.commands.map(c => `<code class="inline">${escapeHtml(c)}</code>`).join(" ") : "Reading and posting in the channels Aegis works in"}</td>
         </tr>`).join("\n        ")}
       </tbody>
     </table>
-  </div>`;
+  </div>
+  <p>Not requested, optional: ${OPTIONAL_BOT_PERMISSIONS.map(o => `<strong>${escapeHtml(o.name)}</strong> (${escapeHtml(o.why)})`).join("; ")}</p>`;
 }
 
 /** An h2 with a copyable # link, so every section can be shared. */

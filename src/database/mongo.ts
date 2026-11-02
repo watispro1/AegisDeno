@@ -137,21 +137,30 @@ TaskSchema.index({ type: 1, executeAt: 1 });
 TaskSchema.index({ guildId: 1, channelId: 1, type: 1 });
 export const TaskModel = mongoose.model("ScheduledTask", TaskSchema);
 
+// Per-rule exemptions (3.7.1): roles or channels a single rule skips.
+const ruleExemptions = () => ({
+  exemptRoleIds: { type: [String], default: [] },
+  exemptChannelIds: { type: [String], default: [] },
+});
+
 const AutomodSchema = new mongoose.Schema({
   guildId: { type: String, required: true, unique: true },
   words: {
     enabled: { type: Boolean, default: false },
     list: { type: [String], default: [] },
     action: { type: String, default: "delete" },
+    ...ruleExemptions(),
   },
   links: {
     enabled: { type: Boolean, default: false },
     action: { type: String, default: "delete" },
+    ...ruleExemptions(),
   },
   mentions: {
     enabled: { type: Boolean, default: false },
     threshold: { type: Number, default: 5 },
     action: { type: String, default: "timeout" },
+    ...ruleExemptions(),
   },
   spam: {
     enabled: { type: Boolean, default: false },
@@ -159,11 +168,13 @@ const AutomodSchema = new mongoose.Schema({
     maxMessages: { type: Number, default: 5 },
     windowSeconds: { type: Number, default: 5 },
     action: { type: String, default: "timeout" },
+    ...ruleExemptions(),
   },
   caps: {
     enabled: { type: Boolean, default: false },
     threshold: { type: Number, default: 80 },
     action: { type: String, default: "delete" },
+    ...ruleExemptions(),
   },
   // Role or channel IDs that are exempt from all automod rules
   exemptRoleIds:    { type: [String], default: [] },

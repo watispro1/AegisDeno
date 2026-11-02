@@ -23,20 +23,11 @@ import { applyLock, categoryChildren, isLockable, lockDurationMinutes, postLockN
 import { LOCK_MESSAGE_MAX, buildLockNoticeText, shouldPostLockNotice } from "../../services/lockNotice";
 import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 import { offerLockUndo } from "../../services/lockUndo";
+import { lockServerChannels, serverLockWarning } from "../../services/serverLock";
+import { LOCK_BOT_PERMISSION, lockFailureMessage, lockMissing, lockPermissionMessage } from "../../permissions/lockPermissions";
 
 export { isLockable, lockDurationMinutes, MAX_LOCK_MINUTES } from "../../services/channelLock";
-
-/**
- * Whether /lock server should lock this channel: visible to Aegis, a text-capable
- * non-thread channel, public (@everyone can view it) and not already locked.
- */
-export function serverLockTarget(ch: GuildBasedChannel, guild: Guild): boolean {
-  if (isObfuscatedChannel(ch) || !ch.isTextBased() || ch.isThread() || !("permissionOverwrites" in ch)) return false;
-  const everyone = guild.roles.everyone;
-  const view = ch.permissionsFor(everyone)?.has(PermissionFlagsBits.ViewChannel) ?? false;
-  if (!view) return false;
-  return !ch.permissionOverwrites.cache.get(everyone.id)?.deny.has(PermissionFlagsBits.SendMessages);
-}
+export { serverLockTarget } from "../../services/serverLock";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -133,8 +124,11 @@ export const command: Command = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   guildOnly: true,
+  // Moderators keep the usual channel-moderation permission. Aegis itself only
+  // edits the @everyone overwrite, which Discord gates on Manage Roles (plus
+  // View Channel and Send Messages in the channel, checked per channel below).
   userPermissions: [PermissionFlagsBits.ManageChannels],
-  botPermissions: [PermissionFlagsBits.ManageChannels],
+  botPermissions: [LOCK_BOT_PERMISSION],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();
@@ -232,20 +226,12 @@ export const command: Command = {
           const allChannels = await guild.channels.fetch().catch(() => null);
           const channelCollection = allChannels ?? guild.channels.cache;
 
-          let locked = 0;
-          let failed = 0;
-          for (const [, ch] of channelCollection) {
-            // Skip channels hidden from Aegis (their overwrites are not real), private
-            // channels @everyone can't see anyway, and ones already locked.
-            if (!ch || !serverLockTarget(ch, guild)) continue;
-            const ok = await (ch as TextChannel).permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }).then(() => true).catch(() => false);
-            if (ok) locked++; else failed++;
-          }
+          const { locked, skipped, failed } = await lockServerChannels(guild, channelCollection.values());
 
           const resultEmbed = new EmbedBuilder()
             .setColor(0xED4245)
             .setTitle("🔒 Server Lockdown Active")
-            .setDescription(`**${locked}** channel(s) have been locked. Members cannot send messages until the lockdown is lifted.${failed ? `\n⚠️ ${failed} channel(s) could not be locked (check Aegis's Manage Channels and Manage Roles there).` : ""}`)
+            .setDescription(`**${locked}** channel(s) have been locked. Members cannot send messages until the lockdown is lifted.${serverLockWarning({ locked, skipped, failed })}`)
             .addFields(
               { name: "📝 Reason",     value: reason, inline: false },
               { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
@@ -305,7 +291,12 @@ export const command: Command = {
       let done = 0;
       const failed: string[] = [];
       let autoUnlockText = "None";
+      const me = guild.members.me;
       for (const ch of children) {
+        if (lockMissing(me ? ch.permissionsFor(me) : null, me?.permissions).length) {
+          failed.push(`<#${ch.id}> (needs Manage Roles + Send Messages)`);
+          continue;
+        }
         try {
           const result = await applyLock(interaction.client, guild, ch, isLocking, durationMinutes, moderator);
           if (result !== "None") autoUnlockText = result;
@@ -340,25 +331,24 @@ export const command: Command = {
       return;
     }
 
-    // Single channel lock / unlock
+    // Single channel lock / unlock. Problems with the target are answered
+    // privately before anything is posted in the channel.
+    const picked = interaction.options.getChannel("channel");
+    const targetChannel = (picked ? guild.channels.cache.get(picked.id) ?? null : interaction.channel) as GuildBasedChannel | null;
+    const verb = sub === "channel" ? "lock" : "unlock";
+    const refuse = (content: string) => interaction.reply({ content, flags: MessageFlags.Ephemeral });
+    if (targetChannel?.isThread()) {
+      return refuse("❌ Threads inherit permissions from their parent channel. Please lock the parent channel instead.");
+    }
+    if (isObfuscatedChannel(targetChannel)) return refuse(`❌ ${hiddenChannelMessage(targetChannel!.id)}`);
+    if (!isLockable(targetChannel)) return refuse("❌ Invalid channel — please select a text channel.");
+    const me = guild.members.me;
+    const missing = lockMissing(me ? targetChannel.permissionsFor(me) : null, me?.permissions);
+    if (missing.length) return refuse(lockPermissionMessage(targetChannel.id, missing, verb));
+
     await interaction.deferReply();
 
     try {
-      const picked = interaction.options.getChannel("channel");
-      const targetChannel = (picked ? guild.channels.cache.get(picked.id) ?? null : interaction.channel) as GuildBasedChannel | null;
-      if (targetChannel?.isThread()) {
-        await interaction.editReply("❌ Threads inherit permissions from their parent channel. Please lock the parent channel instead.");
-        return;
-      }
-      if (isObfuscatedChannel(targetChannel)) {
-        await interaction.editReply(`❌ ${hiddenChannelMessage(targetChannel!.id)}`);
-        return;
-      }
-      if (!isLockable(targetChannel)) {
-        await interaction.editReply("❌ Invalid channel — please select a text channel.");
-        return;
-      }
-
       const isLocking = sub === "channel";
       const durationMinutes = isLocking ? lockLength.minutes : 0;
       const undo = offerLockUndo(interaction, targetChannel, isLocking);
@@ -391,7 +381,7 @@ export const command: Command = {
       }
     } catch (err) {
       logger.error(`Failed to ${sub} channel in guild ${guildId}`, err);
-      await interaction.editReply("❌ Failed to modify channel permissions. Check my permissions.");
+      await interaction.editReply(lockFailureMessage(targetChannel.id, err, verb));
     }
   },
 };

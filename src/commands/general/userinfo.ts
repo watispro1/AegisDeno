@@ -20,6 +20,8 @@ import { scoreBar } from "../../services/trustScore";
 import { getMemberTrust, subjectFromMember } from "../../services/trustService";
 import { normalizeTrustConfig } from "../../services/trustEngine";
 import { hasModerationPermissions } from "../../services/commandAccess";
+import { dateAndAgo, timeoutLine } from "../../services/infoFormat";
+import { balanceSummary } from "../../services/economyDiscord";
 
 const KEY_PERMISSIONS: Array<{ flag: bigint; name: string }> = [
   { flag: PermissionFlagsBits.Administrator, name: "Administrator" },
@@ -122,8 +124,8 @@ export const command: Command = {
       .addFields(
         { name: "👤 Member", value: `<@${user.id}>`, inline: true },
         { name: "🏷️ Status", value: `${statusEmoji} ${statusKey.charAt(0).toUpperCase() + statusKey.slice(1)}`, inline: true },
-        { name: "📅 Account Created", value: `<t:${Math.floor(user.createdTimestamp / 1000)}:D> (<t:${Math.floor(user.createdTimestamp / 1000)}:R>)`, inline: true },
-        { name: "📥 Joined Server", value: member.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:D> (<t:${Math.floor(member.joinedTimestamp / 1000)}:R>)` : "Unknown", inline: true },
+        { name: "📅 Account Created", value: dateAndAgo(user.createdTimestamp), inline: true },
+        { name: "📥 Joined Server", value: member.joinedTimestamp ? dateAndAgo(member.joinedTimestamp) : "Unknown", inline: true },
         { name: "💎 Booster Since", value: member.premiumSinceTimestamp ? `<t:${Math.floor(member.premiumSinceTimestamp / 1000)}:R>` : "Not boosting", inline: true },
         { name: "🎮 Activity", value: activityText, inline: false },
         { name: "🔑 Key Permissions", value: permsText, inline: false },
@@ -131,6 +133,11 @@ export const command: Command = {
       )
       .setFooter({ text: badges.length > 0 ? `Badges: ${badges.join(" • ")}` : (user.bot ? "Bot Account" : "Server Member") })
       .setTimestamp();
+
+    const timedOut = timeoutLine(member.communicationDisabledUntilTimestamp);
+    if (timedOut) embed.addFields({ name: "⏳ Timeout", value: timedOut, inline: true });
+    const balance = user.bot ? null : await balanceSummary(interaction.guildId!, user.id);
+    if (balance) embed.addFields({ name: "💰 Balance", value: balance, inline: true });
 
     if (viewerIsMod) {
       // Trust Score v2 (same engine as /trust user); a lookup failure leaves the field out.

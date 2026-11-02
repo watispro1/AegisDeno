@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { REST, Routes } from "discord.js";
 import { loadCommands, commands } from "./commands/loader";
+import { commandRegistrationData } from "./commands/registration";
 import { createClient, setupEvents } from "./bot/client";
 import { initScheduler, shutdownScheduler } from "./services/schedulerRunner";
 import { connectDatabase, closeDatabase } from "./database/mongo";
@@ -27,7 +28,7 @@ if (!TOKEN || !APPLICATION_ID) {
  */
 async function registerCommands(): Promise<void> {
   const rest = new REST({ version: "10" }).setToken(TOKEN);
-  const commandData = Array.from(commands.values()).map(c => c.data.toJSON());
+  const commandData = commandRegistrationData();
   const commandNames = commandData.map(c => `/${c.name}`).join(", ");
 
   logger.info(`📝 Commands to register (${commandData.length}): ${commandNames}`);

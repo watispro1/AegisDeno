@@ -65,7 +65,7 @@ test("a throwing handler gets an ephemeral error reply, or an edit once deferred
   const fresh = fakeInteraction("bad");
   assert.equal(await router.dispatch(fresh.interaction), true);
   assert.equal(fresh.replies.length, 1);
-  assert.match(fresh.replies[0], /error occurred/);
+  assert.match(fresh.replies[0], /Run the command again/);
 
   const deferred = fakeInteraction("bad", { deferred: true });
   await router.dispatch(deferred.interaction);

@@ -7,12 +7,15 @@
 import {
   MessageFlags,
   PermissionFlagsBits,
+  PermissionsBitField,
   type ChatInputCommandInteraction,
   type PermissionResolvable,
 } from "discord.js";
 import type { Command } from "../types/discord";
 import { logger } from "../utils/logger";
 import { docsUrl } from "../config/links";
+import { permissionName } from "../utils/embedStyle";
+import { startSlowCommandGuard, type SlowGuardInteraction } from "./slowGuard";
 
 const PERMISSION_NAMES: Partial<Record<string, string>> = {
   [String(PermissionFlagsBits.Administrator)]:      "Administrator",
@@ -33,8 +36,19 @@ const PERMISSION_NAMES: Partial<Record<string, string>> = {
   [String(PermissionFlagsBits.ReadMessageHistory)]: "Read Message History",
 };
 
+/** Human names for permissions, e.g. "Ban Members, Manage Nicknames" (never a raw bit number). */
 export function formatPermissions(permissions: readonly PermissionResolvable[]): string {
-  return permissions.map((p) => PERMISSION_NAMES[String(p)] ?? String(p)).join(", ");
+  return permissions
+    .flatMap((p) => {
+      const known = PERMISSION_NAMES[String(p)];
+      if (known) return [known];
+      try {
+        return new PermissionsBitField(p).toArray().map(permissionName);
+      } catch {
+        return [String(p)];
+      }
+    })
+    .join(", ");
 }
 
 /** Default per-user cooldown when a command does not set `cooldownMs`. */
@@ -145,6 +159,9 @@ export async function executeCommand(command: Command, interaction: ChatInputCom
   }
 
   const startedAt = Date.now();
+  // If the command has not answered in ~2.5s, defer for it so Discord does not
+  // show "The application did not respond" while the work continues.
+  const stopSlowGuard = startSlowCommandGuard(interaction as unknown as SlowGuardInteraction);
   try {
     await command.execute(interaction);
     logger.debug(`/${interaction.commandName} succeeded in ${Date.now() - startedAt}ms for ${interaction.user.tag}`);
@@ -153,5 +170,7 @@ export async function executeCommand(command: Command, interaction: ChatInputCom
     cooldowns.release(cooldownKey);
     logger.error(`Unhandled error in /${interaction.commandName} by ${interaction.user.tag} after ${Date.now() - startedAt}ms:`, err);
     await replyError(interaction, "❌ An unexpected error occurred while running this command. Please try again.");
+  } finally {
+    stopSlowGuard();
   }
 }

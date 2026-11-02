@@ -4,7 +4,16 @@ import { TtlCache } from "../utils/ttlCache";
 export interface AutomodRule {
   enabled: boolean;
   action: "delete" | "warn" | "timeout";
+  /** Roles this rule alone skips (on top of the global exemptions). */
+  exemptRoleIds?: string[];
+  /** Channels where this rule alone is off. */
+  exemptChannelIds?: string[];
 }
+
+export type AutomodRuleKey = "words" | "links" | "mentions" | "spam" | "caps";
+export const AUTOMOD_RULE_KEYS: readonly AutomodRuleKey[] = ["words", "links", "mentions", "spam", "caps"];
+/** Most roles or channels one rule (or the global list) may exempt. */
+export const MAX_EXEMPTIONS = 25;
 
 export interface WordsRule extends AutomodRule {
   list: string[];
@@ -48,8 +57,33 @@ const DEFAULT_CONFIG: Omit<AutomodConfig, "guildId"> = {
   exemptChannelIds: [],
 };
 
+const SNOWFLAKE = /^\d{17,20}$/;
+
+/** Distinct snowflake IDs, capped. */
+export function cleanIdList(value: unknown, max = MAX_EXEMPTIONS): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(String).filter(id => SNOWFLAKE.test(id)))].slice(0, max);
+}
+
 function normalizeRule<T extends AutomodRule>(rule: Partial<T> | undefined, fallback: T): T {
-  return { ...fallback, ...(rule ?? {}) };
+  const merged = { ...fallback, ...(rule ?? {}) };
+  return { ...merged, exemptRoleIds: cleanIdList(merged.exemptRoleIds), exemptChannelIds: cleanIdList(merged.exemptChannelIds) };
+}
+
+/**
+ * Apply a partial change to a saved config. Rules are merged field by field,
+ * so a caller that only knows some fields (the dashboard form, a preset)
+ * never wipes the rest, such as per-rule exemptions, caps or the global
+ * exemption lists.
+ */
+export function mergeAutomodConfig(current: AutomodConfig, patch: Partial<Omit<AutomodConfig, "guildId">>): AutomodConfig {
+  const out: AutomodConfig = { ...current };
+  for (const key of AUTOMOD_RULE_KEYS) {
+    if (patch[key]) (out as unknown as Record<string, unknown>)[key] = { ...current[key], ...patch[key] };
+  }
+  if (patch.exemptRoleIds) out.exemptRoleIds = patch.exemptRoleIds;
+  if (patch.exemptChannelIds) out.exemptChannelIds = patch.exemptChannelIds;
+  return normalizeAutomodConfig(current.guildId, out);
 }
 
 function normalizeWordsRule(rule: Partial<WordsRule> | undefined): WordsRule {
@@ -97,7 +131,7 @@ function normalizeCapsRule(rule: Partial<CapsRule> | undefined): CapsRule {
   return { ...normalized, threshold };
 }
 
-function normalizeAutomodConfig(guildId: string, source?: Partial<AutomodConfig>): AutomodConfig {
+export function normalizeAutomodConfig(guildId: string, source?: Partial<AutomodConfig>): AutomodConfig {
   const config = source ?? {};
   return {
     guildId,
@@ -106,8 +140,8 @@ function normalizeAutomodConfig(guildId: string, source?: Partial<AutomodConfig>
     mentions: normalizeMentionsRule(config.mentions),
     spam:     normalizeSpamRule(config.spam),
     caps:     normalizeCapsRule(config.caps),
-    exemptRoleIds:    Array.isArray(config.exemptRoleIds)    ? config.exemptRoleIds.filter(Boolean)    : [],
-    exemptChannelIds: Array.isArray(config.exemptChannelIds) ? config.exemptChannelIds.filter(Boolean) : [],
+    exemptRoleIds:    cleanIdList(config.exemptRoleIds, 100),
+    exemptChannelIds: cleanIdList(config.exemptChannelIds, 100),
   };
 }
 
@@ -132,7 +166,7 @@ export async function updateAutomodConfig(
   guildId: string,
   config: Partial<Omit<AutomodConfig, "guildId">>
 ): Promise<AutomodConfig> {
-  const normalized = normalizeAutomodConfig(guildId, { guildId, ...config });
+  const normalized = mergeAutomodConfig(await getAutomodConfig(guildId), config);
 
   automodCache.delete(guildId);
   await AutomodModel.updateOne(

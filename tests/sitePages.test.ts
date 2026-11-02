@@ -63,9 +63,9 @@ test("security.txt has RFC 9116 Contact and a future Expires", () => {
 });
 
 test("terms and privacy share the last-updated date and table of contents", () => {
-  assert.equal(LEGAL_LAST_UPDATED, "October 30, 2026");
+  assert.equal(LEGAL_LAST_UPDATED, "November 2, 2026");
   for (const html of [renderTerms(cfg), renderPrivacy(cfg)]) {
-    assert.ok(html.includes(`Last updated: <time datetime="2026-10-30">October 30, 2026</time>`));
+    assert.ok(html.includes(`Last updated: <time datetime="2026-11-02">November 2, 2026</time>`));
     assert.ok(html.includes('class="toc"') && html.includes('class="toc-mobile"'));
     assert.ok(html.includes('id="contact"'));
     assert.ok(html.includes("/issues"), "GitHub issues as a contact route");

@@ -6,6 +6,7 @@
  */
 import { getMemberTrust, getTrustConfig, subjectFromMember } from "./trustService";
 import { ChannelType, GuildFeature, PermissionFlagsBits, type Client, type Guild, type GuildBasedChannel, type GuildMember } from "discord.js";
+import { lockMissing } from "../permissions/lockPermissions";
 import { isObfuscatedChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
 import { sendGuildLog } from "./logging";
@@ -44,7 +45,8 @@ export function snapshotChannel(guild: Guild, c: GuildBasedChannel): ChannelSnap
     hidden,
     isPublic: Boolean(everyonePerms?.has(PermissionFlagsBits.ViewChannel)),
     canEditChannel: Boolean(perms?.has(PermissionFlagsBits.ManageChannels)),
-    canEditOverwrites: Boolean(perms?.has(PermissionFlagsBits.ManageChannels) && perms.has(PermissionFlagsBits.ManageRoles)),
+    // Locking edits only the @everyone overwrite: Manage Roles, not Manage Channels.
+    canEditOverwrites: lockMissing(perms, me?.permissions).length === 0,
     rateLimitPerUser: "rateLimitPerUser" in c && typeof c.rateLimitPerUser === "number" ? c.rateLimitPerUser : 0,
     everyoneSend: send,
     hasEveryoneOverwrite: Boolean(ow),

@@ -22,6 +22,7 @@ import { buildEmbedFromSpec, renderTemplate } from "../services/embedSpec";
 import { getGuildConfig } from "../services/configuration";
 import { scheduleUnverifiedKick } from "../services/verificationService";
 import { componentRouter } from "./interactions";
+import { answerExpiredComponent } from "./interactions/expired";
 import { registerStarboardEvents } from "./events/starboard";
 import {
   watchlistOnJoin,
@@ -174,7 +175,10 @@ export function setupEvents(client: Client): void {
       }
       await executeCommand(command, interaction);
     } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
-      await componentRouter.dispatch(interaction);
+      const handled = await componentRouter.dispatch(interaction);
+      // Unknown IDs may belong to a command's own collector; give it a moment,
+      // then tell the member how to get fresh buttons instead of "Interaction failed".
+      if (!handled) await answerExpiredComponent(interaction);
     }
   });
 

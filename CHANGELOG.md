@@ -9,6 +9,206 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.7.1] - 2026-11-02
+
+The economy release. Servers can turn on a simple, per-server economy with
+daily rewards, work, payments, a shop that can sell roles and a leaderboard,
+managed from slash commands or the new dashboard Economy page. It also adds a
+clear starting point for people new to Aegis (from the top.gg review) and a
+round of improvements and fixes. Includes dashboard 1.2.4 (see
+`DASHBOARD_CHANGELOG.md`).
+
+Upgrade notes: eight new slash commands (`/balance`, `/daily`, `/work`,
+`/pay`, `/leaderboard`, `/shop`, `/inventory`, `/economy`), so commands are
+re-registered on deploy. The economy is off in every server until a server
+manager turns it on. No new environment variables. The invite's permissions
+changed after the top.gg permission review (integer `1099645938774` →
+`1460691659798`: adds Manage Roles, Attach Files and the ModMail thread
+permissions, drops Add Reactions). Servers that already have Aegis keep the
+permissions they granted; `/diagnostics` lists anything missing, and
+re-inviting from `/invite` grants the rest without kicking the bot.
+
+### Added
+- **Economy (opt-in, per server).** Off by default; a server manager turns it
+  on with `/economy toggle` or on the dashboard.
+  - `/balance [user]` shows coins, and for yourself when `/daily` and `/work`
+    are next ready.
+  - `/daily` pays once every 24 hours (configurable) with a streak bonus for
+    up to 7 days in a row; `/work` pays a random amount once an hour. Both
+    say exactly when you can try again ("in 3 hours"), and cooldowns are kept
+    in the database, so a restart never resets them.
+  - `/pay user amount` sends coins to another member. It refuses yourself,
+    bots and people who aren't in the server, and asks you to confirm large
+    amounts (1,000 or more by default). Only the recipient is pinged.
+  - `/leaderboard` lists the richest members ten per page with Prev and Next
+    buttons, and never pings anyone.
+  - `/shop view`, `/shop buy item` (the item list suggests names, prices and
+    stock as you type) and `/inventory [user]`. Items can have limited stock
+    and can hand out a role.
+  - Staff (Manage Server): `/economy config` sets the currency name and
+    emoji, daily and work amounts, cooldowns and the pay confirmation amount;
+    `/economy give|take|reset` adjust a member's balance and are posted to the
+    mod log with who did it and why; `/shop add|remove|edit` manage the shop.
+  - Balances are whole coins, never negative and capped at one trillion.
+    Transactions are kept for 90 days.
+- **Economy settings in the dashboard backup.** The Modules & backup export
+  now includes the economy's settings (currency, amounts, cooldowns and the
+  pay confirmation threshold), and importing a file restores them. Balances,
+  inventory and shop items are deliberately not exported.
+- **A clear starting point for new users.** Mentioning Aegis on its own
+  (`@Aegis`, or `@Aegis help`) now answers with a short help card: "I use
+  slash commands. Start with /help", the main areas with example commands,
+  and Commands, Dashboard, Support server and Invite buttons. The card never
+  pings, answers each channel at most once every 10 seconds, stays silent
+  where Aegis can't send embeds, and runs after automod and before
+  autoresponders.
+  - Typing exactly `a!help`, `!help` or `aegis help` (any case) shows the
+    same card. This is not a prefix-command system; nothing else is read.
+  - In DMs, `help`, `/help`, `!help`, `hi` or `hello` get the help card with
+    a note on how to reach a server's staff through ModMail, instead of
+    opening a ticket. A greeting sent during an open ModMail conversation is
+    still passed to the staff. Someone whose first DM finds no ModMail server
+    in common also gets the card.
+  - When Aegis is added to a server it posts one short welcome ("Thanks for
+    adding Aegis! Run /help to get started", with a Dashboard button) in the
+    system channel, or the highest text channel it can post in. It never
+    pings, skips silently without permission, and is not repeated if the
+    server re-adds Aegis within 30 days. Set `JOIN_WELCOME=off` to turn it
+    off.
+  - `/help` has a "New here?" line pointing at `/dashboard` and
+    `/diagnostics` when the member can run them.
+- **Per-rule automod exemptions.** `/automod exempt addrole|removerole|
+  addchannel|removechannel` take an optional `rule:` (blocked words, links,
+  mention spam, message spam, caps and floods), so a role or channel can skip
+  one filter and still be covered by the others, for example links allowed
+  in #links. Without `rule:` an exemption still covers every rule. A thread
+  follows its parent channel's exemptions, and `/automod status` lists the
+  per-rule ones.
+- `/help`, the commands page, the features page and the docs have an Economy
+  section.
+
+### Changed
+- Server-only commands are registered for servers only, so Discord no longer
+  lists them in the slash menu in DMs. Commands that work in DMs (`/help`,
+  `/about`, `/ping` and the like) are unchanged.
+- A command that takes longer than about 2.5 seconds now acknowledges itself
+  before Discord's three-second deadline, so the member gets the real answer
+  instead of "The application did not respond". Replies the command marks
+  private stay private.
+- `/userinfo` shows when a member's timeout ends, and their balance when the
+  economy is on.
+- `/serverinfo` shows the creation date as well as how long ago it was.
+- The privacy policy lists what the economy stores and for how long.
+- Internal: the ticket service is split into smaller modules (closing,
+  transcripts and auto-close; settings). No behaviour change.
+
+### Fixed
+- **Ticket creation works without Attach Files (top.gg review).** Discord
+  refuses a permission overwrite that grants a permission the bot does not
+  hold, so a server invited before Attach Files was added could not create a
+  ticket at all. Ticket channels now only grant permissions Aegis itself has;
+  Attach Files stays optional and transcripts still work without it.
+  - If Aegis is missing **Manage Channels**, pressing Create Ticket says so by
+    name and explains how to fix it, instead of a generic error. An existing
+    open ticket is reused and linked rather than reported as a failure.
+  - `/ticket setup` checks View Channel, Send Messages and Embed Links in the
+    target channel first, and reports a refused panel post with the reason
+    instead of failing silently.
+- **Buttons that are no longer active say what to do (top.gg review).** A
+  button or menu from before a restart, or one whose timer ran out, now
+  answers "Run the command again to get a fresh one" instead of leaving the
+  member with Discord's "This interaction failed". Buttons owned by a running
+  command keep working normally.
+- `/pay` now finds a recipient who has not spoken recently (they were reported
+  as "not in this server" when not cached). `/leaderboard` tells other members
+  that only the person who ran the command can change pages, rather than
+  ignoring them. Resetting an already-empty balance no longer writes a
+  zero-value transaction to the log.
+- **`/lock` asked for the wrong permission (top.gg review).** It declared
+  that Aegis needs Manage Channels, but a lock only changes @everyone's Send
+  Messages override, which Discord gates on **Manage Roles** (called *Manage
+  Permissions* in a channel's settings). `/lock channel`, `/lock category`,
+  `/lock unlock`, `/lock server`, `/lock status`, the timed auto-unlock, the
+  Undo button and Incident Mode's lockdown now need Manage Roles, plus View
+  Channel and Send Messages in each channel (Discord only lets a bot deny a
+  permission it holds itself), and never Manage Channels. The code only edits
+  permission overwrites; nothing renames or otherwise edits the channel.
+  - Aegis checks those three permissions in the target channel before it
+    posts anything and explains what to fix, privately. A refused edit says
+    whether it was Missing Permissions or Missing Access instead of "Check my
+    permissions". `/lock category` and `/lock server` skip channels where
+    Aegis lacks them and say how many.
+  - Members running `/lock` still need **Manage Channels** (unchanged): it is
+    the usual channel-moderation permission and, unlike Manage Roles, doesn't
+    also let a moderator hand out roles.
+- **Permission audit of every command (top.gg review).** Each command's
+  declared bot permissions were checked against the Discord API calls it
+  makes. Permissions only a subcommand, button or background feature uses are
+  now declared separately (`featurePermissions`): they are requested on the
+  invite and listed on the command reference ("Some parts use"), but checked
+  where they are used, so the rest of the command works without them.
+
+  | Command | Aegis needed (before) | Aegis needs (after) |
+  |---|---|---|
+  | `/lock` | Manage Channels | Manage Roles (+ View Channel, Send Messages in the channel) |
+  | `/purge` | Manage Messages | Manage Messages, Read Message History |
+  | `/giveaway` | Send Messages, Add Reactions | Send Messages, Embed Links (entries are a button) |
+  | `/automod` | Manage Messages, Moderate Members (blocked every subcommand) | none up front; parts use Manage Messages, Moderate Members |
+  | `/ticket` | none | parts use Manage Channels, Manage Roles, Attach Files |
+  | `/modmail` | none | parts use Create Private Threads, Send Messages in Threads, Manage Threads |
+  | `/incident` | none | parts use Manage Channels, Manage Roles, Moderate Members, Kick Members |
+  | `/escalation` | none | parts use Moderate Members, Kick Members, Ban Members |
+  | `/verify` | none | parts use Manage Roles, Kick Members |
+  | `/appeal` | none | parts use Ban Members |
+  | `/warn` | none | parts use Moderate Members (quick timeout) |
+  | `/welcome`, `/trust`, `/rolepanel`, `/shop` | none | parts use Manage Roles |
+
+  Every other command was already right (`/slowmode` Manage Channels,
+  `/timeout` and `/removetimeout` Moderate Members, `/nickname` Manage
+  Nicknames, `/ban` and `/unban` Ban Members, `/kick` Kick Members).
+- **The invite asks for the right permissions.** Permissions integer
+  `1099645938774` → **`1460691659798`**. Added: Manage Roles (locks, roles
+  and ticket members were missing from the invite entirely), Attach Files
+  (ticket transcripts), Create Private Threads, Send Messages in Threads and
+  Manage Threads (ModMail). Removed: Add Reactions (nothing reacts in a
+  server). Administrator, Manage Server and View Audit Log are not requested;
+  Manage Server is documented as optional (Incident Mode's "pause invites").
+- `/diagnostics` and the dashboard's missing-permission notice now check
+  exactly the invite's permissions, with what each one is for. They used to
+  ask for View Audit Log (unused) and report it missing on every fresh invite.
+- Permission errors named some permissions as raw numbers (for example
+  `/nickname` said "134217728"), and `/help` showed "Required permission" for
+  them. Both now use Discord's names.
+- The docs' "What Aegis needs" table explains why each permission is
+  requested; README and DEPLOYMENT list the permissions and the integer.
+- The Security button on `/serverinfo` showed Discord's raw numbers (for
+  example "Verification Level: 2") instead of names; it now reads like the
+  main card. The Roles button no longer runs past Discord's message limit on
+  servers with many or long role names, and "Forum Forums" reads "Forums".
+- Applying a preset (`/preset apply`) reset the caps filter to off and
+  cleared every automod role and channel exemption. Automod saves now only
+  change the fields they name, so presets, the dashboard form and commands
+  keep everything else.
+- The quick-toggle buttons under `/automod status` saved the settings as they
+  were when the message was posted, undoing any change made elsewhere in the
+  three minutes the buttons stay active. Each press now reads the current
+  settings first.
+- `/help` in a DM with Aegis answered "I couldn't verify my permissions in
+  this server" instead of the help menu. Bot permissions are now only checked
+  in servers, and `/help` is registered explicitly for servers and DMs.
+- A `/help` category page with very many commands is cut at Discord's embed
+  limit instead of failing to load.
+
+### Security
+- Every balance change is one atomic database update with its guard in the
+  query (enough coins, under the cap, cooldown not already claimed), so two
+  commands at once can't spend the same coins twice, overdraw a balance or
+  claim `/daily` twice.
+- Shop roles must be below Aegis's highest role and below the staff member's
+  own (the server owner is exempt), never @everyone or an integration role.
+  Aegis checks again at the moment of purchase and refunds the buyer if the
+  role can't be given.
+
 ## [3.7.0] - 2026-11-02
 
 The safety and staff-tools release. It adds ModMail (members DM Aegis to reach
@@ -120,28 +320,6 @@ existing options keep their names.
   plus channel conventions, a setup order using real commands and a
   pre-launch checklist. A test checks every command it documents against the
   live command definitions.
-- **A clear starting point for new users.** Mentioning Aegis on its own
-  (`@Aegis`, or `@Aegis help`) now answers with a short help card: "I use
-  slash commands. Start with /help", the main areas with example commands,
-  and Commands, Dashboard, Support server and Invite buttons. The card never
-  pings, answers each channel at most once every 10 seconds, stays silent
-  where Aegis can't send embeds, and runs after automod and before
-  autoresponders.
-  - Typing exactly `a!help`, `!help` or `aegis help` (any case) shows the
-    same card. This is not a prefix-command system; nothing else is read.
-  - In DMs, `help`, `/help`, `!help`, `hi` or `hello` get the help card with
-    a note on how to reach a server's staff through ModMail, instead of
-    opening a ticket. A greeting sent during an open ModMail conversation is
-    still passed to the staff. Someone whose first DM finds no ModMail server
-    in common also gets the card.
-  - When Aegis is added to a server it posts one short welcome ("Thanks for
-    adding Aegis! Run /help to get started", with a Dashboard button) in the
-    system channel, or the highest text channel it can post in. It never
-    pings, skips silently without permission, and is not repeated if the
-    server re-adds Aegis within 30 days. Set `JOIN_WELCOME=off` to turn it
-    off.
-  - `/help` has a "New here?" line pointing at `/dashboard` and
-    `/diagnostics` when the member can run them.
 
 ### Changed
 - `/trust user` is the main Trust Score command. `/trustscore` still works
@@ -202,11 +380,6 @@ existing options keep their names.
 - `server.md` no longer documents removed command forms (`/logging setup`,
   `/automod exempt role`, the old `/starboard` and `/welcome message` syntax)
   and uses the option labels Discord shows.
-- `/help` in a DM with Aegis answered "I couldn't verify my permissions in
-  this server" instead of the help menu. Bot permissions are now only checked
-  in servers, and `/help` is registered explicitly for servers and DMs.
-- A `/help` category page with very many commands is cut at Discord's embed
-  limit instead of failing to load.
 
 ### Security
 - ModMail and the digest never ping anyone (the only exception is the

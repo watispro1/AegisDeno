@@ -126,7 +126,7 @@ export interface ChannelSnapshot {
   isPublic: boolean;
   /** Aegis has Manage Channels there (slowmode). */
   canEditChannel: boolean;
-  /** Aegis has Manage Channels and Manage Roles there (permission overwrites). */
+  /** Aegis has Manage Roles, View Channel and Send Messages there (the @everyone overwrite). */
   canEditOverwrites: boolean;
   rateLimitPerUser: number;
   everyoneSend: SendState;
@@ -178,7 +178,7 @@ export function planIncidentChanges(channels: readonly ChannelSnapshot[], option
       : visible.filter(c => c.isPublic && c.kind !== "other");
     for (const c of targets) {
       if (c.kind === "other") { skip(c, "only text and announcement channels can be locked"); continue; }
-      if (!c.canEditOverwrites) { skip(c, "Aegis lacks Manage Channels or Manage Roles there"); continue; }
+      if (!c.canEditOverwrites) { skip(c, "Aegis lacks Manage Roles or Send Messages there"); continue; }
       if (c.everyoneSend === "deny") continue; // already locked; nothing to restore later
       entry(c).lock = { previous: c.everyoneSend, hadOverwrite: c.hasEveryoneOverwrite };
     }

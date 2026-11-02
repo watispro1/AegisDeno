@@ -65,6 +65,8 @@ export const command: Command = {
 
   category: "roles",
   guildOnly: true,
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+  featurePermissions: [PermissionFlagsBits.ManageRoles],
 
   async execute(interaction) {
     if (!interaction.guild) return;

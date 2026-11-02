@@ -1,5 +1,7 @@
 import { liveDigestDashboard } from "./digestData";
 import { mongoModmailDashboard } from "./modmailData";
+import { economyWith } from "../../services/economyService";
+import { dashboardAdjustLogger } from "../../services/economyDiscord";
 import { mongoTrustDashboard } from "./trustData";
 /**
  * Production DashboardExtras: Discord through the live client, records through
@@ -51,6 +53,8 @@ function profile(g: Guild, user: User, member: GuildMember | null): MemberProfil
 export function mongoDashboardExtras(client: Client): DashboardExtras {
   const guild = (id: string) => client.guilds.cache.get(id) ?? null;
   const fetchMember = async (g: Guild, id: string) => g.members.cache.get(id) ?? await g.members.fetch(id).catch(() => null);
+  // Same Mongo store as the slash commands; adjustments made here are also posted to the mod log.
+  const economyService = economyWith({ onAdjust: dashboardAdjustLogger(client) });
 
   return {
     async member(guildId, userId) {
@@ -181,13 +185,16 @@ export function mongoDashboardExtras(client: Client): DashboardExtras {
 
     trust: mongoTrustDashboard(client),
     modmail: mongoModmailDashboard(),
+    economy: economyService,
     digest: liveDigestDashboard(client),
 
     async saveIncidentConfig(guildId, config) { await updateGuildConfig(guildId, { incident: config }); },
     async saveModuleSwitches(guildId, switches) { await updateGuildConfig(guildId, { modules: switches }); },
-    async applySettingsImport(guildId, update, automod) {
+    async applySettingsImport(guildId, update, automod, economy) {
       await updateGuildConfig(guildId, update);
       if (automod) await updateAutomodConfig(guildId, automod);
+      // The import carries a complete, already-normalised economy config.
+      if (economy) await economyService.updateConfig(guildId, economy);
     },
   };
 }

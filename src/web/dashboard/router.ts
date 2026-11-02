@@ -26,6 +26,7 @@ import { registerModmailRoutes } from "./routes/modmail";
 import { registerDigestRoutes } from "./routes/digest";
 import { registerMemberRoutes } from "./routes/members";
 import { registerInsightRoutes } from "./routes/insights";
+import { registerEconomyRoutes } from "./routes/economy";
 
 export {
   CASES_PER_PAGE,
@@ -74,6 +75,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   registerDigestRoutes(router, kit);
   registerMemberRoutes(router, kit);
   registerInsightRoutes(router, kit);
+  registerEconomyRoutes(router, kit);
   registerSettingsRoutes(router, kit);
   registerAutomationRoutes(router, kit);
   registerCommunityRoutes(router, kit);

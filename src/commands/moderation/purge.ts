@@ -102,7 +102,7 @@ export const command: Command = {
 
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ManageMessages],
-  botPermissions: [PermissionFlagsBits.ManageMessages],
+  botPermissions: [PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const amount  = interaction.options.getInteger("amount", true);

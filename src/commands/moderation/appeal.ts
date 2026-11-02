@@ -91,6 +91,10 @@ export const command: Command = {
 
   guildOnly: true,
 
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+
+  featurePermissions: [PermissionFlagsBits.BanMembers],
+
   /** Appeal codes for staff on view/review (Ban Members only; never for /appeal submit). */
   autocomplete: async (interaction: AutocompleteInteraction) => {
     const focused = interaction.options.getFocused(true);

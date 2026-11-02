@@ -28,12 +28,15 @@ export function registerMemberRoutes(router: Router, k: RouteKit): void {
       const ctx = locals(res);
       const userId = String(req.params.userId);
       if (!isSnowflake(userId)) return fail(res, 404, "Member not found", "That is not a user ID.", ctx.viewer);
-      const [member, records, trust, overview] = await Promise.all([
+      const [member, records, trust, overview, ecoConfig, account] = await Promise.all([
         extras.member(ctx.guild.id, userId), extras.memberRecords(ctx.guild.id, userId),
         extras.trust.member(ctx.guild.id, userId).catch(() => null), extras.trust.overview(ctx.guild.id).catch(() => null),
+        extras.economy.config(ctx.guild.id).catch(() => null), extras.economy.balance(ctx.guild.id, userId).catch(() => null),
       ]);
       if (!member) return fail(res, 404, "Member not found", "Discord has no user with that ID.", ctx.viewer);
-      send(res, renderMember(deps.site, ctx, { member, records, noticeCode: noticeParam(req), trust: overview ? { result: trust, config: overview.config } : undefined }));
+      // The balance card shows when the economy is on, or when they still hold coins from when it was.
+      const economy = ecoConfig && account && (ecoConfig.enabled || account.balance > 0) ? { config: ecoConfig, balance: account.balance, streak: account.dailyStreak } : undefined;
+      send(res, renderMember(deps.site, ctx, { member, records, noticeCode: noticeParam(req), trust: overview ? { result: trust, config: overview.config } : undefined, economy }));
     } catch (err) { next(err); }
   });
 

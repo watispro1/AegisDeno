@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { REST, Routes } from "discord.js";
-import { loadCommands, commands } from "../src/commands/loader";
+import { loadCommands } from "../src/commands/loader";
+import { commandRegistrationData } from "../src/commands/registration";
 import { logger } from "../src/utils/logger";
 
 const RAW_TOKEN = process.env.DISCORD_TOKEN;
@@ -58,7 +59,7 @@ async function main(): Promise<void> {
   }
 
   await loadCommands();
-  const commandData = Array.from(commands.values()).map(c => c.data.toJSON());
+  const commandData = commandRegistrationData();
 
   // Mode 2: Guild-only deployment (for isolated dev servers)
   if (guildOnly) {

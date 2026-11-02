@@ -3,7 +3,7 @@ import { linkFilterApplies, type TrustConfig } from "./trustEngine";
 import { noteIncidentDeletes } from "./incidentHooks";
 import { Client, Message, GuildMember, PermissionFlagsBits } from "discord.js";
 import { codeBlock } from "../utils/safeText";
-import { getAutomodConfig } from "./automod";
+import { getAutomodConfig, type AutomodRule } from "./automod";
 import { blockedWordHit, capsOrFlood, hasLink } from "./automodChecks";
 import { addWarning } from "./warnings";
 import { sendGuildLog } from "./logging";
@@ -59,6 +59,21 @@ export function isExempt(
 }
 
 /**
+ * Per-rule exemptions: whether this one rule skips the member (by role) or the
+ * channel. A thread counts as its parent channel too, the same as the
+ * channel picker shows it.
+ */
+export function ruleExempt(
+  rule: { exemptRoleIds?: string[]; exemptChannelIds?: string[] },
+  member: Pick<GuildMember, "roles"> | null,
+  channelIds: readonly string[],
+): boolean {
+  if (rule.exemptChannelIds?.length && channelIds.some(id => rule.exemptChannelIds!.includes(id))) return true;
+  if (member && rule.exemptRoleIds?.length && member.roles.cache.some(role => rule.exemptRoleIds!.includes(role.id))) return true;
+  return false;
+}
+
+/**
  * How many pings a message carries for the mention-spam rule: distinct users,
  * distinct roles, and @everyone/@here (counted once).
  */
@@ -102,10 +117,12 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
 
   let triggeredRule: { action: string } | null = null;
   let ruleName = "";
+  const where = [message.channelId, message.channel && "parentId" in message.channel ? message.channel.parentId : null].filter((id): id is string => Boolean(id));
+  const applies = (rule: AutomodRule) => !ruleExempt(rule, member, where);
 
   // 1. Spam detection (rate limiter). Edits are not new messages: counting
   // them let a member who fixed a typo a few times trip the spam rule.
-  if (config.spam.enabled && !isEdit) {
+  if (config.spam.enabled && !isEdit && applies(config.spam)) {
     const windowMs = config.spam.windowSeconds * 1000;
     if (recordAndCheckSpam(message.guildId, message.author.id, config.spam.maxMessages, windowMs)) {
       triggeredRule = config.spam;
@@ -114,7 +131,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
   }
 
   // 2. Blocked Words (normalizes zero-width obfuscation and soft hyphens)
-  if (!triggeredRule && config.words.enabled && config.words.list.length > 0) {
+  if (!triggeredRule && config.words.enabled && config.words.list.length > 0 && applies(config.words)) {
     if (blockedWordHit(config.words.list, message.content)) {
       triggeredRule = config.words;
       ruleName = "Blocked Words";
@@ -122,7 +139,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
   }
 
   // 3. Mention Spam
-  if (!triggeredRule && config.mentions.enabled) {
+  if (!triggeredRule && config.mentions.enabled && applies(config.mentions)) {
     if (mentionCount(message.mentions) >= config.mentions.threshold) {
       triggeredRule = config.mentions;
       ruleName = "Mention Spam";
@@ -130,7 +147,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
   }
 
   // 4. Link Filtering
-  if (!triggeredRule && config.links.enabled) {
+  if (!triggeredRule && config.links.enabled && applies(config.links)) {
     if (hasLink(message.content) && await linkFilterAppliesTo(message)) {
       triggeredRule = config.links;
       ruleName = "Link Filtering";
@@ -138,7 +155,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
   }
 
   // 5. Caps and character flood filters
-  if (!triggeredRule && config.caps?.enabled) {
+  if (!triggeredRule && config.caps?.enabled && applies(config.caps)) {
     const hit = capsOrFlood(message.content, config.caps.threshold);
     if (hit) {
       triggeredRule = config.caps;

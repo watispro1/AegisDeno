@@ -50,8 +50,11 @@ export function registerInsightRoutes(router: Router, k: RouteKit): void {
   router.get("/:guildId/tools/export", ...guildGet, async (_req, res, next) => {
     try {
       const ctx = locals(res);
-      const snapshot = await deps.data.loadSettings(ctx.guild.id);
-      const file = exportSettings(ctx.guild.id, ctx.guild.name, snapshot.guild, snapshot.automod);
+      const [snapshot, economy] = await Promise.all([
+        deps.data.loadSettings(ctx.guild.id),
+        extras.economy.config(ctx.guild.id),
+      ]);
+      const file = exportSettings(ctx.guild.id, ctx.guild.name, snapshot.guild, snapshot.automod, economy);
       await logAudit(ctx, "settings.export", null, "downloaded a settings export");
       res.setHeader("Content-Disposition", `attachment; filename="aegis-settings-${ctx.guild.id}.json"`);
       res.status(200).type("application/json").send(JSON.stringify(file, null, 2));
@@ -65,7 +68,7 @@ export function registerInsightRoutes(router: Router, k: RouteKit): void {
       const parsed = parseSettingsImport(text, validationContext(ctx));
       const switches = await switchesOf(ctx);
       if (!parsed.ok) return send(res, renderTools(deps.site, ctx, { switches, noticeCode: null, importError: parsed.error, importText: text.slice(0, 200_000) }), 400);
-      await extras.applySettingsImport(ctx.guild.id, parsed.update, parsed.automod as Record<string, unknown> | null);
+      await extras.applySettingsImport(ctx.guild.id, parsed.update, parsed.automod as Record<string, unknown> | null, parsed.economy);
       await logAudit(ctx, "settings.import", null, `imported settings${parsed.warnings.length ? ` with ${parsed.warnings.length} adjustment(s)` : ""}`);
       if (!parsed.warnings.length) return res.redirect(303, `/dashboard/${ctx.guild.id}/tools?notice=import-done`);
       send(res, renderTools(deps.site, ctx, { switches: normalizeModuleSwitches(parsed.update.modules), noticeCode: "import-done", importWarnings: parsed.warnings }));

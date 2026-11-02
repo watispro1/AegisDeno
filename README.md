@@ -13,7 +13,7 @@ dashboard.
 | Command reference | https://aegisdeno.fly.dev/commands |
 | Web dashboard | https://aegisdeno.fly.dev/dashboard |
 | Status | https://aegisdeno.fly.dev/status |
-| Current version | bot 3.7.0, dashboard 1.2.3 |
+| Current version | bot 3.7.1, dashboard 1.2.4 |
 
 Despite the repository name, Aegis is a **Node.js** app (TypeScript,
 discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
@@ -21,6 +21,7 @@ discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
 ## Contents
 
 - [What it does](#what-it-does)
+- [Permissions](#permissions)
 - [Running it yourself](#running-it-yourself)
 - [Deploying to Fly.io](#deploying-to-flyio)
 - [Development and tests](#development-and-tests)
@@ -74,6 +75,15 @@ posted to a staff channel leave out text from private channels.
 overview, top offenders, moderator activity and automod hits. `/modstats` and
 `/activitysummary` give simpler counts.
 
+**Economy (opt-in).** Off until a server manager runs `/economy toggle`.
+Members earn coins with `/daily` (streak bonus) and `/work`, send them with
+`/pay`, and spend them in a `/shop` that can sell roles; `/balance`,
+`/inventory` and a `/leaderboard` that never pings round it out. Staff tune it
+with `/economy config`, adjust balances with `/economy give|take|reset`
+(posted to the mod log) and manage everything on the dashboard's Economy page.
+Cooldowns are stored in MongoDB and every balance change is a single atomic
+update, so coins can't be spent twice.
+
 **Everything else.** Logging to a channel (`/logging`), tickets with claim,
 inactivity auto-close and HTML transcripts (`/ticket`), button or math-captcha
 verification with optional auto-kick (`/verify`), role panels as buttons or a
@@ -94,6 +104,30 @@ Everything it does is also available as a slash command.
 What the bot and dashboard store, and for how long, is in the
 [privacy policy](https://aegisdeno.fly.dev/privacy). The rules for using them
 are in the [terms of service](https://aegisdeno.fly.dev/terms).
+
+## Permissions
+
+The invite asks for exactly what the commands use, computed from each
+command's declarations: permissions integer **`1460691659798`**. Administrator,
+Manage Server and View Audit Log are never requested.
+
+| Permission | Why |
+|---|---|
+| View Channel, Send Messages, Embed Links, Read Message History | Reading and posting where Aegis works; purge, starboard, transcripts |
+| Manage Roles | `/lock` and Incident Mode lockdowns (they change @everyone's override), ticket members, verification, role panels, welcome, low-trust and shop roles |
+| Manage Channels | `/slowmode`, Incident Mode slowmode, ticket channels |
+| Manage Messages | `/purge`, automod deletes |
+| Moderate Members | Timeouts (`/timeout`, automod, escalations, the join gate) |
+| Kick Members, Ban Members | `/kick`, `/ban`, `/unban`, appeals, escalations, verification auto-kick |
+| Manage Nicknames | `/nickname` |
+| Attach Files | Ticket transcripts |
+| Create Private Threads, Send Messages in Threads, Manage Threads | ModMail threads |
+
+A lock needs **Manage Roles** (shown as *Manage Permissions* in a channel's
+settings), plus View Channel and Send Messages in that channel, not Manage
+Channels. Members running `/lock` need Manage Channels. `/diagnostics` lists
+anything Aegis is missing. The full table is on the
+[docs page](https://aegisdeno.fly.dev/docs#permissions-bot).
 
 ## Running it yourself
 

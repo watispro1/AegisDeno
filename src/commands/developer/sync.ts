@@ -9,6 +9,7 @@ import {
 import { Command } from "../../types/discord";
 import { BOT_OWNER_IDS } from "../../config/env";
 import { loadCommands, commands } from "../loader";
+import { commandRegistrationData } from "../registration";
 import { logger } from "../../utils/logger";
 
 const TOKEN          = process.env.DISCORD_TOKEN!;
@@ -62,7 +63,7 @@ export const command: Command = {
 
       // Re-register with Discord
       const rest = new REST({ version: "10" }).setToken(TOKEN);
-      const commandData = Array.from(commands.values()).map(c => c.data.toJSON());
+      const commandData = commandRegistrationData();
 
       let registeredScope: string;
 

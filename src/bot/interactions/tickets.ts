@@ -14,6 +14,7 @@ import {
   createTicketChannel,
 } from "../../services/ticketService";
 import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
+import { ticketCreationFailureMessage } from "../../services/ticketPermissions";
 
 export const ticketRoutes: ComponentRoute[] = [
   {
@@ -36,9 +37,11 @@ export const ticketRoutes: ComponentRoute[] = [
       );
 
       await interaction.editReply({
-        content: result
-          ? `✅ Ticket created! Please head to ${result.channel}.`
-          : "❌ You already have an open ticket or an error occurred.",
+        content: result.ok
+          ? result.reused
+            ? `ℹ️ You already have an open ticket: ${result.channel}.`
+            : `✅ Ticket created! Please head to ${result.channel}.`
+          : ticketCreationFailureMessage(result.reason),
       });
     },
   },

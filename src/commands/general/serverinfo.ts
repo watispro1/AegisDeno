@@ -12,20 +12,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { isObfuscatedChannel } from "../../utils/channels";
-
-const VERIFICATION_LEVELS: Record<number, string> = {
-  0: "None (Unrestricted)",
-  1: "Low (Verified Email)",
-  2: "Medium (Registered > 5m)",
-  3: "High (Member > 10m)",
-  4: "Highest (Verified Phone)",
-};
-
-const EXPLICIT_FILTER_LEVELS: Record<number, string> = {
-  0: "Disabled",
-  1: "Members Without Roles",
-  2: "All Members",
-};
+import { EXPLICIT_FILTER_LEVELS, VERIFICATION_LEVELS, dateAndAgo, fitNames, serverSecurityText } from "../../services/infoFormat";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -61,7 +48,7 @@ export const command: Command = {
       .addFields(
         { name: "👑 Server Owner", value: owner ? `${owner.user.tag} (<@${owner.id}>)` : "Unavailable", inline: true },
         { name: "🆔 Server ID", value: `\`${guild.id}\``, inline: true },
-        { name: "📅 Created", value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:R>`, inline: true },
+        { name: "📅 Created", value: dateAndAgo(guild.createdTimestamp), inline: true },
         { name: "👥 Members", value: `**${guild.memberCount.toLocaleString()}** members`, inline: true },
         { name: "💎 Server Boosts", value: `Level **${guild.premiumTier}** (${guild.premiumSubscriptionCount ?? 0} boosts)`, inline: true },
         { name: "🔒 Verification", value: VERIFICATION_LEVELS[guild.verificationLevel] ?? `Level ${guild.verificationLevel}`, inline: true },
@@ -135,23 +122,22 @@ export const command: Command = {
     collector.on("collect", (i) => guardCollect("serverinfo", i, async () => {
       if (i.customId === "serverinfo_channels") {
         await i.reply({
-          content: `💬 **Channel Breakdown for ${guild.name}:**\n- Text Channels: **${textChannels}**\n- Voice Rooms: **${voiceChannels}**\n- Forum Forums: **${forumChannels}**\n- Categories: **${categories}**\n- Total Channels: **${channels.size}**`,
+          content: `💬 **Channel Breakdown for ${guild.name}:**\n- Text Channels: **${textChannels}**\n- Voice Rooms: **${voiceChannels}**\n- Forums: **${forumChannels}**\n- Categories: **${categories}**\n- Total Channels: **${channels.size}**`,
           flags: MessageFlags.Ephemeral,
         });
       } else if (i.customId === "serverinfo_roles") {
-        const topRoles = guild.roles.cache
+        // Names only (never mentions), cut to fit the 2,000-character message.
+        const topRoles = fitNames(guild.roles.cache
           .filter(r => r.id !== guild.id)
           .sort((a, b) => b.position - a.position)
-          .map(r => r.name)
-          .slice(0, 15)
-          .join(", ");
+          .map(r => r.name), 1500);
         await i.reply({
           content: `🎨 **Server Customization Assets:**\n- Total Roles: **${Math.max(0, guild.roles.cache.size - 1)}**\n- Top Roles: ${topRoles}\n- Custom Emojis: **${emojis?.size ?? 0}**\n- Stickers: **${stickers?.size ?? 0}**`,
           flags: MessageFlags.Ephemeral,
         });
       } else if (i.customId === "serverinfo_security") {
         await i.reply({
-          content: `🔒 **Security & Safety Overview:**\n- Verification Level: \`${guild.verificationLevel}\`\n- Explicit Content Filter: \`${guild.explicitContentFilter}\`\n- Default Notifications: \`${guild.defaultMessageNotifications}\`\n- MFA Level: \`${guild.mfaLevel}\``,
+          content: serverSecurityText(guild),
           flags: MessageFlags.Ephemeral,
         });
       }

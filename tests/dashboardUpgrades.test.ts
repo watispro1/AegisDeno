@@ -23,6 +23,7 @@ import { parseSettingsImport, exportSettings } from "../src/web/dashboard/settin
 import { parseAutomation } from "../src/web/dashboard/moduleValidation";
 import { decodeScheduledPayload, encodeScheduledPayload, scheduledPayloadPreview } from "../src/services/scheduledPayload";
 import { normalizeGuildConfig } from "../src/services/guildConfigNormalize";
+import { DEFAULT_ECONOMY_CONFIG } from "../src/services/economyLogic";
 import { createIncidentService, type IncidentOps } from "../src/services/incidentService";
 import { memoryIncidentStore } from "../src/services/incidentStore";
 import { normalizeIncidentConfig, type ChannelSnapshot } from "../src/services/incidentLogic";
@@ -216,6 +217,7 @@ test("modules & backup: switches save, export downloads JSON, import validates c
   assert.equal(exp.headers.get("cache-control"), "no-store");
   const file = await exp.json() as Record<string, unknown>;
   assert.equal(file.format, "aegis-settings");
+  assert.deepEqual(file.economy, DEFAULT_ECONOMY_CONFIG, "economy settings are in the export");
 
   const cfg = file.config as Record<string, unknown>;
   cfg.loggingEnabled = true;
@@ -225,9 +227,10 @@ test("modules & backup: switches save, export downloads JSON, import validates c
   assert.equal(imp.status, 200);
   const impHtml = await imp.text();
   assert.match(impHtml, /Log channel: Aegis can&#39;t see that channel here|Log channel: Aegis can't see that channel here/);
-  const applied = extras.saved.import.at(-1) as { update: Record<string, unknown> };
+  const applied = extras.saved.import.at(-1) as { update: Record<string, unknown>; economy?: unknown };
   assert.equal(applied.update.loggingChannelId, null);
   assert.equal(applied.update.welcomeChannelId, CHANNEL_2);
+  assert.deepEqual(applied.economy, DEFAULT_ECONOMY_CONFIG, "the import applies economy settings");
 
   assert.equal((await post(`/dashboard/${GUILD}/tools/import`, { json: "{not json" })).status, 400);
   assert.equal((await post(`/dashboard/${GUILD}/tools/import`, { json: JSON.stringify({ format: "aegis-settings", version: 1, config: { $where: "1" } }) })).status, 400);
@@ -236,7 +239,7 @@ test("modules & backup: switches save, export downloads JSON, import validates c
 
 test("settings import: roles above the viewer are dropped; automod exemptions must exist here", () => {
   const ctx = { textChannelIds: new Set([CHANNEL]), hiddenChannelIds: new Set([HIDDEN]), roles: new Map([[ROLE, { assignable: true, aboveViewer: true }]]) };
-  const file = exportSettings(GUILD, "x", { ...normalizeGuildConfig(GUILD), welcomeRoleId: ROLE }, { ...snapshot().automod, exemptChannelIds: [CHANNEL, "700000000000000077"], exemptRoleIds: ["600000000000000077"] });
+  const file = exportSettings(GUILD, "x", { ...normalizeGuildConfig(GUILD), welcomeRoleId: ROLE }, { ...snapshot().automod, exemptChannelIds: [CHANNEL, "700000000000000077"], exemptRoleIds: ["600000000000000077"] }, DEFAULT_ECONOMY_CONFIG);
   const r = parseSettingsImport(JSON.stringify(file), ctx);
   assert.ok(r.ok);
   assert.equal(r.update.welcomeRoleId, null);
@@ -245,6 +248,33 @@ test("settings import: roles above the viewer are dropped; automod exemptions mu
   assert.ok(r.warnings.some(w => /Welcome role/.test(w)));
   assert.ok(r.warnings.some(w => /Automod: 2/.test(w)));
   assert.equal(parseSettingsImport("x".repeat(200_001), ctx).ok, false);
+});
+
+test("settings export/import: economy settings round-trip and bad values fall back", () => {
+  const ctx = { textChannelIds: new Set([CHANNEL]), hiddenChannelIds: new Set<string>(), roles: new Map() };
+  const economy = { ...DEFAULT_ECONOMY_CONFIG, enabled: true, currencyName: "credits", dailyAmount: 250 };
+  const file = exportSettings(GUILD, "x", normalizeGuildConfig(GUILD), snapshot().automod, economy);
+  assert.deepEqual(file.economy, economy);
+
+  const good = parseSettingsImport(JSON.stringify(file), ctx);
+  assert.ok(good.ok);
+  assert.deepEqual(good.economy, economy, "a clean file keeps every economy value");
+
+  const bad = {
+    ...file,
+    economy: { ...file.economy, dailyAmount: -5, currencyName: "<script>", workMin: 500, workMax: 1 },
+  };
+  const fixed = parseSettingsImport(JSON.stringify(bad), ctx);
+  assert.ok(fixed.ok);
+  assert.equal(fixed.economy?.dailyAmount, DEFAULT_ECONOMY_CONFIG.dailyAmount, "out-of-range amounts fall back");
+  assert.equal(fixed.economy?.currencyName, DEFAULT_ECONOMY_CONFIG.currencyName, "unsafe names fall back");
+  assert.equal(fixed.economy?.workMax, 500, "a maximum below the minimum is raised to the minimum");
+
+  const legacy = { ...file } as Record<string, unknown>;
+  delete legacy.economy;
+  const none = parseSettingsImport(JSON.stringify(legacy), ctx);
+  assert.ok(none.ok);
+  assert.equal(none.economy, null, "older exports leave the economy untouched");
 });
 
 test("Incident Mode pages: start, live view, end with report; bad input refused", async () => {

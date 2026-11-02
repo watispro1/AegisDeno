@@ -75,7 +75,8 @@ function commandFacts(cmd: CommandInfo): string {
     : "None";
   return `<dl class="cmd-facts">
       <div><dt>Who can run it</dt><dd>${perms.length ? perms.map(p => `<strong>${escapeHtml(p)}</strong>`).join(", ") : "Anyone in the server"}${cmd.declaredPermissions.length ? `<span class="faint"> · hidden in Discord from members without it</span>` : ""}</dd></div>
-      <div><dt>Aegis needs</dt><dd>${cmd.botPermissions.length ? cmd.botPermissions.map(escapeHtml).join(", ") : `<span class="faint">None checked before it runs</span>`}</dd></div>
+      <div><dt>Aegis needs</dt><dd>${cmd.botPermissions.length ? cmd.botPermissions.map(escapeHtml).join(", ") : `<span class="faint">None checked before it runs</span>`}</dd></div>${cmd.featurePermissions.length ? `
+      <div><dt>Some parts use</dt><dd>${cmd.featurePermissions.map(escapeHtml).join(", ")}<span class="faint"> · checked when that part runs</span></dd></div>` : ""}
       <div><dt>Cooldown</dt><dd>${cooldown}</dd></div>
       <div><dt>Where</dt><dd>${cmd.guildOnly ? "Servers only, not in DMs" : "Servers and DMs"}</dd></div>
     </dl>`;

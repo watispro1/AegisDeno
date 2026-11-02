@@ -87,6 +87,10 @@ export const command: Command = {
       .addBooleanOption(o => o.setName("clear_low_trust_role").setDescription("Stop giving a low-trust role"))),
 
   guildOnly: true,
+
+  // Used by subcommands, buttons or background work; requested on the invite, checked where used.
+
+  featurePermissions: [PermissionFlagsBits.ManageRoles],
   userPermissions: [PermissionFlagsBits.ModerateMembers],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
