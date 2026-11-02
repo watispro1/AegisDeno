@@ -206,6 +206,32 @@ test("buy: role items refund coins and stock when the role can't be granted; own
   const ok = await service.buy(G, A, item.value.id, { grantRole: async (r) => { granted.push(r); return null; } });
   assert.ok(ok.ok && ok.balance === 50 && ok.item.stock === 0);
   assert.deepEqual(granted, [ROLE]);
+  assert.deepEqual(await service.inventory(G, A), [{ itemId: item.value.id, name: "VIP", quantity: 1, roleId: ROLE }], "a granted role is recorded");
+});
+
+test("a claim refused at the cap does not start the cooldown", async () => {
+  const now = Date.UTC(2026, 10, 2);
+  const { service, store } = memoryEconomy({ config: { enabled: true, workMin: 20, workMax: 20 }, now: () => now }, { rng: () => 0 });
+  await store.setBalance(G, A, MAX_BALANCE - 5);
+
+  const daily = await service.daily(G, A);
+  assert.ok(!daily.ok && daily.reason === "cap");
+  const work = await service.work(G, A);
+  assert.ok(!work.ok && work.reason === "cap");
+
+  // Spending the coins must not leave the member locked out by the failed claim.
+  await store.setBalance(G, A, 0);
+  const retryDaily = await service.daily(G, A);
+  assert.ok(retryDaily.ok, `daily should be ready, got ${JSON.stringify(retryDaily)}`);
+  const retryWork = await service.work(G, A);
+  assert.ok(retryWork.ok, `work should be ready, got ${JSON.stringify(retryWork)}`);
+});
+
+test("reset on an account that never existed is a clean no-op", async () => {
+  const { service, store } = memoryEconomy();
+  assert.deepEqual(await service.adjust(G, "999", "reset", 0, B, "leftover"), { ok: true, balance: 0, previous: 0 });
+  assert.equal((await service.balance(G, "999")).balance, 0);
+  assert.equal(store.transactions.length, 0, "a reset of nothing is not a balance change");
 });
 
 test("role items: hierarchy rule (below Aegis and below the staff member; owner exempt; no @everyone/managed)", () => {

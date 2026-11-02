@@ -25,6 +25,13 @@ import {
 } from "../../services/ticketService";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../services/ticketTranscript";
 import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
+import { logger } from "../../utils/logger";
+
+const PANEL_PERMISSIONS: Array<[bigint, string]> = [
+  [PermissionFlagsBits.ViewChannel, "View Channel"],
+  [PermissionFlagsBits.SendMessages, "Send Messages"],
+  [PermissionFlagsBits.EmbedLinks, "Embed Links"],
+];
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -117,7 +124,31 @@ export const command: Command = {
       const title = interaction.options.getString("title");
       const description = interaction.options.getString("description");
 
-      await postTicketPanel(channel, { staffRoleId: staffRole?.id ?? null, title, description });
+      // Check the channel first so a missing permission is named instead of
+      // surfacing as a generic "couldn't post" error.
+      const me = interaction.guild.members.me;
+      const permissions = me ? channel.permissionsFor(me) : null;
+      const missing = permissions
+        ? PANEL_PERMISSIONS.filter(([permission]) => !permissions.has(permission)).map(([, name]) => name)
+        : [];
+      if (missing.length) {
+        await interaction.reply({
+          content: `❌ Aegis can't post the panel in ${channel}: it needs **${missing.join("**, **")}** there. Give Aegis's role those permissions in the channel, then run this again.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      try {
+        await postTicketPanel(channel, { staffRoleId: staffRole?.id ?? null, title, description });
+      } catch (err) {
+        logger.warn(`Ticket panel could not be posted in ${channel.id} of guild ${interaction.guild.id}:`, err);
+        await interaction.reply({
+          content: `❌ Aegis couldn't post the ticket panel in ${channel}. Check that it can **View Channel**, **Send Messages** and **Embed Links** there, then run this again.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
       await interaction.reply({ content: `✅ Support ticket panel successfully created in ${channel}! (Previous panels in channel purged)`, flags: MessageFlags.Ephemeral });
       return;
     }

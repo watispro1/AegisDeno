@@ -14,6 +14,7 @@ import {
   type ModalSubmitInteraction,
 } from "discord.js";
 import { logger } from "../../utils/logger";
+import { EXPIRED_COMPONENT_MESSAGE } from "./expired";
 
 export type ComponentInteraction =
   | ButtonInteraction
@@ -43,7 +44,7 @@ export interface RoutableInteraction {
   editReply(options: { content: string }): Promise<unknown>;
 }
 
-const FAILURE_MESSAGE = "❌ An error occurred while processing this action. Please try again.";
+const FAILURE_MESSAGE = EXPIRED_COMPONENT_MESSAGE;
 
 export class InteractionRouter {
   private readonly routes: readonly ComponentRoute[];

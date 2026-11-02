@@ -23,7 +23,10 @@ export const command: Command = {
     const amount = interaction.options.getInteger("amount", true);
     const refusal = payRefusal({ fromId: interaction.user.id, toId: to.id, toBot: to.bot, amount: Number.isSafeInteger(amount) && amount >= 1 && amount <= MAX_BALANCE ? amount : null });
     if (refusal) return interaction.reply({ content: `❌ ${refusal}`, flags: MessageFlags.Ephemeral });
-    if (!interaction.options.getMember("user")) {
+    // getMember() only reads the cache, which is empty for members who have not
+    // spoken; fetch so a real member is never told they are not in the server.
+    const recipient = await interaction.guild!.members.fetch(to.id).catch(() => null);
+    if (!recipient) {
       return interaction.reply({ content: "❌ They aren't in this server.", flags: MessageFlags.Ephemeral });
     }
 

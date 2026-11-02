@@ -1,6 +1,6 @@
 import {
   SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType,
-  InteractionContextType, type ChatInputCommandInteraction,
+  InteractionContextType, MessageFlags, type ChatInputCommandInteraction,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { economy } from "../../services/economyService";
@@ -63,9 +63,13 @@ export const command: Command = {
     const collector = message.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 120_000,
-      filter: (i) => i.user.id === interaction.user.id && (i.customId === prevId || i.customId === nextId),
+      filter: (i) => i.customId === prevId || i.customId === nextId,
     });
     collector.on("collect", (i) => guardCollect("leaderboard", i, async () => {
+      if (i.user.id !== interaction.user.id) {
+        await i.reply({ content: "❌ Only the person who ran `/leaderboard` can change pages.", flags: MessageFlags.Ephemeral });
+        return;
+      }
       await i.update(await render(page + (i.customId === nextId ? 1 : -1)));
     }));
     collector.on("end", () => { interaction.editReply({ components: [] }).catch(() => null); });

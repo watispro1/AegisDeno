@@ -15,6 +15,7 @@ import type { Command } from "../types/discord";
 import { logger } from "../utils/logger";
 import { docsUrl } from "../config/links";
 import { permissionName } from "../utils/embedStyle";
+import { startSlowCommandGuard, type SlowGuardInteraction } from "./slowGuard";
 
 const PERMISSION_NAMES: Partial<Record<string, string>> = {
   [String(PermissionFlagsBits.Administrator)]:      "Administrator",
@@ -158,6 +159,9 @@ export async function executeCommand(command: Command, interaction: ChatInputCom
   }
 
   const startedAt = Date.now();
+  // If the command has not answered in ~2.5s, defer for it so Discord does not
+  // show "The application did not respond" while the work continues.
+  const stopSlowGuard = startSlowCommandGuard(interaction as unknown as SlowGuardInteraction);
   try {
     await command.execute(interaction);
     logger.debug(`/${interaction.commandName} succeeded in ${Date.now() - startedAt}ms for ${interaction.user.tag}`);
@@ -166,5 +170,7 @@ export async function executeCommand(command: Command, interaction: ChatInputCom
     cooldowns.release(cooldownKey);
     logger.error(`Unhandled error in /${interaction.commandName} by ${interaction.user.tag} after ${Date.now() - startedAt}ms:`, err);
     await replyError(interaction, "❌ An unexpected error occurred while running this command. Please try again.");
+  } finally {
+    stopSlowGuard();
   }
 }

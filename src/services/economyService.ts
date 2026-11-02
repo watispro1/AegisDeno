@@ -154,8 +154,9 @@ export class EconomyService {
     let balance: number;
     if (action === "reset") {
       balance = (await this.store.setBalance(guildId, userId, 0)).balance;
-      await this.log(guildId, userId, "admin_reset", -previous, balance, { actorId, note: reason });
       amount = previous;
+      // An account that was already empty has no balance change to record.
+      if (previous > 0) await this.log(guildId, userId, "admin_reset", -previous, balance, { actorId, note: reason });
     } else if (action === "give") {
       await this.store.ensureAccount(guildId, userId);
       const after = await this.store.credit(guildId, userId, amount);

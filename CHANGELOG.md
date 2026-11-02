@@ -91,6 +91,10 @@ re-inviting from `/invite` grants the rest without kicking the bot.
 - Server-only commands are registered for servers only, so Discord no longer
   lists them in the slash menu in DMs. Commands that work in DMs (`/help`,
   `/about`, `/ping` and the like) are unchanged.
+- A command that takes longer than about 2.5 seconds now acknowledges itself
+  before Discord's three-second deadline, so the member gets the real answer
+  instead of "The application did not respond". Replies the command marks
+  private stay private.
 - `/userinfo` shows when a member's timeout ends, and their balance when the
   economy is on.
 - `/serverinfo` shows the creation date as well as how long ago it was.
@@ -99,6 +103,27 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   transcripts and auto-close; settings). No behaviour change.
 
 ### Fixed
+- **Ticket creation works without Attach Files (top.gg review).** Discord
+  refuses a permission overwrite that grants a permission the bot does not
+  hold, so a server invited before Attach Files was added could not create a
+  ticket at all. Ticket channels now only grant permissions Aegis itself has;
+  Attach Files stays optional and transcripts still work without it.
+  - If Aegis is missing **Manage Channels**, pressing Create Ticket says so by
+    name and explains how to fix it, instead of a generic error. An existing
+    open ticket is reused and linked rather than reported as a failure.
+  - `/ticket setup` checks View Channel, Send Messages and Embed Links in the
+    target channel first, and reports a refused panel post with the reason
+    instead of failing silently.
+- **Buttons that are no longer active say what to do (top.gg review).** A
+  button or menu from before a restart, or one whose timer ran out, now
+  answers "Run the command again to get a fresh one" instead of leaving the
+  member with Discord's "This interaction failed". Buttons owned by a running
+  command keep working normally.
+- `/pay` now finds a recipient who has not spoken recently (they were reported
+  as "not in this server" when not cached). `/leaderboard` tells other members
+  that only the person who ran the command can change pages, rather than
+  ignoring them. Resetting an already-empty balance no longer writes a
+  zero-value transaction to the log.
 - **`/lock` asked for the wrong permission (top.gg review).** It declared
   that Aegis needs Manage Channels, but a lock only changes @everyone's Send
   Messages override, which Discord gates on **Manage Roles** (called *Manage

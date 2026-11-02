@@ -16,6 +16,11 @@ import { autoCloseDecision } from "./ticketTranscript";
 import { getTicketSettings } from "./ticketSettings";
 import { scheduleAutoCloseCheck } from "./ticketClose";
 import { isObfuscatedChannel } from "../utils/channels";
+import {
+  canCreateTicketChannels,
+  ticketPermissionOverwrites,
+  type TicketCreationFailure,
+} from "./ticketPermissions";
 
 export type { TicketSettings } from "./configuration";
 // Split modules, re-exported so existing imports keep working.
@@ -109,16 +114,20 @@ export async function canCloseTicket(guild: Guild, channelId: string, userId: st
   return Boolean(ticket?.userId === userId) || canManageTicket(guild, channelId, userId);
 }
 
+export type CreateTicketResult =
+  | { ok: true; channel: TextChannel; ticketId: string; reused: boolean }
+  | { ok: false; reason: TicketCreationFailure };
+
 export async function createTicketChannel(
   guild: Guild,
   userId: string,
   category = "General Support",
   staffRoleId?: string | null
-): Promise<{ channel: TextChannel; ticketId: string } | null> {
+): Promise<CreateTicketResult> {
   const lockKey = `${guild.id}:${userId}`;
   if (pendingTicketCreations.has(lockKey)) {
     logger.warn(`Ticket creation already in progress for user ${userId} in guild ${guild.id}`);
-    return null;
+    return { ok: false, reason: "pending" };
   }
 
   pendingTicketCreations.add(lockKey);
@@ -131,51 +140,29 @@ export async function createTicketChannel(
         channel = (await guild.channels.fetch(existingOpen.channelId).catch(() => null)) as TextChannel | null ?? undefined;
       }
       if (channel) {
-        return { channel, ticketId: existingOpen.id };
+        return { ok: true, channel, ticketId: existingOpen.id, reused: true };
       } else {
         await TicketModel.updateOne({ _id: existingOpen._id }, { status: "closed", reason: "Channel deleted" });
       }
+    }
+
+    const me = guild.members.me ?? (await guild.members.fetchMe().catch(() => null));
+    if (!canCreateTicketChannels(me)) {
+      logger.warn(`Ticket creation refused in guild ${guild.id}: Aegis is missing Manage Channels`);
+      return { ok: false, reason: "missing_permissions" };
     }
 
     const ticketId = `ticket-${crypto.randomUUID()}`;
     const member = await guild.members.fetch(userId).catch(() => null);
     const username = member?.user.username.toLowerCase().replace(/[^a-z0-9]/g, "") || "user";
 
-    const permissionOverwrites = [
-      {
-        id: guild.id,
-        deny: [PermissionFlagsBits.ViewChannel],
-      },
-      {
-        id: userId,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AttachFiles,
-        ],
-      },
-      {
-        id: guild.members.me?.id || clientMeId(guild),
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ManageChannels,
-          PermissionFlagsBits.ManageMessages,
-        ],
-      },
-    ];
-
-    if (staffRoleId && guild.roles.cache.has(staffRoleId)) {
-      permissionOverwrites.push({
-        id: staffRoleId,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory,
-        ],
-      });
-    }
+    const permissionOverwrites = ticketPermissionOverwrites({
+      guildId: guild.id,
+      userId,
+      botId: guild.members.me?.id || clientMeId(guild),
+      staffRoleId: staffRoleId && guild.roles.cache.has(staffRoleId) ? staffRoleId : null,
+      me,
+    });
 
     const channel = await guild.channels.create({
       name: `ticket-${username}`,
@@ -204,7 +191,9 @@ export async function createTicketChannel(
         const existingChannel = existing
           ? await guild.channels.fetch(existing.channelId).catch(() => null) as TextChannel | null
           : null;
-        return existing && existingChannel ? { channel: existingChannel, ticketId: existing.id } : null;
+        return existing && existingChannel
+          ? { ok: true, channel: existingChannel, ticketId: existing.id, reused: true }
+          : { ok: false, reason: "failed" };
       }
       throw error;
     }
@@ -251,10 +240,13 @@ export async function createTicketChannel(
       description: `Ticket **${channel.name}** (\`${ticketId}\`) opened by <@${userId}>.`,
     });
 
-    return { channel, ticketId };
+    return { ok: true, channel, ticketId, reused: false };
   } catch (err) {
     logger.error("Failed to create ticket channel:", err);
-    return null;
+    const code = (err as { code?: unknown } | null)?.code;
+    // 50001 is Missing Access, 50013 is Missing Permissions: both mean an admin
+    // has to fix Aegis's role rather than the member retrying forever.
+    return { ok: false, reason: code === 50001 || code === 50013 ? "missing_permissions" : "failed" };
   } finally {
     pendingTicketCreations.delete(lockKey);
   }
