@@ -83,11 +83,13 @@ test("giveaway race: two ends at once (button vs scheduler auto-end) — exactly
 test("giveaway race: a reroll during an end is refused and cannot be overwritten by the end's winners", async () => {
   let release!: () => void;
   const held = new Promise<void>(r => { release = r; });
+  let claimed!: () => void;
+  const claimedSignal = new Promise<void>(r => { claimed = r; });
   let first = true;
   // Hold the end right after its claim, before winners are stored.
-  const store = fakeStore(running(), async () => { if (first) { first = false; await held; } });
+  const store = fakeStore(running(), async () => { if (first) { first = false; claimed(); await held; } });
   const ending = endTransition(store, IDS, draw);
-  await new Promise(r => setTimeout(r, 5));
+  await claimedSignal;
   assert.equal(store.doc.ended, true);
   assert.equal(store.doc.winnersDrawn, false);
 
