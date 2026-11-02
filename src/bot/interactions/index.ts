@@ -4,6 +4,7 @@ import { ticketRoutes } from "./tickets";
 import { roleRoutes } from "./roles";
 import { verificationRoutes } from "./verification";
 import { reminderRoutes } from "./reminders";
+import { modmailRoutes } from "./modmail";
 
 /** Every persistent component route, in match order. */
 export const componentRoutes: readonly ComponentRoute[] = [
@@ -12,6 +13,7 @@ export const componentRoutes: readonly ComponentRoute[] = [
   ...roleRoutes,
   ...verificationRoutes,
   ...reminderRoutes,
+  ...modmailRoutes,
 ];
 
 export const componentRouter = new InteractionRouter(componentRoutes);

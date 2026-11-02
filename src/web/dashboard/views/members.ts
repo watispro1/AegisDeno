@@ -5,7 +5,7 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord } from "../data";
 import type { MemberProfile, MemberRecords, SearchHit } from "../extras";
 import { TIMEOUT_CHOICES } from "../extrasValidation";
-import { type GuildContext, csrfField, emptyState, fmtDate, notice, person } from "./layout";
+import { type GuildContext, copyId, csrfField, emptyState, idCode, notice, person, relTime, relTimeOr } from "./layout";
 import { errorSummary, modulePage } from "./parts";
 
 /** Only Discord's CDN is allowed by the CSP's img-src; anything else falls back to an initial. */
@@ -26,7 +26,7 @@ function caseRows(ctx: GuildContext, rows: CaseRecord[]): string {
   if (!rows.length) return `<p class="muted">None.</p>`;
   return `<div class="table-wrap"><table class="case-table"><thead><tr><th scope="col">When</th><th scope="col">Action</th><th scope="col">Reason</th><th scope="col">By</th></tr></thead><tbody>
     ${rows.map(c => `<tr${c.revoked ? ' class="revoked"' : ""}>
-      <td data-label="When"><a href="/dashboard/${esc(ctx.guild.id)}/cases/${esc(c.id)}">${esc(fmtDate(c.createdAt))}</a></td>
+      <td data-label="When"><a href="/dashboard/${esc(ctx.guild.id)}/cases/${esc(c.id)}">${relTime(c.createdAt)}</a> ${copyId(c.id, "Copy case ID")}</td>
       <td data-label="Action">${esc(c.action)}${c.revoked ? ' <span class="tag warn">revoked</span>' : ""}</td>
       <td data-label="Reason">${esc(c.reason.slice(0, 120))}</td>
       <td data-label="By">${person(ctx, c.moderatorId)}</td></tr>`).join("")}
@@ -76,15 +76,15 @@ export function renderMember(cfg: SiteConfig, ctx: GuildContext, o: { member: Me
   return modulePage(cfg, ctx, {
     active: "members",
     title: name,
-    lead: `<code class="inline">${esc(m.id)}</code>${m.bot ? ' <span class="tag">bot</span>' : ""}${m.inServer ? "" : ' <span class="tag warn">not in server</span>'}`,
+    lead: `${idCode(m.id, "Copy user ID")}${m.bot ? ' <span class="tag">bot</span>' : ""}${m.inServer ? "" : ' <span class="tag warn">not in server</span>'}`,
     path: base,
     body: `${notice(o.noticeCode)}
   <div class="member-head">${avatarImg(m.avatarUrl, name, "avatar-lg")}
     <dl class="member-facts">
       <dt>Username</dt><dd>${esc(m.username)}</dd>
-      <dt>Joined server</dt><dd>${m.joinedAt ? esc(fmtDate(m.joinedAt)) : "—"}</dd>
-      <dt>Account created</dt><dd>${m.createdAt ? esc(fmtDate(m.createdAt)) : "—"}</dd>
-      <dt>Timeout</dt><dd>${timedOut ? `Until ${esc(fmtDate(m.timeoutUntil!))}` : "None"}</dd>
+      <dt>Joined server</dt><dd>${relTimeOr(m.joinedAt)}</dd>
+      <dt>Account created</dt><dd>${relTimeOr(m.createdAt)}</dd>
+      <dt>Timeout</dt><dd>${timedOut ? `Until ${relTime(m.timeoutUntil!)}` : "None"}</dd>
       <dt>Warnings</dt><dd>${activeWarnings} active</dd>
       <dt>Roles</dt><dd>${m.roles.length ? m.roles.map(r => `<span class="tag">${esc(r.name)}</span>`).join(" ") : "—"}</dd>
     </dl>
@@ -93,7 +93,7 @@ export function renderMember(cfg: SiteConfig, ctx: GuildContext, o: { member: Me
   ${o.trust ? trustCard(ctx.guild.id, o.trust.result, o.trust.config) : ""}
   <section class="panel-card"><h2>Cases</h2>${caseRows(ctx, o.records.cases)}</section>
   <section class="panel-card"><h2>Warnings</h2>${caseRows(ctx, o.records.warnings)}</section>
-  <section class="panel-card"><h2>Staff notes</h2>${o.records.notes.length ? `<ul class="note-list">${o.records.notes.map(n => `<li><p>${esc(n.note)}</p><p class="faint">${person(ctx, n.moderatorId)} · ${esc(fmtDate(n.createdAt))}</p></li>`).join("")}</ul>` : `<p class="muted">No notes. Add one with <code class="inline">/note add</code>.</p>`}</section>`,
+  <section class="panel-card"><h2>Staff notes</h2>${o.records.notes.length ? `<ul class="note-list">${o.records.notes.map(n => `<li><p>${esc(n.note)}</p><p class="faint">${person(ctx, n.moderatorId)} · ${relTime(n.createdAt)}${n.id ? ` ${copyId(String(n.id), "Copy note ID")}` : ""}</p></li>`).join("")}</ul>` : `<p class="muted">No notes. Add one with <code class="inline">/note add</code>.</p>`}</section>`,
   });
 }
 

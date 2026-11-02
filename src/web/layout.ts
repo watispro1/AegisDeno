@@ -200,6 +200,7 @@ ${o.body}
           <li><a href="/docs#automod">Automod</a></li>
           <li><a href="/docs#logging">Logging</a></li>
           <li><a href="/docs#permissions">Permissions</a></li>
+          <li><a href="/docs#modmail">ModMail</a></li>
           <li><a href="/troubleshooting">Troubleshooting</a></li>
         </ul>
       </div>
@@ -218,6 +219,10 @@ ${o.body}
     <div class="footer-bottom">
       <div>&copy; ${year} Aegis. Not affiliated with Discord Inc.</div>
       <nav aria-label="Footer">
+        <a class="back-to-top" href="#main">Back to top ↑</a>
+        <a href="/features">Features</a>
+        <a href="/commands">Commands</a>
+        <a href="/docs">Docs</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
         <a href="/security">Security</a>

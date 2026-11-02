@@ -6,6 +6,8 @@ import { isSettingsSection, parseAutomod, parseEscalation, parseLogging, parseSt
 import { parseGoodbye, parseLogChannels, parseWelcomeEmbed } from "../moduleValidation";
 import { MULTI_FIELDS, renderSettings, settingsValues, submittedValues } from "../views";
 import { type RouteKit, type GuildLocals } from "./context";
+import { previewAutomod } from "../../../services/automodChecks";
+import { AUTOMOD_TEST_MAX } from "../views/automodTest";
 
 export function registerSettingsRoutes(router: Router, k: RouteKit): void {
   const { deps, send, fail, actorOf, logAudit, noticeParam, validationContext, rolesFor, guildGet, settingsPost } = k;
@@ -51,6 +53,25 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
         { values: settingsValues(section, snapshot), errors: {} },
         deps.bot.textChannels(ctx.guild.id), rolesFor(ctx), noticeParam(req), deps.bot.hiddenChannelIds(ctx.guild.id),
       ));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Test a message against the saved automod rules. Read-only: nothing is saved, posted or logged.
+  router.post("/:guildId/settings/automod/test", ...settingsPost, async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const raw = (req.body ?? {} as FormBody).content;
+      const content = typeof raw === "string" ? raw.replace(/\r\n/g, "\n") : "";
+      const error = !content.trim() ? "Type a message to test." : content.length > AUTOMOD_TEST_MAX ? `Keep it to ${AUTOMOD_TEST_MAX} characters, Discord's message limit.` : undefined;
+      const snapshot = await deps.data.loadSettings(ctx.guild.id);
+      send(res, renderSettings(
+        deps.site, ctx, "automod", snapshot,
+        { values: settingsValues("automod", snapshot), errors: {} },
+        deps.bot.textChannels(ctx.guild.id), rolesFor(ctx), null, deps.bot.hiddenChannelIds(ctx.guild.id),
+        { content: content.slice(0, AUTOMOD_TEST_MAX), result: error ? null : previewAutomod(snapshot.automod, content), error },
+      ), error ? 400 : 200);
     } catch (err) {
       next(err);
     }

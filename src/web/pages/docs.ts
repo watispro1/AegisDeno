@@ -108,7 +108,7 @@ export function renderDocs(cfg: SiteConfig): string {
 /automod caps limit percent:70`)}
 
       ${docHeading("trustscore", "Trust score")}
-      <p><code>/trustscore user:@member</code> returns a score from 0 to 100 and shows how it was reached. Only you see the reply unless you set <code>ephemeral:false</code>.</p>
+      <p><code>/trust user user:@member</code> returns a score from 0 to 100 and shows how it was reached; only you see the reply. <code>/trustscore</code> still works as a deprecated alias with the same reply (it also takes <code>ephemeral:false</code>). The table below describes the original v1 factors; <code>/trust user</code> lists the exact factors and points for each member.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Part</th><th>Points</th><th>How</th></tr></thead>
@@ -124,6 +124,18 @@ export function renderDocs(cfg: SiteConfig): string {
         </table>
       </div>
       <p>The reply opens with a short list of why, biggest factor first. Aegis keeps only a message count and last-active time per member for this, never message content. The total is clamped to 0&ndash;100. 80 and up is <em>trusted</em>, 60 <em>established</em>, 40 <em>caution</em>, 20 <em>elevated risk</em>, below 20 <em>high risk</em>.</p>
+
+      ${docHeading("modmail", "ModMail")}
+      <p>Members DM Aegis to reach your staff. If they share one server with ModMail on, a private thread (or a forum post) opens in your staff channel; if they share several, Aegis asks which server. Each member has at most one open conversation per server, and DMs are rate-limited.</p>
+      <p>Staff answer with <code>/modmail reply</code>, the <b>Reply</b> / <b>Reply anonymously</b> buttons, a saved snippet (<code>/modmail snippet use</code>), or by starting a thread message with the relay prefix (default <code>=</code>). Ordinary thread chat is never sent to the member. <code>/modmail close</code> tells the member, locks the thread, posts a summary to the mod log and keeps the transcript for 90 days on the dashboard. ModMail never pings anyone except the optional staff-role ping when a conversation opens.</p>
+      ${cmdBlock(`/modmail setup channel:#modmail role:@Staff
+/modmail reply message:Thanks, looking into it anonymous:true
+/modmail close reason:Resolved
+/modmail block user:@member`)}
+      <p>Aegis needs <b>Create Private Threads</b>, <b>Send Messages in Threads</b> and <b>Manage Threads</b> in the staff channel. Staff see private threads when they have Manage Threads there or are pinged in.</p>
+
+      ${docHeading("digest", "Weekly staff digest")}
+      <p>Opt-in. <code>/digest setup</code> picks a channel (default: the mod log), a day, an hour and a time zone (default UTC). Each week Aegis posts cases by type and moderator, joins and leaves, automod hits, incidents, the change in low-trust members, open tickets, appeals and ModMail, and the lowest-trust members (named, never pinged). It posts at most once per server per week, even across restarts. <code>/digest preview</code> shows it now, only to you.</p>
 
       ${docHeading("appeal", "Ban appeals")}
       <p>Every ban that can DM the member sends them a code like <code>AGS-K7X2</code> with instructions. Since they are no longer in your server, they run the submit command from any other server Aegis is in; the DM tells them this.</p>

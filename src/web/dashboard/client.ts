@@ -1,5 +1,6 @@
 import { dashboardAppScript } from "./clientApp";
 import { dashboardPaletteScript } from "./clientPalette";
+import { dashboardQolScript } from "./clientQol";
 
 /**
  * Script served from /assets/dashboard.js. Plain ES5, progressive only: every
@@ -142,4 +143,4 @@ const baseScript = String.raw`
 `;
 
 /** Everything served from /assets/dashboard.js: the original helpers, then the app shell's. */
-export const dashboardScript = baseScript + dashboardAppScript + dashboardPaletteScript;
+export const dashboardScript = baseScript + dashboardAppScript + dashboardPaletteScript + dashboardQolScript;

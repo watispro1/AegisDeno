@@ -36,8 +36,9 @@ export function registerCaseRoutes(router: Router, k: RouteKit): void {
     try {
       const { ctx } = res.locals.dash as GuildLocals;
       const filter = parseCaseFilter(req.query as Record<string, unknown>);
-      const result = await deps.data.listCases(ctx.guild.id, filter, CASES_PER_PAGE);
-      send(res, renderCases(deps.site, ctx, filter, result, CASES_PER_PAGE));
+      const per = filter.per ?? CASES_PER_PAGE;
+      const result = await deps.data.listCases(ctx.guild.id, filter, per);
+      send(res, renderCases(deps.site, ctx, filter, result, per));
     } catch (err) {
       next(err);
     }

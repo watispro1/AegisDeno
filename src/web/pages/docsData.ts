@@ -30,6 +30,8 @@ export const DOC_GROUPS: { title: string; sections: DocSection[] }[] = [
       ] },
       { id: "automod", label: "Automod" },
       { id: "trustscore", label: "Trust score" },
+      { id: "modmail", label: "ModMail" },
+      { id: "digest", label: "Weekly staff digest" },
       { id: "appeal", label: "Ban appeals" },
       { id: "watchlist", label: "Watchlist" },
       { id: "modreport", label: "Mod reports" },

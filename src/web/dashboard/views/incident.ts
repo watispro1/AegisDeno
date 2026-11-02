@@ -3,7 +3,7 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { ChannelOption } from "../botView";
 import { formatMinutes, summarizeIncident, INCIDENT_MAX_MINUTES, MAX_SLOWMODE_SECONDS, MAX_GATE_TIMEOUT_MINUTES, type IncidentConfig, type IncidentOptions } from "../../../services/incidentLogic";
 import type { IncidentRecord } from "../../../services/incidentStore";
-import { type GuildContext, csrfField, emptyState, fmtDate, notice, person } from "./layout";
+import { type GuildContext, copyId, csrfField, emptyState, fmtDate, idCode, notice, person, relTime } from "./layout";
 import { Form, channelPicks, type FormState, type Values } from "./form";
 import { errorSummary, modulePage } from "./parts";
 
@@ -61,7 +61,7 @@ export function renderIncident(cfg: SiteConfig, ctx: GuildContext, o: {
     ? `<section class="panel-card incident-live" aria-labelledby="inc-live-h">
         <h2 id="inc-live-h"><span class="status-pill off">Active</span> Incident Mode is on</h2>
         <p><strong>Reason:</strong> ${esc(a.reason)}</p>
-        <p>Started ${esc(fmtDate(new Date(a.startedAt)))} by ${a.trigger === "auto" ? "the auto-trigger" : person(ctx, a.startedBy.id)}. Ends automatically ${esc(fmtDate(new Date(a.endsAt)))}.</p>
+        <p>Started ${relTime(new Date(a.startedAt))} by ${a.trigger === "auto" ? "the auto-trigger" : person(ctx, a.startedBy.id)}. Ends automatically ${relTime(new Date(a.endsAt))}.</p>
         ${summary(a)}
         <form class="dash-form" method="post" action="${base}/end" data-confirm="End Incident Mode and restore every channel it changed?">
           ${csrfField(ctx.viewer)}
@@ -113,7 +113,7 @@ export function renderIncident(cfg: SiteConfig, ctx: GuildContext, o: {
     <caption class="visually-hidden">Past incidents</caption>
     <thead><tr><th scope="col">Started</th><th scope="col">Length</th><th scope="col">Reason</th><th scope="col">Joins</th><th scope="col">Gated</th><th scope="col">Report</th></tr></thead>
     <tbody>${history.map(r => `<tr>
-      <td data-label="Started">${esc(fmtDate(new Date(r.startedAt)))}</td>
+      <td data-label="Started">${relTime(new Date(r.startedAt))}</td>
       <td data-label="Length">${esc(formatMinutes(((r.endedAt ? new Date(r.endedAt).getTime() : Date.now()) - new Date(r.startedAt).getTime()) / 60_000))}</td>
       <td data-label="Reason">${esc(r.reason.slice(0, 80))}</td>
       <td data-label="Joins">${r.counts.joins}</td><td data-label="Gated">${r.counts.gated}</td>
@@ -130,13 +130,13 @@ export function renderIncidentReport(cfg: SiteConfig, ctx: GuildContext, rec: In
   return modulePage(cfg, ctx, {
     active: "incident",
     title: `Incident report`,
-    lead: `${rec.status === "ended" ? "Ended" : "Active"} · started ${esc(fmtDate(new Date(rec.startedAt)))}${rec.endedAt ? ` · ended ${esc(fmtDate(new Date(rec.endedAt)))}` : ""}`,
+    lead: `${rec.status === "ended" ? "Ended" : "Active"} · started ${relTime(new Date(rec.startedAt))}${rec.endedAt ? ` · ended ${relTime(new Date(rec.endedAt))}` : ""} · ${idCode(rec.id, "Copy incident ID")}`,
     path: `${base}/${esc(rec.id)}`,
     body: `<p><a href="${base}">← Incident Mode</a></p>
   <section class="panel-card"><h2>Summary</h2>
     <p><strong>Reason:</strong> ${esc(rec.reason)}${rec.endReason ? ` · <strong>Ended:</strong> ${esc(rec.endReason)}` : ""}</p>
     ${summary(rec)}
-    ${rec.caseIds.length ? `<p>Cases: ${rec.caseIds.slice(0, 50).map(id => `<a href="/dashboard/${esc(ctx.guild.id)}/cases/${esc(id)}"><code class="inline">${esc(id.slice(-8))}</code></a>`).join(" ")}</p>` : ""}
+    ${rec.caseIds.length ? `<p>Cases: ${rec.caseIds.slice(0, 50).map(id => `<a href="/dashboard/${esc(ctx.guild.id)}/cases/${esc(id)}"><code class="inline">${esc(id.slice(-8))}</code></a> ${copyId(id, "Copy case ID")}`).join(" ")}</p>` : ""}
   </section>
   <section class="panel-card"><h2>What changed</h2>${changes}</section>
   <section class="panel-card"><h2>Timeline</h2>${timeline(rec, ctx, 500)}</section>`,

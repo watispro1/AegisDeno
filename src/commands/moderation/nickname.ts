@@ -11,6 +11,7 @@ import { auditReason } from "../../utils/safeText";
 import { sendGuildLog } from "../../services/logging";
 import { logger } from "../../utils/logger";
 import { Command } from "../../types/discord";
+import { offerQuickUndo, quickUndoId, quickUndoRow } from "../../utils/quickUndo";
 
 /** What a nickname change would do, or why it can't happen. Pure; unit-tested. */
 export function nicknamePlan(input: { targetId: string; ownerId: string | null; botId: string | null; current: string | null; requested: string | null }):
@@ -97,9 +98,23 @@ export const command: Command = {
     const tag = escapeMarkdown(target.user.tag);
     const from = previous ? escapeMarkdown(previous) : "(none)";
     // Nicknames are user text: never let one ping anyone.
-    await interaction.editReply({
+    const undoId = quickUndoId(interaction.id);
+    const sent = await interaction.editReply({
       content: name ? `✅ Renamed **${tag}**: ${from} → **${escapeMarkdown(name)}**.` : `✅ Cleared **${tag}**'s nickname (was ${from}).`,
       allowedMentions: { parse: [] },
+      components: [quickUndoRow(undoId)],
+    });
+    offerQuickUndo(interaction, {
+      message: sent, customId: undoId, actionAtMs: Date.now(),
+      undo: async () => {
+        // Same checks as the rename itself, run again: roles may have changed in the last minute.
+        const member = await interaction.guild?.members.fetch(target.id).catch(() => null);
+        const still = member && await isRoleHierarchyValid(interaction.client, guildId, interaction.user.id, target.id) && await isBotHierarchyValid(interaction.client, guildId, target.id);
+        if (!member || !still || !member.manageable) return { ok: false, message: "❌ I can't change that nickname back any more (role hierarchy changed or they left)." };
+        await member.setNickname(previous, auditReason(`Undo by ${interaction.user.tag}`));
+        await sendGuildLog(interaction.client, guildId, { title: "↩️ Nickname Change Undone", color: 0x99aab5, description: `**User:** ${tag} (<@${target.id}>)\n**Restored:** ${from}\n**Moderator:** ${escapeMarkdown(interaction.user.tag)}` }, "modActions");
+        return { ok: true, message: `↩️ Restored **${tag}**'s nickname to ${from}.` };
+      },
     });
     await sendGuildLog(interaction.client, guildId, {
       title: "✏️ Nickname Changed",

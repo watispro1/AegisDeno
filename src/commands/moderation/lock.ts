@@ -22,6 +22,7 @@ import { getTasksForChannel } from "../../services/scheduler";
 import { applyLock, categoryChildren, isLockable, lockDurationMinutes, postLockNotice, type LockableChannel } from "../../services/channelLock";
 import { LOCK_MESSAGE_MAX, buildLockNoticeText, shouldPostLockNotice } from "../../services/lockNotice";
 import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
+import { offerLockUndo } from "../../services/lockUndo";
 
 export { isLockable, lockDurationMinutes, MAX_LOCK_MINUTES } from "../../services/channelLock";
 
@@ -360,6 +361,7 @@ export const command: Command = {
 
       const isLocking = sub === "channel";
       const durationMinutes = isLocking ? lockLength.minutes : 0;
+      const undo = offerLockUndo(interaction, targetChannel, isLocking);
       const autoUnlockText = await applyLock(interaction.client, guild, targetChannel, isLocking, durationMinutes, moderator);
 
       const embed = new EmbedBuilder()
@@ -373,7 +375,7 @@ export const command: Command = {
         )
         .setTimestamp();
 
-      await interaction.editReply({ embeds: [embed] });
+      await undo.attach(await interaction.editReply({ embeds: [embed], components: undo.rows }));
       await sendGuildLog(interaction.client, guildId, {
         title: isLocking ? "🔒 Channel Locked" : "🔓 Channel Unlocked",
         color: isLocking ? 0xED4245 : 0x57F287,

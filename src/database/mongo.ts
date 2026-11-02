@@ -52,6 +52,9 @@ const GuildConfigSchema = new mongoose.Schema({
   modules: { type: mongoose.Schema.Types.Mixed, default: null },
   // Trust Score v2 settings. Normalised in services/trustEngine.ts.
   trust: { type: mongoose.Schema.Types.Mixed, default: null },
+  // ModMail and the weekly staff digest. Normalised in modmailLogic.ts / digestLogic.ts.
+  modmail: { type: mongoose.Schema.Types.Mixed, default: null },
+  digest: { type: mongoose.Schema.Types.Mixed, default: null },
   logChannels: { type: mongoose.Schema.Types.Mixed, default: null },
   // Escalation: auto-actions when a user hits X warnings
   escalation: {
@@ -277,6 +280,8 @@ const GiveawaySchema = new mongoose.Schema({
   winnerCount:   { type: Number, default: 1 },
   requiredRoleId:{ type: String, default: null },
   requiredLevel: { type: Number, default: 0 },
+  minAccountAgeDays: { type: Number, default: 0, min: 0, max: 3650 },
+  minMemberDays: { type: Number, default: 0, min: 0, max: 365 },
   hostId:        { type: String, required: true },
   entrants:      { type: [String], default: [] },
   winners:       { type: [String], default: [] },
@@ -288,6 +293,10 @@ const GiveawaySchema = new mongoose.Schema({
   endsAt:        { type: Date, required: true },
   endedAt:       { type: Date, default: null },
   ended:         { type: Boolean, default: false },
+  // End/reroll guards (see services/giveawayTransitions): false while one end
+  // is drawing winners; rerollSeq is bumped by each successful reroll.
+  winnersDrawn:  { type: Boolean, default: null },
+  rerollSeq:     { type: Number, default: 0 },
   createdAt:     { type: Date, default: Date.now },
 });
 GiveawaySchema.index({ guildId: 1, ended: 1, endsAt: 1 });

@@ -103,7 +103,8 @@ function precheck(command: Command, interaction: ChatInputCommandInteraction): s
       );
       return (
         `❌ You are missing the following permission(s): **${formatPermissions(missing)}**. ` +
-        `Ask a server admin to grant them to your role. What each one unlocks: ${docsUrl("permissions")}`
+        "Ask a server admin to add them to one of your roles (Server Settings → Roles), or to allow you in Server Settings → Integrations → Aegis. " +
+        `What each one unlocks: ${docsUrl("permissions")}`
       );
     }
   }
@@ -116,7 +117,7 @@ function precheck(command: Command, interaction: ChatInputCommandInteraction): s
       logger.warn(`Bot missing permissions for /${interaction.commandName} in guild ${interaction.guildId}: ${formatPermissions(missing)}`);
       return (
         `❌ I am missing the following permission(s): **${formatPermissions(missing)}**. ` +
-        "Grant these to my role, then run `/diagnostics` to confirm. " +
+        "Grant these to Aegis's role (Server Settings → Roles → Aegis) or in this channel's settings → Permissions, then run `/diagnostics` to confirm. " +
         `Permissions guide: ${docsUrl("permissions")}`
       );
     }

@@ -15,6 +15,7 @@ import {
   type AutocompleteInteraction,
 } from "discord.js";
 import { Command } from "../../types/discord";
+import { footer } from "../../utils/embedStyle";
 import { commands, COMMAND_CATEGORIES } from "../loader";
 import { canUseCommand, searchCommands } from "../../services/commandAccess";
 import { DOC_ANCHORS, commandUrl, docsUrl, inviteUrl, siteUrl, supportServerUrl } from "../../config/links";
@@ -205,7 +206,7 @@ export const command: Command = {
           { name: "🔀 Subcommands", value: subcommandsList, inline: false },
           { name: "💡 Usage Example", value: `\`/${shownName}${subcommands.length > 0 ? ` ${subcommands[0].name}` : ""}\``, inline: false }
         )
-        .setFooter({ text: "Aegis Bot • Command Manual" })
+        .setFooter(footer("Command manual · /help command:<name>"))
         .setTimestamp();
 
       const cmdButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -246,7 +247,7 @@ export const command: Command = {
             `💡 *Tip: Type \`/help command:name\` (e.g. \`/help command:warn\`) for detailed options & permission rules.*`
           )
           .addFields({ name: "📊 Your Commands", value: `**${allCmds.length}** of ${commands.size} commands are available to you, across ${categories.length} categories`, inline: false })
-          .setFooter({ text: "Aegis Bot • Interactive Menu" })
+          .setFooter(footer("Pick a category below · /help command:<name> for details"))
           .setTimestamp();
       }
 
@@ -266,7 +267,7 @@ export const command: Command = {
                 .join("\n")
             : "No commands found in this category.",
         )
-        .setFooter({ text: "Aegis Bot • Interactive Menu" })
+        .setFooter(footer("Pick a category below · /help command:<name> for details"))
         .setTimestamp();
     };
 

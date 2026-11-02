@@ -172,3 +172,22 @@ test("CHANGELOG.md: newest release matches VERSION; 3.6.0 records the /plugins r
     }
   }
 });
+
+test("3.7.0 and dashboard 1.2.3: dated 2026-11-02, grouped Added/Changed/Fixed/Security, cover the PR #21 work", () => {
+  const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases.find((r) => r.version === "3.7.0")!;
+  const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases.find((r) => r.version === "1.2.3")!;
+  assert.equal(bot.date, "2026-11-02");
+  assert.equal(dash.date, "2026-11-02");
+  for (const r of [bot, dash]) assert.deepEqual(r.sections.map((s) => s.title), ["Added", "Changed", "Fixed", "Security"]);
+  const botText = bot.sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["ModMail", "/digest", "/trust user", "/trustscore", "Giveaways", "Scheduled messages", "Incident Mode", "Trust Score"]) {
+    assert.ok(botText.includes(needle), `3.7.0 mentions ${needle}`);
+  }
+  const dashText = dash.sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["ModMail", "Staff digest", "ago", "copy buttons"]) assert.ok(dashText.includes(needle), `1.2.3 mentions ${needle}`);
+  // Each top-level entry appears once (no duplicated bullets after the merge).
+  for (const r of [bot, dash]) {
+    const items = r.sections.flatMap((s) => s.items);
+    assert.equal(new Set(items).size, items.length, `${r.version} has duplicate entries`);
+  }
+});

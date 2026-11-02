@@ -62,7 +62,7 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
             </div>
           </div>
         </div>
-        ${slashInput("trustscore", [["user", "@quickcash99"]])}
+        ${slashInput("trust user", [["user", "@quickcash99"]])}
       </div>
       <p class="hero-caption">Simplified example. The names are made up; the fields match the real reply.</p>
     </div>

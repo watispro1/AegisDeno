@@ -79,3 +79,48 @@ test("server.md: required reference sections and channels exist", () => {
   const referenceRows = (text.match(/^\| `#/gm) ?? []).length;
   assert.ok(referenceRows >= 20, `expected channel reference rows, found ${referenceRows}`);
 });
+
+/** The §5 topic blocks: a `#channel` label line followed by a ```text fence. */
+function topicBlocks(): { channel: string; topic: string }[] {
+  const text = readDoc();
+  const section = text.slice(text.indexOf("## 5. Channel Reference"), text.indexOf("## 6. Channel Permissions"));
+  return [...section.matchAll(/^`(#[a-z0-9-]+)`\n```text\n([^]*?)\n```/gm)].map((m) => ({ channel: m[1], topic: m[2] }));
+}
+
+test("server.md §5: every reference channel has a paste-ready topic under Discord's 1024-character limit", () => {
+  const text = readDoc();
+  const section = text.slice(text.indexOf("## 5. Channel Reference"), text.indexOf("## 6. Channel Permissions"));
+  const rows = [...section.matchAll(/^\| `(#[a-z0-9-]+)`/gm)].map((m) => m[1]);
+  const topics = new Map(topicBlocks().map((t) => [t.channel, t.topic]));
+  assert.ok(rows.length >= 28, `expected the full channel list, found ${rows.length}`);
+  for (const channel of rows) {
+    const topic = topics.get(channel);
+    assert.ok(topic, `${channel} has no topic block`);
+    assert.ok(topic.length <= 1024, `${channel} topic is ${topic.length} characters`);
+    assert.ok(!/[*_`]{2}|\[[^\]]+\]\(/.test(topic), `${channel} topic should be plain text`);
+  }
+  for (const required of ["#modmail", "#staff-digest", "#status-and-incidents", "#mod-logs"]) {
+    assert.ok(rows.includes(required), `${required} is documented`);
+  }
+});
+
+test("server.md §5: topics name only real commands and real Aegis links", () => {
+  const known = new Set<string>();
+  for (const cmd of catalog) {
+    known.add(cmd.name);
+    for (const sub of cmd.subcommands ?? []) known.add(`${cmd.name} ${sub.name}`);
+  }
+  const allowedLinks = /^https:\/\/(aegisdeno\.fly\.dev\/(|status|features|commands|docs|dashboard|dashboard\/changelog|changelog|invite|security)|github\.com\/watispro1\/AegisDeno)$/;
+  for (const { channel, topic } of topicBlocks()) {
+    for (const m of topic.matchAll(/(?:^|[\s(])\/([a-z]+)(?: ([a-z]+))?/g)) {
+      if (topic.slice(Math.max(0, m.index! - 30), m.index! + 1).includes("http")) continue;
+      if (m[1] === "api") continue; // the public JSON paths, checked below
+      const full = m[2] && known.has(`${m[1]} ${m[2]}`) ? `${m[1]} ${m[2]}` : m[1];
+      assert.ok(known.has(full), `${channel}: /${m[1]}${m[2] ? ` ${m[2]}` : ""} is not a command`);
+    }
+    for (const link of topic.match(/https?:\/\/[^\s·,)]+/g) ?? []) {
+      assert.match(link.replace(/[.]$/, ""), allowedLinks, `${channel}: unexpected link ${link}`);
+    }
+    for (const api of topic.match(/\/api\/[a-z]+/g) ?? []) assert.ok(["/api/status", "/api/commands"].includes(api), `${channel}: ${api}`);
+  }
+});

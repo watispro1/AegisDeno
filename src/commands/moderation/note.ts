@@ -16,6 +16,7 @@ import {
   type AutocompleteInteraction,
 } from "discord.js";
 import { scopedModalId } from "../../utils/modal";
+import { requestConfirmation } from "../../utils/confirmation";
 import { Command } from "../../types/discord";
 import { StaffNoteModel } from "../../database/mongo";
 
@@ -321,13 +322,18 @@ export const command: Command = {
           await interaction.editReply("❌ That note was written by another moderator. Deleting someone else's note needs **Manage Server**.");
           return;
         }
+        // Deleting a note can't be undone: confirm first (3.7.0 QoL).
+        const confirmed = await requestConfirmation(interaction, { content: `Delete note \`${noteId}\`? This can't be undone.`, confirmLabel: "Delete note" });
+        if (confirmed !== "confirmed") return;
         const deleted = await StaffNoteModel.findOneAndDelete({ _id: noteId, guildId });
         if (!deleted) {
-          await interaction.editReply("❌ Note not found — it was deleted a moment ago.");
+          await interaction.editReply({ content: "❌ Note not found — it was deleted a moment ago.", components: [] });
           return;
         }
 
         await interaction.editReply({
+          content: "",
+          components: [],
           embeds: [
             new EmbedBuilder()
               .setColor(0x57F287)

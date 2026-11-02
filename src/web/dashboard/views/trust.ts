@@ -3,7 +3,7 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { RoleOption } from "../botView";
 import { formatPoints, isLowTrust, type TrustConfig, type TrustResult } from "../../../services/trustEngine";
 import type { TrustOverview } from "../extras";
-import { type GuildContext, csrfField, emptyState, notice } from "./layout";
+import { type GuildContext, copyId, csrfField, emptyState, notice } from "./layout";
 import { Form, ROLE_PICKER_HELP, roleOptions, type FormState, type Values } from "./form";
 import { errorSummary, modulePage } from "./parts";
 
@@ -53,7 +53,7 @@ export function renderTrust(cfg: SiteConfig, ctx: GuildContext, o: { overview: T
   const lowest = ov.lowest.length
     ? `<div class="table-wrap"><table class="case-table"><caption class="visually-hidden">Lowest-trust members</caption>
       <thead><tr><th scope="col">Member</th><th scope="col">Score</th><th scope="col">Band</th></tr></thead>
-      <tbody>${ov.lowest.map(m => `<tr><td data-label="Member"><a href="/dashboard/${esc(ctx.guild.id)}/members/${esc(m.userId)}">${esc(m.name)}</a></td>
+      <tbody>${ov.lowest.map(m => `<tr><td data-label="Member"><a href="/dashboard/${esc(ctx.guild.id)}/members/${esc(m.userId)}">${esc(m.name)}</a> ${copyId(m.userId, "Copy user ID")}</td>
         <td data-label="Score">${m.score}</td><td data-label="Band">${esc(m.bandLabel)}</td></tr>`).join("")}</tbody></table></div>`
     : emptyState("No members scored yet.", "Scores appear once Aegis has members cached for this server.");
   return modulePage(cfg, ctx, {

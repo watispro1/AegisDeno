@@ -68,10 +68,15 @@ export function renderPicker(
   manageable: OAuthGuild[],
   invitable: Array<{ guild: OAuthGuild; inviteUrl: string | null }>,
   noticeCode: string | null,
+  lastGuildId: string | null = null,
 ): string {
+  // The last server opened goes first, tagged, when the viewer still manages it.
+  const ordered = lastGuildId && manageable.some(g => g.id === lastGuildId)
+    ? [...manageable.filter(g => g.id === lastGuildId), ...manageable.filter(g => g.id !== lastGuildId)]
+    : manageable;
   const list = manageable.length
-    ? `<ul class="guild-list">${manageable
-        .map(g => `<li><a class="guild-item" href="/dashboard/${esc(g.id)}"><span class="name">${esc(g.name)}</span><span aria-hidden="true">&rarr;</span></a></li>`)
+    ? `<ul class="guild-list">${ordered
+        .map(g => `<li><a class="guild-item${g.id === lastGuildId ? " last-used" : ""}" href="/dashboard/${esc(g.id)}"><span class="name">${esc(g.name)}</span>${g.id === lastGuildId ? `<span class="tag">Last opened</span>` : ""}<span aria-hidden="true">&rarr;</span></a></li>`)
         .join("")}</ul>`
     : `<div class="empty-state"><strong>No servers to manage yet.</strong>Aegis is not in any server where you have Manage Server or Administrator.</div>`;
 
