@@ -21,7 +21,7 @@ A step-by-step guide for deploying Aegis to production on Fly.io with MongoDB At
 - [ ] Under **Privileged Gateway Intents**, enable:
   - [x] **Server Members Intent** (required for welcome messages and hierarchy checks)
   - [x] **Message Content Intent** (required for automod)
-  - [ ] **Presence Intent** (optional — only needed for rich presence display)
+  - [ ] **Presence Intent** (optional, only for rich presence)
   - The bot also requests the message reactions intent for the starboard. It is
     not privileged, so there is nothing to enable for it.
 - [ ] Under **OAuth2 → URL Generator**, select scopes: `bot`, `applications.commands`
@@ -50,11 +50,11 @@ A step-by-step guide for deploying Aegis to production on Fly.io with MongoDB At
 - [ ] Copy `.env.example` to `.env` and fill in all values
 - [ ] Set `DISCORD_TEST_GUILD_ID` to a private test server ID for fast command registration
 - [ ] Run `npm install`
-- [ ] Run `npm run build` — should compile with 0 TypeScript errors
-- [ ] Run `npm test` — executes full smoke-test suite verifying 28+ routes, asset hashing, CSP, security headers, and Liquid Glass initialization
+- [ ] Run `npm run build` (should compile with no TypeScript errors)
+- [ ] Run `npm test` (unit tests plus the web smoke test: routes, asset hashing, CSP and security headers)
 - [ ] Run `npm start` and verify:
-  - [ ] `✅ Successfully connected to MongoDB!` appears
-  - [ ] `✅ Logged in as Aegis#XXXX` appears
+  - [ ] `connected to mongodb` appears
+  - [ ] `logged in as Aegis#XXXX` appears
   - [ ] `Website listening on port 3000` appears
   - [ ] Visit `http://localhost:3000/health` → should return `{"status":"ok",...}`
   - [ ] Slash commands appear in your test guild within seconds
@@ -94,7 +94,7 @@ fly secrets set \
   DISCORD_CLEAR_GUILD_IDS="guild-id-1,guild-id-2"
 ```
 
-> **Do not set `DISCORD_TEST_GUILD_ID` in production** — this registers commands guild-only and they won't appear globally.
+> **Do not set `DISCORD_TEST_GUILD_ID` in production.** It registers commands guild-only and they won't appear globally.
 
 ### 4c. Deploy
 
@@ -118,11 +118,11 @@ After first deploy, verify the following in `fly logs`:
 
 | Log line                                                   | Meaning                        |
 | ---------------------------------------------------------- | ------------------------------ |
-| `✅ Successfully connected to MongoDB!`                    | DB connected                   |
-| `Registering X commands globally...`                       | Commands being sent to Discord |
-| `Global commands registered (up to 1h propagation delay).` | Registration done              |
+| `connected to mongodb`                                     | DB connected                   |
+| `registering X commands globally`                          | Commands being sent to Discord |
+| `registered X global commands`                             | Registration done              |
 | `Website listening on port 3000`                           | Web server up                  |
-| `✅ Logged in as Aegis#XXXX`                               | Bot online                     |
+| `logged in as Aegis#XXXX`                                  | Bot online                     |
 | `Scheduler initialised: X pending, Y overdue`              | Tasks loaded                   |
 
 > Global slash commands can take **up to 1 hour** to propagate to all Discord clients after first registration. This is expected.
@@ -133,17 +133,17 @@ After first deploy, verify the following in `fly logs`:
 
 The `fly.toml` is configured with:
 
-- `auto_stop_machines = 'off'` — bot stays running 24/7 (required; Discord connections drop if the process sleeps)
-- `min_machines_running = 1` — always at least one machine running
-- `internal_port = 3000` — matches the default `PORT` value in the app
-- `force_https = true` — Fly terminates TLS; the app sees plain HTTP internally
+- `auto_stop_machines = 'off'`: bot stays running 24/7 (required; Discord connections drop if the process sleeps)
+- `min_machines_running = 1`: always at least one machine running
+- `internal_port = 3000`: matches the default `PORT` value in the app
+- `force_https = true`: Fly terminates TLS; the app sees plain HTTP internally
 
 ### Health check endpoint
 
 Fly.io uses `/health` for its HTTP health checks automatically. The endpoint returns:
 
 - `{"status":"ok"}` when the bot is connected to Discord
-- `{"status":"degraded"}` during startup (before Discord login completes) — this is normal and Fly will wait for it to resolve
+- `{"status":"degraded"}` during startup (before Discord login completes). This is normal; Fly waits for it to resolve
 
 ---
 
@@ -188,11 +188,11 @@ fly secrets list      # List set secret names (values are hidden)
 
 After inviting Aegis to a server:
 
-1. **Set up a logging channel** — run `/logging setup #your-log-channel` so mod actions, member join/leave, and automod triggers are recorded
-2. **Configure welcome messages** (optional) — `/welcome setup #welcome-channel`
-3. **Enable automod** — `/automod status` to see defaults, then configure rules as needed
-4. **Test moderation** — try `/warn`, `/timeout`, `/modhistory` in a private channel first
-5. **Check bot permissions** — run `/diagnostics`; it lists every invite permission Aegis is missing and what it is for. Locks need **Manage Roles** (not Manage Channels)
+1. **Set up a logging channel**: run `/logging setup #your-log-channel` so mod actions, member join/leave, and automod triggers are recorded
+2. **Configure welcome messages** (optional): `/welcome setup #welcome-channel`
+3. **Enable automod**: `/automod status` to see defaults, then configure rules as needed
+4. **Test moderation**: try `/warn`, `/timeout`, `/modhistory` in a private channel first
+5. **Check bot permissions**: run `/diagnostics`; it lists every invite permission Aegis is missing and what it is for. Locks need **Manage Roles** (not Manage Channels)
 
 ---
 

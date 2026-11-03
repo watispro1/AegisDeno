@@ -47,8 +47,6 @@ export {
   rerollGiveaway,
 } from "../../services/giveawayService";
 
-// ─── Command ─────────────────────────────────────────────────────────────────
-
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("giveaway")
@@ -138,7 +136,7 @@ export const command: Command = {
     const sub = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
 
-    // ── /giveaway start ────────────────────────────────────────────────────
+    // /giveaway start
     if (sub === "start") {
       if (!(await moduleEnabled(guildId, "giveaways"))) {
         await interaction.reply({ content: moduleOffMessage("giveaways"), flags: MessageFlags.Ephemeral });
@@ -221,7 +219,6 @@ export const command: Command = {
 
       const gMsg = await targetChan.send({ embeds: [embed], components: [row] });
 
-      // Save to DB
       await GiveawayModel.create({
         guildId,
         channelId: targetChan.id,
@@ -245,13 +242,12 @@ export const command: Command = {
         description: `**Prize:** ${prize}\n**Duration:** ${fmtDuration(durationSec)}\n**Winners:** ${winnerCount}\n${boosterMult > 1 ? `**Booster bonus:** ${boosterMult}×\n` : ""}**Host:** ${interaction.user.tag}\n**Channel:** <#${targetChan.id}>`,
       });
 
-      // Auto-end after duration
       scheduleGiveawayEnd(interaction.client, guildId, gMsg.id, endsAt);
 
       return;
     }
 
-    // ── /giveaway end ─────────────────────────────────────────────────────
+    // /giveaway end
     if (sub === "end") {
       const messageId = parseMessageRef(interaction.options.getString("message_id", true));
       if (!messageId) {
@@ -267,7 +263,7 @@ export const command: Command = {
       return;
     }
 
-    // ── /giveaway reroll ───────────────────────────────────────────────────
+    // /giveaway reroll
     if (sub === "reroll") {
       const messageId   = parseMessageRef(interaction.options.getString("message_id", true));
       const rerollCount = interaction.options.getInteger("winners") ?? null;
@@ -285,7 +281,7 @@ export const command: Command = {
       return;
     }
 
-    // ── /giveaway list ─────────────────────────────────────────────────────
+    // /giveaway list
     if (sub === "list") {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const active = await GiveawayModel.find({ guildId, ended: false }).sort({ endsAt: 1 }).limit(10).lean();
@@ -303,6 +299,6 @@ export const command: Command = {
   },
 };
 
-// ─── Shared end logic ─────────────────────────────────────────────────────────
+// Shared end logic
 
 export default command;

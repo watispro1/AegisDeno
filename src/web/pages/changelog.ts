@@ -2,7 +2,7 @@ import { REPO_URL } from "../layout";
 import { getChangelog, getDashboardChangelog, type ChangelogRelease } from "../changelog";
 import { type SiteConfig, breadcrumb, endNote, escapeHtml, jsonLd, page, safeUrl } from "./shared";
 
-/* ── Changelog ─────────────────────────────────────────────────────── */
+/* Changelog */
 
 
 function fmtDate(iso: string): string {

@@ -56,7 +56,7 @@ export interface PollRecord {
   ended: boolean;
 }
 
-// ─── Rendering ───────────────────────────────────────────────────────────────
+// Rendering
 
 export function renderPollEmbed(poll: Omit<PollRecord, "messageId" | "channelId"> & { messageId?: string }, ended = poll.ended): EmbedBuilder {
   const { counts, totalVotes, voters } = tallyPoll(poll.votes ?? {}, poll.options.length);
@@ -130,7 +130,7 @@ function renderResultsEmbed(poll: PollRecord, closedBy: string | null): EmbedBui
     .setTimestamp();
 }
 
-// ─── Lifecycle ───────────────────────────────────────────────────────────────
+// Lifecycle
 
 /** Store a freshly posted poll and arm its auto-close task. */
 export async function registerPoll(client: Client, poll: Omit<PollRecord, "ended" | "votes" | "closeTaskId">): Promise<void> {
@@ -227,7 +227,7 @@ export async function closePollFromTask(client: Client, task: ScheduledTask): Pr
   await closePoll(client, task.guildId, messageId, null);
 }
 
-// ─── Buttons ─────────────────────────────────────────────────────────────────
+// Buttons
 
 export async function handlePollButton(interaction: ButtonInteraction): Promise<void> {
   if (!interaction.guildId) return;

@@ -15,7 +15,7 @@ const GUILD = "900000000000000001";
 const MOD = "900000000000000010";
 const TARGET = "900000000000000020";
 
-/* ── Fake interactions ─────────────────────────────────────────────── */
+/* Fake interactions */
 
 type Click = "yes" | "no" | "timeout";
 
@@ -103,7 +103,7 @@ function query<T>(value: T) {
   return q;
 }
 
-/* ── Autocomplete helper ───────────────────────────────────────────── */
+/* Autocomplete helper */
 
 test("rankChoices: prefix matches first, keyword matches, cap of 25, 100-char names", () => {
   const items = [
@@ -124,7 +124,7 @@ test("rankChoices: prefix matches first, keyword matches, cap of 25, 100-char na
   assert.equal(shortAge(0, 30_000), "just now");
 });
 
-/* ── Confirmation helper ───────────────────────────────────────────── */
+/* Confirmation helper */
 
 test("confirmation: ids are per interaction and only the invoker's clicks count", () => {
   const ids = confirmationIds("abc");
@@ -150,7 +150,7 @@ test("requestConfirmation: confirm, cancel and timeout; fresh replies are epheme
   assert.equal(calls[0].method, "editReply", "a deferred interaction is edited, not replied to");
 });
 
-/* ── /case ─────────────────────────────────────────────────────────── */
+/* /case */
 
 test("/case: case_id autocompletes on view, edit and delete; IDs errors say where IDs come from", async () => {
   const { command, caseChoice, caseIdHelp } = await import("../src/commands/moderation/case");
@@ -237,7 +237,7 @@ test("/case edit defers before writing, then edits the reply (unknown case too)"
   }
 });
 
-/* ── /warnings ─────────────────────────────────────────────────────── */
+/* /warnings */
 
 test("/warnings pages five at a time, newest numbered highest, with IDs", async () => {
   const { renderWarningsPage, command } = await import("../src/commands/moderation/warnings");
@@ -260,7 +260,7 @@ test("/warnings pages five at a time, newest numbered highest, with IDs", async 
   assert.deepEqual(opts, ["user", "ephemeral"]);
 });
 
-/* ── /clearwarnings ────────────────────────────────────────────────── */
+/* /clearwarnings */
 
 test("/clearwarnings: self, outranked and departed members", async () => {
   const { clearWarningsBlock } = await import("../src/commands/moderation/clearwarnings");
@@ -346,7 +346,7 @@ test("/clearwarnings summary wording", async () => {
   assert.equal(clearedSummary({ active: 2, revoked: 0, total: 2 }, 1), "2 warning(s); 1 of 2 were still there to delete");
 });
 
-/* ── /escalation clear ─────────────────────────────────────────────── */
+/* /escalation clear */
 
 test("/escalation clear asks first; cancel keeps thresholds, confirm removes them", async () => {
   const { command } = await import("../src/commands/moderation/escalation");
@@ -378,7 +378,7 @@ test("/escalation clear asks first; cancel keeps thresholds, confirm removes the
   }
 });
 
-/* ── /autoresponder ────────────────────────────────────────────────── */
+/* /autoresponder */
 
 test("/autoresponder: duplicate and empty triggers, capped list, ID autocomplete", async () => {
   const mod = await import("../src/commands/autoresponder/autoresponder");
@@ -406,7 +406,7 @@ test("/autoresponder: duplicate and empty triggers, capped list, ID autocomplete
   assert.deepEqual(calls[0].payload, [], "no IDs for members without Manage Server");
 });
 
-/* ── Codex #13: hidden tickets stay open ───────────────────────────── */
+/* Codex #13: hidden tickets stay open */
 
 test("Codex #13: auto-close defers instead of closing a ticket hidden from Aegis", () => {
   assert.deepEqual(autoCloseDecision(0, 48, 100 * HOUR, { channelHidden: true }), { action: "defer", at: 148 * HOUR });

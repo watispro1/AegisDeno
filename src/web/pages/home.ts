@@ -2,7 +2,7 @@ import { catalogStats } from "../catalog";
 import { features, faqs, quickstart } from "../content";
 import { type SiteConfig, type Stats, breadcrumb, cmdBlock, endNote, escapeHtml, faqBlock, jsonLd, page, safeUrl, slashInput, statusWord } from "./shared";
 
-/* ── Home ──────────────────────────────────────────────────────────── */
+/* Home */
 
 export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): string {
   const st = statusWord(stats.ping, online);

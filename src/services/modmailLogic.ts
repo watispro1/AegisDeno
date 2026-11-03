@@ -93,7 +93,7 @@ export function openingMentions(c: ModmailConfig): { parse: []; roles: string[];
 /** Relay messages never ping anyone. */
 export const RELAY_MENTIONS = { parse: [] as [], users: [] as [], roles: [] as [], repliedUser: false };
 
-/* ── Rate limits ───────────────────────────────────────────────────── */
+/* Rate limits */
 
 /** Sliding-window limiter keyed by user. In memory: a restart only resets the window. */
 export class SlidingLimiter {
@@ -112,7 +112,7 @@ export class SlidingLimiter {
   }
 }
 
-/* ── Relaying ──────────────────────────────────────────────────────── */
+/* Relaying */
 
 export interface RelayAttachment { name: string; url: string; size: number }
 
@@ -145,7 +145,7 @@ export function staffSignature(o: { anonymous: boolean; staffTag: string; guildN
   return o.anonymous ? `Staff · ${o.guildName}` : `${o.staffTag} · ${o.guildName}`;
 }
 
-/* ── Transcripts ───────────────────────────────────────────────────── */
+/* Transcripts */
 
 export interface TranscriptLine {
   authorId: string;
@@ -168,7 +168,7 @@ export function transcriptExpiry(closedAt: Date): Date {
   return new Date(closedAt.getTime() + MODMAIL_TRANSCRIPT_TTL_DAYS * 86_400_000);
 }
 
-/* ── Choosing a server ─────────────────────────────────────────────── */
+/* Choosing a server */
 
 export type DmRoute =
   | { kind: "relay"; guildId: string }

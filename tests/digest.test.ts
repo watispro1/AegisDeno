@@ -77,7 +77,7 @@ test("command: /digest setup|preview|disable, Manage Server", () => {
   assert.equal(json.default_member_permissions, "32");
 });
 
-/* ── Dashboard ─────────────────────────────────────────────────────── */
+/* Dashboard */
 const USER = "900000000000000001", GUILD = "800000000000000001", CHANNEL = "700000000000000001", SECRET = "s".repeat(64);
 const site: SiteConfig = { inviteUrl: "#", supportUrl: "", version: "test", contactEmail: "", assetVersion: "t" };
 const bot: BotView = {

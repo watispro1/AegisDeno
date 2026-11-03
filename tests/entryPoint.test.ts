@@ -23,7 +23,7 @@ const ALL = PermissionFlagsBits.ViewChannel | PermissionFlagsBits.SendMessages |
 before(async () => { await loadCommands(); });
 beforeEach(() => _resetEntryPointForTests());
 
-/* ── Detection ─────────────────────────────────────────────────────── */
+/* Detection */
 
 test("mention detection: bare mention, nickname mention, managed role, optional 'help'", () => {
   for (const ok of [`<@${BOT}>`, `<@!${BOT}>`, `  <@${BOT}>  `, `<@${BOT}> help`, `<@!${BOT}> HELP`, `<@${BOT}>   Help!`, `<@&${ROLE}>`, `<@&${ROLE}> help`]) {
@@ -82,7 +82,7 @@ test("cooldown: one answer per key per window, other keys unaffected, bounded si
   assert.ok(c.take("a", 20_001), "oldest key was evicted at the size bound");
 });
 
-/* ── The help card ─────────────────────────────────────────────────── */
+/* The help card */
 
 test("help card: slash-command lead, real example commands, four link buttons, never pings", () => {
   const card = buildEntryHelp();
@@ -101,7 +101,7 @@ test("help card: slash-command lead, real example commands, four link buttons, n
   assert.deepEqual(ENTRY_MENTIONS, { parse: [], users: [], roles: [], repliedUser: false });
 });
 
-/* ── Server mention handler ────────────────────────────────────────── */
+/* Server mention handler */
 
 function fakeMessage(content: string, o: { perms?: bigint; channelId?: string; thread?: boolean; bot?: boolean } = {}) {
   const calls: { reply: any[]; send: any[] } = { reply: [], send: [] };
@@ -162,7 +162,7 @@ test("server: silent without Embed Links / Send; plain send without Read Message
   assert.deepEqual(noHistory.calls.send[0].allowedMentions, ENTRY_MENTIONS);
 });
 
-/* ── DMs through the ModMail entry point ───────────────────────────── */
+/* DMs through the ModMail entry point */
 
 function fakeDm(content: string, userId: string) {
   const replies: any[] = [];
@@ -202,7 +202,7 @@ test("firstDmFrom: true once per user", () => {
   assert.ok(firstDmFrom("u2"));
 });
 
-/* ── Join welcome ──────────────────────────────────────────────────── */
+/* Join welcome */
 
 function fakeGuild(o: { systemCanSend?: boolean; otherCanSend?: boolean; sendFails?: boolean; noSystem?: boolean } = {}) {
   const sent: Array<{ channel: string; payload: any }> = [];
@@ -264,7 +264,7 @@ test("welcome: JOIN_WELCOME=off disables it; pickWelcomeChannel rules", async ()
   assert.equal(pickWelcomeChannel({ id: "s", canSend: false, position: 0 }, [{ id: "b", canSend: true, position: 3 }, { id: "a", canSend: true, position: 1 }]), "a");
 });
 
-/* ── /help ─────────────────────────────────────────────────────────── */
+/* /help */
 
 test("/help is registered for servers and DMs, for everyone", () => {
   const json = commands.get("help")!.data.toJSON() as { contexts?: number[]; default_member_permissions?: string | null; dm_permission?: boolean };

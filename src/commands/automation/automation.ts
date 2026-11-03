@@ -106,7 +106,7 @@ export const command: Command = {
     }
 
     try {
-      // ── remind ────────────────────────────────────────────────────────────
+      // remind
       if (sub === "remind") {
         const durationStr = interaction.options.getString("in", true);
         const message     = interaction.options.getString("message", true);
@@ -127,7 +127,7 @@ export const command: Command = {
         return;
       }
 
-      // ── message ───────────────────────────────────────────────────────────
+      // message
       if (sub === "message") {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
           await interaction.editReply("❌ Scheduling a channel message requires **Manage Server**.");
@@ -174,7 +174,7 @@ export const command: Command = {
         return;
       }
 
-      // ── repeat ────────────────────────────────────────────────────────────
+      // repeat
       if (sub === "repeat") {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
           await interaction.editReply("❌ Scheduling a recurring message requires **Manage Server**.");
@@ -221,7 +221,7 @@ export const command: Command = {
         return;
       }
 
-      // ── list ──────────────────────────────────────────────────────────────
+      // list
       if (sub === "list") {
         const showAll = interaction.options.getBoolean("all") ?? false;
 
@@ -259,7 +259,7 @@ export const command: Command = {
         return;
       }
 
-      // ── cancel ────────────────────────────────────────────────────────────
+      // cancel
       if (sub === "cancel") {
         const id = interaction.options.getString("id", true).trim();
 

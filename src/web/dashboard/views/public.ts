@@ -2,7 +2,7 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { OAuthGuild } from "../permissions";
 import { type Viewer, csrfField, head, notice, shell } from "./layout";
 
-/* ── Public pages ──────────────────────────────────────────────────── */
+/* Public pages */
 
 export function renderNotConfigured(cfg: SiteConfig): string {
   return shell(cfg, {
@@ -60,7 +60,7 @@ export function renderError(
   });
 }
 
-/* ── Server picker ─────────────────────────────────────────────────── */
+/* Server picker */
 
 export function renderPicker(
   cfg: SiteConfig,

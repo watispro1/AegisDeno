@@ -68,6 +68,10 @@ export async function checkEscalation(
       // User may have left the guild
     }
 
+    // A timeout or kick needs the member in the server; reporting it as applied
+    // when they already left told moderators something that never happened.
+    if (!member && threshold.action !== "ban") return { triggered: false };
+
     const expiryNote = config.escalation.warnExpiryDays ? ` in the last ${config.escalation.warnExpiryDays} day(s)` : "";
     const reason = `Automated escalation: reached ${totalWarnings} active warning(s)${expiryNote}.`;
 
@@ -89,7 +93,7 @@ export async function checkEscalation(
         description: `**User:** <@${userId}>\n**Reason:** ${reason}\n**Triggered at:** ${totalWarnings} warnings`,
       });
     } else if (threshold.action === "ban") {
-      await guild.bans.create(userId, { reason });
+      await guild.bans.create(userId, { reason: auditReason(reason) });
       await createModerationCase({ guildId, userId, moderatorId, action: "ban", reason, details: `Auto-escalation at ${totalWarnings} warnings` });
       await sendGuildLog(client, guildId, {
         title: "⚡ Auto-Escalation: Ban",

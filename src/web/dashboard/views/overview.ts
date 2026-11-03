@@ -3,7 +3,7 @@ import type { CaseRecord, OverviewData, SettingsSnapshot } from "../data";
 import type { OverviewExtras } from "../moduleData";
 import { type GuildContext, copyId, head, moduleStatus, person, personId, relTime, shell } from "./layout";
 
-/* ── Overview ──────────────────────────────────────────────────────── */
+/* Overview */
 
 function caseRows(ctx: GuildContext, cases: CaseRecord[]): string {
   const g = esc(ctx.guild.id);

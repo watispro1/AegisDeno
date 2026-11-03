@@ -6,7 +6,7 @@ import { AUDIT_PER_PAGE, type RouteKit, type GuildLocals } from "./context";
 export function registerActivityRoutes(router: Router, k: RouteKit): void {
   const { deps, audit, send, guildGet } = k;
 
-  /* ── Activity ────────────────────────────────────────────────────── */
+  /* Activity */
 
   router.get("/:guildId/activity", ...guildGet, async (req, res, next) => {
     try {

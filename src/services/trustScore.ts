@@ -76,12 +76,12 @@ export function recencyPoints(lastActiveAt: Date | null | undefined, now: number
 export function calculateTrustProfile({
   accountCreatedAt, joinedAt, warnings, cases, messageCount = 0, lastActiveAt = null, now = Date.now(),
 }: TrustInput): TrustProfile {
-  // ── Account Age: 0–25 pts (max at 2+ years) ─────────────────────────────
+  // Account Age: 0–25 pts (max at 2+ years)
   const accountMs     = now - accountCreatedAt.getTime();
   const accountDays   = accountMs / 86_400_000;
   const accountScore  = Math.min(25, Math.round((accountDays / 730) * 25)); // 730d = 2yr
 
-  // ── Server Tenure: 0–25 pts (max at 1+ year) ────────────────────────────
+  // Server Tenure: 0–25 pts (max at 1+ year)
   const tenureMs     = joinedAt ? now - joinedAt.getTime() : 0;
   const tenureDays   = tenureMs / 86_400_000;
   const tenureScore  = Math.min(25, Math.round((tenureDays / 365) * 25));
@@ -89,13 +89,13 @@ export function calculateTrustProfile({
   const warnPenalty = -Math.min(30, warnings * 5);
   const casePenalty = -Math.min(20, cases * 4);
 
-  // ── Veteran Bonus: up to +20 for 2+ year tenure ─────────────────────────
+  // Veteran Bonus: up to +20 for 2+ year tenure
   const bonus = tenureDays >= 730 ? 20
               : tenureDays >= 365 ? 12
               : tenureDays >= 180 ? 6
               : 0;
 
-  // ── Message activity: 0–15 pts ──────────────────────────────────────────
+  // Message activity: 0–15 pts
   const activity = messageVolumePoints(messageCount) + recencyPoints(lastActiveAt, now);
 
   const raw   = accountScore + tenureScore + warnPenalty + casePenalty + bonus + activity;

@@ -85,7 +85,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
     const channel = await client.channels.fetch(task.channelId).catch(() => null);
 
     if (!channel) {
-      // Channel deleted or inaccessible — no point retrying, just clean up
       logger.warn(`Task ${taskId}: channel ${task.channelId} not accessible — removing task.`);
       await deleteTask(task.guildId, taskId).catch(err =>
         logger.error(`Task ${taskId}: failed to delete undeliverable task`, err)
@@ -140,7 +139,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       embeds: [embed],
     });
 
-    // Successful — clear retry tracking
     retryCount.delete(taskId);
   } catch (err) {
     shouldRetry = true;
@@ -161,7 +159,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
         logger.warn(`Task ${taskId}: failed ${attempts} time(s); skipping this run, next at ${nextTime.toISOString()}.`);
         if (updated) scheduleTask(client, updated);
       } else if (next === "delete") {
-        // Exhausted retries — log and delete to prevent zombie tasks
         logger.error(
           `Task ${taskId} failed after ${attempts} attempt(s) — giving up and removing from DB.`
         );
@@ -178,7 +175,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       }
     } else {
       if (task.intervalMs) {
-        // Reschedule recurring task
         const nextTime = new Date(Date.now() + task.intervalMs);
         const updated = await updateTaskNextRun(task.guildId, taskId, nextTime);
         if (updated) {
@@ -188,7 +184,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
           logger.error(`Task ${taskId}: delivered but failed to update next run time in DB`);
         }
       } else {
-        // Delete one-off task
         await deleteTask(task.guildId, taskId).catch(err =>
           logger.error(`Task ${taskId}: delivered but failed to remove from DB`, err)
         );

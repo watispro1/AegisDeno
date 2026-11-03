@@ -22,7 +22,7 @@ import { Command } from "../../types/discord";
 import { BanAppealModel } from "../../database/mongo";
 import { APPEAL_STATUS_LABELS, reviewBanAppeal } from "../../services/appeals";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 /** Generates a random alphanumeric appeal code, e.g. "AGS-K7X2". */
 export function generateAppealCode(): string {
@@ -33,8 +33,6 @@ export function generateAppealCode(): string {
 }
 
 const STATUS_LABELS: Record<string, { emoji: string; color: number; label: string }> = APPEAL_STATUS_LABELS;
-
-// ─── Command ─────────────────────────────────────────────────────────────────
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -126,7 +124,7 @@ export const command: Command = {
       }
     }
 
-    // ── LIST ───────────────────────────────────────────────────────────────
+    // List
     if (sub === "list") {
       const statusFilter = interaction.options.getString("status") ?? "pending";
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -168,7 +166,7 @@ export const command: Command = {
       await interaction.editReply({ embeds: [embed] });
     }
 
-    // ── VIEW ───────────────────────────────────────────────────────────────
+    // View
     else if (sub === "view") {
       const code = interaction.options.getString("code", true).toUpperCase();
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -220,7 +218,7 @@ export const command: Command = {
       await interaction.editReply({ embeds: [embed] });
     }
 
-    // ── REVIEW ─────────────────────────────────────────────────────────────
+    // Review
     else if (sub === "review") {
       const code     = interaction.options.getString("code", true).toUpperCase();
       const decision = interaction.options.getString("decision", true) as "approved" | "denied";
@@ -262,15 +260,15 @@ export const command: Command = {
       });
     }
 
-    // ── SUBMIT ─────────────────────────────────────────────────────────────
+    // Submit
     else if (sub === "submit") {
       const code = interaction.options.getString("code", true).toUpperCase();
-      // Find appeal — must be for this user (no guildId check needed — the user was banned so they're outside)
+      // Match on the user only: they were banned, so this runs outside the guild.
       const appeal = (await BanAppealModel.findOne({ appealCode: code, userId: interaction.user.id })) as any;
 
       if (!appeal) {
         await interaction.reply({
-          content: `❌ No pending appeal found for code \`${code}\` under your account.`,
+          content: `❌ No appeal with code \`${code}\` was found for your account. Check the code in the DM Aegis sent when you were banned.`,
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -287,7 +285,6 @@ export const command: Command = {
         return;
       }
 
-      // Show a modal for the appeal text
       const modal = new ModalBuilder()
         .setCustomId(scopedModalId(`appeal_modal_${code}`, interaction.id))
         .setTitle("Submit Your Ban Appeal");
@@ -308,7 +305,6 @@ export const command: Command = {
       modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(appealInput));
       await interaction.showModal(modal);
 
-      // Wait for modal submission
       try {
         const modalSubmit: ModalSubmitInteraction = await interaction.awaitModalSubmit({
           time: 5 * 60_000,
@@ -316,8 +312,19 @@ export const command: Command = {
         });
 
         const appealText = modalSubmit.fields.getTextInputValue("appeal_text").trim();
-        appeal.appealText = appealText;
-        await appeal.save();
+        // Staff may decide the appeal while the form is open; only a still-pending
+        // appeal takes the new text (a plain save() edited decided appeals too).
+        const saved = await BanAppealModel.updateOne(
+          { _id: appeal._id, userId: interaction.user.id, status: "pending" },
+          { $set: { appealText } },
+        );
+        if (saved.matchedCount === 0) {
+          await modalSubmit.reply({
+            content: `❌ Appeal \`${code}\` was decided while you were writing, so your text was not saved.`,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
 
         await modalSubmit.reply({
           embeds: [
@@ -334,7 +341,9 @@ export const command: Command = {
           flags: MessageFlags.Ephemeral,
         });
       } catch (err) {
-        logger.error("Appeal modal submit timeout", err);
+        // Closing the form or letting it time out is normal, not an error.
+        if ((err as { code?: string } | null)?.code === "InteractionCollectorError") return;
+        logger.error("Appeal submission failed", err);
       }
     }
   },

@@ -136,7 +136,7 @@ export const command: Command = {
     const guildId = interaction.guildId!;
     const guild = interaction.guild!;
 
-    // Status subcommand — check if channel is locked
+    // Status
     if (sub === "status") {
       const targetChannel = (interaction.options.getChannel("channel") ?? interaction.channel) as TextChannel | null;
       if (targetChannel && (isObfuscatedChannel(targetChannel) || isObfuscatedChannel(guild.channels.cache.get(targetChannel.id)))) {
@@ -173,7 +173,6 @@ export const command: Command = {
         return interaction.reply({ content: "❌ Server lockdown requires **Administrator** permission.", flags: MessageFlags.Ephemeral });
       }
 
-      // Confirmation for destructive server-wide action
       const warningEmbed = new EmbedBuilder()
         .setColor(0xED4245)
         .setTitle("🚨 Emergency Server Lockdown")

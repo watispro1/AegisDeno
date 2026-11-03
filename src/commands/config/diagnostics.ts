@@ -43,15 +43,13 @@ export const command: Command = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    // 1. Fetch Configs
     const [guildConfig, automodConfig] = await Promise.all([getGuildConfig(guild.id), getAutomodConfig(guild.id)]);
 
-    // 2. Check Permissions: exactly the set the invite asks for, so a fresh
+    // Permissions: exactly the set the invite asks for, so a fresh
     // invite with the default permissions reports nothing missing.
     const { lines: permissionsCheck, missing: missingFlags } = invitePermissionReport(botMember.permissions);
     const missingPermissions = missingFlags.length > 0;
 
-    // 3. Check Channels
     let loggingStatus = "❌ Not configured";
     if (guildConfig.loggingEnabled && guildConfig.loggingChannelId) {
       const channel = guild.channels.cache.get(guildConfig.loggingChannelId)
@@ -91,7 +89,6 @@ export const command: Command = {
           : `✅ Configured (<@&${role.id}>)`;
     }
 
-    // 4. Check Automod
     const hasAnyAutomod = automodConfig.words.enabled || automodConfig.links.enabled || automodConfig.mentions.enabled || automodConfig.spam.enabled;
     const automodStatus = hasAnyAutomod
       ? `✅ Active (Rules enabled: ${[
@@ -102,7 +99,6 @@ export const command: Command = {
         ].filter(Boolean).join(", ")})`
       : "❌ All rules disabled";
 
-    // 5. Build Embed
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle("🛠️ Server Diagnostics & Setup")

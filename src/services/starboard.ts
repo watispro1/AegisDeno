@@ -22,7 +22,7 @@ import { effectiveStarCount, pickStarboardMedia } from "./communityLogic";
 import { TtlCache } from "../utils/ttlCache";
 import { channelDisplayName } from "../utils/channels";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 export interface StarboardConfig {
   guildId: string;
@@ -35,7 +35,7 @@ export interface StarboardConfig {
   enabled: boolean;
 }
 
-// ─── Config helpers ───────────────────────────────────────────────────────────
+// Config helpers
 
 /** Read on every reaction in every channel, so cached; updateStarboardConfig refreshes it. */
 const configCache = new TtlCache<StarboardConfig>(60_000);
@@ -51,8 +51,7 @@ async function loadStarboardConfig(guildId: string): Promise<StarboardConfig> {
     .lean();
   if (doc) return doc as StarboardConfig;
 
-  // Return the defaults without persisting — a record is only saved when the
-  // server owner actually configures something via /starboard setup.
+  // Not persisted: a record is only saved once /starboard setup runs.
   return {
     guildId,
     channelId: null,
@@ -80,7 +79,7 @@ export async function updateStarboardConfig(
   return doc as StarboardConfig;
 }
 
-// ─── Entry helpers ────────────────────────────────────────────────────────────
+// Entry helpers
 
 /** Check if a message has already been posted to the starboard. */
 export async function getStarboardEntry(guildId: string, sourceMessageId: string) {
@@ -120,7 +119,7 @@ export async function listStarboardEntries(guildId: string, limit = 10) {
     .lean();
 }
 
-// ─── Embed builder ────────────────────────────────────────────────────────────
+// Embed builder
 
 /** Build the Discord embed posted to the starboard channel. */
 export function buildStarboardEmbed(
@@ -180,15 +179,11 @@ export function buildStarboardEmbed(
   return { content, embeds: [embed] };
 }
 
-// ─── Reaction logic ───────────────────────────────────────────────────────────
+// Reaction logic
 
 /**
- * Core handler — called whenever a reaction is added or removed.
- *
- * @param message  The full (fetched) message that was reacted to.
- * @param guildId  The guild the reaction occurred in.
- * @param config   The guild's starboard config.
- * @param starboardChannel  The resolved TextChannel to post to.
+ * Runs on every reaction add or remove. `message` must already be fetched
+ * (not partial).
  */
 export async function handleStarReaction(
   message: Message,
@@ -198,7 +193,6 @@ export async function handleStarReaction(
 ): Promise<void> {
   if (!config.channelId || !config.enabled) return;
 
-  // Count reactions matching the configured emoji
   const reaction = message.reactions.cache.find(
     (r) => r.emoji.name === config.emoji || r.emoji.toString() === config.emoji,
   );
@@ -228,7 +222,6 @@ export async function handleStarReaction(
     }
     await updateStarCount(guildId, message.id, count);
   } else {
-    // Post a new starboard embed
     const { content, embeds } = buildStarboardEmbed(message, count, config.emoji);
     const posted = await starboardChannel.send({ content, embeds }).catch(() => null);
     if (!posted) return;

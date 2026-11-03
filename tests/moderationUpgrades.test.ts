@@ -10,7 +10,7 @@ import { normalizeWarnExpiryDays } from "../src/services/configuration";
 import { buildLockNoticeText, shouldPostLockNotice } from "../src/services/lockNotice";
 import { messageAlertKind, resolveWatchEvents, watchesVoice } from "../src/services/watchlistService";
 
-// ─── Reason presets ──────────────────────────────────────────────────────────
+// Reason presets
 
 test("reason presets are exactly the six requested", () => {
   assert.deepEqual(MOD_REASON_PRESETS.map((p) => p.value), ["Spam", "NSFW", "Harassment", "Advertising", "Raiding", "Other"]);
@@ -50,7 +50,7 @@ test("combineReason merges legacy preset and free text", () => {
   assert.equal(combineReason("Spam", "Spam"), "Spam");
 });
 
-// ─── Undo window ─────────────────────────────────────────────────────────────
+// Undo window
 
 test("undo window is open for 5 minutes and closed after", () => {
   const t = 1_000_000;
@@ -72,7 +72,7 @@ test("undo requires Ban Members for bans and Moderate Members otherwise", () => 
   assert.equal(canPressUndo("warn", null), false);
 });
 
-// ─── Case paging ─────────────────────────────────────────────────────────────
+// Case paging
 
 test("pageInfo slices and clamps", () => {
   assert.deepEqual(pageInfo(12, 0), { page: 0, totalPages: 3, start: 0, end: 5, hasPrev: false, hasNext: true });
@@ -89,7 +89,7 @@ test("stepPage moves within bounds", () => {
   assert.equal(stepPage(1, "prev", 12), 0);
 });
 
-// ─── Escalation expiry ───────────────────────────────────────────────────────
+// Escalation expiry
 
 test("warningExpiryCutoff returns null when disabled and a past date otherwise", () => {
   const now = Date.UTC(2026, 9, 28);
@@ -109,7 +109,7 @@ test("normalizeWarnExpiryDays accepts 1–365 integers only", () => {
   assert.equal(normalizeWarnExpiryDays(undefined), null);
 });
 
-// ─── Lock notice ─────────────────────────────────────────────────────────────
+// Lock notice
 
 test("lock notice puts the custom message first and includes auto-unlock", () => {
   assert.equal(buildLockNoticeText({ reason: "Raid" }), "**Reason:** Raid");
@@ -126,7 +126,7 @@ test("lock notice is posted elsewhere always, and in the current channel only wi
   assert.equal(shouldPostLockNotice("a", "a", true), true);
 });
 
-// ─── Watchlist ───────────────────────────────────────────────────────────────
+// Watchlist
 
 test("daily preset watches first message and voice only", () => {
   assert.deepEqual(resolveWatchEvents("daily"), ["firstMessage", "voice"]);

@@ -49,3 +49,16 @@ export function codeBlock(text: string, max: number = DISCORD_LIMITS.embedFieldV
   const body = truncate(codeBlockSafe(text), Math.max(1, max - 8));
   return `\`\`\`\n${body}\n\`\`\``;
 }
+
+/** Joins list lines under Discord's 4096-character embed description limit. */
+export function fitLines(lines: string[], total: number, max = 4096): string {
+  const out: string[] = [];
+  let used = 0;
+  for (const line of lines) {
+    if (used + line.length + 1 > max - 40) break;
+    out.push(line);
+    used += line.length + 1;
+  }
+  const hidden = total - out.length;
+  return hidden > 0 ? `${out.join("\n")}\n…and ${hidden} more.` : out.join("\n");
+}

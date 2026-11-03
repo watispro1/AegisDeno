@@ -91,7 +91,7 @@ export const command: Command = {
       return parseInt(input.replace("#", ""), 16) || 0x5865F2;
     };
 
-    // ─── QUICK MODE ──────────────────────────────────────────────────────────
+    // Quick mode
     if (sub === "quick") {
       const channel = interaction.options.getChannel("channel", true);
       const title = interaction.options.getString("title", true);
@@ -131,7 +131,7 @@ export const command: Command = {
       return;
     }
 
-    // ─── BUILDER MODE ─────────────────────────────────────────────────────────
+    // Builder mode
     const channel = interaction.options.getChannel("channel", true);
     let title = interaction.options.getString("title", true);
     let color = parseColor(interaction.options.getString("color"));

@@ -4,7 +4,7 @@ import { SECTION_TITLES, SETTINGS_SECTIONS, type SettingsSection } from "../vali
 import { type GuildContext, copyId, head, relTime, shell } from "./layout";
 import { pagerNav, tableFilter } from "./parts";
 
-/* ── Activity ──────────────────────────────────────────────────────── */
+/* Activity */
 
 const AUDIT_LABELS: Record<string, string> = {
   "case.reason": "Edited a case reason",

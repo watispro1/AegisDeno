@@ -17,8 +17,7 @@ import { cssResponsive } from "./responsive";
 import { cssStatus } from "./status";
 import { cssDashboardExtras } from "./dashboardExtras";
 
-/* The parts are concatenated in this order; the result is byte-for-byte the
-   single stylesheet that used to live in theme.ts. */
+/* Concatenated in this order; later rules override earlier ones. */
 export const styles =
   cssBase +
   cssChrome +

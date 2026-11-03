@@ -18,7 +18,7 @@ import {
   renderWelcomeTemplate,
 } from "../src/services/communityLogic";
 
-// ─── Giveaways ───────────────────────────────────────────────────────────────
+// Giveaways
 
 test("entryWeight gives boosters the multiplier and clamps it to 1..10", () => {
   const boosters = new Set(["b"]);
@@ -63,7 +63,7 @@ test("booster bonus shifts odds roughly in proportion to the multiplier", () => 
   assert.ok(share > 0.7 && share < 0.8, `booster share ${share}`);
 });
 
-// ─── Polls ───────────────────────────────────────────────────────────────────
+// Polls
 
 test("applyPollVote replaces the pick on single-choice polls and toggles off", () => {
   assert.deepEqual(applyPollVote([], 1, false), { choices: [1], added: true });
@@ -95,7 +95,7 @@ test("buildResultBar renders a ten-cell bar with a percentage", () => {
   assert.equal(buildResultBar(5, 5), "██████████ 100%");
 });
 
-// ─── Suggestions ─────────────────────────────────────────────────────────────
+// Suggestions
 
 test("reviewTransition allows pending/considered → any and locks final states", () => {
   assert.deepEqual(reviewTransition("pending", "approve"), { ok: true, next: "approved" });
@@ -112,7 +112,7 @@ test("isSuggestionOpen", () => {
   assert.equal(isSuggestionOpen("approved"), false);
 });
 
-// ─── Starboard ───────────────────────────────────────────────────────────────
+// Starboard
 
 test("effectiveStarCount drops the author's own star unless self-star is allowed", () => {
   assert.equal(effectiveStarCount(3, true, false), 2);
@@ -153,7 +153,7 @@ test("pickStarboardMedia falls back to embed image/thumbnail and embed text", ()
   assert.equal(m.fallbackText, "**[Title](https://x)**\nBody");
 });
 
-// ─── Welcome ─────────────────────────────────────────────────────────────────
+// Welcome
 
 test("renderWelcomeTemplate fills every variable including the {count} alias", () => {
   const out = renderWelcomeTemplate("Hi {user} ({username}) to {server}! #{count} / #{member_count}", {
@@ -170,7 +170,7 @@ test("renderWelcomeTemplate does not re-expand variables inside substituted valu
   assert.equal(renderWelcomeTemplate("{count}", { userId: "1", username: "u", serverName: "S", memberCount: null }), "?");
 });
 
-// ─── Poll fixes from the PR #5 review ────────────────────────────────────────
+// Poll fixes from the PR #5 review
 
 /** Evaluates a pollVoteGuard filter against one user's stored picks, like MongoDB would. */
 function guardMatches(guard: Record<string, unknown>, stored: number[] | undefined): boolean {

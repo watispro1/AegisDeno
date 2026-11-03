@@ -155,7 +155,7 @@ export const command: Command = {
     const visibleNames = new Set(allCmds.map(c => c.data.name));
     const categories = COMMAND_CATEGORIES.filter(cat => allCmds.some(c => c.category === cat));
 
-    // ─── SPECIFIC COMMAND LOOKUP ──────────────────────────────────────────────
+    // Specific command lookup
     if (targetCommandName) {
       const cleanName = targetCommandName.replace(/^\//, "");
       let foundCmd = visibleNames.has(cleanName) ? commands.get(cleanName) : undefined;
@@ -238,7 +238,7 @@ export const command: Command = {
       return;
     }
 
-    // ─── INTERACTIVE CATEGORY HUB ─────────────────────────────────────────────
+    // Interactive category hub
     const generateCategoryEmbed = (category: string | null) => {
       if (!category || category === "all") {
         return new EmbedBuilder()

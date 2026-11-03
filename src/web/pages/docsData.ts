@@ -3,7 +3,7 @@ import { permissionMatrix, botPermissionRows } from "../catalog";
 import { OPTIONAL_BOT_PERMISSIONS } from "../../permissions/botPermissionGuide";
 import { escapeHtml } from "./shared";
 
-/* ── Docs ──────────────────────────────────────────────────────────── */
+/* Docs */
 
 export interface DocSection {
   id: string;

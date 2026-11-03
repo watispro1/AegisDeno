@@ -59,7 +59,6 @@ export const command: Command = {
         return;
       }
 
-      // Show full ban details before confirming unban
       const banReason = ban.reason ?? "No reason recorded.";
       const confirmEmbed = new EmbedBuilder()
         .setColor(0x57F287)

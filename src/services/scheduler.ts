@@ -186,7 +186,7 @@ export function planRestore(task: Pick<ScheduledTask, "type" | "executeAt" | "in
   return { kind: "drop" };
 }
 
-/** Delete one-off tasks too old to ever run (they used to stay in the database forever). */
+/** Delete one-off tasks too old to ever run. */
 export async function deleteStaleTasks(nowMs = Date.now()): Promise<number> {
   const cutoff = new Date(nowMs - OVERDUE_RESTORE_WINDOW_MS);
   const r = await TaskModel.deleteMany({ executeAt: { $lt: cutoff }, type: { $nin: [...ALWAYS_RESTORE_TYPES] }, $or: [{ intervalMs: null }, { intervalMs: { $lte: 0 } }] });

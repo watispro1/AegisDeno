@@ -76,7 +76,7 @@ async function eligibleGuilds(client: Client, user: User): Promise<string[]> {
   return out;
 }
 
-export type OpenResult = { ok: true; ticket: TicketDoc; thread: ThreadChannel } | { ok: false; error: string };
+export type OpenResult = { ok: true; ticket: TicketDoc; thread: ThreadChannel } | { ok: false; error: string; duplicate?: true };
 
 /** Open a ticket. The unique index makes a second concurrent open fail cleanly. */
 export async function openTicket(client: Client, guild: Guild, user: User, cfg: ModmailConfig): Promise<OpenResult> {
@@ -89,7 +89,7 @@ export async function openTicket(client: Client, guild: Guild, user: User, cfg: 
   try {
     ticket = (await ModmailThreadModel.create({ guildId: guild.id, userId: user.id, userTag: user.tag.slice(0, 64), threadId: "pending" })).toObject() as TicketDoc;
   } catch (err) {
-    if (isDuplicateKey(err)) return { ok: false, error: "You already have an open conversation with that server." };
+    if (isDuplicateKey(err)) return { ok: false, error: "You already have an open conversation with that server.", duplicate: true };
     throw err;
   }
 
@@ -129,8 +129,24 @@ export async function openTicket(client: Client, guild: Guild, user: User, cfg: 
   return { ok: true, ticket, thread };
 }
 
+/**
+ * A ticket's threadId is "pending" until its thread is created. A DM that
+ * arrives in that window waits for the thread instead of being dropped.
+ */
+export async function awaitThreadId(current: string, reload: () => Promise<string | null>, tries = 20, stepMs = 250): Promise<string | null> {
+  let id: string | null = current;
+  for (let i = 0; id === "pending" && i < tries; i++) {
+    await new Promise(r => setTimeout(r, stepMs));
+    id = await reload();
+  }
+  return id && id !== "pending" ? id : null;
+}
+
 async function relayFromMember(client: Client, ticket: TicketDoc, user: User, content: string, atts: RelayAttachment[]): Promise<boolean> {
-  const thread = await client.channels.fetch(ticket.threadId).catch(() => null);
+  const threadId = await awaitThreadId(ticket.threadId, async () =>
+    ((await ModmailThreadModel.findOne({ _id: ticket._id, status: "open" }).select("threadId").lean()) as { threadId?: string } | null)?.threadId ?? null);
+  if (!threadId) return false;
+  const thread = await client.channels.fetch(threadId).catch(() => null);
   if (!thread?.isThread()) return false;
   const embed = new EmbedBuilder()
     .setColor(0x57f287)
@@ -200,8 +216,12 @@ export async function deliverToGuild(client: Client, guildId: string, user: User
   if (!ticket) {
     if (!openLimiter.take(user.id)) return { ok: false, error: "You've opened several conversations recently. Please wait a while before opening another." };
     const opened = await openTicket(client, guild, user, cfg);
-    if (!opened.ok) return opened;
-    ticket = opened.ticket;
+    if (opened.ok) ticket = opened.ticket;
+    else if (opened.duplicate) {
+      // Another DM opened it a moment ago: relay into that conversation.
+      ticket = (await ModmailThreadModel.findOne({ guildId, userId: user.id, status: "open" }).select("-lines").lean()) as TicketDoc | null;
+      if (!ticket) return opened;
+    } else return opened;
   }
   const ok = await relayFromMember(client, ticket, user, content, atts);
   return ok ? { ok } : { ok, error: "The staff thread is gone. A moderator can close the old conversation." };

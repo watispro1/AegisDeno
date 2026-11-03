@@ -18,7 +18,7 @@ export function nextTimerDelay(executeAtMs: number, nowMs: number): { waitMs: nu
   return { waitMs: remaining, final: true };
 }
 
-// ─── /remindme ───────────────────────────────────────────────────────────────
+// /remindme
 
 export interface PersonalReminderPayload {
   /** What the user asked to be reminded about. */
@@ -85,7 +85,7 @@ export function decodePersonalReminder(raw: string): PersonalReminderPayload | n
   }
 }
 
-// ─── /lock auto-unlock ───────────────────────────────────────────────────────
+// /lock auto-unlock
 
 export interface ChannelUnlockPayload {
   /** Tag of the moderator who locked the channel. */
@@ -115,7 +115,7 @@ export function decodeChannelUnlock(raw: string): ChannelUnlockPayload {
   return { moderatorTag: "Unknown", durationMinutes: 0 };
 }
 
-// ─── /ban duration (temporary ban) ───────────────────────────────────────────
+// /ban duration (temporary ban)
 
 /** Shortest and longest temporary ban `/ban duration:` accepts. */
 export const TEMP_BAN_MIN_SECONDS = 60;
@@ -179,13 +179,13 @@ export function decodeTimedUnban(raw: string): TimedUnbanPayload {
   return { moderatorId: "", moderatorTag: "Unknown", caseId: null, durationSeconds: 0, banRef: null };
 }
 
-// ─── Scheduler retry policy ──────────────────────────────────────────────────
+// Scheduler retry policy
 
 /**
  * What to do after a task failed `attempts` times. One-off tasks retry and are
  * then dropped. A recurring task is never dropped for a run that failed: it
- * skips that run and waits for the next one (it used to be deleted for good
- * after three failures, e.g. while its channel was briefly hidden).
+ * skips that run and waits for the next one, so a channel that is hidden for
+ * a while doesn't kill the schedule.
  */
 export function afterTaskFailure(attempts: number, maxAttempts: number, recurring: boolean): "retry" | "skip-to-next" | "delete" {
   if (attempts < maxAttempts) return "retry";

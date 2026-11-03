@@ -139,7 +139,7 @@ export function parseAmount(value: unknown): number | null {
   return parseAmount(Number(clean));
 }
 
-/* ── Cooldowns and payouts ─────────────────────────────────────────── */
+/* Cooldowns and payouts */
 
 export type ClaimResult = { ok: true; amount: number; streak: number } | { ok: false; retryAt: number };
 
@@ -167,7 +167,7 @@ export function relativeTimestamp(ms: number): string {
   return `<t:${Math.ceil(ms / 1000)}:R>`;
 }
 
-/* ── Pay ───────────────────────────────────────────────────────────── */
+/* Pay */
 
 export function payRefusal(input: { fromId: string; toId: string; toBot: boolean; amount: number | null }): string | null {
   if (input.fromId === input.toId) return "You can't pay yourself.";
@@ -180,7 +180,7 @@ export function needsPayConfirmation(amount: number, cfg: EconomyConfig): boolea
   return cfg.payConfirmThreshold > 0 && amount >= cfg.payConfirmThreshold;
 }
 
-/* ── Shop ──────────────────────────────────────────────────────────── */
+/* Shop */
 
 export interface ShopItemInput {
   name: string;

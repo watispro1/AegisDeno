@@ -56,7 +56,7 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
     };
   }
 
-  /* ── Command reference: search, filters, pins, keyboard, deep links ── */
+  /* Command reference: search, filters, pins, keyboard, deep links */
   var search = document.getElementById('cmd-search');
   var cards = Array.prototype.slice.call(document.querySelectorAll('.cmd-card'));
   var groups = Array.prototype.slice.call(document.querySelectorAll('.cmd-group'));

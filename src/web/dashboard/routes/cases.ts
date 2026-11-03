@@ -8,7 +8,7 @@ import { CASES_PER_PAGE, type RouteKit, type GuildLocals } from "./context";
 export function registerCaseRoutes(router: Router, k: RouteKit): void {
   const { deps, send, fail, missingPermission, actorOf, logAudit, noticeParam, guildGet, guildPost } = k;
 
-  /* ── Guild pages ─────────────────────────────────────────────────── */
+  /* Guild pages */
 
   router.get("/:guildId", ...guildGet, async (_req, res, next) => {
     try {

@@ -63,7 +63,7 @@ export function hashSessionId(sessionId: string): string {
   return createHash("sha256").update(sessionId).digest("hex");
 }
 
-/* ── Signed session cookie ─────────────────────────────────────────── */
+/* Signed session cookie */
 
 export function signSessionId(secret: string, sessionId: string): string {
   return `${sessionId}.${hmac(secret, "session", sessionId)}`;
@@ -80,7 +80,7 @@ export function verifySessionCookie(secret: string, value: string | undefined | 
   return safeEqual(signature, hmac(secret, "session", sessionId)) ? sessionId : null;
 }
 
-/* ── CSRF ───────────────────────────────────────────────────────────── */
+/* Csrf */
 
 /**
  * The CSRF token is an HMAC of the session ID, so it is stable for a session,
@@ -104,7 +104,7 @@ export function originAllowed(originHeader: string | undefined, allowedOrigin: s
   return originHeader === allowedOrigin;
 }
 
-/* ── OAuth state ────────────────────────────────────────────────────── */
+/* OAuth state */
 
 /**
  * The state value goes to Discord in the authorize URL; a signed copy with an
@@ -133,7 +133,7 @@ export function verifyOAuthState(
   return safeEqual(returnedState, state);
 }
 
-/* ── Cookies ────────────────────────────────────────────────────────── */
+/* Cookies */
 
 export function parseCookies(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {};
@@ -171,7 +171,7 @@ export function serializeCookie(name: string, value: string, opts: CookieOptions
   return parts.join("; ");
 }
 
-/* ── Rate limiting ──────────────────────────────────────────────────── */
+/* Rate limiting */
 
 export class RateLimiter {
   private readonly hits = new Map<string, { count: number; start: number }>();

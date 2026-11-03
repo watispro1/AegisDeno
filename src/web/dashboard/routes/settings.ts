@@ -12,7 +12,7 @@ import { AUTOMOD_TEST_MAX } from "../views/automodTest";
 export function registerSettingsRoutes(router: Router, k: RouteKit): void {
   const { deps, send, fail, actorOf, logAudit, noticeParam, validationContext, rolesFor, guildGet, settingsPost } = k;
 
-  /* ── Settings ────────────────────────────────────────────────────── */
+  /* Settings */
 
   // GET /:guildId/settings (every module) lives in routes/community.ts.
 

@@ -105,7 +105,7 @@ test("command: /modmail shape; components routed", () => {
   }
 });
 
-/* ── Dashboard ─────────────────────────────────────────────────────── */
+/* Dashboard */
 
 const USER = "900000000000000001";
 const GUILD = "800000000000000001";

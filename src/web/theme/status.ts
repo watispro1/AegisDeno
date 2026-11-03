@@ -1,6 +1,6 @@
 /** Status page styles: banner, components, metric grid, uptime bars, notices. */
 export const cssStatus = `
-/* ── Status page ─────────────────────────────────────────────────── */
+/* Status page */
 .status-banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px 20px; margin: 8px 0 28px; border: 1px solid var(--border); border-left: 6px solid var(--ok); border-radius: var(--r-lg); background: var(--surface); }
 .status-banner h2 { margin: 0; font-size: 1.3rem; }
 .status-banner p { margin: 2px 0 0; }

@@ -14,7 +14,7 @@ const MOD = "900000000000000010";
 const OTHER_MOD = "900000000000000011";
 const TARGET = "900000000000000020";
 
-/* ── Ghost Watch cache: changes during a sync are not lost or resurrected ── */
+/* Ghost Watch cache: changes during a sync are not lost or resurrected */
 
 function deferred<T>() {
   let resolve!: (v: T) => void;
@@ -66,7 +66,7 @@ test("watchlist sync: concurrent syncs share one read, and a failed read keeps t
   assert.equal(svc.cachedWatches(GUILD, TARGET).length, 1, "kept after a failed read");
 });
 
-/* ── Ghost Watch privacy gate ─────────────────────────────────────────── */
+/* Ghost Watch privacy gate */
 
 function fakeGuild(opts: { modPerms?: bigint | null; canView?: boolean; everyoneCanView?: boolean; hidden?: boolean }) {
   const member = opts.modPerms === null ? null : { id: MOD, permissions: new PermissionsBitField(opts.modPerms ?? PermissionFlagsBits.ModerateMembers) };
@@ -114,7 +114,7 @@ test("Ghost Watch: alert-channel posts are redacted when the source channel is p
   assert.equal(embed.toJSON().fields?.length, 3, "the DM copy is untouched");
 });
 
-/* ── Giveaway entry is atomic ─────────────────────────────────────────── */
+/* Giveaway entry is atomic */
 
 test("giveaway: two simultaneous clicks enter once; the second is told it is already entered", async () => {
   const { enterGiveaway, entryFilter } = await import("../src/services/giveawayEntry");
@@ -148,7 +148,7 @@ test("giveaway: titles stay within 256 characters and message links are accepted
   assert.equal(parseMessageRef("abc"), null);
 });
 
-/* ── /suggest setup accepts text channels only ────────────────────────── */
+/* /suggest setup accepts text channels only */
 
 function setupInteraction(channel: Record<string, unknown>, botPerms: bigint = PermissionFlagsBits.Administrator) {
   const calls: Array<{ method: string; payload: unknown }> = [];
@@ -190,7 +190,7 @@ test("/suggest setup refuses voice channels, categories and forums, and channels
   assert.deepEqual(opt.options[0].channel_types, [ChannelType.GuildText, ChannelType.GuildAnnouncement]);
 });
 
-/* ── Message events and automod ───────────────────────────────────────── */
+/* Message events and automod */
 
 test("MessageUpdate: link previews and pins are not edits; uncached old messages count as edits", async () => {
   const { isContentEdit } = await import("../src/bot/eventFilters");
@@ -210,7 +210,7 @@ test("automod: staff with Administrator or Manage Server are exempt; mention spa
   assert.equal(mentionCount({ users: { size: 0 }, roles: { size: 0 }, everyone: false }), 0);
 });
 
-/* ── Scheduler and temporary bans ─────────────────────────────────────── */
+/* Scheduler and temporary bans */
 
 test("scheduler: a recurring task that keeps failing skips a run instead of being deleted", async () => {
   const { afterTaskFailure } = await import("../src/services/timedActions");
@@ -287,7 +287,7 @@ test("duration autocomplete explains what was typed and stays within Discord's l
   assert.equal(buildDurationSuggestions("", presets, { minSeconds: 60, maxSeconds: 3600 }).length, 2);
 });
 
-/* ── Friendly durations and Discord limits ────────────────────────────── */
+/* Friendly durations and Discord limits */
 
 test("parseFriendlyDuration: compound and spelled-out forms, whole numbers only", async () => {
   const { parseFriendlyDuration, formatDurationLong, parseDuration } = await import("../src/utils/duration");

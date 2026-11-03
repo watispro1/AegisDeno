@@ -168,7 +168,7 @@ const APP_CHROME = `<div class="toast-region" data-toasts aria-live="polite" ari
     </form>
   </dialog>`;
 
-/* ── Shell ─────────────────────────────────────────────────────────── */
+/* Shell */
 
 export function shell(cfg: SiteConfig, o: { title: string; path: string; body: string; viewer?: Viewer; scripts?: boolean; guild?: GuildContext; active?: GuildSection }): string {
   const v = cfg.assetVersion ? `?v=${encodeURIComponent(cfg.assetVersion)}` : "";

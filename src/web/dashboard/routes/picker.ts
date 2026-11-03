@@ -14,7 +14,7 @@ const GUILD_LIST_MAX_AGE_MS = 10 * 60 * 1000;
 export function registerPickerRoutes(router: Router, k: RouteKit): void {
   const { deps, now, fetchImpl, postLimit, pageLimit, form, send, loadSession, requireSession, requireCsrf, noticeParam } = k;
 
-  /* ── Server picker ───────────────────────────────────────────────── */
+  /* Server picker */
 
   async function refreshGuilds(authed: Authed): Promise<boolean> {
     if (authed.session.tokenExpiresAt.getTime() <= now()) return false;

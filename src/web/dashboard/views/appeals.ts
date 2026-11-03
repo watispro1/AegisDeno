@@ -4,7 +4,7 @@ import { APPEAL_FILTERS, APPEAL_REVIEW_NOTE_MAX, type AppealFilter } from "../va
 import { type GuildContext, copyId, csrfField, head, idCode, notice, person, personId, relTime, shell } from "./layout";
 import { errorSummary, pagerNav, permissionNote } from "./parts";
 
-/* ── Appeals ───────────────────────────────────────────────────────── */
+/* Appeals */
 
 const APPEAL_FILTER_LABELS: Record<AppealFilter, string> = {
   pending: "Pending", approved: "Approved", denied: "Denied", expired: "Expired", all: "All",

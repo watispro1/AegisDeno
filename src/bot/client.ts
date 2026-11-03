@@ -87,10 +87,10 @@ export function createClient(): Client {
 export function setupEvents(client: Client): void {
   registerStarboardEvents(client);
 
-  // ─── Ready ────────────────────────────────────────────────────────────────
+  // Ready
   client.once(Events.ClientReady, (c) => {
-    logger.info(`✅ Logged in as \x1b[1m${c.user.tag}\x1b[0m (${c.user.id})`);
-    logger.info(`📡 Serving ${c.guilds.cache.size} guild(s).`);
+    logger.info(`logged in as ${c.user.tag} (${c.user.id})`);
+    logger.info(`in ${c.guilds.cache.size} guild(s)`);
 
     applyPresence(c);
     startWatchlistSync();
@@ -110,7 +110,7 @@ export function setupEvents(client: Client): void {
   }, PRESENCE_REFRESH_MS);
   presenceInterval.unref?.();
 
-  // ─── Presence ──────────────────────────────────────────────────────────────
+  // Presence
   function applyPresence(c: Client): void {
     if (!c.user) return;
 
@@ -136,7 +136,7 @@ export function setupEvents(client: Client): void {
     }
   }
 
-  // ─── Interaction Deduplication Cache (60s sliding window) ───────────────────
+  // Interaction Deduplication Cache (60s sliding window)
   const processedInteractions = new Map<string, number>();
   const INTERACTION_CACHE_TTL_MS = 60_000;
 
@@ -150,7 +150,7 @@ export function setupEvents(client: Client): void {
   }, 30_000);
   dedupeSweepInterval.unref?.();
 
-  // ─── Slash Commands ────────────────────────────────────────────────────────
+  // Slash Commands
   client.on(Events.InteractionCreate, async (interaction) => {
     // Gateway retransmission guard
     if (processedInteractions.has(interaction.id)) {
@@ -182,7 +182,7 @@ export function setupEvents(client: Client): void {
     }
   });
 
-  // ─── Automod & Autoresponder (new messages) ──────────────────────────────
+  // Automod & Autoresponder (new messages)
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
     if (!message.guildId) {
@@ -207,9 +207,8 @@ export function setupEvents(client: Client): void {
       logger.warn("Watchlist message error:", err)
     );
 
-    // Automod runs before the autoresponder. Previously a message that matched
-    // an autoresponder trigger returned early and skipped automod (and Ghost
-    // Watch), so a blocked word next to a trigger phrase went through.
+    // Automod has to run before the autoresponder, which returns early on a
+    // trigger match; otherwise a blocked word next to a trigger gets through.
     const removed = await processAutomod(client, message).catch(err => {
       logger.error("Automod error (create):", err);
       return false;
@@ -225,7 +224,7 @@ export function setupEvents(client: Client): void {
     });
   });
 
-  // ─── Automod (edited messages) ────────────────────────────────────────────
+  // Automod (edited messages)
   client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
     if (!newMessage.guildId) return;
     // Discord also sends an update when it attaches a link preview or the
@@ -236,7 +235,6 @@ export function setupEvents(client: Client): void {
     const msg = newMessage.partial ? await newMessage.fetch().catch(() => null) : newMessage;
     if (!msg || msg.author?.bot) return;
 
-    // Ghost Watch — alert watchers on message edit
     watchlistOnMessageEdit(client, msg).catch(err =>
       logger.warn("Watchlist edit error:", err)
     );
@@ -246,11 +244,10 @@ export function setupEvents(client: Client): void {
     );
   });
 
-  // ─── Message Delete Logging ────────────────────────────────────────────────
+  // Message Delete Logging
   client.on(Events.MessageDelete, async (message) => {
     if (!message.guildId || message.author?.bot) return;
 
-    // Ghost Watch — alert watchers on message delete
     if (message.author) {
       watchlistOnMessageDelete(client, message as Message).catch(err =>
         logger.warn("Watchlist delete error:", err)
@@ -268,7 +265,7 @@ export function setupEvents(client: Client): void {
     }, "messageDeletes");
   });
 
-  // ─── Member Join ──────────────────────────────────────────────────────────
+  // Member Join
   client.on(Events.GuildMemberAdd, async (member: GuildMember) => {
     recordMemberFlow(member.guild.id, "join").catch(() => undefined);
     // Incident Mode first: a gated join gets no welcome or auto-role, and the
@@ -284,7 +281,6 @@ export function setupEvents(client: Client): void {
       return { act: "none" as const, why: "error" };
     });
 
-    // Log event
     const userTag = member.user?.tag ?? "Unknown User";
     const avatarUrl = member.user?.displayAvatarURL?.();
 
@@ -299,21 +295,17 @@ export function setupEvents(client: Client): void {
       ],
     }, "memberJoins");
 
-    // Ghost Watch — notify watchers on join
     watchlistOnJoin(client, member).catch(err => logger.warn("Watchlist join error:", err));
-
     if (gate.act !== "none") return;
 
     // Opt-in Trust Score low-trust role (off unless configured with /trust config).
     applyLowTrustRole(member).catch(err => logger.warn(`Low-trust role check failed in ${member.guild.id}:`, err));
-
-    // Welcome message and Auto-role
-    const config = await getGuildConfig(member.guild.id);
-    
+    // Welcome and auto-role. A failed settings read skips only these, not the verification auto-kick below.
+    const config = await getGuildConfig(member.guild.id).catch((err) => { logger.warn(`Welcome skipped in ${member.guild.id}: settings unavailable`, err); return null; });
     // Members still behind Discord's membership screening get the role once they pass it (see GuildMemberUpdate).
-    if (config.welcomeRoleId && !member.pending) await assignWelcomeRole(member, config.welcomeRoleId);
+    if (config?.welcomeRoleId && !member.pending) await assignWelcomeRole(member, config.welcomeRoleId);
 
-    if (config.welcomeEnabled && config.welcomeChannelId) {
+    if (config?.welcomeEnabled && config.welcomeChannelId) {
       let channel = member.guild.channels.cache.get(config.welcomeChannelId) as TextChannel | undefined;
       if (!channel) {
         channel = (await member.guild.channels.fetch(config.welcomeChannelId).catch(() => null)) as TextChannel | null ?? undefined;
@@ -335,7 +327,7 @@ export function setupEvents(client: Client): void {
     );
   });
 
-  // ─── Member Update (role changes for Ghost Watch) ─────────────────────────
+  // Member Update (role changes for Ghost Watch)
   client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     if (oldMember.pending && !newMember.pending) {
       const roleId = (await getGuildConfig(newMember.guild.id).catch(() => null))?.welcomeRoleId;
@@ -346,7 +338,7 @@ export function setupEvents(client: Client): void {
     );
   });
 
-  // ─── Voice State Update (voice joins for Ghost Watch) ─────────────────────
+  // Voice State Update (voice joins for Ghost Watch)
   client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     if (newState.member?.user.bot) return;
     if (!oldState.channelId && newState.channelId) {
@@ -356,7 +348,7 @@ export function setupEvents(client: Client): void {
     }
   });
 
-  // ─── Member Leave ─────────────────────────────────────────────────────────
+  // Member Leave
   client.on(Events.GuildMemberRemove, async (member) => {
     recordMemberFlow(member.guild.id, "leave").catch(() => undefined);
     const user = member.user;
@@ -374,16 +366,15 @@ export function setupEvents(client: Client): void {
       ],
     }, "memberLeaves");
 
-    // Ghost Watch — notify watchers on leave
     watchlistOnLeave(client, member).catch(err => logger.warn("Watchlist leave error:", err));
 
     // Goodbye message (off unless turned on in the dashboard). Never pings anyone.
     sendGoodbye(member).catch(err => logger.warn("Goodbye message error:", err));
   });
 
-  // ─── Guild Join / Discovery ────────────────────────────────────────────────
+  // Guild Join / Discovery
   client.on(Events.GuildCreate, (guild) => {
-    logger.info(`🏰 Joined new guild: "${guild.name}" (${guild.id}) with ${guild.memberCount} members`);
+    logger.info(`joined guild "${guild.name}" (${guild.id}), ${guild.memberCount} members`);
     // One short, non-pinging "Run /help to get started" (once per server per 30 days; JOIN_WELCOME=off disables).
     sendJoinWelcome(guild)
       .then(r => { if (r !== "sent") logger.debug(`Join welcome skipped in ${guild.id}: ${r}`); })

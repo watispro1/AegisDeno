@@ -70,7 +70,7 @@ export function readEmbed(body: FormBody, p: string, errors: Errors): EmbedSpec 
   return spec;
 }
 
-/* ── Announcements ─────────────────────────────────────────────────── */
+/* Announcements */
 
 export interface AnnouncementInput {
   channelId: string;
@@ -87,7 +87,7 @@ export function parseAnnouncement(body: FormBody, ctx: ValidationContext): Parse
   return finish(errors, { channelId: channelId ?? "", content, embed: embed as EmbedSpec });
 }
 
-/* ── Goodbye and the welcome embed ─────────────────────────────────── */
+/* Goodbye and the welcome embed */
 
 export interface GoodbyeSettings {
   goodbyeEnabled: boolean;
@@ -122,7 +122,7 @@ export function parseLogChannels(body: FormBody, ctx: ValidationContext, categor
   return Object.keys(out).length ? out : null;
 }
 
-/* ── Autoresponders ────────────────────────────────────────────────── */
+/* Autoresponders */
 
 export const AUTORESPONDER_TRIGGER_MAX = 100;
 export const AUTORESPONDER_RESPONSE_MAX = 2000;
@@ -147,7 +147,7 @@ export function isResponderId(id: string): boolean {
   return /^ar-[0-9a-f-]{1,64}$/i.test(id);
 }
 
-/* ── Scheduled messages ────────────────────────────────────────────── */
+/* Scheduled messages */
 
 export const SCHEDULED_MESSAGE_MAX = 2000;
 const MIN_DELAY_S = 60;
@@ -178,7 +178,7 @@ export function isTaskId(id: string): boolean {
   return /^[0-9a-f]{24}$/i.test(id);
 }
 
-/* ── Giveaways, suggestions, watchlist ─────────────────────────────── */
+/* Giveaways, suggestions, watchlist */
 
 export function isMessageId(id: string): boolean {
   return /^\d{17,20}$/.test(id);

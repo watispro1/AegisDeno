@@ -18,7 +18,7 @@ const ch = (id: string, over: Partial<ChannelSnapshot> = {}): ChannelSnapshot =>
 });
 const opts = (over: Partial<IncidentOptions> = {}): IncidentOptions => ({ ...DEFAULT_INCIDENT_OPTIONS, ...over });
 
-/* ── Pure rules ───────────────────────────────────────────────────── */
+/* Pure rules */
 
 test("options and config are clamped; auto-trigger is off by default", () => {
   const o = normalizeIncidentOptions({ slowmodeSeconds: 99999, durationMinutes: 5000, minAccountAgeDays: 0, joinGate: "ban", lockMode: "everything", lockChannelIds: ["x", "700000000000000001", "700000000000000001"] });
@@ -125,7 +125,7 @@ test("summary lines list counts, changes and case IDs", () => {
   assert.deepEqual(lines, ["Duration: 1h 30m", "Joins: 12 (gated 4)", "Channels: 1 slowed, 0 locked; invites paused", "Cases: 4 · Messages deleted: 9", "Case IDs: c1, c2"]);
 });
 
-/* ── Service flow with a fake server ──────────────────────────────── */
+/* Service flow with a fake server */
 
 function fakeServer() {
   const channels = new Map<string, ChannelSnapshot>([
@@ -302,7 +302,7 @@ test("timeline is capped but counters keep counting", async () => {
   assert.equal((await store.getActive(G))!.timeline.at(-1)!.kind, "end", "start/end always recorded");
 });
 
-/* ── /incident command ────────────────────────────────────────────── */
+/* /incident command */
 
 test("/incident: Manage Server, subcommands, and start options over the saved defaults", () => {
   const json = incidentCommand.data.toJSON() as { name: string; default_member_permissions?: string; options: Array<{ name: string; options?: Array<{ name: string }> }> };

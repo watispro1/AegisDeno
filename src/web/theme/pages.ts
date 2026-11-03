@@ -50,7 +50,7 @@ export const cssPages = String.raw`/* ── Home ──────────
 .end-note { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.5rem 0; }
 .end-note p { margin: 0; color: var(--text-2); }
 
-/* ── Two-pane pages (features, docs) ────────────────────────────────── */
+/* Two-pane pages (features, docs) */
 .split { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 3rem; align-items: start; padding-bottom: 3rem; }
 .toc { position: sticky; top: calc(var(--nav-h) + 1.5rem); font-size: .88rem; max-height: calc(100vh - var(--nav-h) - 3rem); overflow-y: auto; }
 .side-title { font: 500 .75rem/1.4 var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 .5rem; }
@@ -113,7 +113,7 @@ export const cssPages = String.raw`/* ── Home ──────────
 .prose p, .prose li { color: var(--text-2); }
 .prose .table-wrap { max-width: none; }
 
-/* ── Commands ───────────────────────────────────────────────────────── */
+/* Commands */
 .cmd-toolbar { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-bottom: .75rem; }
 .search {
   position: relative; flex: 1 1 320px; display: flex; align-items: center;
@@ -224,7 +224,7 @@ export const cssPages = String.raw`/* ── Home ──────────
 .examples code { flex: 1 1 auto; min-width: 0; font: 400 .84rem/1.5 var(--mono); padding: .45rem .65rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--r); overflow-wrap: anywhere; white-space: normal; }
 .examples .copy-btn { flex: 0 0 auto; }
 
-/* ── Help page ──────────────────────────────────────────────────────── */
+/* Help page */
 .help-search { max-width: 560px; margin-bottom: 2rem; }
 .issue-group { margin-bottom: 2.25rem; }
 .issue-group[hidden] { display: none; }
@@ -244,7 +244,7 @@ export const cssPages = String.raw`/* ── Home ──────────
 .hierarchy .good { border-left: 3px solid var(--ok); }
 .hierarchy-label { display: block; font: 500 .75rem var(--mono); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 .35rem; color: var(--faint); }
 
-/* ── Changelog ──────────────────────────────────────────────────────── */
+/* Changelog */
 .release { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 1.5rem; padding: 1.75rem 0; border-bottom: 1px solid var(--border); scroll-margin-top: 5rem; }
 .release[hidden], li[data-release][hidden] { display: none; }
 .release-search { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-bottom: 1.5rem; }
@@ -275,7 +275,7 @@ export const cssPages = String.raw`/* ── Home ──────────
 .changes li ul { padding-left: 1.1rem; margin: .2rem 0 0; list-style: circle; }
 .changes li li { padding: .1rem 0; }
 
-/* ── Status ─────────────────────────────────────────────────────────── */
+/* Status */
 .status-line {
   display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem;
   padding: 1rem 1.1rem; margin-bottom: 2rem;
@@ -293,7 +293,7 @@ export const cssPages = String.raw`/* ── Home ──────────
 .metrics tr.current td { background: var(--accent-soft); }
 .endpoints td:first-child { white-space: nowrap; }
 
-/* ── Legal ──────────────────────────────────────────────────────────── */
+/* Legal */
 .legal { max-width: 72ch; padding-bottom: 3rem; }
 .legal h2 { font-size: 1.15rem; margin-top: 2rem; }
 .legal h3 { font-size: 1rem; margin-top: 1.25rem; }
@@ -312,7 +312,7 @@ export const cssPages = String.raw`/* ── Home ──────────
 .notfound-search input { flex: 1 1 14rem; min-width: 0; min-height: 44px; padding: .5rem .75rem; border: 1px solid var(--border-strong); border-radius: var(--r); background: var(--bg); color: var(--text); font: inherit; }
 @media (max-width: 860px), (pointer: coarse) { .notfound-search input { font-size: 16px; } }
 
-/* ── Footer ─────────────────────────────────────────────────────────── */
+/* Footer */
 footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.5rem 0 calc(1.5rem + env(safe-area-inset-bottom)); font-size: .88rem; background: var(--bg-sunk); }
 .footer-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 2rem; }
 .footer-brand p { color: var(--muted); max-width: 36ch; margin-top: .6rem; }
@@ -344,7 +344,7 @@ footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.
 
 
 
-/* ── Features page ──────────────────────────────────────────────── */
+/* Features page */
 .f-head .btn-row { margin-top: 1rem; }
 .f-icon { width: 1.5rem; height: 1.5rem; flex: none; fill: none; stroke: var(--accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .f-icon.lg { width: 2rem; height: 2rem; }

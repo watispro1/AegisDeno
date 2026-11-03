@@ -99,12 +99,10 @@ export async function applyPreset(guildId: string, type: PresetType): Promise<Pr
   }
 
   try {
-    // 1. Update Guild Config escalation
     await updateGuildConfig(guildId, {
       escalation: preset.escalation,
     });
 
-    // 2. Update Automod rules
     await updateAutomodConfig(guildId, {
       words: { ...preset.automod.words, list: ["nigger", "faggot", "retard"] },
       links: preset.automod.links,

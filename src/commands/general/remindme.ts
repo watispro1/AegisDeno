@@ -25,8 +25,6 @@ function preview(text: string, max = 60): string {
   return text.length > max ? text.substring(0, max) + "…" : text;
 }
 
-// ─── Command ─────────────────────────────────────────────────────────────────
-
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("remindme")
@@ -71,7 +69,7 @@ export const command: Command = {
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();
 
-    // ── list ────────────────────────────────────────────────────────────────
+    // list
     if (sub === "list") {
       const reminders = await getTasksForCreator(interaction.user.id, "personal_reminder");
       if (reminders.length === 0) {
@@ -94,7 +92,7 @@ export const command: Command = {
       return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 
-    // ── cancel ──────────────────────────────────────────────────────────────
+    // cancel
     if (sub === "cancel") {
       const id = interaction.options.getString("id", true).trim();
       const deleted = await deleteTaskForCreator(interaction.user.id, "personal_reminder", id);
@@ -108,7 +106,7 @@ export const command: Command = {
       return interaction.reply({ content: `✅ Reminder \`${id}\` cancelled.`, flags: MessageFlags.Ephemeral });
     }
 
-    // ── set ─────────────────────────────────────────────────────────────────
+    // set
     const text        = interaction.options.getString("reminder", true);
     const durationRaw = interaction.options.getString("duration", true);
     const inChannel   = interaction.options.getBoolean("channel_reminder") ?? false;

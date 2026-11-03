@@ -17,7 +17,7 @@ import { EXPLICIT_FILTER_LEVELS, VERIFICATION_LEVELS, dateAndAgo, fitNames, serv
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("serverinfo")
-    .setDescription("View comprehensive stats, metrics, and information about this server.")
+    .setDescription("Server stats: owner, members, channels, boosts and settings.")
     .addBooleanOption(o => o.setName("ephemeral").setDescription("Only show the response to you (default: false)").setRequired(false)),
 
   guildOnly: true,

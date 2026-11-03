@@ -67,7 +67,7 @@ const STATUS_LABELS: Record<string, string> = {
   considered: "🟡 Under Consideration",
 };
 
-// ─── Shared rendering and review logic ───────────────────────────────────────
+// Shared rendering and review logic
 
 const REVIEW_ACTIONS: readonly SuggestionReviewAction[] = ["approve", "deny", "consider"];
 
@@ -318,7 +318,7 @@ export const command: Command = {
       });
     }
 
-    // Submit — opens a modal form
+    // Submit (modal)
     if (sub === "submit") {
       const config = await getGuildConfig(guildId);
       if (!config.suggestionsChannelId) {
@@ -464,7 +464,6 @@ export const command: Command = {
       const totalVotes = suggestion.upvotes.length + suggestion.downvotes.length;
       const approvalPct = totalVotes > 0 ? Math.round((suggestion.upvotes.length / totalVotes) * 100) : 0;
 
-      // Visual vote bar
       const barFilled = Math.round(approvalPct / 10);
       const voteBar = `👍 ${"█".repeat(barFilled)}${"░".repeat(10 - barFilled)} 👎`;
 

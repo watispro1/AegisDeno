@@ -14,7 +14,7 @@ import {
 import { Command } from "../../types/discord";
 import { ModerationCaseModel, WarningModel, AutomodHitModel } from "../../database/mongo";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 type Period = "day" | "week";
 
@@ -36,7 +36,7 @@ function miniBar(count: number, max: number, width = 8): string {
   return "▰".repeat(Math.max(0, filled)) + "▱".repeat(Math.max(0, width - filled));
 }
 
-// ─── Report Sections ──────────────────────────────────────────────────────────
+// Report Sections
 
 async function buildSummaryEmbed(guildId: string, period: Period, guild: { name: string }): Promise<EmbedBuilder> {
   const since = new Date(Date.now() - periodMs(period));
@@ -47,7 +47,6 @@ async function buildSummaryEmbed(guildId: string, period: Period, guild: { name:
     AutomodHitModel.countDocuments({ guildId, triggeredAt: { $gte: since } }),
   ]);
 
-  // Action breakdown
   const actionGroups = await ModerationCaseModel.aggregate([
     { $match: { guildId, createdAt: { $gte: since } } },
     { $group: { _id: "$action", count: { $sum: 1 } } },
@@ -179,8 +178,6 @@ async function buildAutomodEmbed(guildId: string, period: Period): Promise<Embed
     .setFooter({ text: "AutoMod hit logs are recorded for each enforcement action" })
     .setTimestamp();
 }
-
-// ─── Command ─────────────────────────────────────────────────────────────────
 
 export const command: Command = {
   data: new SlashCommandBuilder()

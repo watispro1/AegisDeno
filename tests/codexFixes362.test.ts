@@ -57,7 +57,7 @@ test("PR #18: /autoresponder toggle checks the save before saying it worked", ()
   assert.ok(toggle.indexOf("if (!saved)") < toggle.indexOf("is now **"), "failure is reported before the success message");
 });
 
-/* ── PR #19: every slash command named inline in server.md is real ─────── */
+/* PR #19: every slash command named inline in server.md is real */
 
 let catalog: CommandInfo[] = [];
 before(async () => {

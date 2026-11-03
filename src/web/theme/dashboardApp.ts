@@ -49,7 +49,7 @@ export const cssDashboardApp = String.raw`/* ── Dashboard app shell ──�
 .user-panel p { margin: 0 0 .6rem; overflow-wrap: anywhere; }
 .user-panel form { margin: 0; }
 
-/* ── Module furniture ───────────────────────────────────────────────── */
+/* Module furniture */
 .module-head { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 0 0 1.5rem; }
 .status-pill { display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .6rem; border-radius: 999px; font-size: .8rem; font-weight: 600; border: 1px solid currentColor; }
 .status-pill::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
@@ -109,7 +109,7 @@ tr[data-filtered-out] { display: none; }
 .char-count { display: block; font-size: .8rem; color: var(--faint); text-align: right; margin-top: .15rem; }
 .char-count.over { color: var(--danger); font-weight: 600; }
 
-/* ── Embed builder ──────────────────────────────────────────────────── */
+/* Embed builder */
 .embed-builder { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; margin: 0 0 1.25rem; }
 .embed-preview-wrap { position: sticky; top: 1rem; }
 .embed-inputs { margin: 0; }
@@ -139,7 +139,7 @@ tr[data-filtered-out] { display: none; }
 .ep-author:empty, .ep-title:empty, .ep-desc:empty, .ep-footer:empty, .ep-fields:empty { display: none; }
 .ep-embed[data-empty] { display: none; }
 
-/* ── Toasts, unsaved bar, confirm dialog ────────────────────────────── */
+/* Toasts, unsaved bar, confirm dialog */
 .toast-region { position: fixed; z-index: 60; right: 1rem; bottom: 1rem; display: grid; gap: .5rem; width: min(24rem, calc(100vw - 2rem)); }
 .toast { border: 1px solid var(--border-strong); border-left: 4px solid var(--ok); border-radius: var(--r); background: var(--surface); color: var(--text); padding: .7rem .9rem; box-shadow: 0 8px 24px rgba(0,0,0,.2); display: flex; gap: .75rem; align-items: flex-start; }
 .toast.bad { border-left-color: var(--danger); }
@@ -155,7 +155,7 @@ tr[data-filtered-out] { display: none; }
 .confirm-dialog .btn-row { justify-content: flex-end; margin-top: 1rem; }
 form[aria-busy="true"] [data-save-button]::after { content: " …"; }
 
-/* ── Small screens: the sidebar becomes a drawer ────────────────────── */
+/* Small screens: the sidebar becomes a drawer */
 @media (max-width: 960px) {
   .overview-grid { grid-template-columns: minmax(0, 1fr); }
   .overview-grid .span-2 { grid-column: auto; }

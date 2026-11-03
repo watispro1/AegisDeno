@@ -14,15 +14,17 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { WatchlistEntryModel } from "../../database/mongo";
+import { fitLines } from "../../utils/safeText";
 import { updateWatchCache, removeWatchFromCache, resolveWatchEvents } from "../../services/watchlistService";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+/** Most watches /watchlist list shows; the rest are counted. */
+export const WATCHLIST_LIST_MAX = 25;
+
+// Helpers
 
 function makeCode(targetId: string): string {
   return `WL-${targetId.slice(-4).toUpperCase()}`;
 }
-
-// ─── Command ─────────────────────────────────────────────────────────────────
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -88,7 +90,7 @@ export const command: Command = {
     const guildId = interaction.guildId!;
     const modId   = interaction.user.id;
 
-    // ── ADD ────────────────────────────────────────────────────────────────
+    // Add
     if (sub === "add") {
       const target   = interaction.options.getUser("user", true);
       const reason   = interaction.options.getString("reason") ?? "No reason provided.";
@@ -109,7 +111,6 @@ export const command: Command = {
         return;
       }
 
-      // Resolve expiry
       const durationMap: Record<string, number> = {
         "1h":  1 * 60 * 60 * 1000,
         "6h":  6 * 60 * 60 * 1000,
@@ -118,7 +119,6 @@ export const command: Command = {
       };
       const expiresAt = duration === "permanent" ? null : new Date(Date.now() + durationMap[duration]);
 
-      // Resolve watched events
       const events: string[] = resolveWatchEvents(eventSet);
 
       // The alert channel must be one the bot can post in and the moderator can see.
@@ -184,7 +184,7 @@ export const command: Command = {
       }
     }
 
-    // ── REMOVE ─────────────────────────────────────────────────────────────
+    // Remove
     else if (sub === "remove") {
       const target = interaction.options.getUser("user", true);
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -207,7 +207,7 @@ export const command: Command = {
       });
     }
 
-    // ── LIST ───────────────────────────────────────────────────────────────
+    // List
     else if (sub === "list") {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const entries = await WatchlistEntryModel.find({ guildId, moderatorId: modId }).sort({ createdAt: -1 });
@@ -216,8 +216,11 @@ export const command: Command = {
         return;
       }
 
+      // Discord caps an embed description at 4096 characters, so show only the
+      // newest WATCHLIST_LIST_MAX.
+      const shown = entries.slice(0, WATCHLIST_LIST_MAX);
       const lines = await Promise.all(
-        entries.map(async (e, idx) => {
+        shown.map(async (e, idx) => {
           let tag = `<@${e.targetId}>`;
           try {
             const u = await interaction.client.users.fetch(e.targetId);
@@ -231,14 +234,14 @@ export const command: Command = {
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
         .setTitle(`🕵️ Your Ghost-Watch List — ${entries.length} member(s)`)
-        .setDescription(lines.join("\n"))
+        .setDescription(fitLines(lines, entries.length))
         .setFooter({ text: "Alerts go to your DMs (and the watch's alert channel, if set). Members are never notified." })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
     }
 
-    // ── INFO ───────────────────────────────────────────────────────────────
+    // Info
     else if (sub === "info") {
       const target = interaction.options.getUser("user", true);
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });

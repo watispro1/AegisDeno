@@ -7,7 +7,7 @@ import { type GuildContext, csrfField, head, notice, shell } from "./layout";
 import { Form, ROLE_PICKER_HELP, type Values, channelOptions, channelPickerEmptyNote, hiddenChannelNote, roleOptions, rolePickerEmptyNote } from "./form";
 import { errorSummary, permissionNote } from "./parts";
 
-/* ── Panels ────────────────────────────────────────────────────────── */
+/* Panels */
 
 export interface PanelsState {
   form: "ticket" | "verification" | null;

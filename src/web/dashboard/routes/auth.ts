@@ -11,7 +11,7 @@ export function registerAuthRoutes(router: Router, k: RouteKit): void {
   const STATE_COOKIE = names.state;
   const SESSION_COOKIE = names.session;
 
-  /* ── Auth ─────────────────────────────────────────────────────────── */
+  /* Auth */
 
   router.get("/login", authLimit, (_req, res) => {
     const { state, cookie: stateCookie } = createOAuthState(secret, now());

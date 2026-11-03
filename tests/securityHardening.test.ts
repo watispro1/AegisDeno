@@ -22,7 +22,7 @@ import type { BotView } from "../src/web/dashboard/botView";
 import type { DashboardData } from "../src/web/dashboard/data";
 import type { SiteConfig } from "../src/web/pages";
 
-/* ── Headers ─────────────────────────────────────────────────────────── */
+/* Headers */
 
 test("CSP: no unsafe-inline or unsafe-eval anywhere, framing and plugins blocked", () => {
   assert.ok(!CONTENT_SECURITY_POLICY.includes("unsafe-inline"));
@@ -89,7 +89,7 @@ test("bot: allowedMentions default lets user mentions through but never @everyon
   assert.equal(DEFAULT_ALLOWED_MENTIONS.roles, undefined);
 });
 
-/* ── Site error handler ─────────────────────────────────────────────── */
+/* Site error handler */
 
 test("site error handler: generic body, no message or stack trace", async () => {
   const { siteErrorHandler } = await import("../src/web/server");
@@ -112,7 +112,7 @@ test("site error handler: generic body, no message or stack trace", async () => 
   }
 });
 
-/* ── Dashboard over https: __Host- cookies, migration, rotation, CSRF, operators ── */
+/* Dashboard over https: __Host- cookies, migration, rotation, CSRF, operators */
 
 const USER = "900000000000000001";
 const GUILD = "800000000000000001";

@@ -1,7 +1,7 @@
 /** Web dashboard collections: sessions, rate-limit buckets and the audit log. Split out of mongo.ts. */
 import mongoose from "mongoose";
 
-// ─── Web dashboard sessions ───────────────────────────────────────────────────
+// Web dashboard sessions
 
 /**
  * One signed-in dashboard browser. The cookie holds a signed random ID; only its
