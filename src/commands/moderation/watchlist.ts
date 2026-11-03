@@ -220,8 +220,8 @@ export const command: Command = {
         return;
       }
 
-      // A long list used to overflow Discord's 4096-character description limit
-      // and fail the whole reply; show the newest WATCHLIST_LIST_MAX instead.
+      // Discord caps an embed description at 4096 characters, so show only the
+      // newest WATCHLIST_LIST_MAX.
       const shown = entries.slice(0, WATCHLIST_LIST_MAX);
       const lines = await Promise.all(
         shown.map(async (e, idx) => {

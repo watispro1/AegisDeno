@@ -1,7 +1,7 @@
 /** Starboard, Ghost Watch, ban appeals, automod hit log and member activity models. Split out of mongo.ts. */
 import mongoose from "mongoose";
 
-// ─── Starboard ────────────────────────────────────────────────────────────────
+// Starboard
 
 /**
  * Per-guild starboard configuration stored in MongoDB.
@@ -37,7 +37,7 @@ StarboardEntrySchema.index({ guildId: 1, sourceMessageId: 1 }, { unique: true })
 StarboardEntrySchema.index({ guildId: 1, createdAt: -1 });
 export const StarboardEntryModel = mongoose.model("StarboardEntry", StarboardEntrySchema);
 
-// ─── Ghost Watch (Watchlist) ──────────────────────────────────────────────────
+// Ghost Watch (Watchlist)
 
 /**
  * A watchlist entry places a member under silent staff surveillance.
@@ -59,7 +59,7 @@ WatchlistEntrySchema.index({ guildId: 1, targetId: 1, moderatorId: 1 }, { unique
 WatchlistEntrySchema.index({ guildId: 1, targetId: 1 });
 export const WatchlistEntryModel = mongoose.model("WatchlistEntry", WatchlistEntrySchema);
 
-// ─── Ban Appeal Workflow ──────────────────────────────────────────────────────
+// Ban Appeal Workflow
 
 /**
  * When a member is banned, Aegis generates a unique appeal code and persists
@@ -83,7 +83,7 @@ BanAppealSchema.index({ guildId: 1, status: 1, createdAt: -1 });
 BanAppealSchema.index({ guildId: 1, userId: 1 });
 export const BanAppealModel = mongoose.model("BanAppeal", BanAppealSchema);
 
-// ─── Automod Hit Log (for Mod Report analytics) ───────────────────────────────
+// Automod Hit Log (for Mod Report analytics)
 
 /**
  * Each automod enforcement action is recorded here so /modreport can aggregate

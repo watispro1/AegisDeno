@@ -1,5 +1,5 @@
 /**
- * Autocomplete suggestions for ID options that used to need copy-paste:
+ * Autocomplete suggestions for ID options:
  * scheduled task IDs on /automation cancel and appeal codes on /appeal view
  * and /appeal review. Pure functions over plain rows, so they can be tested
  * without Discord or Mongo; the commands do the permission checks and lookups.

@@ -307,7 +307,6 @@ export const command: Command = {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
         const noteId = interaction.options.getString("id", true).trim();
-        // An ID that isn't a Mongo ObjectId used to surface as a generic error.
         if (!isNoteId(noteId)) {
           await interaction.editReply("❌ That isn't a note ID. Pick one from the suggestions, or copy it from `/note view`.");
           return;

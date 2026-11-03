@@ -8,7 +8,7 @@ import {
 
 export * from "./guildConfigNormalize";
 
-// ─── Retired per-feature settings (one-time copy) ─────────────────────────────
+// Retired per-feature settings (one-time copy)
 
 /**
  * Before v3.6 ticket and role-panel settings lived in separate per-feature
@@ -55,7 +55,7 @@ export function disabledLegacyFeatures(docs: readonly LegacySettingsDoc[]): stri
   return docs.filter((d) => d.enabled === false).map((d) => d.pluginName).sort();
 }
 
-// ─── Storage and caching ──────────────────────────────────────────────────────
+// Storage and caching
 
 export interface GuildConfigStore {
   load(guildId: string): Promise<StoredGuildConfig | null>;

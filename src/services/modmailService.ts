@@ -130,8 +130,8 @@ export async function openTicket(client: Client, guild: Guild, user: User, cfg: 
 }
 
 /**
- * A ticket's threadId is "pending" until its thread is created. A second DM
- * sent in that moment used to be dropped (⚠️); it now waits for the thread.
+ * A ticket's threadId is "pending" until its thread is created. A DM that
+ * arrives in that window waits for the thread instead of being dropped.
  */
 export async function awaitThreadId(current: string, reload: () => Promise<string | null>, tries = 20, stepMs = 250): Promise<string | null> {
   let id: string | null = current;

@@ -6,7 +6,7 @@
 
 import { randomInt } from "node:crypto";
 
-// ─── Giveaways ───────────────────────────────────────────────────────────────
+// Giveaways
 
 /** Random integer in [0, max). Injectable so draws can be tested deterministically. */
 export type RandomIntFn = (max: number) => number;
@@ -60,7 +60,7 @@ export function pickWeightedWinners(
   return winners;
 }
 
-// ─── Polls ───────────────────────────────────────────────────────────────────
+// Polls
 
 export const MAX_POLL_OPTIONS = 10;
 
@@ -173,7 +173,7 @@ export function buildResultBar(votes: number, total: number, width = 10): string
   return "█".repeat(filled) + "░".repeat(width - filled) + ` ${pct}%`;
 }
 
-// ─── Suggestions ─────────────────────────────────────────────────────────────
+// Suggestions
 
 export type SuggestionStatus = "pending" | "approved" | "rejected" | "considered" | "archived";
 export type SuggestionReviewAction = "approve" | "deny" | "consider";
@@ -204,7 +204,7 @@ export function isSuggestionOpen(status: SuggestionStatus): boolean {
   return status === "pending" || status === "considered";
 }
 
-// ─── Starboard ───────────────────────────────────────────────────────────────
+// Starboard
 
 /**
  * Stars that count toward the threshold. When self-starring is off, the
@@ -292,7 +292,7 @@ export function pickStarboardMedia(
   return { imageUrl, extraFiles, fallbackText };
 }
 
-// ─── Welcome ─────────────────────────────────────────────────────────────────
+// Welcome
 
 export const WELCOME_VARIABLES = ["{user}", "{username}", "{server}", "{count}", "{member_count}", "{memberCount}"] as const;
 

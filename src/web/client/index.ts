@@ -7,8 +7,7 @@ import { jsCommands } from "./commands";
 import { jsWidgets } from "./widgets";
 
 /* The parts are fragments of ONE IIFE (opened in core, closed in widgets) and
-   share its scope; they are concatenated in this order and the result is
-   byte-for-byte the single script that used to live in client.ts. */
+   share its scope, so the order below matters. */
 export const clientScript =
   jsCore +
   jsCommands +

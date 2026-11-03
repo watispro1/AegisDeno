@@ -110,7 +110,7 @@ export function normalizeIncidentConfig(value: unknown): IncidentConfig {
   };
 }
 
-/* ── Channel changes ──────────────────────────────────────────────── */
+/* Channel changes */
 
 export type SendState = "allow" | "deny" | "neutral";
 
@@ -224,7 +224,7 @@ export function planRestore(change: ChannelChange, now: ChannelSnapshot | null):
   return step;
 }
 
-/* ── Join gate and auto-trigger ───────────────────────────────────── */
+/* Join gate and auto-trigger */
 
 export interface JoinFacts {
   isBot: boolean;
@@ -285,7 +285,7 @@ export class JoinBurstTracker {
   }
 }
 
-/* ── Reports ──────────────────────────────────────────────────────── */
+/* Reports */
 
 export type TimelineKind = "start" | "end" | "join" | "gate" | "case" | "delete" | "change" | "error" | "note";
 

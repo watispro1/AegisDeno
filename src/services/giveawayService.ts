@@ -32,7 +32,7 @@ import {
 
 const giveawayTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// Helpers
 
 export const fmtDuration = formatDurationLong;
 
@@ -280,7 +280,6 @@ async function announceEnd(client: Client, doc: TransitionGiveaway, winners: str
       logger.warn("Could not edit or send giveaway end message", e);
     }
 
-    // DM winners
     for (const winnerId of winners) {
       const winner = client.users.cache.get(winnerId) ?? await client.users.fetch(winnerId).catch(() => null);
       if (winner) {
@@ -300,7 +299,7 @@ async function announceEnd(client: Client, doc: TransitionGiveaway, winners: str
   }
 }
 
-// ─── Shared reroll logic ──────────────────────────────────────────────────────
+// Shared reroll logic
 
 /**
  * Pick new winners for an ended giveaway, skipping everyone who already won it.

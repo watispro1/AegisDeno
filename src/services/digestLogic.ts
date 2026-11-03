@@ -80,7 +80,7 @@ export function describeSchedule(c: DigestConfig): string {
   return `${DAY_NAMES[c.day]}s at ${String(c.hour).padStart(2, "0")}:00 ${c.timezone}`;
 }
 
-/* ── Content ───────────────────────────────────────────────────────── */
+/* Content */
 
 export interface DigestStats {
   since: Date;

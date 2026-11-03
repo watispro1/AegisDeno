@@ -29,7 +29,7 @@ export function initTopGG(client: Client): void {
       });
 
       if (response.ok) {
-        logger.info(`✅ Top.gg stats updated: ${guildCount} server(s).`);
+        logger.info(`top.gg stats posted: ${guildCount} server(s)`);
       } else {
         const text = await response.text();
         logger.warn(`Top.gg stats update returned status ${response.status}: ${text}`);
@@ -39,10 +39,8 @@ export function initTopGG(client: Client): void {
     }
   };
 
-  // Post on startup after login
   postStats();
 
-  // Periodically refresh stats
   const timer = setInterval(postStats, POST_INTERVAL_MS);
   timer.unref?.();
 }

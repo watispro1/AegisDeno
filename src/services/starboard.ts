@@ -22,7 +22,7 @@ import { effectiveStarCount, pickStarboardMedia } from "./communityLogic";
 import { TtlCache } from "../utils/ttlCache";
 import { channelDisplayName } from "../utils/channels";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 export interface StarboardConfig {
   guildId: string;
@@ -35,7 +35,7 @@ export interface StarboardConfig {
   enabled: boolean;
 }
 
-// ─── Config helpers ───────────────────────────────────────────────────────────
+// Config helpers
 
 /** Read on every reaction in every channel, so cached; updateStarboardConfig refreshes it. */
 const configCache = new TtlCache<StarboardConfig>(60_000);
@@ -80,7 +80,7 @@ export async function updateStarboardConfig(
   return doc as StarboardConfig;
 }
 
-// ─── Entry helpers ────────────────────────────────────────────────────────────
+// Entry helpers
 
 /** Check if a message has already been posted to the starboard. */
 export async function getStarboardEntry(guildId: string, sourceMessageId: string) {
@@ -120,7 +120,7 @@ export async function listStarboardEntries(guildId: string, limit = 10) {
     .lean();
 }
 
-// ─── Embed builder ────────────────────────────────────────────────────────────
+// Embed builder
 
 /** Build the Discord embed posted to the starboard channel. */
 export function buildStarboardEmbed(
@@ -180,7 +180,7 @@ export function buildStarboardEmbed(
   return { content, embeds: [embed] };
 }
 
-// ─── Reaction logic ───────────────────────────────────────────────────────────
+// Reaction logic
 
 /**
  * Core handler — called whenever a reaction is added or removed.
@@ -198,7 +198,6 @@ export async function handleStarReaction(
 ): Promise<void> {
   if (!config.channelId || !config.enabled) return;
 
-  // Count reactions matching the configured emoji
   const reaction = message.reactions.cache.find(
     (r) => r.emoji.name === config.emoji || r.emoji.toString() === config.emoji,
   );
@@ -228,7 +227,6 @@ export async function handleStarReaction(
     }
     await updateStarCount(guildId, message.id, count);
   } else {
-    // Post a new starboard embed
     const { content, embeds } = buildStarboardEmbed(message, count, config.emoji);
     const posted = await starboardChannel.send({ content, embeds }).catch(() => null);
     if (!posted) return;

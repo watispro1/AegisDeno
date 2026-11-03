@@ -12,7 +12,7 @@ import { codeBlock } from "../utils/safeText";
 import { WatchlistEntryModel } from "../database/mongo";
 import { logger } from "../utils/logger";
 
-// ─── Event presets (pure) ─────────────────────────────────────────────────────
+// Event presets (pure)
 
 export type WatchEvent =
   | "message" | "edit" | "delete" | "join" | "leave" | "roleChange" | "voice" | "firstMessage";
@@ -47,7 +47,7 @@ export function watchesVoice(events: readonly string[]): boolean {
   return events.includes("voice") || events.includes("presence") || events.includes("all");
 }
 
-// ─── Fast In-Memory Watch Cache ───────────────────────────────────────────────
+// Fast In-Memory Watch Cache
 
 export interface CachedWatch {
   moderatorId: string;
@@ -192,7 +192,7 @@ export function startWatchlistSync(): void {
   syncTimer.unref?.();
 }
 
-// ─── Privacy gate ─────────────────────────────────────────────────────────────
+// Privacy gate
 
 /** Where an alert came from: a channel for message and voice events, none for joins, leaves and roles. */
 export interface AlertSource {
@@ -245,7 +245,7 @@ export function redactAlertEmbed(embed: EmbedBuilder): EmbedBuilder {
   return copy;
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// Internal helpers
 
 /**
  * DM the watching moderator and, if the watch has one, post to its staff alert
@@ -269,7 +269,7 @@ async function sendWatchAlert(
     const mod = client.users.cache.get(watch.moderatorId) ?? await client.users.fetch(watch.moderatorId);
     await mod.send({ embeds: [embed], allowedMentions: { parse: [] } });
   } catch {
-    // DMs closed or user not found — silently skip
+    // DMs closed or the user is gone
   }
 
   const channelId = watch.alertChannelId;
@@ -282,7 +282,7 @@ async function sendWatchAlert(
       await channel.send({ embeds: [posted], allowedMentions: { parse: [] } });
     }
   } catch {
-    // Channel deleted or no access — skip
+    // Channel deleted or no access
   }
   return true;
 }
@@ -319,7 +319,7 @@ async function incrementAlertCount(guildId: string, targetId: string, moderatorI
   ).catch(() => null);
 }
 
-// ─── Event handlers ───────────────────────────────────────────────────────────
+// Event handlers
 
 /** Called from GuildMemberAdd */
 export async function watchlistOnJoin(client: Client, member: GuildMember): Promise<void> {
@@ -442,7 +442,6 @@ export async function watchlistOnRoleChange(client: Client, oldMember: GuildMemb
   const watches = await getWatches(newMember.guild.id, newMember.id);
   if (watches.length === 0) return;
 
-  // Diff the role sets
   const oldRoles = "roles" in oldMember && oldMember.roles ? oldMember.roles.cache : new Map();
   const newRoles = newMember.roles.cache;
 

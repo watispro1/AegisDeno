@@ -140,7 +140,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       embeds: [embed],
     });
 
-    // Successful — clear retry tracking
     retryCount.delete(taskId);
   } catch (err) {
     shouldRetry = true;
@@ -178,7 +177,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       }
     } else {
       if (task.intervalMs) {
-        // Reschedule recurring task
         const nextTime = new Date(Date.now() + task.intervalMs);
         const updated = await updateTaskNextRun(task.guildId, taskId, nextTime);
         if (updated) {
@@ -188,7 +186,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
           logger.error(`Task ${taskId}: delivered but failed to update next run time in DB`);
         }
       } else {
-        // Delete one-off task
         await deleteTask(task.guildId, taskId).catch(err =>
           logger.error(`Task ${taskId}: delivered but failed to remove from DB`, err)
         );

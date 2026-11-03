@@ -5,7 +5,7 @@ export async function connectDatabase(): Promise<void> {
   const uri = process.env.MONGO_URI;
   
   if (!uri) {
-    logger.error("MONGO_URI is missing in your .env file!");
+    logger.error("MONGO_URI is not set");
     logger.error("Please create a free cluster at MongoDB Atlas (mongodb.com) and paste your connection string.");
     process.exit(1);
   }
@@ -13,7 +13,7 @@ export async function connectDatabase(): Promise<void> {
   try {
     mongoose.set("strictQuery", false);
     await mongoose.connect(uri);
-    logger.info("✅ Successfully connected to MongoDB!");
+    logger.info("connected to mongodb");
   } catch (error) {
     logger.error("Failed to connect to MongoDB:", error);
     process.exit(1);
@@ -25,7 +25,7 @@ export async function closeDatabase(): Promise<void> {
   logger.info("Closed MongoDB connection.");
 }
 
-// ─── Schemas & Models ────────────────────────────────────────────────────────
+// Schemas & Models
 
 const GuildConfigSchema = new mongoose.Schema({
   guildId: { type: String, required: true, unique: true },

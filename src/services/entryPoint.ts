@@ -66,7 +66,7 @@ export function buildEntryHelp(o: EntryHelpOptions = {}): { embeds: EmbedBuilder
   return { embeds: [embed], components: [linkButtons()] };
 }
 
-/* ── Servers: @mention and typed help ───────────────────────────────── */
+/* Servers: @mention and typed help */
 
 const channelCooldown = new KeyedCooldown(ENTRY_HELP_COOLDOWN_MS);
 
@@ -98,7 +98,7 @@ export async function handleGuildEntryHelp(client: Client, message: Message): Pr
   return true;
 }
 
-/* ── DMs ────────────────────────────────────────────────────────────── */
+/* DMs */
 
 const dmSeen = new TtlCache<true>(DM_FIRST_SEEN_MS, 50_000);
 
@@ -115,7 +115,7 @@ export async function sendDmHelp(message: Pick<Message, "reply" | "author">, o: 
   await message.reply({ ...buildEntryHelp({ dm: true, hasOpenTicket: o.hasOpenTicket }), allowedMentions: ENTRY_MENTIONS }).catch(() => null);
 }
 
-/* ── Joining a server ───────────────────────────────────────────────── */
+/* Joining a server */
 
 /** Records which servers were welcomed, so a re-add within 30 days stays quiet. */
 export interface WelcomeStore {

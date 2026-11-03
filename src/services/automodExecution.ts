@@ -11,7 +11,7 @@ import { logger } from "../utils/logger";
 import { AutomodHitModel } from "../database/mongo";
 
 
-// ─── In-memory spam rate limiter ─────────────────────────────────────────────
+// In-memory spam rate limiter
 // Maps `guildId:userId` → timestamps of recent messages
 const spamTracker = new Map<string, number[]>();
 
@@ -39,7 +39,7 @@ function recordAndCheckSpam(
   return timestamps.length > maxMessages;
 }
 
-// ─── Exemption check ─────────────────────────────────────────────────────────
+// Exemption check
 /**
  * Safe-listed channels and roles are exempt, and so is server staff with
  * Administrator or Manage Server (the same members Discord's own AutoMod
@@ -97,7 +97,6 @@ export function mentionCount(mentions: { users: { size: number }; roles: { size:
   return mentions.users.size + mentions.roles.size + (mentions.everyone ? 1 : 0);
 }
 
-// ─── Main handler ─────────────────────────────────────────────────────────────
 /** Returns true when automod acted on the message (it is deleted or being deleted). */
 async function handleAutomod(client: Client, message: Message, isEdit: boolean): Promise<boolean> {
   if (!message.guildId || message.author.bot) return false;
@@ -120,8 +119,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
   const where = [message.channelId, message.channel && "parentId" in message.channel ? message.channel.parentId : null].filter((id): id is string => Boolean(id));
   const applies = (rule: AutomodRule) => !ruleExempt(rule, member, where);
 
-  // 1. Spam detection (rate limiter). Edits are not new messages: counting
-  // them let a member who fixed a typo a few times trip the spam rule.
+  // Spam. Edits don't count, or fixing a typo a few times trips the rule.
   if (config.spam.enabled && !isEdit && applies(config.spam)) {
     const windowMs = config.spam.windowSeconds * 1000;
     if (recordAndCheckSpam(message.guildId, message.author.id, config.spam.maxMessages, windowMs)) {
@@ -130,7 +128,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
     }
   }
 
-  // 2. Blocked Words (normalizes zero-width obfuscation and soft hyphens)
+  // Blocked words (zero-width characters and soft hyphens are stripped first)
   if (!triggeredRule && config.words.enabled && config.words.list.length > 0 && applies(config.words)) {
     if (blockedWordHit(config.words.list, message.content)) {
       triggeredRule = config.words;
@@ -138,7 +136,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
     }
   }
 
-  // 3. Mention Spam
+  // Mention spam
   if (!triggeredRule && config.mentions.enabled && applies(config.mentions)) {
     if (mentionCount(message.mentions) >= config.mentions.threshold) {
       triggeredRule = config.mentions;
@@ -146,7 +144,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
     }
   }
 
-  // 4. Link Filtering
+  // Links
   if (!triggeredRule && config.links.enabled && applies(config.links)) {
     if (hasLink(message.content) && await linkFilterAppliesTo(message)) {
       triggeredRule = config.links;
@@ -154,7 +152,7 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
     }
   }
 
-  // 5. Caps and character flood filters
+  // Caps and character floods
   if (!triggeredRule && config.caps?.enabled && applies(config.caps)) {
     const hit = capsOrFlood(message.content, config.caps.threshold);
     if (hit) {

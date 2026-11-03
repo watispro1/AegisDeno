@@ -58,7 +58,7 @@ export interface IncidentStore {
   listActive(): Promise<IncidentRecord[]>;
 }
 
-/* ── Mongo ────────────────────────────────────────────────────────── */
+/* Mongo */
 
 const IncidentSchema = new mongoose.Schema({
   _id: { type: String, required: true },
@@ -171,7 +171,7 @@ export function mongoIncidentStore(): IncidentStore {
   };
 }
 
-/* ── Memory (tests) ───────────────────────────────────────────────── */
+/* Memory (tests) */
 
 export function memoryIncidentStore(): IncidentStore & { all(): IncidentRecord[] } {
   const rows = new Map<string, IncidentRecord>();

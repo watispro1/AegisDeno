@@ -108,7 +108,7 @@ export interface BotView {
 /**
  * What /diagnostics checks: every permission the invite asks for, in Discord's
  * bit order, so a server invited with the default permissions shows nothing
- * missing. (View Audit Log used to be listed but nothing uses it.)
+ * missing.
  */
 export function botPermissionChecks(): Array<[string, string]> {
   return new PermissionsBitField(botPermissionBitfield()).toArray().map(flag => [flag, permissionName(flag)]);
