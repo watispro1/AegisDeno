@@ -1,5 +1,5 @@
 /**
- * Dashboard 1.2.3 fixes and UX: database outages as 503s, rate-limit and
+ * Dashboard UX: database outages as 503s, rate-limit and
  * signed-out wording, empty-picker explanations, the double-submit guard,
  * disabled styling. The router runs with fakes; no network, no Mongo.
  */

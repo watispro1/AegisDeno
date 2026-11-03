@@ -183,15 +183,15 @@ export const command: Command = {
         (foundCmd.featurePermissions?.length ? `\nSome parts also use: ${formatPermissions(foundCmd.featurePermissions)}` : "");
 
       const shownName = json.name;
-      const subcommands = json.options?.filter((o: any) => o.type === 1 || o.type === 2) ?? [];
-      const normalOptions = json.options?.filter((o: any) => o.type !== 1 && o.type !== 2) ?? [];
+      const subcommands = json.options?.filter((o) => o.type === 1 || o.type === 2) ?? [];
+      const normalOptions = json.options?.filter((o) => o.type !== 1 && o.type !== 2) ?? [];
 
       const optionsList = normalOptions.length > 0
-        ? truncate(normalOptions.map((o: any) => `• \`${o.name}\`${o.required ? " *(required)*" : ""}: ${o.description}`).join("\n"))
+        ? truncate(normalOptions.map((o) => `• \`${o.name}\`${o.required ? " *(required)*" : ""}: ${o.description}`).join("\n"))
         : (subcommands.length > 0 ? "*See subcommands below*" : "None");
 
       const subcommandsList = subcommands.length > 0
-        ? truncate(subcommands.map((s: any) => `• \`/${shownName} ${s.name}\`: ${s.description}`).join("\n"))
+        ? truncate(subcommands.map((s) => `• \`/${shownName} ${s.name}\`: ${s.description}`).join("\n"))
         : "None";
 
       const categoryIcon = CATEGORY_ICONS[foundCmd.category ?? "general"] ?? "🌐";

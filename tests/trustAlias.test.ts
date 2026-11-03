@@ -1,4 +1,4 @@
-/** /trustscore is a thin deprecated alias of /trust user (3.7.0 QoL round). */
+/** /trustscore is a thin deprecated alias of /trust user. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

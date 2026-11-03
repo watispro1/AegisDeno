@@ -289,7 +289,7 @@ export const command: Command = {
         await interaction.editReply("ℹ️ No active giveaways in this server.");
         return;
       }
-      const lines = active.map((g: any, i: number) => {
+      const lines = active.map((g, i) => {
         const ts = Math.floor(new Date(g.endsAt).getTime() / 1000);
         return `**${i + 1}.** 🏆 **${truncate(String(g.prize), 80)}** — ${g.winnerCount} winner(s) — ${g.entrants?.length ?? 0} entr${(g.entrants?.length ?? 0) === 1 ? "y" : "ies"} — ends <t:${ts}:R> — [Jump](https://discord.com/channels/${guildId}/${g.channelId}/${g.messageId})`;
       });

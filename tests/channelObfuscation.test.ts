@@ -42,7 +42,7 @@ test("isObfuscatedChannel: the CHANNEL_OBFUSCATED flag (number, bigint, bitfield
   assert.ok(!isObfuscatedChannel("___hidden___"));
 });
 
-test("Codex #13: a real channel named ___hidden___ without the flag is visible", () => {
+test("a real channel named ___hidden___ without the flag is visible", () => {
   const real = { id: VISIBLE, name: OBFUSCATED_CHANNEL_NAME, flags: 0 };
   assert.ok(!isObfuscatedChannel(real));
   assert.ok(!isObfuscatedChannel({ ...real, flags: new ChannelFlagsBitField(0) }));

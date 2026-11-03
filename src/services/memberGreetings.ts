@@ -4,6 +4,7 @@ import { logger } from "../utils/logger";
 import { getGuildConfig } from "./configuration";
 import { buildEmbedFromSpec, renderTemplate } from "./embedSpec";
 import { isObfuscatedChannel } from "../utils/channels";
+import { shouldAssignWelcomeRole } from "../bot/eventFilters";
 import { softFail } from "../utils/softFail";
 
 /**
@@ -21,6 +22,22 @@ export async function assignWelcomeRole(member: GuildMember, roleId: string): Pr
   await member.roles.add(roleId, "Welcome auto-role").catch(err =>
     logger.warn(`Failed to assign auto-role ${roleId} to ${member.user?.tag ?? member.id} in ${member.guild.id}:`, err),
   );
+}
+
+/**
+ * GuildMemberUpdate side of the welcome role: gives it once the member passes
+ * membership screening, including when the old member was not cached.
+ */
+export async function assignWelcomeRoleAfterScreening(oldMember: GuildMember | PartialGuildMember, newMember: GuildMember): Promise<void> {
+  if (newMember.pending || !(oldMember.pending || oldMember.partial)) return;
+  const roleId = (await getGuildConfig(newMember.guild.id).catch(() => null))?.welcomeRoleId;
+  if (!roleId) return;
+  const passed = shouldAssignWelcomeRole(oldMember, {
+    pending: newMember.pending,
+    joinedTimestamp: newMember.joinedTimestamp,
+    hasRole: newMember.roles.cache.has(roleId),
+  });
+  if (passed) await assignWelcomeRole(newMember, roleId);
 }
 
 /** Posts the goodbye message for a member who left, if the server turned it on. */

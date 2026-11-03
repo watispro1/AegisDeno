@@ -1,4 +1,4 @@
-/** Per-rule automod exemptions (3.7.1) and partial config saves that no longer wipe settings. */
+/** Per-rule automod exemptions, and partial config saves that keep the other settings. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mergeAutomodConfig, normalizeAutomodConfig, cleanIdList } from "../src/services/automod";
@@ -32,9 +32,9 @@ test("merge: a partial save (preset, dashboard form) keeps caps, global and per-
   const current = base();
   // What a preset sends: four rules, no caps, no exemption lists.
   const preset = mergeAutomodConfig(current, { words: { enabled: true, action: "warn", list: ["bad"] }, links: { enabled: true, action: "delete" }, mentions: { enabled: true, action: "timeout", threshold: 4 }, spam: { enabled: true, action: "timeout", maxMessages: 5, windowSeconds: 5 } });
-  assert.equal(preset.caps.enabled, true, "caps untouched (was reset to off before 3.7.1)");
+  assert.equal(preset.caps.enabled, true, "caps untouched");
   assert.equal(preset.caps.threshold, 70);
-  assert.deepEqual(preset.exemptRoleIds, [ROLE2], "global exemptions kept (were wiped before 3.7.1)");
+  assert.deepEqual(preset.exemptRoleIds, [ROLE2], "global exemptions kept");
   assert.deepEqual(preset.links.exemptRoleIds, [ROLE], "per-rule exemptions kept");
   assert.equal(preset.links.action, "delete");
   // The dashboard form sends the global lists explicitly; an empty list clears them.

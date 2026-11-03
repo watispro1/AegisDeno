@@ -1,5 +1,5 @@
 /**
- * 3.7.0 command round 4: /nickname, /slowmode, /note delete, /kick, /serverinfo
+ * /nickname, /slowmode, /note delete, /kick, /serverinfo
  * and /userinfo. Pure helpers and command shapes; backward compatible options.
  */
 import { test } from "node:test";

@@ -245,7 +245,7 @@ export async function deleteRolePanel(guild: Guild, id: string): Promise<boolean
 export async function repostRolePanel(guild: Guild, id: string, channel: TextChannel): Promise<RolePanel | null> {
   const doc = await RolePanelModel.findOne({ guildId: guild.id, id }).lean().catch(() => null);
   if (!doc) return null;
-  const roles: RolePanelOption[] = (doc.roles ?? []).map((r: any) => ({
+  const roles: RolePanelOption[] = (doc.roles ?? []).map((r) => ({
     roleId: String(r.roleId),
     label: String(r.label),
     emoji: r.emoji ?? null,

@@ -408,7 +408,7 @@ test("logout needs CSRF, deletes the session and revokes the token", async () =>
   assert.equal(after.status, 302);
 });
 
-/* v1.2.0: automod lists, starboard, appeals, panels, unban, activity */
+/* Automod lists, starboard, appeals, panels, unban, activity */
 
 function lastSaved<S extends SettingsValue["section"]>(section: S): Extract<SettingsValue, { section: S }>["value"] {
   const hit = [...saved].reverse().find(v => v.section === section);

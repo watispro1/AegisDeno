@@ -1,5 +1,5 @@
 /**
- * 3.6.2 bug fixes and command upgrades: Ghost Watch cache race and privacy
+ * Ghost Watch cache race and privacy
  * gate, atomic giveaway entry, /suggest setup channel types, automod and
  * edit handling, scheduler retry policy, temporary bans, friendly durations
  * and Discord-limit helpers. Discord and Mongo are faked; no network.
@@ -315,4 +315,13 @@ test("auditReason fits Discord's 512-character URL-encoded limit; codeBlock can'
   assert.ok(block.length <= 1024);
   assert.equal(block.match(/```/g)?.length, 2, "only the fences remain");
   assert.equal(truncate("hello", 3), "he…");
+});
+
+test("/timeout extend adds an hour to the current expiry and stays within 28 days", async () => {
+  const { extendedTimeout, MAX_TIMEOUT_SECONDS } = await import("../src/commands/moderation/timeout");
+  const now = Date.UTC(2026, 10, 3, 12);
+  assert.deepEqual(extendedTimeout(new Date(now + 600_000), now), { untilMs: now + 4_200_000, durationMs: 4_200_000 });
+  assert.equal(extendedTimeout(null, now).untilMs, now + 3_600_000);
+  assert.equal(extendedTimeout(new Date(now - 1000), now).untilMs, now + 3_600_000);
+  assert.equal(extendedTimeout(new Date(now + MAX_TIMEOUT_SECONDS * 1000), now).untilMs, now + MAX_TIMEOUT_SECONDS * 1000);
 });

@@ -61,7 +61,7 @@ export const command: Command = {
         title: "✅ Timeout Removed",
         color: 0x57F287,
         description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Moderator:** ${interaction.user.tag}`,
-      });
+      }, "modActions");
     } catch (err) {
       logger.error(`Failed to remove timeout from user ${target.user.id} in guild ${guildId}`, err);
       await interaction.editReply("❌ Failed to remove the timeout.");

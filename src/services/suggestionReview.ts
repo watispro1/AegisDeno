@@ -1,5 +1,22 @@
 /** Suggestion posts: buttons, vote field and the approve/deny/consider review flow shared by /suggest and its buttons. */
-import { ChatInputCommandInteraction, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, ButtonInteraction, ModalSubmitInteraction, Client, Guild, User, ChannelType } from "discord.js";
+import {
+  ChatInputCommandInteraction,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  PermissionFlagsBits,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  MessageFlags,
+  ButtonInteraction,
+  ModalSubmitInteraction,
+  Client,
+  Guild,
+  User,
+  ChannelType,
+} from "discord.js";
 import { getSuggestion, reviewSuggestion, type Suggestion } from "./suggestions";
 import { isSuggestionOpen, reviewTransition, type SuggestionReviewAction } from "./communityLogic";
 import { isObfuscatedChannel } from "../utils/channels";

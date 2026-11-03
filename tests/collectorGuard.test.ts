@@ -1,5 +1,5 @@
 /**
- * 3.7.0 bug-fix round 4: collector handlers no longer leak unhandled
+ * Collector handlers do not leak unhandled
  * rejections, /announce and /embed check the member's own access to the target
  * channel (and Mention Everyone for pings), and model files were split without
  * changing what mongo.ts exports.
@@ -39,13 +39,10 @@ test("guardCollect: a throwing handler is caught and the user gets an ephemeral 
 test("every command collector uses guardCollect", () => {
   const dir = path.join(__dirname, "..", "src", "commands");
   const offenders: string[] = [];
-  for (const sub of fs.readdirSync(dir)) {
-    const p = path.join(dir, sub);
-    if (!fs.statSync(p).isDirectory()) continue;
-    for (const f of fs.readdirSync(p)) {
-      const src = fs.readFileSync(path.join(p, f), "utf8");
-      if (/collector\.on\("collect", async/.test(src)) offenders.push(`${sub}/${f}`);
-    }
+  for (const rel of fs.readdirSync(dir, { recursive: true }) as string[]) {
+    if (!rel.endsWith(".ts")) continue;
+    const src = fs.readFileSync(path.join(dir, rel), "utf8");
+    if (/collector\.on\("collect", async/.test(src)) offenders.push(rel);
   }
   assert.deepEqual(offenders, []);
 });

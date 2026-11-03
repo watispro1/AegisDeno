@@ -1,6 +1,16 @@
 import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from "discord.js";
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+  MessageFlags,
+} from "discord.js";
 import { Command } from "../../types/discord";
 import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { sendGuildLog } from "../../services/logging";
@@ -19,6 +29,7 @@ import { clearTimedUnbans, scheduleTimedUnban } from "../../services/tempBan";
 import type { AutocompleteInteraction } from "discord.js";
 import { parseBanDuration, TEMP_BAN_PRESETS } from "./ban/logic";
 import { softFail } from "../../utils/softFail";
+import { dmOutcome, dmSentLabel } from "../../services/dmNotice";
 export { parseBanDuration } from "./ban/logic";
 
 export const command: Command = {
@@ -200,6 +211,7 @@ export const command: Command = {
         }
 
         // DM the user before banning (so message can still be delivered)
+        let noticeDelivered = false;
         if (!silent && member) {
           const dmEmbed = new EmbedBuilder()
             .setColor(0xED4245)
@@ -207,7 +219,7 @@ export const command: Command = {
             .addFields({ name: "📝 Reason", value: reason })
             .setFooter({ text: "If you believe this was a mistake, please contact server staff." })
             .setTimestamp();
-          await target.send({ embeds: [dmEmbed] }).catch(softFail(`Ban notice DM to ${target.id}`, "debug"));
+          noticeDelivered = (await target.send({ embeds: [dmEmbed] }).catch(softFail(`Ban notice DM to ${target.id}`, "debug"))) !== null;
         }
 
         // A temporary ban carries a marker at the start of its reason (kept by
@@ -250,6 +262,7 @@ export const command: Command = {
 
         // Auto-generate ban appeal record & DM the user their appeal code
         let appealCode = "";
+        let appealDelivered = false;
         try {
           appealCode = generateAppealCode();
           await BanAppealModel.create({
@@ -280,7 +293,7 @@ export const command: Command = {
             .setFooter({ text: `Aegis Ban Appeal System • ${guild.name}` })
             .setTimestamp();
           // `silent` means no DMs at all; the code is still shown to the moderator below.
-          if (!silent) await target.send({ embeds: [appealEmbed] }).catch(softFail(`Appeal code DM to ${target.id}`, "debug"));
+          if (!silent) appealDelivered = (await target.send({ embeds: [appealEmbed] }).catch(softFail(`Appeal code DM to ${target.id}`, "debug"))) !== null;
         } catch (appealErr) {
           logger.warn(`Failed to create/send appeal for ban of ${target.id} in ${guildId}:`, appealErr);
         }
@@ -294,9 +307,9 @@ export const command: Command = {
             { name: "📝 Reason",        value: reason, inline: false },
             { name: "🛡️ Moderator",    value: interaction.user.tag, inline: true },
             { name: "🗑️ Msg Deletion",  value: `${deleteDays} day(s)`, inline: true },
-            { name: "🔕 DM Sent",       value: (!silent && member) ? "✅ Yes" : "❌ No / Silent", inline: true },
+            { name: "🔕 DM Sent",       value: !silent && !member ? "❌ No (not in the server)" : dmSentLabel(dmOutcome(silent, noticeDelivered)), inline: true },
             { name: "⏳ Length",        value: durationSeconds ? (unbanScheduled ? `${durationLabel} — unbans <t:${Math.floor((bannedAt + durationSeconds * 1000) / 1000)}:R>` : `${durationLabel} — ⚠️ the automatic unban could not be scheduled; unban by hand`) : "Permanent", inline: true },
-            ...(appealCode ? [{ name: "📋 Appeal Code", value: silent ? `\`${appealCode}\` — not sent (silent); share it if you want them to appeal` : `\`${appealCode}\` — DM sent with instructions`, inline: false }] : []),
+            ...(appealCode ? [{ name: "📋 Appeal Code", value: silent ? `\`${appealCode}\` — not sent (silent); share it if you want them to appeal` : appealDelivered ? `\`${appealCode}\` — DM sent with instructions` : `\`${appealCode}\` — the DM didn't go through; share it if you want them to appeal`, inline: false }] : []),
             ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
           )
           .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)

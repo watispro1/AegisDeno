@@ -129,7 +129,7 @@ export const command: Command = {
       const statusFilter = interaction.options.getString("status") ?? "pending";
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const query: Record<string, any> = statusFilter === "all" ? { guildId } : { guildId, status: statusFilter };
+      const query: Record<string, string> = statusFilter === "all" ? { guildId } : { guildId, status: statusFilter };
       const appeals = await BanAppealModel.find(query).sort({ createdAt: -1 }).limit(15).lean();
 
       if (appeals.length === 0) {
@@ -138,7 +138,7 @@ export const command: Command = {
       }
 
       const lines = await Promise.all(
-        appeals.map(async (a: any, idx: number) => {
+        appeals.map(async (a, idx) => {
           const s = STATUS_LABELS[a.status] ?? STATUS_LABELS.pending;
           let userTag = `<@${a.userId}>`;
           const cachedUser = interaction.client.users.cache.get(a.userId);
@@ -171,7 +171,7 @@ export const command: Command = {
       const code = interaction.options.getString("code", true).toUpperCase();
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const appeal = await BanAppealModel.findOne({ appealCode: code, guildId }) as any;
+      const appeal = await BanAppealModel.findOne({ appealCode: code, guildId });
       if (!appeal) {
         await interaction.editReply(`❌ No appeal found with code \`${code}\` in this server.`);
         return;
@@ -264,7 +264,7 @@ export const command: Command = {
     else if (sub === "submit") {
       const code = interaction.options.getString("code", true).toUpperCase();
       // Match on the user only: they were banned, so this runs outside the guild.
-      const appeal = (await BanAppealModel.findOne({ appealCode: code, userId: interaction.user.id })) as any;
+      const appeal = await BanAppealModel.findOne({ appealCode: code, userId: interaction.user.id });
 
       if (!appeal) {
         await interaction.reply({

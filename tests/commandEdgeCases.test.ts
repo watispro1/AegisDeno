@@ -1,4 +1,4 @@
-/** Review pass A (v3.7.1): bug fixes, each with a regression test. */
+/** Edge cases in /watchlist, escalation, appeals, reminders, /sync, /warn and modmail. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -47,7 +47,7 @@ test("reminder snooze: a double press is ignored while the first snooze is saved
   assert.match(s, /finally \{\s*snoozingMessages\.delete\(lockKey\);/);
 });
 
-test("member join: a failed settings read no longer skips the verification auto-kick", () => {
+test("member join: a failed settings read still schedules the verification auto-kick", () => {
   const s = src("src/bot/client.ts");
   assert.match(s, /getGuildConfig\(member\.guild\.id\)\.catch\(/);
   assert.match(s, /config\?\.welcomeEnabled/);
@@ -57,7 +57,7 @@ test("/sync: the registered-commands field is capped at 1024 characters", () => 
   assert.match(src("src/commands/developer/sync.ts"), /truncate\(Array\.from\(commands\.keys\(\)\)[^\n]*1024\)/);
 });
 
-test("files touched in review pass A stay under 400 lines", () => {
+test("client, appeal, watchlist, reminder and escalation modules stay under 400 lines", () => {
   for (const f of ["src/bot/client.ts", "src/commands/moderation/appeal.ts", "src/commands/moderation/watchlist.ts", "src/bot/interactions/reminders.ts", "src/services/escalation.ts"]) {
     assert.ok(src(f).split("\n").length < 400, f);
   }

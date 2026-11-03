@@ -102,7 +102,7 @@ export const command: Command = {
           ? ["✅ No warnings on record."]
           : slice.map((w, i) => {
               const ts = Math.floor(new Date(w.createdAt).getTime() / 1000);
-              const id = String((w as any)._id).slice(-6);
+              const id = String(w._id).slice(-6);
               return `**${page * WARNS_PER_PAGE + i + 1}.** \`${w.reason}\`\n> Mod: <@${w.moderatorId}> • <t:${ts}:R> • ID: \`${id}\``;
             });
         return new EmbedBuilder()

@@ -110,6 +110,21 @@ re-inviting from `/invite` grants the rest without kicking the bot.
 - `/appeal submit` with an unknown code now says no appeal with that code was
   found for your account, instead of "no pending appeal".
 
+- **`/purge` result is simpler.** It says "Deleted X of Y" and, when some
+  were skipped, why: already gone, older than 14 days, or failed. The
+  progress bar is gone.
+- **Health check.** `GET /health` now returns 503 when the Discord gateway or
+  the database has been down for over a minute (never in the first two
+  minutes after start), and `fly.toml` checks it every 30 seconds. The JSON
+  also reports `gateway` and `database`.
+- **Failed DMs and posts are logged.** Notice DMs, welcome and goodbye posts,
+  ModMail relays, starboard posts and reminder pings that Discord refuses are
+  logged with what failed and why (closed DMs only at debug level).
+- Requires Node 22 or newer (`engines` in `package.json`). Updated
+  discord.js 14.28.0, mongoose 9.11.4, express 5.3.0 and dotenv 18.0.9.
+- Split the largest command, service and web files into smaller modules.
+  No behavior change.
+
 ### Fixed
 - **Ticket creation works without Attach Files (top.gg review).** Discord
   refuses a permission overwrite that grants a permission the bot does not
@@ -231,6 +246,24 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   along with the welcome. Only the welcome is skipped now.
 - `/sync` (owner only) could fail once the list of registered commands passed
   Discord's 1,024-character field limit; the list is now shortened to fit.
+
+- **`/purge`:** if one batch of deletions failed (a rate limit or a
+  permission change mid-run), the whole result was lost: no case, no mod-log
+  entry, and the moderator was told nothing was deleted. Each batch now runs
+  on its own, and the case and log are recorded whenever anything was removed.
+- **Welcome role after membership screening** was skipped when the member was
+  not in Aegis's cache (for example after a restart), because Discord sent the
+  update without the old pending state. A member who joined in the last 7
+  days, is no longer pending and lacks the role now gets it.
+- **Kick, ban and timeout results** said "DM Sent: Yes" even when the member's
+  DMs were closed. They now say whether the DM went through, and a ban says
+  when the appeal code DM did not arrive so staff can share it.
+- **Reminders** were lost when the DM failed and the reminder was DM-only.
+  Aegis now pings the member in the channel the reminder was set from.
+- **Mod-log categories:** automatic escalations, unbans, expired temporary
+  bans, `/removetimeout` and `/clearwarnings` ignored the moderation-actions
+  category, so they went to the main log channel even when moderation actions
+  had their own channel or were turned off.
 
 ### Security
 - Every balance change is one atomic database update with its guard in the

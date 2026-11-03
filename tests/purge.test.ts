@@ -61,7 +61,7 @@ test("purge with no skips has an empty skip line", async () => {
   assert.equal(describePurgeSkips(out), "");
 });
 
-test("purge command no longer renders a progress bar", async () => {
+test("purge result shows deleted of selected without a progress bar", async () => {
   const { readFileSync } = await import("node:fs");
   const src = readFileSync("src/commands/moderation/purge.ts", "utf8");
   assert.ok(!src.includes("progressBar"));

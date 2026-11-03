@@ -89,7 +89,7 @@ export const command: Command = {
 
       if (sub === "toggle") {
         const enabled = interaction.options.getBoolean("enabled", true);
-        await updateGuildConfig(guildId, { escalation: { ...escalation, enabled } } as any);
+        await updateGuildConfig(guildId, { escalation: { ...escalation, enabled } });
         await interaction.editReply(`✅ Escalation is now **${enabled ? "enabled" : "disabled"}**.`);
         return;
       }
@@ -110,7 +110,7 @@ export const command: Command = {
         if (action === "timeout") newThreshold.durationMinutes = durationMinutes;
         filtered.push(newThreshold);
 
-        await updateGuildConfig(guildId, { escalation: { ...escalation, thresholds: filtered } } as any);
+        await updateGuildConfig(guildId, { escalation: { ...escalation, thresholds: filtered } });
         await interaction.editReply(`✅ Added threshold: **${atWarnings} warnings** → **${ACTION_LABELS[action]}**${action === "timeout" ? ` (${durationMinutes}m)` : ""}.`);
         return;
       }
@@ -122,7 +122,7 @@ export const command: Command = {
           await interaction.editReply(`❌ No threshold found at **${atWarnings}** warnings.`);
           return;
         }
-        await updateGuildConfig(guildId, { escalation: { ...escalation, thresholds: filtered } } as any);
+        await updateGuildConfig(guildId, { escalation: { ...escalation, thresholds: filtered } });
         await interaction.editReply(`✅ Removed threshold at **${atWarnings}** warnings.`);
         return;
       }
@@ -153,7 +153,7 @@ export const command: Command = {
           confirmLabel: "Clear thresholds",
         });
         if (answer !== "confirmed") return;
-        await updateGuildConfig(guildId, { escalation: { ...escalation, thresholds: [] } } as any);
+        await updateGuildConfig(guildId, { escalation: { ...escalation, thresholds: [] } });
         await interaction.editReply("✅ All escalation thresholds cleared.");
         return;
       }

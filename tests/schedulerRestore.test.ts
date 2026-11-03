@@ -1,4 +1,4 @@
-/** Round 5 bug fixes, each with a regression test. */
+/** Scheduler restore after downtime, the modmail staff-role check, and file sizes. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

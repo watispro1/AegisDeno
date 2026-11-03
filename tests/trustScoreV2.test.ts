@@ -1,5 +1,5 @@
 /**
- * Trust Score v2 (3.7.0): the explainable engine, config normalisation, the
+ * Trust Score v2: the explainable engine, config normalisation, the
  * opt-in integrations (link filter, Incident join gate, low-trust role), the
  * activity counter update, and the dashboard Trust page. No network, no Mongo.
  */

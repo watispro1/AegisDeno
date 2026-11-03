@@ -49,7 +49,7 @@ export async function unbanMember(
     description:
       `**User:** ${ban.user.tag} (<@${userId}>)\n**Ban Reason:** ${banReason.slice(0, 300)}\n**Unban Reason:** ${reason}\n` +
       `**Moderator:** ${moderator.tag}${opts.via ? ` ${opts.via}` : ""}`,
-  }).catch(() => null);
+  }, "modActions").catch(() => null);
 
   return { ok: true, caseId, banReason, userTag: ban.user.tag };
 }

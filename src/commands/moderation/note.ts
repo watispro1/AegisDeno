@@ -1,5 +1,16 @@
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, type AutocompleteInteraction } from "discord.js";
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  MessageFlags,
+  type AutocompleteInteraction,
+} from "discord.js";
 import { scopedModalId } from "../../utils/modal";
 import { requestConfirmation } from "../../utils/confirmation";
 import { Command } from "../../types/discord";

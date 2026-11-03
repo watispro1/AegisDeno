@@ -1,4 +1,4 @@
-/** Embed spec rules, the builder's validation and view, and the new guild config fields (3.6.2 dashboard overhaul). */
+/** Embed spec rules, the builder's validation and view, and the embed fields on the guild config. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EMBED_LIMITS, buildEmbedFromSpec, embedLength, normalizeEmbedSpec, renderTemplate, safeEmbedUrl } from "../src/services/embedSpec";

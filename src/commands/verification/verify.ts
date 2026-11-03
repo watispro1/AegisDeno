@@ -1,5 +1,19 @@
 import { guardCollect } from "../../utils/collectorGuard";
-import { ChannelType, PermissionFlagsBits, SlashCommandBuilder, TextChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ComponentType, MessageFlags } from "discord.js";
+import {
+  ChannelType,
+  PermissionFlagsBits,
+  SlashCommandBuilder,
+  TextChannel,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ComponentType,
+  MessageFlags,
+} from "discord.js";
 import { scopedModalId } from "../../utils/modal";
 import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
 import { memberTopRolePosition, roleAboveActor } from "../../permissions/hierarchy";

@@ -1,5 +1,5 @@
 /**
- * Dashboard upgrade round (1.2.3): avatars and icons, command palette, global
+ * Dashboard avatars and icons, command palette, global
  * search, member lookup with quick actions, analytics, Incident Mode pages,
  * module switches, settings export/import and the scheduled-message embed.
  * Runs the real router with fakes; no network, no Mongo.

@@ -1,4 +1,4 @@
-/** Weekly staff digest (3.7.0): schedule maths across time zones, idempotency key, embed, command, dashboard. */
+/** Weekly staff digest: schedule maths across time zones, idempotency key, embed, command, dashboard. */
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";

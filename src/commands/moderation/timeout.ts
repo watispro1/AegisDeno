@@ -1,6 +1,17 @@
 import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, GuildMember, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from "discord.js";
+import {
+  SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  EmbedBuilder,
+  GuildMember,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+  MessageFlags,
+} from "discord.js";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
@@ -13,9 +24,10 @@ import { buildDurationSuggestions } from "../../utils/moderationPresets";
 import { formatDurationLong } from "../../utils/duration";
 import { auditReason, truncate } from "../../utils/safeText";
 import type { AutocompleteInteraction } from "discord.js";
-import { MAX_TIMEOUT_SECONDS, resolveTimeoutSeconds, CUSTOM_DURATION_PRESETS, DURATION_CHOICES, formatDuration } from "./timeout/logic";
+import { CUSTOM_DURATION_PRESETS, DURATION_CHOICES, MAX_TIMEOUT_SECONDS, extendedTimeout, formatDuration, resolveTimeoutSeconds } from "./timeout/logic";
 import { softFail } from "../../utils/softFail";
-export { MAX_TIMEOUT_SECONDS, resolveTimeoutSeconds } from "./timeout/logic";
+import { dmOutcome, dmSentLabel } from "../../services/dmNotice";
+export { MAX_TIMEOUT_SECONDS, resolveTimeoutSeconds, extendedTimeout } from "./timeout/logic";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -196,6 +208,7 @@ export const command: Command = {
           proofUrl: proof?.url ?? null,
         });
 
+        let delivered = false;
         if (!silent) {
           const dmEmbed = new EmbedBuilder()
             .setColor(0xFEE75C)
@@ -207,7 +220,7 @@ export const command: Command = {
             )
             .setFooter({ text: "Please review the server rules to avoid further moderation action." })
             .setTimestamp();
-          target.user.send({ embeds: [dmEmbed] }).catch(softFail(`Timeout notice DM to ${target.id}`, "debug"));
+          delivered = (await target.user.send({ embeds: [dmEmbed] }).catch(softFail(`Timeout notice DM to ${target.id}`, "debug"))) !== null;
         }
 
         const resultEmbed = new EmbedBuilder()
@@ -219,7 +232,7 @@ export const command: Command = {
             { name: "⏳ Duration",   value: `**${durationLabel}** (expires <t:${Math.floor(until.getTime() / 1000)}:R>)`, inline: false },
             { name: "📝 Reason",     value: reason, inline: false },
             { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
-            { name: "🔕 DM Sent",   value: !silent ? "✅ Yes" : "❌ No (silent)", inline: true },
+            { name: "🔕 DM Sent",   value: dmSentLabel(dmOutcome(silent, delivered)), inline: true },
             ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
           )
           .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)
@@ -308,13 +321,8 @@ export const command: Command = {
               await bi.followUp({ content: "❌ Member no longer found in the server.", flags: MessageFlags.Ephemeral });
               return;
             }
-            const currentEnd = (refreshedMember.communicationDisabledUntil && refreshedMember.communicationDisabledUntil > new Date())
-              ? refreshedMember.communicationDisabledUntil.getTime()
-              : Date.now();
-            const maxAllowed = Date.now() + 28 * 86400_000;
-            const newExpiryMs = Math.min(currentEnd + 3600_000, maxAllowed);
-            const durationMs = Math.max(newExpiryMs - Date.now(), 60_000);
-            const newUntil = new Date(newExpiryMs);
+            const { untilMs, durationMs } = extendedTimeout(refreshedMember.communicationDisabledUntil, Date.now());
+            const newUntil = new Date(untilMs);
 
             const extended = (await refreshedMember.timeout(durationMs, auditReason(`Timeout extended +1h by ${bi.user.tag}`))
               .catch(softFail(`Timeout extension for ${target.id} in ${guildId}`))) !== null;

@@ -167,6 +167,6 @@ export async function performTimedUnban(client: Client, task: ScheduledTask): Pr
     title: "⏲️ Temporary Ban Expired",
     color: 0x57F287,
     description: `**User:** ${ban.user.tag} (<@${userId}>)\n**Ban length:** ${formatDurationLong(payload.durationSeconds)}\n**Originally banned by:** ${payload.moderatorTag}${payload.caseId ? `\n**Case:** \`${payload.caseId}\`` : ""}`,
-  }).catch(err => logger.warn(`Task ${task.id}: timed-unban log failed`, err));
+  }, "modActions").catch(err => logger.warn(`Task ${task.id}: timed-unban log failed`, err));
 }
 

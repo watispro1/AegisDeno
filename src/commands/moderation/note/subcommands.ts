@@ -1,7 +1,16 @@
 /** The longer /note subcommands: the paged view and clear-all with confirmation. */
 import { guardCollect } from "../../../utils/collectorGuard";
 import { logger } from "../../../utils/logger";
-import { ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from "discord.js";
+import {
+  ChatInputCommandInteraction,
+  PermissionFlagsBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+  MessageFlags,
+} from "discord.js";
 import { StaffNoteModel } from "../../../database/mongo";
 import { PAGE_SIZE } from "./logic";
 

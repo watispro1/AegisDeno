@@ -1,5 +1,5 @@
 /**
- * Dashboard role hierarchy (3.6.2 / dashboard 1.2.3): roles the dashboard hands
+ * Dashboard role hierarchy: roles the dashboard hands
  * out (verified role, join role, role panel re-posts) must sit below the
  * viewer's own highest role, the same rule as /rolepanel create and
  * /verify setup. The server owner is exempt; Administrator is not.

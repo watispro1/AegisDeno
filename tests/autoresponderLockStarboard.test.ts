@@ -1,4 +1,4 @@
-/** Command upgrades shipped with the 3.6.2 dashboard overhaul: /autoresponder toggle, /lock duration, /starboard setup checks. */
+/** /autoresponder toggle, /lock duration and /starboard setup checks. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits } from "discord.js";

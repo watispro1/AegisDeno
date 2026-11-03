@@ -1,4 +1,4 @@
-/** QoL pass (3.7.0 / dashboard 1.2.3): helpers, cases page size, last server, shortcuts, site footer. */
+/** Dashboard and site conveniences: embed style helpers, cases page size, last server, shortcuts, site footer. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

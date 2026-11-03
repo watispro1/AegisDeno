@@ -200,7 +200,7 @@ test("case reason and filters", () => {
   assert.equal(parseCaseFilter({ page: ["2", "9"] }).page, 2);
 });
 
-/* v1.2.0 forms */
+/* Automod, starboard, appeals and panel forms */
 
 test("word list: one per line, lower-cased, de-duplicated, same length rules as /automod words add", () => {
   assert.deepEqual(parseWordList("Spam\r\n  free nitro \n\nspam\nSPAM"), { list: ["spam", "free nitro"], error: null });
@@ -229,7 +229,7 @@ test("automod exemptions accept visible IDs and previously saved ones only", () 
 test("starboard emoji: one Unicode emoji or a custom emoji", () => {
   for (const e of ["⭐", "🌟", "❤️", "👍🏽", "🇺🇸", "<:aegis:123456789012345678>", "<a:spin:123456789012345678>"]) assert.ok(isStarboardEmoji(e), e);
   for (const e of ["", "star", ":star:", "⭐ ⭐", "<script>", "<:x:1>", "a⭐"]) assert.ok(!isStarboardEmoji(e), e);
-  // The whole value must be one emoji sequence (Codex review on PR #12).
+  // The whole value must be one emoji sequence.
   for (const e of ["⭐1", "⭐⭐", "🌟x", "❤️!", "👍🏽👍", "1", "#", "<:aegis:123456789012345678>x", "⭐\u200b"]) assert.ok(!isStarboardEmoji(e), e);
   for (const e of ["1️⃣", "#️⃣", "👨‍👩‍👧‍👦", "🏳️‍🌈", "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "🧑🏽‍💻"]) assert.ok(isStarboardEmoji(e), e);
   const s = parseStarboard({ threshold: "3", emoji: "", ignoredChannels: CH2, ignoredRoles: [ROLE, HIGH_ROLE] }, ctx);

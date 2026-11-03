@@ -40,7 +40,7 @@ test("stylesheet keeps the phone fixes", () => {
   assert.ok(styles.includes("content: attr(data-label)"));
 });
 
-test("v1.2.0 pages keep the phone layout: labelled table cells and wrap-safe pickers", async () => {
+test("dashboard pages keep the phone layout: labelled table cells and wrap-safe pickers", async () => {
   const { renderActivity, renderAppeals } = await import("../src/web/dashboard/views");
   const viewer = { userId: "900000000000000001", username: "aj", globalName: null, csrf: "x" };
   const ctx: GuildContext = { guild: { id: "800000000000000001", name: "G", memberCount: 1 }, viewer, nameOf: () => null };

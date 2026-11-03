@@ -24,6 +24,7 @@ import { isRoleHierarchyValid, isBotHierarchyValid } from "../../permissions/hie
 import { addModerationCase } from "../../services/moderationCases";
 import { caseActionsRow, modLogRow } from "../../services/modLogLinks";
 import { softFail } from "../../utils/softFail";
+import { dmOutcome, dmSentLabel, dmSentText } from "../../services/dmNotice";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -179,6 +180,7 @@ export const command: Command = {
 
         try {
           // DM before kicking so message can still be delivered
+          let delivered = false;
           if (!silent) {
             const dmEmbed = new EmbedBuilder()
               .setColor(0xE67E22)
@@ -189,9 +191,10 @@ export const command: Command = {
               )
               .setFooter({ text: "If you believe this was a mistake, please contact server staff." })
               .setTimestamp();
-            await target.user.send({ embeds: [dmEmbed] }).catch(softFail(`Kick notice DM to ${target.id}`, "debug"));
+            delivered = (await target.user.send({ embeds: [dmEmbed] }).catch(softFail(`Kick notice DM to ${target.id}`, "debug"))) !== null;
           }
 
+          const dm = dmOutcome(silent, delivered);
           await target.kick(auditReason(`${finalReason} | Kicked by ${interaction.user.tag}`));
 
           const caseId = await addModerationCase({
@@ -211,7 +214,7 @@ export const command: Command = {
               { name: "👤 Member",     value: `${target.user.tag} (<@${target.user.id}>)`, inline: false },
               { name: "📝 Reason",     value: finalReason, inline: false },
               { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
-              { name: "🔕 DM Sent",   value: !silent ? "✅ Yes" : "❌ No (silent)", inline: true },
+              { name: "🔕 DM Sent",   value: dmSentLabel(dm), inline: true },
             )
             .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)
             .setTimestamp();
@@ -225,7 +228,7 @@ export const command: Command = {
           await sendGuildLog(interaction.client, guildId, {
             title: "👢 Member Kicked",
             color: 0xE67E22,
-            description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Reason:** ${finalReason}\n**Moderator:** ${interaction.user.tag}\n**DM Sent:** ${!silent ? "Yes" : "No (silent)"}`,
+            description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Reason:** ${finalReason}\n**Moderator:** ${interaction.user.tag}\n**DM Sent:** ${dmSentText(dm)}`,
           }, "modActions", caseId ? [modLogRow(guildId, target.id, caseId)] : undefined);
         } catch (err) {
           logger.error(`Failed to kick user ${target.user.id} in guild ${guildId}`, err);

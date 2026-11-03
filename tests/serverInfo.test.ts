@@ -1,4 +1,4 @@
-/** 3.7.1 improvements: ticketService split, /serverinfo and /userinfo text helpers, file-size guard. */
+/** ticketService exports, /serverinfo and /userinfo text helpers, and a file-size guard. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -20,7 +20,7 @@ test("ticketService still exports the close/transcript/settings API from its spl
   }
 });
 
-test("files added or split in 3.7.1 stay under 400 lines", () => {
+test("ticket, economy and automod modules stay under 400 lines", () => {
   for (const f of [
     "src/services/ticketService.ts", "src/services/ticketClose.ts", "src/services/ticketSettings.ts",
     "src/services/economyLogic.ts", "src/services/economyStore.ts", "src/services/economyMongo.ts", "src/services/economyService.ts", "src/services/economyDiscord.ts",
@@ -60,4 +60,14 @@ test("timeoutLine and dateAndAgo", () => {
   assert.equal(timeoutLine(now - 1, now), null, "an expired timeout is not shown");
   assert.equal(timeoutLine(now + 60_000, now), `Timed out, ends <t:${(now + 60_000) / 1000}:R>`);
   assert.equal(dateAndAgo(now), `<t:${now / 1000}:D> (<t:${now / 1000}:R>)`);
+});
+
+test("source files outside the dashboard stay under 400 lines", async () => {
+  const { readdirSync } = await import("node:fs");
+  const root = join(__dirname, "..", "src");
+  const big = (readdirSync(root, { recursive: true }) as string[])
+    .filter((f) => f.endsWith(".ts") && !/^web[\\/](dashboard|client)[\\/]/.test(f))
+    .map((f) => [f, readFileSync(join(root, f), "utf8").split("\n").length] as const)
+    .filter(([, n]) => n >= 400);
+  assert.deepEqual(big, []);
 });

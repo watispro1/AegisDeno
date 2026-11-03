@@ -1,7 +1,4 @@
-/**
- * Regression tests for the Codex review findings on PR #18 (dashboard
- * overhaul) and PR #19 (server setup guide).
- */
+/** Embed total-length trimming, /autoresponder toggle, and the commands named in server.md. */
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -13,7 +10,7 @@ import { buildCatalog, clearCatalogCache, type CommandInfo } from "../src/web/ca
 const base: EmbedSpec = { title: null, description: null, color: null, authorName: null, footerText: null, imageUrl: null, thumbnailUrl: null, fields: [] };
 const values = { user: "<@1>", username: "someone", server: "S".repeat(100), memberCount: 5 };
 
-test("PR #18: an embed near the limit stays under 6000 characters after {server} expands", () => {
+test("embed limits: an embed near the limit stays under 6000 characters after {server} expands", () => {
   const spec: EmbedSpec = {
     ...base,
     title: "{server} ".repeat(20).slice(0, 200),
@@ -29,7 +26,7 @@ test("PR #18: an embed near the limit stays under 6000 characters after {server}
   assert.ok(buildEmbedFromSpec(spec, values).length <= EMBED_LIMITS.total);
 });
 
-test("PR #18: trimming drops trailing fields before shortening the description", () => {
+test("embed limits: trimming drops trailing fields before shortening the description", () => {
   const spec: EmbedSpec = {
     ...base,
     description: "Hi {server}",
@@ -42,7 +39,7 @@ test("PR #18: trimming drops trailing fields before shortening the description",
   assert.equal(filled.fields[0].name, "F0", "the first fields are kept");
 });
 
-test("PR #18: an embed that fits is unchanged by the total check", () => {
+test("embed limits: an embed that fits is unchanged by the total check", () => {
   const spec: EmbedSpec = { ...base, title: "Welcome {user}", description: "to {server}", fields: [{ name: "a", value: "b", inline: false }] };
   const filled = fillEmbedSpec(spec, values);
   assert.equal(filled.title, "Welcome <@1>");
@@ -50,14 +47,14 @@ test("PR #18: an embed that fits is unchanged by the total check", () => {
   assert.equal(filled.fields.length, 1);
 });
 
-test("PR #18: /autoresponder toggle checks the save before saying it worked", () => {
+test("embed limits: /autoresponder toggle checks the save before saying it worked", () => {
   const src = fs.readFileSync(path.join(__dirname, "..", "src/commands/autoresponder/autoresponder.ts"), "utf8");
   const toggle = src.slice(src.indexOf('subcommand === "toggle"'));
   assert.match(toggle, /const saved = await setAutoResponderEnabled\(/, "the result is kept");
   assert.ok(toggle.indexOf("if (!saved)") < toggle.indexOf("is now **"), "failure is reported before the success message");
 });
 
-/* PR #19: every slash command named inline in server.md is real */
+/* Every slash command named inline in server.md is real */
 
 let catalog: CommandInfo[] = [];
 before(async () => {
@@ -66,7 +63,7 @@ before(async () => {
   catalog = buildCatalog();
 });
 
-test("PR #19: inline `/command sub` references in server.md name registered commands and subcommands", () => {
+test("setup guide: inline `/command sub` references in server.md name registered commands and subcommands", () => {
   const doc = fs.readFileSync(path.join(__dirname, "..", "server.md"), "utf8");
   const problems: string[] = [];
   doc.split(/\r?\n/).forEach((line, i) => {
@@ -84,7 +81,7 @@ test("PR #19: inline `/command sub` references in server.md name registered comm
   assert.deepEqual(problems, []);
 });
 
-test("PR #19: the setup guide no longer names /config preset or /logging setup", () => {
+test("setup guide: does not name /config preset or /logging setup", () => {
   const doc = fs.readFileSync(path.join(__dirname, "..", "server.md"), "utf8");
   assert.doesNotMatch(doc, /\/config preset/);
   assert.doesNotMatch(doc, /\/logging setup/);

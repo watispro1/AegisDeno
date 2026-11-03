@@ -113,7 +113,7 @@ export const command: Command = {
         title: "✅ Warnings Cleared",
         color: 0x57F287,
         description: `**User:** ${target.tag} (<@${target.id}>)\n**Cleared:** ${summary}\n**Moderator:** ${interaction.user.tag}`,
-      });
+      }, "modActions");
     } catch (err) {
       logger.error(`Failed to clear warnings for user ${target.id} in guild ${guildId}`, err);
       const failure = { content: "❌ Something went wrong while clearing warnings. Check `/warnings` before trying again.", embeds: [], components: [] };

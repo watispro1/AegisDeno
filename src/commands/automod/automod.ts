@@ -160,7 +160,7 @@ export const command: Command = {
             )
             .setTimestamp();
 
-          const buttons = new ActionRowBuilder<any>().addComponents(
+          const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder()
               .setCustomId("am_toggle_words")
               .setLabel(`Words (${cfg.words.enabled ? "ON" : "OFF"})`)

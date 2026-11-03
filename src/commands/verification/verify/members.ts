@@ -1,5 +1,15 @@
 /** Manual verification from /verify: one member (user) or a pasted list of IDs (batch). */
-import { ChatInputCommandInteraction, type Guild, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from "discord.js";
+import {
+  ChatInputCommandInteraction,
+  type Guild,
+  PermissionFlagsBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  MessageFlags,
+} from "discord.js";
 import { scopedModalId } from "../../../utils/modal";
 import { getVerificationConfig } from "../../../services/verificationService";
 

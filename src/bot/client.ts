@@ -38,13 +38,13 @@ import { recordMemberMessage } from "../services/memberActivity";
 import { touchTicketActivity } from "../services/ticketActivity";
 import { isObfuscatedChannel } from "../utils/channels";
 import { DEFAULT_ALLOWED_MENTIONS } from "./mentions";
-import { isContentEdit, shouldAssignWelcomeRole } from "./eventFilters";
+import { isContentEdit } from "./eventFilters";
 import { codeBlock } from "../utils/safeText";
 import { incidentService, joinActionable } from "../services/incidentDiscord";
 import { recordMemberFlow } from "../services/memberFlow";
 import { handleModmailDM, relayPrefixedStaffMessage } from "../services/modmailService";
 import { reconcileDigestTasks } from "../services/digestService";
-import { assignWelcomeRole, sendGoodbye } from "../services/memberGreetings";
+import { assignWelcomeRole, assignWelcomeRoleAfterScreening, sendGoodbye } from "../services/memberGreetings";
 import { handleGuildEntryHelp, sendJoinWelcome } from "../services/entryPoint";
 import { softFail } from "../utils/softFail";
 
@@ -330,15 +330,7 @@ export function setupEvents(client: Client): void {
 
   // Member Update (role changes for Ghost Watch)
   client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-    if (!newMember.pending && (oldMember.pending || oldMember.partial)) {
-      const roleId = (await getGuildConfig(newMember.guild.id).catch(() => null))?.welcomeRoleId;
-      const passedScreening = roleId && shouldAssignWelcomeRole(oldMember, {
-        pending: newMember.pending,
-        joinedTimestamp: newMember.joinedTimestamp,
-        hasRole: newMember.roles.cache.has(roleId),
-      });
-      if (roleId && passedScreening) await assignWelcomeRole(newMember, roleId);
-    }
+    await assignWelcomeRoleAfterScreening(oldMember, newMember);
     watchlistOnRoleChange(client, oldMember, newMember).catch(err =>
       logger.warn("Watchlist roleChange error:", err)
     );

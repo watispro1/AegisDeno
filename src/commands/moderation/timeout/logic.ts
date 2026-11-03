@@ -51,3 +51,13 @@ export function formatDuration(seconds: number): string {
   if (seconds < 604800) return `${seconds / 86400} day${seconds / 86400 !== 1 ? "s" : ""}`;
   return `${seconds / 604800} week${seconds / 604800 !== 1 ? "s" : ""}`;
 }
+
+/**
+ * The "Extend (+1h)" quick action: one more hour from the current expiry (or
+ * from now if the timeout already ended), capped at 28 days from now.
+ */
+export function extendedTimeout(currentUntil: Date | null, nowMs: number, addMs = 3_600_000): { untilMs: number; durationMs: number } {
+  const currentEnd = currentUntil && currentUntil.getTime() > nowMs ? currentUntil.getTime() : nowMs;
+  const untilMs = Math.min(currentEnd + addMs, nowMs + MAX_TIMEOUT_SECONDS * 1000);
+  return { untilMs, durationMs: Math.max(untilMs - nowMs, 60_000) };
+}
