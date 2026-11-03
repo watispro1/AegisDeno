@@ -270,7 +270,7 @@ export const command: Command = {
 
       if (!appeal) {
         await interaction.reply({
-          content: `❌ No pending appeal found for code \`${code}\` under your account.`,
+          content: `❌ No appeal with code \`${code}\` was found for your account. Check the code in the DM Aegis sent when you were banned.`,
           flags: MessageFlags.Ephemeral,
         });
         return;

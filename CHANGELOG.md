@@ -101,6 +101,12 @@ re-inviting from `/invite` grants the rest without kicking the bot.
 - The privacy policy lists what the economy stores and for how long.
 - Internal: the ticket service is split into smaller modules (closing,
   transcripts and auto-close; settings). No behaviour change.
+- `/warn` now lists Kick Members and Ban Members under "some parts use" (its
+  escalations can kick or ban), so `/help`, the commands page and the
+  permission audit match what it does. The invite is unchanged
+  (`1460691659798`); both were already requested for `/kick` and `/ban`.
+- `/appeal submit` with an unknown code now says no appeal with that code was
+  found for your account, instead of "no pending appeal".
 
 ### Fixed
 - **Ticket creation works without Attach Files (top.gg review).** Discord
@@ -198,6 +204,31 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   in servers, and `/help` is registered explicitly for servers and DMs.
 - A `/help` category page with very many commands is cut at Discord's embed
   limit instead of failing to load.
+- **Ban appeals:** an appeal decided by staff while the member was still
+  typing in the appeal form had its text changed afterwards. The text is now
+  saved only while the appeal is pending, and the member is told it was
+  decided. Closing the form is no longer logged as an error.
+- **Escalation:** when a warning reached a timeout or kick threshold after the
+  member had already left, `/warn` said the action was "applied
+  automatically" although nothing happened. It now reports no escalation.
+  Escalation bans also carry the audit-log reason like the other actions.
+- **`/warn` quick timeout** now records a moderation case and a mod-log entry
+  (it left no record before), and a second press doesn't time the member out
+  twice.
+- **`/warn` history button** failed for members with many long warnings (the
+  reply passed Discord's 2,000-character limit). Reasons are shortened in
+  that list.
+- **`/watchlist list`** failed with a long watch list (over Discord's
+  4,096-character embed limit). It shows the newest 25 and counts the rest.
+- **Reminder snooze:** pressing Snooze twice quickly created two reminders.
+- **ModMail:** a second DM sent while Aegis was still opening the
+  conversation was dropped with ⚠️. It now waits for the thread and is
+  relayed.
+- **Member joins:** if the server's settings couldn't be read (a brief
+  database error), the verification auto-kick for that join was skipped
+  along with the welcome. Only the welcome is skipped now.
+- `/sync` (owner only) could fail once the list of registered commands passed
+  Discord's 1,024-character field limit; the list is now shortened to fit.
 
 ### Security
 - Every balance change is one atomic database update with its guard in the
