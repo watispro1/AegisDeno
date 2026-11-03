@@ -23,6 +23,7 @@ import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid, isBotHierarchyValid } from "../../permissions/hierarchy";
 import { addModerationCase } from "../../services/moderationCases";
 import { caseActionsRow, modLogRow } from "../../services/modLogLinks";
+import { softFail } from "../../utils/softFail";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -188,7 +189,7 @@ export const command: Command = {
               )
               .setFooter({ text: "If you believe this was a mistake, please contact server staff." })
               .setTimestamp();
-            await target.user.send({ embeds: [dmEmbed] }).catch(() => null);
+            await target.user.send({ embeds: [dmEmbed] }).catch(softFail(`Kick notice DM to ${target.id}`, "debug"));
           }
 
           await target.kick(auditReason(`${finalReason} | Kicked by ${interaction.user.tag}`));

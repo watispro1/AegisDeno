@@ -38,7 +38,7 @@ import { recordMemberMessage } from "../services/memberActivity";
 import { touchTicketActivity } from "../services/ticketActivity";
 import { isObfuscatedChannel } from "../utils/channels";
 import { DEFAULT_ALLOWED_MENTIONS } from "./mentions";
-import { isContentEdit } from "./eventFilters";
+import { isContentEdit, shouldAssignWelcomeRole } from "./eventFilters";
 import { codeBlock } from "../utils/safeText";
 import { incidentService, joinActionable } from "../services/incidentDiscord";
 import { recordMemberFlow } from "../services/memberFlow";
@@ -46,6 +46,7 @@ import { handleModmailDM, relayPrefixedStaffMessage } from "../services/modmailS
 import { reconcileDigestTasks } from "../services/digestService";
 import { assignWelcomeRole, sendGoodbye } from "../services/memberGreetings";
 import { handleGuildEntryHelp, sendJoinWelcome } from "../services/entryPoint";
+import { softFail } from "../utils/softFail";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -317,7 +318,7 @@ export function setupEvents(client: Client): void {
         const content = renderTemplate(config.welcomeMessage, values).slice(0, 2000);
         const embeds = config.welcomeEmbed ? [buildEmbedFromSpec(config.welcomeEmbed, values)] : [];
         // Only the joining member may be pinged by a welcome; never roles or @everyone.
-        await channel.send({ content: content || undefined, embeds, allowedMentions: { users: [member.user.id] } }).catch(() => null);
+        await channel.send({ content: content || undefined, embeds, allowedMentions: { users: [member.user.id] } }).catch(softFail(`Welcome message in guild ${member.guild.id}`));
       }
     }
 
@@ -329,9 +330,14 @@ export function setupEvents(client: Client): void {
 
   // Member Update (role changes for Ghost Watch)
   client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-    if (oldMember.pending && !newMember.pending) {
+    if (!newMember.pending && (oldMember.pending || oldMember.partial)) {
       const roleId = (await getGuildConfig(newMember.guild.id).catch(() => null))?.welcomeRoleId;
-      if (roleId) await assignWelcomeRole(newMember, roleId);
+      const passedScreening = roleId && shouldAssignWelcomeRole(oldMember, {
+        pending: newMember.pending,
+        joinedTimestamp: newMember.joinedTimestamp,
+        hasRole: newMember.roles.cache.has(roleId),
+      });
+      if (roleId && passedScreening) await assignWelcomeRole(newMember, roleId);
     }
     watchlistOnRoleChange(client, oldMember, newMember).catch(err =>
       logger.warn("Watchlist roleChange error:", err)

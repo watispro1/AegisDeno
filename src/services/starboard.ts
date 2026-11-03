@@ -21,6 +21,7 @@ import {
 import { effectiveStarCount, pickStarboardMedia } from "./communityLogic";
 import { TtlCache } from "../utils/ttlCache";
 import { channelDisplayName } from "../utils/channels";
+import { softFail } from "../utils/softFail";
 
 // Types
 
@@ -223,7 +224,7 @@ export async function handleStarReaction(
     await updateStarCount(guildId, message.id, count);
   } else {
     const { content, embeds } = buildStarboardEmbed(message, count, config.emoji);
-    const posted = await starboardChannel.send({ content, embeds }).catch(() => null);
+    const posted = await starboardChannel.send({ content, embeds }).catch(softFail(`Starboard post in guild ${guildId}`));
     if (!posted) return;
 
     await createStarboardEntry({

@@ -4,6 +4,9 @@
   "description": "Aegis - Discord moderation bot",
   "main": "dist/main.js",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "npm run test:unit && npm run build && npx tsx scripts/smoke-web.ts",
     "test:unit": "tsx --test tests/*.test.ts",
@@ -21,14 +24,14 @@
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
-    "discord.js": "^14.27.0",
-    "dotenv": "^18.0.4",
-    "express": "^5.2.1",
-    "mongoose": "^9.10.3"
+    "discord.js": "^14.28.0",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "mongoose": "^9.11.4"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

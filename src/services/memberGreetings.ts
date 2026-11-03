@@ -4,6 +4,7 @@ import { logger } from "../utils/logger";
 import { getGuildConfig } from "./configuration";
 import { buildEmbedFromSpec, renderTemplate } from "./embedSpec";
 import { isObfuscatedChannel } from "../utils/channels";
+import { softFail } from "../utils/softFail";
 
 /**
  * Gives a new member the welcome auto-role. Adding a role during membership
@@ -38,5 +39,5 @@ export async function sendGoodbye(member: GuildMember | PartialGuildMember): Pro
   const content = renderTemplate(config.goodbyeMessage ?? "", values).slice(0, 2000);
   const embeds = config.goodbyeEmbed ? [buildEmbedFromSpec(config.goodbyeEmbed, values)] : [];
   if (!content && embeds.length === 0) return;
-  await channel.send({ content: content || undefined, embeds, allowedMentions: { parse: [] } }).catch(() => null);
+  await channel.send({ content: content || undefined, embeds, allowedMentions: { parse: [] } }).catch(softFail(`Goodbye message in guild ${member.guild.id}`));
 }
