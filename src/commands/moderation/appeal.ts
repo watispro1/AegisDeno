@@ -316,8 +316,19 @@ export const command: Command = {
         });
 
         const appealText = modalSubmit.fields.getTextInputValue("appeal_text").trim();
-        appeal.appealText = appealText;
-        await appeal.save();
+        // Staff may decide the appeal while the form is open; only a still-pending
+        // appeal takes the new text (a plain save() edited decided appeals too).
+        const saved = await BanAppealModel.updateOne(
+          { _id: appeal._id, userId: interaction.user.id, status: "pending" },
+          { $set: { appealText } },
+        );
+        if (saved.matchedCount === 0) {
+          await modalSubmit.reply({
+            content: `❌ Appeal \`${code}\` was decided while you were writing, so your text was not saved.`,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
 
         await modalSubmit.reply({
           embeds: [
@@ -334,7 +345,9 @@ export const command: Command = {
           flags: MessageFlags.Ephemeral,
         });
       } catch (err) {
-        logger.error("Appeal modal submit timeout", err);
+        // Closing the form or letting it time out is normal, not an error.
+        if ((err as { code?: string } | null)?.code === "InteractionCollectorError") return;
+        logger.error("Appeal submission failed", err);
       }
     }
   },

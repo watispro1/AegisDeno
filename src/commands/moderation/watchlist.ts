@@ -14,7 +14,11 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { WatchlistEntryModel } from "../../database/mongo";
+import { fitLines } from "../../utils/safeText";
 import { updateWatchCache, removeWatchFromCache, resolveWatchEvents } from "../../services/watchlistService";
+
+/** Most watches /watchlist list shows; the rest are counted. */
+export const WATCHLIST_LIST_MAX = 25;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -216,8 +220,11 @@ export const command: Command = {
         return;
       }
 
+      // A long list used to overflow Discord's 4096-character description limit
+      // and fail the whole reply; show the newest WATCHLIST_LIST_MAX instead.
+      const shown = entries.slice(0, WATCHLIST_LIST_MAX);
       const lines = await Promise.all(
-        entries.map(async (e, idx) => {
+        shown.map(async (e, idx) => {
           let tag = `<@${e.targetId}>`;
           try {
             const u = await interaction.client.users.fetch(e.targetId);
@@ -231,7 +238,7 @@ export const command: Command = {
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
         .setTitle(`🕵️ Your Ghost-Watch List — ${entries.length} member(s)`)
-        .setDescription(lines.join("\n"))
+        .setDescription(fitLines(lines, entries.length))
         .setFooter({ text: "Alerts go to your DMs (and the watch's alert channel, if set). Members are never notified." })
         .setTimestamp();
 

@@ -6,6 +6,7 @@ import {
   Routes,
   MessageFlags,
 } from "discord.js";
+import { truncate } from "../../utils/safeText";
 import { Command } from "../../types/discord";
 import { BOT_OWNER_IDS } from "../../config/env";
 import { loadCommands, commands } from "../loader";
@@ -92,7 +93,7 @@ export const command: Command = {
           { name: "Scope",           value: registeredScope,  inline: false },
           {
             name: "Commands Registered",
-            value: Array.from(commands.keys()).map(n => `\`/${n}\``).join(", ") || "None",
+            value: truncate(Array.from(commands.keys()).map(n => `\`/${n}\``).join(", "), 1024) || "None",
           },
         )
         .setFooter({ text: `Synced by ${interaction.user.tag}` })

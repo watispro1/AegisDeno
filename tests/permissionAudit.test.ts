@@ -39,7 +39,7 @@ const AUDIT: Record<string, Audit> = {
   timeout: { bot: ["ModerateMembers"], feature: [] },
   trust: { bot: [], feature: ["ManageRoles"] },
   unban: { bot: ["BanMembers"], feature: [] },
-  warn: { bot: [], feature: ["ModerateMembers"] },
+  warn: { bot: [], feature: ["ModerateMembers", "KickMembers", "BanMembers"] },
   automod: { bot: [], feature: ["ManageMessages", "ModerateMembers"] },
   welcome: { bot: [], feature: ["ManageRoles"] },
   announce: { bot: ["SendMessages", "EmbedLinks"], feature: [] },

@@ -3,7 +3,7 @@
  *
  * customId (unchanged): remindsnooze_<userId>_<minutes>
  */
-import { MessageFlags } from "discord.js";
+import { MessageFlags, type ButtonInteraction } from "discord.js";
 import type { ComponentRoute } from "./router";
 import { encodePersonalReminder, parseReminderSnoozeCustomId } from "../../services/timedActions";
 import { createTask, getTasksForCreator } from "../../services/scheduler";
@@ -11,6 +11,13 @@ import { scheduleTask } from "../../services/schedulerRunner";
 
 /** Pending reminders a single user may hold (matches /remindme). */
 const MAX_PENDING_REMINDERS_PER_USER = 25;
+
+/**
+ * Delivered reminders being snoozed right now. A quick double press used to
+ * create two reminders, because the buttons are only removed after the first
+ * snooze is saved.
+ */
+export const snoozingMessages = new Set<string>();
 
 export const reminderRoutes: ComponentRoute[] = [
   {
@@ -32,6 +39,22 @@ export const reminderRoutes: ComponentRoute[] = [
         return;
       }
 
+      const lockKey = interaction.message.id;
+      if (snoozingMessages.has(lockKey)) {
+        await interaction.reply({ content: "💤 Already snoozing this reminder.", flags: MessageFlags.Ephemeral }).catch(() => null);
+        return;
+      }
+      snoozingMessages.add(lockKey);
+      try {
+        await snooze(interaction, parsed.minutes, text, sourceName);
+      } finally {
+        snoozingMessages.delete(lockKey);
+      }
+    },
+  },
+];
+
+async function snooze(interaction: ButtonInteraction, minutes: number, text: string, sourceName: string): Promise<void> {
       const pending = await getTasksForCreator(interaction.user.id, "personal_reminder");
       if (pending.length >= MAX_PENDING_REMINDERS_PER_USER) {
         await interaction.reply({
@@ -41,7 +64,7 @@ export const reminderRoutes: ComponentRoute[] = [
         return;
       }
 
-      const fireAt = new Date(Date.now() + parsed.minutes * 60_000);
+      const fireAt = new Date(Date.now() + minutes * 60_000);
       const task = await createTask(
         interaction.guildId ?? "dm",
         interaction.channelId,
@@ -59,6 +82,4 @@ export const reminderRoutes: ComponentRoute[] = [
         content: `💤 Snoozed. I'll remind you again <t:${ts}:R>.`,
         flags: interaction.guildId ? MessageFlags.Ephemeral : undefined,
       }).catch(() => null);
-    },
-  },
-];
+}

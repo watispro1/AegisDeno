@@ -301,19 +301,16 @@ export function setupEvents(client: Client): void {
 
     // Ghost Watch — notify watchers on join
     watchlistOnJoin(client, member).catch(err => logger.warn("Watchlist join error:", err));
-
     if (gate.act !== "none") return;
 
     // Opt-in Trust Score low-trust role (off unless configured with /trust config).
     applyLowTrustRole(member).catch(err => logger.warn(`Low-trust role check failed in ${member.guild.id}:`, err));
-
-    // Welcome message and Auto-role
-    const config = await getGuildConfig(member.guild.id);
-    
+    // Welcome and auto-role. A failed settings read skips only these, not the verification auto-kick below.
+    const config = await getGuildConfig(member.guild.id).catch((err) => { logger.warn(`Welcome skipped in ${member.guild.id}: settings unavailable`, err); return null; });
     // Members still behind Discord's membership screening get the role once they pass it (see GuildMemberUpdate).
-    if (config.welcomeRoleId && !member.pending) await assignWelcomeRole(member, config.welcomeRoleId);
+    if (config?.welcomeRoleId && !member.pending) await assignWelcomeRole(member, config.welcomeRoleId);
 
-    if (config.welcomeEnabled && config.welcomeChannelId) {
+    if (config?.welcomeEnabled && config.welcomeChannelId) {
       let channel = member.guild.channels.cache.get(config.welcomeChannelId) as TextChannel | undefined;
       if (!channel) {
         channel = (await member.guild.channels.fetch(config.welcomeChannelId).catch(() => null)) as TextChannel | null ?? undefined;
