@@ -1,5 +1,6 @@
 import { guardCollect } from "../../utils/collectorGuard";
-import { auditReason } from "../../utils/safeText";
+import { auditReason, truncate } from "../../utils/safeText";
+import { addModerationCase } from "../../services/moderationCases";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -170,6 +171,7 @@ export const command: Command = {
         time: UNDO_WINDOW_MS,
       });
 
+      let quickTimedOut = false;
       collector.on("collect", (i) => guardCollect("warn", i, async () => {
         if (!canPressUndo("warn", i.memberPermissions)) {
           await i.reply({ content: "❌ Only moderators can use these buttons.", flags: MessageFlags.Ephemeral });
@@ -180,11 +182,12 @@ export const command: Command = {
           if (userWarns.length === 0) {
             await i.reply({ content: `✅ <@${target.id}> has zero warnings on record.`, flags: MessageFlags.Ephemeral });
           } else {
+            // Ten 512-character reasons overflowed the 2000-character message limit.
             const historyText = userWarns
               .slice(0, 10)
-              .map((w, idx) => `**${idx + 1}.** \`${w.reason}\` — Mod: <@${w.moderatorId}> (<t:${Math.floor(new Date(w.createdAt).getTime() / 1000)}:R>)`)
+              .map((w, idx) => `**${idx + 1}.** \`${truncate(String(w.reason).replace(/`/g, "'"), 120)}\` — Mod: <@${w.moderatorId}> (<t:${Math.floor(new Date(w.createdAt).getTime() / 1000)}:R>)`)
               .join("\n");
-            await i.reply({ content: `📜 **Warning History for <@${target.id}> (${userWarns.length}):**\n${historyText}`, flags: MessageFlags.Ephemeral });
+            await i.reply({ content: truncate(`📜 **Warning History for <@${target.id}> (${userWarns.length}):**\n${historyText}`, 2000), flags: MessageFlags.Ephemeral });
           }
         } else if (i.customId.startsWith("warn_undo_")) {
           if (!isUndoWindowOpen(issuedAt, Date.now())) {
@@ -221,7 +224,15 @@ export const command: Command = {
             await i.reply({ content: "❌ Cannot timeout member — they may have left or have higher roles than the bot.", flags: MessageFlags.Ephemeral });
             return;
           }
+          if (quickTimedOut) {
+            await i.reply({ content: "⏱️ This member was already given the 10-minute timeout.", flags: MessageFlags.Ephemeral });
+            return;
+          }
+          quickTimedOut = true;
           await member.timeout(10 * 60 * 1000, auditReason(`Quick escalation from warn: ${reason} (by ${i.user.tag})`));
+          // The quick timeout left no case or log entry before.
+          await addModerationCase({ guildId, userId: target.id, moderatorId: i.user.id, action: "timeout", reason: `Quick timeout from warning: ${reason}`, details: "Duration: 10m" }).catch(err => logger.warn("Quick timeout case failed:", err));
+          await sendGuildLog(interaction.client, guildId, { title: "⏱️ Quick Timeout (10m)", color: 0xFFA500, description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**By:** ${i.user.tag}` }, "modActions");
           buttons.components[2].setDisabled(true).setLabel("Timed Out (10m)");
           await interaction.editReply({ embeds: [embed], components: [buttons] }).catch(() => null);
           await i.reply({ content: `⚡ **<@${target.id}>** has been placed in a **10-minute timeout** by <@${i.user.id}>.` });

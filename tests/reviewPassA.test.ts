@@ -62,3 +62,16 @@ test("files touched in review pass A stay under 400 lines", () => {
     assert.ok(src(f).split("\n").length < 400, f);
   }
 });
+
+test("/warn history button: reasons are clipped so the reply stays under 2000 characters", () => {
+  const s = src("src/commands/moderation/warn.ts");
+  assert.match(s, /truncate\(String\(w\.reason\)\.replace\(\/`\/g, "'"\), 120\)/);
+  assert.match(s, /content: truncate\(`📜 \*\*Warning History[^\n]*, 2000\)/);
+});
+
+test("/warn quick timeout: records a case and a mod-log entry, once", () => {
+  const s = src("src/commands/moderation/warn.ts");
+  assert.match(s, /addModerationCase\(\{ guildId, userId: target\.id, moderatorId: i\.user\.id, action: "timeout"/);
+  assert.match(s, /title: "⏱️ Quick Timeout \(10m\)"/);
+  assert.match(s, /if \(quickTimedOut\)/);
+});
