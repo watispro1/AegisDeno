@@ -75,3 +75,19 @@ test("/warn quick timeout: records a case and a mod-log entry, once", () => {
   assert.match(s, /title: "⏱️ Quick Timeout \(10m\)"/);
   assert.match(s, /if \(quickTimedOut\)/);
 });
+
+test("modmail: a DM sent while the thread is still being created waits for it instead of failing", async () => {
+  const { awaitThreadId } = await import("../src/services/modmailService");
+  let calls = 0;
+  const id = await awaitThreadId("pending", async () => (++calls < 3 ? "pending" : "123456789012345678"), 10, 1);
+  assert.equal(id, "123456789012345678");
+  assert.equal(calls, 3);
+  assert.equal(await awaitThreadId("pending", async () => "pending", 3, 1), null);
+  assert.equal(await awaitThreadId("999", async () => { throw new Error("no reload"); }, 3, 1), "999");
+});
+
+test("modmail: a duplicate open relays into the conversation that won the race", () => {
+  const s = src("src/services/modmailService.ts");
+  assert.match(s, /duplicate: true \}/);
+  assert.match(s, /else if \(opened\.duplicate\)/);
+});
