@@ -47,7 +47,7 @@ export const command: Command = {
     .setDescription("Configure or inspect the server's starboard.")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
 
-    // ── setup ──────────────────────────────────────────────────────────────
+    // setup
     .addSubcommand((sub) =>
       sub
         .setName("setup")
@@ -61,7 +61,7 @@ export const command: Command = {
         ),
     )
 
-    // ── threshold ──────────────────────────────────────────────────────────
+    // threshold
     .addSubcommand((sub) =>
       sub
         .setName("threshold")
@@ -76,7 +76,7 @@ export const command: Command = {
         ),
     )
 
-    // ── emoji ──────────────────────────────────────────────────────────────
+    // emoji
     .addSubcommand((sub) =>
       sub
         .setName("emoji")
@@ -89,7 +89,7 @@ export const command: Command = {
         ),
     )
 
-    // ── selfstar ───────────────────────────────────────────────────────────
+    // selfstar
     .addSubcommand((sub) =>
       sub
         .setName("selfstar")
@@ -102,7 +102,7 @@ export const command: Command = {
         ),
     )
 
-    // ── ignore ─────────────────────────────────────────────────────────────
+    // ignore
     .addSubcommand((sub) =>
       sub
         .setName("ignore")
@@ -131,7 +131,7 @@ export const command: Command = {
         ),
     )
 
-    // ── list ───────────────────────────────────────────────────────────────
+    // list
     .addSubcommand((sub) =>
       sub
         .setName("list")
@@ -146,14 +146,14 @@ export const command: Command = {
         ),
     )
 
-    // ── config ─────────────────────────────────────────────────────────────
+    // config
     .addSubcommand((sub) =>
       sub
         .setName("config")
         .setDescription("Show the current starboard configuration."),
     )
 
-    // ── toggle ─────────────────────────────────────────────────────────────
+    // toggle
     .addSubcommand((sub) =>
       sub
         .setName("toggle")
@@ -183,7 +183,7 @@ export const command: Command = {
     const sub = interaction.options.getSubcommand();
     const guildId = interaction.guildId;
 
-    // ── /starboard setup ──────────────────────────────────────────────────
+    // /starboard setup
     if (sub === "setup") {
       const picked = interaction.options.getChannel("channel", true);
       const channel = (interaction.guild?.channels.cache.get(picked.id)
@@ -213,7 +213,7 @@ export const command: Command = {
       return;
     }
 
-    // ── /starboard threshold ──────────────────────────────────────────────
+    // /starboard threshold
     if (sub === "threshold") {
       const count = interaction.options.getInteger("count", true);
       await updateStarboardConfig(guildId, { threshold: count });
@@ -224,7 +224,7 @@ export const command: Command = {
       return;
     }
 
-    // ── /starboard emoji ──────────────────────────────────────────────────
+    // /starboard emoji
     if (sub === "emoji") {
       const emoji = interaction.options.getString("emoji", true).trim();
       await updateStarboardConfig(guildId, { emoji });
@@ -235,7 +235,7 @@ export const command: Command = {
       return;
     }
 
-    // ── /starboard selfstar ───────────────────────────────────────────────
+    // /starboard selfstar
     if (sub === "selfstar") {
       const allowed = interaction.options.getBoolean("allowed", true);
       await updateStarboardConfig(guildId, { selfStar: allowed });
@@ -246,7 +246,7 @@ export const command: Command = {
       return;
     }
 
-    // ── /starboard ignore ─────────────────────────────────────────────────
+    // /starboard ignore
     if (sub === "ignore") {
       const action = interaction.options.getString("action", true) as "add" | "remove";
       const channel = interaction.options.getChannel("channel");
@@ -289,7 +289,7 @@ export const command: Command = {
       return;
     }
 
-    // ── /starboard list ───────────────────────────────────────────────────
+    // /starboard list
     if (sub === "list") {
       const limit = interaction.options.getInteger("limit") ?? 10;
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -315,7 +315,7 @@ export const command: Command = {
       return;
     }
 
-    // ── /starboard config ─────────────────────────────────────────────────
+    // /starboard config
     if (sub === "config") {
       const config = await getStarboardConfig(guildId);
 
@@ -346,7 +346,7 @@ export const command: Command = {
       return;
     }
 
-    // ── /starboard toggle ─────────────────────────────────────────────────
+    // /starboard toggle
     if (sub === "toggle") {
       const enabled = interaction.options.getBoolean("enabled", true);
       await updateStarboardConfig(guildId, { enabled });

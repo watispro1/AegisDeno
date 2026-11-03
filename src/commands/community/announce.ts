@@ -20,7 +20,7 @@ import { isSendableChannel } from "../../utils/channels";
 import { sendGuildLog } from "../../services/logging";
 import { logger } from "../../utils/logger";
 
-// ─── Color presets ─────────────────────────────────────────────────────────────
+// Color presets
 
 const COLOR_CHOICES = [
   { name: "🔵 Aegis Blue",   value: "0x3498DB" },
@@ -38,8 +38,6 @@ const PING_CHOICES = [
   { name: "@everyone", value: "everyone" },
   { name: "@here",     value: "here"     },
 ];
-
-// ─── Command ─────────────────────────────────────────────────────────────────
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -97,7 +95,6 @@ export const command: Command = {
     const suppressAuthor = interaction.options.getBoolean("suppress_author") ?? false;
     const crosspost      = interaction.options.getBoolean("crosspost") ?? false;
 
-    // Validate channel is sendable
     if (!isSendableChannel(channel)) {
       return interaction.reply({ content: "❌ Please select a text channel.", flags: MessageFlags.Ephemeral });
     }
@@ -106,7 +103,6 @@ export const command: Command = {
     const refusal = postRefusal(await memberPermsIn(interaction, channel.id), channel.id, { pingEveryone: pingChoice === "everyone" || pingChoice === "here" });
     if (refusal) return interaction.reply({ content: `❌ ${refusal}`, flags: MessageFlags.Ephemeral });
 
-    // Check bot perms in target channel
     const me = interaction.guild?.members.me;
     if (me && "permissionsFor" in channel) {
       const perms = channel.permissionsFor(me);
@@ -138,7 +134,6 @@ export const command: Command = {
     if (pingChoice === "everyone") pingContent = "@everyone";
     if (pingChoice === "here")     pingContent = "@here";
 
-    // Preview before sending
     const previewRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId("ann_send")
@@ -244,7 +239,7 @@ export const command: Command = {
             allowedMentions: { parse: pingContent ? ["everyone"] : [] },
           });
 
-          // Crosspost if announcement channel
+          // Publish to followers in announcement channels
           if (crosspost && "crosspost" in sent && typeof sent.crosspost === "function") {
             await sent.crosspost().catch(() => null);
           }

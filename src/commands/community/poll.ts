@@ -9,8 +9,6 @@ import { isSendableChannel } from "../../utils/channels";
 import { registerPoll, renderPollComponents, renderPollEmbed } from "../../services/polls";
 import { logger } from "../../utils/logger";
 
-// ─── Command ─────────────────────────────────────────────────────────────────
-
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("poll")

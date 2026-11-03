@@ -138,7 +138,7 @@ export const command: Command = {
     try {
       const config = await getAutomodConfig(guildId);
 
-      // ── status ──────────────────────────────────────────────────────────────
+      // status
       if (sub === "status") {
         const buildStatusPayload = (cfg: typeof config) => {
           const exemptRoles    = cfg.exemptRoleIds.map(id => `<@&${id}>`).join(", ") || "None";
@@ -211,7 +211,7 @@ export const command: Command = {
         return;
       }
 
-      // ── words ───────────────────────────────────────────────────────────────
+      // words
       if (group === "words") {
         if (sub === "toggle") {
           config.words.enabled = interaction.options.getBoolean("enabled", true);
@@ -254,7 +254,7 @@ export const command: Command = {
         }
       }
 
-      // ── links ───────────────────────────────────────────────────────────────
+      // links
       if (group === "links") {
         if (sub === "toggle") {
           config.links.enabled = interaction.options.getBoolean("enabled", true);
@@ -270,7 +270,7 @@ export const command: Command = {
         }
       }
 
-      // ── mentions ─────────────────────────────────────────────────────────────
+      // mentions
       if (group === "mentions") {
         if (sub === "toggle") {
           config.mentions.enabled = interaction.options.getBoolean("enabled", true);
@@ -292,7 +292,7 @@ export const command: Command = {
         }
       }
 
-      // ── spam ─────────────────────────────────────────────────────────────────
+      // spam
       if (group === "spam") {
         if (sub === "toggle") {
           config.spam.enabled = interaction.options.getBoolean("enabled", true);
@@ -315,7 +315,7 @@ export const command: Command = {
         }
       }
 
-      // ── caps (beta) ──────────────────────────────────────────────────────────
+      // caps (beta)
       if (group === "caps") {
         if (sub === "toggle") {
           config.caps.enabled = interaction.options.getBoolean("enabled", true);
@@ -337,7 +337,7 @@ export const command: Command = {
         }
       }
 
-      // ── exempt ───────────────────────────────────────────────────────────────
+      // exempt
       if (group === "exempt") {
         const kind = sub.endsWith("role") ? "role" : "channel";
         const id = kind === "role" ? interaction.options.getRole("role", true).id : interaction.options.getChannel("channel", true).id;

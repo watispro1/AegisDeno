@@ -22,7 +22,7 @@ import { Command } from "../../types/discord";
 import { BanAppealModel } from "../../database/mongo";
 import { APPEAL_STATUS_LABELS, reviewBanAppeal } from "../../services/appeals";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 /** Generates a random alphanumeric appeal code, e.g. "AGS-K7X2". */
 export function generateAppealCode(): string {
@@ -33,8 +33,6 @@ export function generateAppealCode(): string {
 }
 
 const STATUS_LABELS: Record<string, { emoji: string; color: number; label: string }> = APPEAL_STATUS_LABELS;
-
-// ─── Command ─────────────────────────────────────────────────────────────────
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -126,7 +124,7 @@ export const command: Command = {
       }
     }
 
-    // ── LIST ───────────────────────────────────────────────────────────────
+    // List
     if (sub === "list") {
       const statusFilter = interaction.options.getString("status") ?? "pending";
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -168,7 +166,7 @@ export const command: Command = {
       await interaction.editReply({ embeds: [embed] });
     }
 
-    // ── VIEW ───────────────────────────────────────────────────────────────
+    // View
     else if (sub === "view") {
       const code = interaction.options.getString("code", true).toUpperCase();
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -220,7 +218,7 @@ export const command: Command = {
       await interaction.editReply({ embeds: [embed] });
     }
 
-    // ── REVIEW ─────────────────────────────────────────────────────────────
+    // Review
     else if (sub === "review") {
       const code     = interaction.options.getString("code", true).toUpperCase();
       const decision = interaction.options.getString("decision", true) as "approved" | "denied";
@@ -262,10 +260,10 @@ export const command: Command = {
       });
     }
 
-    // ── SUBMIT ─────────────────────────────────────────────────────────────
+    // Submit
     else if (sub === "submit") {
       const code = interaction.options.getString("code", true).toUpperCase();
-      // Find appeal — must be for this user (no guildId check needed — the user was banned so they're outside)
+      // Match on the user only: they were banned, so this runs outside the guild.
       const appeal = (await BanAppealModel.findOne({ appealCode: code, userId: interaction.user.id })) as any;
 
       if (!appeal) {
@@ -287,7 +285,6 @@ export const command: Command = {
         return;
       }
 
-      // Show a modal for the appeal text
       const modal = new ModalBuilder()
         .setCustomId(scopedModalId(`appeal_modal_${code}`, interaction.id))
         .setTitle("Submit Your Ban Appeal");
@@ -308,7 +305,6 @@ export const command: Command = {
       modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(appealInput));
       await interaction.showModal(modal);
 
-      // Wait for modal submission
       try {
         const modalSubmit: ModalSubmitInteraction = await interaction.awaitModalSubmit({
           time: 5 * 60_000,

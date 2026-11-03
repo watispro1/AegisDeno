@@ -20,7 +20,7 @@ import { auditReason } from "../../utils/safeText";
 import { sendGuildLog } from "../../services/logging";
 import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 
-// ─── Slowmode presets ─────────────────────────────────────────────────────────
+// Slowmode presets
 
 const PRESET_CHOICES = [
   { name: "Off (disabled)",   value: 0    },
@@ -50,8 +50,6 @@ export const SLOWMODE_CHANNEL_TYPES = [
   ChannelType.GuildVoice, ChannelType.GuildStageVoice,
   ChannelType.PublicThread, ChannelType.PrivateThread, ChannelType.AnnouncementThread,
 ] as const;
-
-// ─── Command ─────────────────────────────────────────────────────────────────
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -121,7 +119,7 @@ export const command: Command = {
       return interaction.reply({ content: "❌ Slowmode can only be set on text channels.", flags: MessageFlags.Ephemeral });
     }
 
-    // ── /slowmode check ────────────────────────────────────────────────────
+    // /slowmode check
     if (sub === "check") {
       const currentRate = (targetChan as TextChannel).rateLimitPerUser ?? 0;
       const embed = new EmbedBuilder()
@@ -137,7 +135,7 @@ export const command: Command = {
       return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 
-    // ── /slowmode set / custom ─────────────────────────────────────────────
+    // /slowmode set / custom
     // Server-wide Manage Channels isn't enough when the channel's overwrites deny
     // it: check the member (and Aegis) in this channel, as Discord itself would.
     const memberPerms = interaction.inCachedGuild()
@@ -178,7 +176,6 @@ export const command: Command = {
         )
         .setTimestamp();
 
-      // Quick-adjust buttons
       const buildQuickRow = (rate: number) =>
         new ActionRowBuilder<ButtonBuilder>().addComponents(
           new ButtonBuilder()
@@ -232,7 +229,6 @@ export const command: Command = {
         description: `**Channel:** <#${targetChan.id}>\n**Duration:** ${formatDuration(seconds)}\n**Reason:** ${reason}\n**Set By:** ${interaction.user.tag}`,
       });
 
-      // Collect quick-adjust clicks
       const quickPresets: Record<string, number> = { off: 0, "5s": 5, "30s": 30, "5m": 300, "1h": 3600 };
       const collector = sent.createMessageComponentCollector({
         componentType: ComponentType.Button,

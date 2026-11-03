@@ -1,7 +1,6 @@
 import { inspect } from "node:util";
 
 export function setupLogger() {
-  // Logger is ready by default
 }
 
 const timestamp = () => new Date().toISOString();

@@ -56,20 +56,18 @@ export const command: Command = {
       await loadCommands();
       const after = commands.size;
 
-      // Update client.commands collection
       interaction.client.commands.clear();
       for (const [name, cmd] of commands) {
         interaction.client.commands.set(name, cmd);
       }
 
-      // Re-register with Discord
       const rest = new REST({ version: "10" }).setToken(TOKEN);
       const commandData = commandRegistrationData();
 
       let registeredScope: string;
 
       if (guildOnly && targetGuildId) {
-        // Clear global first to avoid duplicates
+        // Clear global commands first or they show up twice
         await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: [] });
         await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, targetGuildId), { body: commandData });
         registeredScope = `Guild \`${targetGuildId}\` (instant)`;

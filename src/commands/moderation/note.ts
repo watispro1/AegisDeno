@@ -98,7 +98,7 @@ export const command: Command = {
     const sub = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
 
-    // ── ADD via modal ─────────────────────────────────────────────────────────
+    // add (modal)
     if (sub === "add") {
       const target = interaction.options.getUser("user", true);
 
@@ -162,7 +162,7 @@ export const command: Command = {
       return;
     }
 
-    // ── VIEW with pagination + quick-delete buttons ───────────────────────────
+    // view, paged, with delete buttons
     if (sub === "view") {
       const target = interaction.options.getUser("user", true);
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -302,7 +302,7 @@ export const command: Command = {
       return;
     }
 
-    // ── DELETE by ID ──────────────────────────────────────────────────────────
+    // delete by ID
     if (sub === "delete") {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       try {
@@ -352,7 +352,7 @@ export const command: Command = {
       return;
     }
 
-    // ── CLEAR ALL ─────────────────────────────────────────────────────────────
+    // Clear all
     if (sub === "clear") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
         return interaction.reply({ content: "❌ Clearing all notes requires **Manage Server** permission.", flags: MessageFlags.Ephemeral });
@@ -369,7 +369,6 @@ export const command: Command = {
           return;
         }
 
-        // Confirmation before wiping
         const confirmEmbed = new EmbedBuilder()
           .setColor(0xED4245)
           .setTitle("⚠️ Clear All Notes")

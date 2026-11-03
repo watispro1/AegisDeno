@@ -81,7 +81,7 @@ export const command: Command = {
     const guildId = interaction.guildId!;
     const config = await getGuildConfig(guildId);
 
-    // ── STATUS ────────────────────────────────────────────────────────────────
+    // Status
     if (sub === "status") {
       const enabled = config.welcomeEnabled ?? false;
       const hasChannel = !!config.welcomeChannelId;
@@ -197,7 +197,7 @@ export const command: Command = {
       return;
     }
 
-    // ── CHANNEL ───────────────────────────────────────────────────────────────
+    // Channel
     if (sub === "channel") {
       const channel = interaction.options.getChannel("channel", true);
       const me = interaction.guild?.members.me ?? await interaction.guild?.members.fetchMe().catch(() => null);
@@ -229,7 +229,7 @@ export const command: Command = {
       });
     }
 
-    // ── MESSAGE ───────────────────────────────────────────────────────────────
+    // Message
     if (sub === "message") {
       const modal = new ModalBuilder()
         .setCustomId(scopedModalId("welcome_msg_modal", interaction.id))
@@ -287,7 +287,7 @@ export const command: Command = {
       return;
     }
 
-    // ── PREVIEW ───────────────────────────────────────────────────────────────
+    // Preview
     if (sub === "preview") {
       const previewText = config.welcomeMessage
         ? applyVariables(config.welcomeMessage, interaction)
@@ -308,7 +308,7 @@ export const command: Command = {
       return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 
-    // ── TOGGLE ────────────────────────────────────────────────────────────────
+    // Toggle
     if (sub === "toggle") {
       const enabled = interaction.options.getBoolean("enabled", true);
       await updateGuildConfig(guildId, { welcomeEnabled: enabled });

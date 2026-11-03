@@ -151,7 +151,7 @@ export const command: Command = {
 
       const sent = await interaction.editReply({ embeds: [embed], components: [buttons] });
 
-      // DM the warned user (unless silent mode)
+      // DM the user unless silent
       if (!silent) {
         const dmEmbed = new EmbedBuilder()
           .setColor(sev.color)
@@ -249,7 +249,6 @@ export const command: Command = {
         description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**Severity:** ${sev.label}\n**Moderator:** ${interaction.user.tag}\n**Total Warnings:** ${totalWarnings}${proof ? `\n**Proof:** ${proof.url}` : ""}`,
       }, "modActions", [modLogRow(guildId, target.id, warnId)]);
 
-      // Check escalation thresholds
       const esc = await checkEscalation(interaction.client, guildId, target.id, interaction.user.id);
       if (esc.triggered) {
         await interaction.followUp({

@@ -72,7 +72,7 @@ export const command: Command = {
     if (!interaction.guild) return;
     const subcommand = interaction.options.getSubcommand();
 
-    // ── CREATE via modal ─────────────────────────────────────────────────────────
+    // create (modal)
     if (subcommand === "create") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
         await interaction.reply({ content: "❌ You need `Manage Roles` permission to create role panels.", flags: MessageFlags.Ephemeral });
@@ -138,7 +138,6 @@ export const command: Command = {
         .setRequired(true)
         .setPlaceholder("e.g. Click the buttons below to receive the corresponding roles.");
 
-      // Optional button labels
       const label1Input = new TextInputBuilder()
         .setCustomId("label1")
         .setLabel(`Label for ${role1.name}`)
@@ -153,7 +152,7 @@ export const command: Command = {
         new ActionRowBuilder<TextInputBuilder>().addComponents(label1Input),
       );
 
-      // Add inputs for roles 2 and 3 if provided
+      // Roles 2 and 3 are optional
       if (role2) {
         const label2Input = new TextInputBuilder()
           .setCustomId("label2")
@@ -249,7 +248,7 @@ export const command: Command = {
       return;
     }
 
-    // ── LIST panels ──────────────────────────────────────────────────────────────
+    // list
     if (subcommand === "list") {
       const panels = await getRolePanels(interaction.guild.id);
       
@@ -285,7 +284,7 @@ export const command: Command = {
       return;
     }
 
-    // ── DELETE panel ─────────────────────────────────────────────────────────────
+    // delete
     if (subcommand === "delete") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
         await interaction.reply({ content: "❌ You need `Manage Roles` permission to delete role panels.", flags: MessageFlags.Ephemeral });

@@ -284,7 +284,6 @@ export const command: Command = {
           .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)
           .setTimestamp();
 
-        // Offer quick-action buttons after applying
         const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
           buildUndoButton(`timeout_undo_${target.id}`),
           new ButtonBuilder()
@@ -308,7 +307,6 @@ export const command: Command = {
           description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Duration:** ${durationLabel}\n**Until:** <t:${Math.floor(until.getTime() / 1000)}:R>\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
         }, "modActions", [modLogRow(guildId, target.id, caseId)]);
 
-        // Handle post-timeout quick actions
         const actionCollector = resultMsg.createMessageComponentCollector({
           componentType: ComponentType.Button,
           time: UNDO_WINDOW_MS,

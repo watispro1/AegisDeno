@@ -62,7 +62,7 @@ export const command: Command = {
     const guildId = interaction.guildId!;
     const config = await getGuildConfig(guildId);
 
-    // ── STATUS ────────────────────────────────────────────────────────────────
+    // Status
     if (sub === "status") {
       const enabled = config.loggingEnabled ?? false;
       const channelId = config.loggingChannelId;
@@ -86,7 +86,7 @@ export const command: Command = {
       };
 
       const buildCategoryButtons = (cats: Record<string, boolean> | undefined) => {
-        // Split into rows of up to 5
+        // Four buttons per row
         const rows: ActionRowBuilder<ButtonBuilder>[] = [];
         const chunked = LOG_CATEGORIES.reduce((acc, c, i) => {
           const rowIdx = Math.floor(i / 4);
@@ -110,7 +110,6 @@ export const command: Command = {
           );
         }
 
-        // Control row
         rows.push(
           new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder()
@@ -180,7 +179,7 @@ export const command: Command = {
       return;
     }
 
-    // ── CHANNEL ───────────────────────────────────────────────────────────────
+    // Channel
     if (sub === "channel") {
       const channel = interaction.options.getChannel("channel", true);
       const me = interaction.guild?.members.me;
@@ -201,7 +200,6 @@ export const command: Command = {
       config.loggingEnabled = true;
       await updateGuildConfig(guildId, config);
 
-      // Send a confirmation log to the new channel
       await sendGuildLog(interaction.client, guildId, {
         title: "📋 Logging Channel Configured",
         color: 0x3498DB,
@@ -221,7 +219,7 @@ export const command: Command = {
       });
     }
 
-    // ── TOGGLE ────────────────────────────────────────────────────────────────
+    // Toggle
     if (sub === "toggle") {
       const enabled = interaction.options.getBoolean("enabled", true);
       config.loggingEnabled = enabled;
@@ -243,7 +241,7 @@ export const command: Command = {
       });
     }
 
-    // ── TEST ──────────────────────────────────────────────────────────────────
+    // Test
     if (sub === "test") {
       if (!config.loggingChannelId) {
         return interaction.reply({

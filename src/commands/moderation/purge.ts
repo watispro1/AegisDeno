@@ -177,7 +177,6 @@ export const command: Command = {
         return;
       }
 
-      // Build preview embed before deleting
       const sampleMessages = toDelete.slice(0, 5).map(m => {
         const author = m.author.tag.slice(0, 20);
         const content = (m.content || "[embed/attachment]").slice(0, 60);
@@ -255,7 +254,6 @@ export const command: Command = {
             details: `Channel: #${channel.name || channel.id} | Deleted ${deletedCount} message(s) [Filter: ${filter}]`,
           });
 
-          // Build a progress bar representation
           const pct = Math.round((deletedCount / toDelete.length) * 100);
           const barFilled = Math.round(pct / 10);
           const progressBar = "█".repeat(barFilled) + "░".repeat(10 - barFilled) + ` ${pct}%`;

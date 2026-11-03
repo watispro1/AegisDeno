@@ -105,7 +105,6 @@ export const command: Command = {
         });
       }
 
-      // Summary stats at the bottom
       const actionCounts = allCases.reduce((acc, c) => {
         acc[c.action] = (acc[c.action] || 0) + 1;
         return acc;

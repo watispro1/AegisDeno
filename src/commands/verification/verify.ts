@@ -98,7 +98,7 @@ export const command: Command = {
     const subcommand = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
 
-    // ── SETUP via modal ──────────────────────────────────────────────────────────
+    // setup (modal)
     if (subcommand === "setup") {
       const channel = interaction.options.getChannel("channel", true) as TextChannel;
       const role = interaction.options.getRole("verified_role", true);
@@ -187,7 +187,7 @@ export const command: Command = {
       return;
     }
 
-    // ── INFO dashboard ───────────────────────────────────────────────────────────
+    // info
     if (subcommand === "info") {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const config = await getVerificationConfig(guildId);
@@ -217,7 +217,6 @@ export const command: Command = {
 
       const embed = buildEmbed(config);
       
-      // Quick action buttons if enabled
       const components: ActionRowBuilder<ButtonBuilder>[] = [];
       if (config && config.enabled) {
         components.push(
@@ -255,7 +254,7 @@ export const command: Command = {
       return;
     }
 
-    // ── MANUAL USER VERIFY ───────────────────────────────────────────────────────
+    // Manual user verify
     if (subcommand === "user") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
         return interaction.reply({ content: "❌ You need `Manage Roles` to verify members manually.", flags: MessageFlags.Ephemeral });
@@ -295,7 +294,7 @@ export const command: Command = {
       return;
     }
 
-    // ── BATCH VERIFY ─────────────────────────────────────────────────────────────
+    // Batch verify
     if (subcommand === "batch") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
         return interaction.reply({ content: "❌ You need `Manage Roles` to verify members manually.", flags: MessageFlags.Ephemeral });
@@ -373,7 +372,7 @@ export const command: Command = {
       return;
     }
 
-    // ── AUTO-KICK ────────────────────────────────────────────────────────────────
+    // Auto-kick
     if (subcommand === "autokick") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.KickMembers)) {
         return interaction.reply({ content: "❌ You need `Kick Members` to change the unverified auto-kick.", flags: MessageFlags.Ephemeral });
@@ -391,7 +390,7 @@ export const command: Command = {
       });
     }
 
-    // ── DISABLE ──────────────────────────────────────────────────────────────────
+    // Disable
     if (subcommand === "disable") {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       await VerificationModel.updateOne({ guildId }, { $set: { enabled: false } });

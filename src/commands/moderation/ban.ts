@@ -156,7 +156,6 @@ export const command: Command = {
       }
     }
 
-    // Confirmation prompt with member metadata
     const accountCreated = `<t:${Math.floor(target.createdTimestamp / 1000)}:R>`;
     const joinedServer = member?.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` : "Not in server";
 

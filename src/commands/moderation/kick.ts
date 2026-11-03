@@ -86,7 +86,6 @@ export const command: Command = {
       return interaction.reply({ content: "❌ I cannot kick this member — they are above my highest role.", flags: MessageFlags.Ephemeral });
     }
 
-    // Show confirmation embed with details
     const confirmEmbed = new EmbedBuilder()
       .setColor(0xE67E22)
       .setTitle("⚠️ Kick Confirmation")

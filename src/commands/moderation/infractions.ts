@@ -50,7 +50,6 @@ export const command: Command = {
 
       const member = await interaction.guild?.members.fetch(target.id).catch(() => null);
 
-      // Tally action types
       const actionCounts: Record<string, number> = {};
       for (const c of cases) {
         actionCounts[c.action] = (actionCounts[c.action] ?? 0) + 1;
@@ -63,7 +62,6 @@ export const command: Command = {
       let warnPage = 0;
       let casePage = 0;
 
-      // ── Build overview embed ───────────────────────────────────────────────
       function buildOverviewEmbed(): EmbedBuilder {
         const recentWarn = warnings.at(0);
         const recentCase = cases.at(0);
@@ -97,7 +95,6 @@ export const command: Command = {
           .setTimestamp();
       }
 
-      // ── Build warnings page embed ─────────────────────────────────────────
       function buildWarningsEmbed(page: number): EmbedBuilder {
         const totalPages = Math.max(1, Math.ceil(warnings.length / WARNS_PER_PAGE));
         const slice = warnings.slice(page * WARNS_PER_PAGE, (page + 1) * WARNS_PER_PAGE);
@@ -116,7 +113,6 @@ export const command: Command = {
           .setTimestamp();
       }
 
-      // ── Build mod cases page embed ────────────────────────────────────────
       function buildCasesEmbed(page: number): EmbedBuilder {
         const totalPages = Math.max(1, Math.ceil(cases.length / CASES_PER_PAGE));
         const slice = cases.slice(page * CASES_PER_PAGE, (page + 1) * CASES_PER_PAGE);
@@ -139,7 +135,6 @@ export const command: Command = {
           .setTimestamp();
       }
 
-      // ── Build navigation row ──────────────────────────────────────────────
       function buildNavRow(view: InfractionsView, wPage: number, cPage: number): ActionRowBuilder<ButtonBuilder> {
         const warnPages = Math.max(1, Math.ceil(warnings.length / WARNS_PER_PAGE));
         const casePages = Math.max(1, Math.ceil(cases.length / CASES_PER_PAGE));
