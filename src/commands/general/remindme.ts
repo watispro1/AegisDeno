@@ -6,7 +6,8 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { createTask, getTasksForCreator, deleteTaskForCreator } from "../../services/scheduler";
+import { createTask, getTasksForCreator, deleteTaskForCreator, updateTaskForCreator } from "../../services/scheduler";
+import { planReminderEdit } from "../../services/reminderEdit";
 import { scheduleTask, cancelTask } from "../../services/schedulerRunner";
 import { encodePersonalReminder, decodePersonalReminder, reminderRepeatIntervalMs, type ReminderRepeat } from "../../services/timedActions";
 import { parseDuration, formatDuration } from "../../utils/duration";
@@ -55,6 +56,31 @@ export const command: Command = {
         )
     )
     .addSubcommand(sub =>
+      sub
+        .setName("edit")
+        .setDescription("Change a pending reminder's text, time or repeat.")
+        .addStringOption(opt =>
+          opt.setName("id").setDescription("Reminder ID (from /remindme list)").setRequired(true).setAutocomplete(true)
+        )
+        .addStringOption(opt =>
+          opt.setName("reminder").setDescription("New text").setRequired(false).setMaxLength(512)
+        )
+        .addStringOption(opt =>
+          opt.setName("duration").setDescription("New time, counted from now (e.g. 30m, 2h, 1d)").setRequired(false).setAutocomplete(true)
+        )
+        .addStringOption(opt =>
+          opt
+            .setName("repeat")
+            .setDescription("Repeat after it fires")
+            .setRequired(false)
+            .addChoices(
+              { name: "Once", value: "none" },
+              { name: "Daily", value: "daily" },
+              { name: "Weekly", value: "weekly" },
+            )
+        )
+    )
+    .addSubcommand(sub =>
       sub.setName("list").setDescription("List your pending reminders.")
     )
     .addSubcommand(sub =>
@@ -86,10 +112,44 @@ export const command: Command = {
         .setColor(0x5865F2)
         .setTitle(`📋 Your Reminders (${reminders.length})`)
         .setDescription(lines.join("\n\n"))
-        .setFooter({ text: reminders.length > 15 ? `Showing 15 of ${reminders.length}. Cancel with /remindme cancel.` : "Cancel with /remindme cancel." })
+        .setFooter({ text: reminders.length > 15 ? `Showing 15 of ${reminders.length}. Change one with /remindme edit, or cancel it with /remindme cancel.` : "Change one with /remindme edit, or cancel it with /remindme cancel." })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    }
+
+    // edit
+    if (sub === "edit") {
+      const id = interaction.options.getString("id", true).trim();
+      const task = (await getTasksForCreator(interaction.user.id, "personal_reminder")).find(t => t.id === id);
+      const current = task ? decodePersonalReminder(task.payload) : null;
+      if (!task || !current) {
+        return interaction.reply({ content: `❌ Reminder \`${id}\` not found. Use \`/remindme list\` to see your reminders.`, flags: MessageFlags.Ephemeral });
+      }
+      const durationRaw = interaction.options.getString("duration");
+      const durationSec = durationRaw === null ? null : parseDuration(durationRaw) ?? 0;
+      const repeatRaw = interaction.options.getString("repeat");
+      const plan = planReminderEdit(current, {
+        text: interaction.options.getString("reminder"),
+        durationSec,
+        repeat: repeatRaw === "none" || repeatRaw === "daily" || repeatRaw === "weekly" ? repeatRaw : null,
+      });
+      if (!plan.ok) return interaction.reply({ content: `❌ ${plan.error}`, flags: MessageFlags.Ephemeral });
+      const updated = await updateTaskForCreator(interaction.user.id, "personal_reminder", id, {
+        payload: encodePersonalReminder(plan.payload),
+        ...(plan.executeAt ? { executeAt: plan.executeAt } : {}),
+        ...(plan.intervalMs !== undefined ? { intervalMs: plan.intervalMs } : {}),
+      });
+      if (!updated) {
+        return interaction.reply({ content: "❌ That reminder fired or was cancelled while you were editing it.", flags: MessageFlags.Ephemeral });
+      }
+      cancelTask(id);
+      scheduleTask(interaction.client, updated);
+      const ts = Math.floor(updated.executeAt.getTime() / 1000);
+      return interaction.reply({
+        content: `✅ Reminder \`${id}\` updated (${plan.changes.join(", ")}). It fires <t:${ts}:R>${plan.payload.repeat ? `, then ${plan.payload.repeat}` : ""}.\n*${preview(plan.payload.text)}*`,
+        flags: MessageFlags.Ephemeral,
+      });
     }
 
     // cancel

@@ -45,13 +45,38 @@ function safeUrl(url: string): string | null {
   return /^https:\/\//i.test(url) ? url : null;
 }
 
+/** Who wrote in the ticket and how often, busiest first. */
+export function transcriptParticipants(messages: readonly TranscriptMessage[]): Array<{ tag: string; id: string; bot: boolean; count: number }> {
+  const byId = new Map<string, { tag: string; id: string; bot: boolean; count: number }>();
+  for (const m of messages) {
+    const p = byId.get(m.authorId) ?? { tag: m.authorTag, id: m.authorId, bot: m.bot, count: 0 };
+    p.count++;
+    byId.set(m.authorId, p);
+  }
+  return [...byId.values()].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+}
+
+/** "3d 4h", "2h 5m", "12m" or "under a minute" between the first and last message. */
+export function transcriptSpan(ms: number): string {
+  const m = Math.floor(ms / 60_000);
+  if (m < 1) return "under a minute";
+  const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), min = m % 60;
+  if (d) return `${d}d${h ? ` ${h}h` : ""}`;
+  if (h) return `${h}h${min ? ` ${min}m` : ""}`;
+  return `${min}m`;
+}
+
 /**
  * Render a self-contained HTML transcript (inline CSS, no scripts, no external assets).
  * Messages are sorted oldest first regardless of input order.
  */
 export function renderTranscriptHtml(meta: TranscriptMeta, messages: readonly TranscriptMessage[]): string {
   const sorted = [...messages].sort((a, b) => a.timestamp - b.timestamp);
+  let lastDay = "";
   const rows = sorted.map(m => {
+    const day = new Date(m.timestamp).toISOString().slice(0, 10);
+    const divider = day !== lastDay ? `<h2 class="day">${day} (UTC)</h2>` : "";
+    lastDay = day;
     const attachments = m.attachments
       .map(a => {
         const href = safeUrl(a.url);
@@ -64,7 +89,7 @@ export function renderTranscriptHtml(meta: TranscriptMeta, messages: readonly Tr
       m.embedCount > 0 ? `<div class="meta">[${m.embedCount} embed${m.embedCount === 1 ? "" : "s"}]</div>` : "",
     ].join("");
     const body = m.content ? `<div class="body">${escapeHtml(m.content)}</div>` : "";
-    return `<div class="msg"><div class="head"><span class="author${m.bot ? " bot" : ""}">${escapeHtml(m.authorTag)}</span> <span class="meta">${escapeHtml(m.authorId)} · ${new Date(m.timestamp).toISOString()}</span></div>${body}${extras}</div>`;
+    return `${divider}<div class="msg"><div class="head"><span class="author${m.bot ? " bot" : ""}">${escapeHtml(m.authorTag)}</span> <span class="meta">${escapeHtml(m.authorId)} · ${new Date(m.timestamp).toISOString()}</span></div>${body}${extras}</div>`;
   });
 
   const info = [
@@ -75,6 +100,8 @@ export function renderTranscriptHtml(meta: TranscriptMeta, messages: readonly Tr
     ...(meta.closedById ? [["Closed by", meta.closedById]] : []),
     ...(meta.reason ? [["Reason", meta.reason]] : []),
     ["Messages", String(sorted.length)],
+    ...(sorted.length ? [["Participants", transcriptParticipants(sorted).slice(0, 20).map(p => `${p.tag}${p.bot ? " (bot)" : ""}: ${p.count}`).join(", ")]] : []),
+    ...(sorted.length > 1 ? [["First to last message", transcriptSpan(sorted[sorted.length - 1].timestamp - sorted[0].timestamp)]] : []),
     ["Generated", new Date(meta.generatedAt).toISOString()],
   ]
     .map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`)
@@ -97,6 +124,7 @@ dt{font-weight:600}dd{margin:0;word-break:break-all}
 .body{white-space:pre-wrap;word-wrap:break-word}
 .att a{color:#0969da}
 .empty{color:#656d76}
+.day{font-size:12px;font-weight:600;color:#656d76;margin:16px 0 4px;text-transform:uppercase;letter-spacing:.04em}
 </style>
 </head>
 <body>

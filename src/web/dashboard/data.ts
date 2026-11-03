@@ -21,7 +21,7 @@ import { setupVerification } from "../../services/verificationService";
 import { getRolePanels, repostRolePanel } from "../../services/rolePanelService";
 import { ChannelType, type TextChannel } from "discord.js";
 import { logger } from "../../utils/logger";
-import { SECTION_TITLES } from "./validation";
+import { SECTION_TITLES, caseDateRange } from "./validation";
 import type {
   AutomodSettings,
   CaseFilter,
@@ -86,9 +86,11 @@ export function mongoDashboardData(client: Client): DashboardData {
     const people: Record<string, string> = {};
     if (filter.userId) people.userId = filter.userId;
     if (filter.moderatorId) people.moderatorId = filter.moderatorId;
-    const reasonMatch: Record<string, unknown> = filter.query
+    const filterMatch: Record<string, unknown> = filter.query
       ? { reason: { $regex: filter.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } }
       : {};
+    const range = caseDateRange(filter);
+    if (range) filterMatch.createdAt = range;
     const wantCases = filter.type !== "warn";
     const wantWarnings = filter.type === null || filter.type === "warn";
     const skip = (filter.page - 1) * perPage;
@@ -101,7 +103,7 @@ export function mongoDashboardData(client: Client): DashboardData {
     let rows: Array<{ items: Array<Record<string, unknown>>; total: Array<{ n: number }> }>;
     if (wantCases) {
       const pipeline: PipelineStage[] = [
-        { $match: { guildId, ...people, ...reasonMatch, ...(filter.type ? { action: filter.type } : {}) } },
+        { $match: { guildId, ...people, ...filterMatch, ...(filter.type ? { action: filter.type } : {}) } },
         { $project: { ...PROJECT, kind: { $literal: "case" } } },
       ];
       if (wantWarnings) {
@@ -109,7 +111,7 @@ export function mongoDashboardData(client: Client): DashboardData {
           $unionWith: {
             coll: WarningModel.collection.collectionName,
             pipeline: [
-              { $match: { guildId, ...people, ...reasonMatch } },
+              { $match: { guildId, ...people, ...filterMatch } },
               { $project: { ...PROJECT, action: { $literal: "warn" }, kind: { $literal: "warning" } } },
             ],
           },
@@ -118,7 +120,7 @@ export function mongoDashboardData(client: Client): DashboardData {
       rows = await ModerationCaseModel.aggregate(pipeline.concat(tail));
     } else {
       rows = await WarningModel.aggregate([
-        { $match: { guildId, ...people, ...reasonMatch } },
+        { $match: { guildId, ...people, ...filterMatch } },
         { $project: { ...PROJECT, action: { $literal: "warn" }, kind: { $literal: "warning" } } },
         ...tail,
       ]);
@@ -320,6 +322,13 @@ export function mongoDashboardData(client: Client): DashboardData {
           });
           break;
         }
+        case "automodRule": {
+          // Only this rule's two lists change; mergeAutomodConfig keeps its other fields.
+          const { rule, exemptRoleIds, exemptChannelIds } = input.value;
+          const current = await getAutomodConfig(guildId);
+          await updateAutomodConfig(guildId, { [rule]: { ...current[rule], exemptRoleIds, exemptChannelIds } });
+          break;
+        }
         case "welcome":
         case "goodbye":
           await updateGuildConfig(guildId, input.value);
@@ -338,7 +347,7 @@ export function mongoDashboardData(client: Client): DashboardData {
           break;
       }
       logger.info(`Dashboard: ${input.section} settings saved for guild ${guildId} by user ${actor.userId}`);
-      await log(guildId, "⚙️ Settings Changed", `**Section:** ${SECTION_TITLES[input.section]}\n**Changed by:** <@${actor.userId}> on the web dashboard`);
+      await log(guildId, "⚙️ Settings Changed", `**Section:** ${input.section === "automodRule" ? `Automod exemptions (${input.value.rule})` : SECTION_TITLES[input.section]}\n**Changed by:** <@${actor.userId}> on the web dashboard`);
       return true;
     },
   };

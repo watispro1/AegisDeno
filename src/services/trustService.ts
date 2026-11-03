@@ -124,9 +124,19 @@ export async function getMemberTrust(subject: TrustSubject, opts: { fresh?: bool
   return result;
 }
 
+export interface ScoredMember { userId: string; name: string; avatarUrl: string | null; result: TrustResult }
+
 /** Scores up to TRUST_OVERVIEW_MAX cached non-bot members in a handful of queries. */
-export async function scoreGuildMembers(guild: Guild, config: TrustConfig): Promise<Array<{ userId: string; name: string; avatarUrl: string | null; result: TrustResult }>> {
-  const members = [...guild.members.cache.values()].filter(m => !m.user.bot).slice(0, TRUST_OVERVIEW_MAX);
+export async function scoreGuildMembers(guild: Guild, config: TrustConfig): Promise<ScoredMember[]> {
+  return scoreMembers(guild, [...guild.members.cache.values()].filter(m => !m.user.bot).slice(0, TRUST_OVERVIEW_MAX), config);
+}
+
+/**
+ * Scores the given members (bots are skipped) in a handful of queries. Callers
+ * keep batches to about a thousand so each `$in` stays small.
+ */
+export async function scoreMembers(guild: Guild, list: readonly GuildMember[], config: TrustConfig): Promise<ScoredMember[]> {
+  const members = list.filter(m => !m.user.bot);
   if (!members.length) return [];
   const ids = members.map(m => m.id);
   const now = Date.now();

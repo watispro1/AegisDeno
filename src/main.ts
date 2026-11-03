@@ -88,6 +88,8 @@ async function main(): Promise<void> {
     await initGiveawayScheduler(c).catch(err => logger.error("Giveaway scheduler init error:", err));
     const { initTopGG } = await import("./services/topgg");
     initTopGG(c);
+    const { startLowTrustSync } = await import("./services/lowTrustSync");
+    startLowTrustSync(c);
   });
 
   const shutdown = async (signal: string) => {

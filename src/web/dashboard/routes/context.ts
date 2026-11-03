@@ -49,8 +49,8 @@ export interface DashboardDeps {
   sessions: SessionStore;
   fetchImpl?: FetchLike;
   now?: () => number;
-  /** Requests per minute per client. Defaults: auth 20, POST 30, pages 240, balance adjustments 10. */
-  limits?: { auth?: number; post?: number; page?: number; adjust?: number };
+  /** Requests per minute per client. Defaults: auth 20, POST 30, pages 240, balance adjustments 10, CSV exports 6. */
+  limits?: { auth?: number; post?: number; page?: number; adjust?: number; export?: number };
   /** Where rate-limit counters live. Defaults to in-memory; production passes the Mongo store. */
   rateLimits?: RateLimitStore;
   /** Dashboard change log. Defaults to in-memory; production passes the Mongo store. */
@@ -143,6 +143,8 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
   const pageLimit = limit(store, "page", deps.limits?.page ?? 240, deps);
   // Balance changes get their own, tighter bucket on top of the POST limit.
   const adjustLimit = limit(store, "econ-adjust", deps.limits?.adjust ?? 10, deps);
+  // CSV exports read up to 5,000 records each, so they get a small bucket of their own.
+  const exportLimit = limit(store, "export", deps.limits?.export ?? 6, deps);
   const form = express.urlencoded({ extended: false, limit: DASHBOARD_FORM_LIMIT, parameterLimit: 200 });
   // The automod page carries the blocked word list, which may be up to 500 × 100 characters.
   const automodForm = express.urlencoded({ extended: false, limit: AUTOMOD_FORM_LIMIT, parameterLimit: 200 });
@@ -336,7 +338,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
 
   return {
     deps, cfg, now, fetchImpl, secret, audit, modules, extras,
-    authLimit, postLimit, pageLimit, adjustLimit, form, settingsForm,
+    authLimit, postLimit, pageLimit, adjustLimit, exportLimit, form, settingsForm,
     send, fail, cookie, names, clearLegacySession, migrateLegacyCookie, rejectOperatorInput, loadSession,
     requireSession, requireCsrf, requireGuild, missingPermission, requirePermission,
     actorOf, logAudit, noticeParam, validationContext, rolesFor,

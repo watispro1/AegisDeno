@@ -138,6 +138,25 @@ export async function deleteTaskForCreator(creatorId: string, type: TaskType, id
   }
 }
 
+/** Change one of a creator's own tasks (payload, time, repeat). Null when it is not theirs or is gone. */
+export async function updateTaskForCreator(
+  creatorId: string,
+  type: TaskType,
+  id: string,
+  patch: { payload?: string; executeAt?: Date; intervalMs?: number | null },
+): Promise<ScheduledTask | null> {
+  try {
+    const set: Record<string, unknown> = {};
+    if (patch.payload !== undefined) set.payload = patch.payload;
+    if (patch.executeAt !== undefined) set.executeAt = patch.executeAt;
+    if (patch.intervalMs !== undefined) set.intervalMs = patch.intervalMs;
+    const doc = await TaskModel.findOneAndUpdate({ _id: id, creatorId, type }, { $set: set }, { new: true }).lean();
+    return doc ? toTask(doc) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Delete every task of one type for a creator in a guild (e.g. a member's pending verification kick). */
 export async function deleteTasksForCreatorInGuild(guildId: string, creatorId: string, type: TaskType): Promise<string[]> {
   try {

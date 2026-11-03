@@ -1,4 +1,5 @@
 import { WarningModel } from "../database/mongo";
+import { noteTrustChange } from "./trustHooks";
 
 export interface Warning {
   _id: string;
@@ -29,6 +30,7 @@ export async function addWarning(
     proofUrl,
   });
   const obj = warning.toObject() as unknown as Warning;
+  noteTrustChange(guildId, userId);
   return { ...obj, _id: String(warning._id) };
 }
 
@@ -40,6 +42,7 @@ export async function getWarningsForUser(guildId: string, userId: string): Promi
 
 export async function clearWarningsForUser(guildId: string, userId: string): Promise<number> {
   const result = await WarningModel.deleteMany({ guildId, userId });
+  if (result.deletedCount) noteTrustChange(guildId, userId);
   return result.deletedCount || 0;
 }
 
@@ -57,6 +60,7 @@ export async function getWarningRecordsForUser(guildId: string, userId: string):
 export async function deleteWarningsByIds(guildId: string, userId: string, ids: string[]): Promise<number> {
   if (ids.length === 0) return 0;
   const result = await WarningModel.deleteMany({ guildId, userId, _id: { $in: ids } });
+  if (result.deletedCount) noteTrustChange(guildId, userId);
   return result.deletedCount || 0;
 }
 
@@ -99,6 +103,7 @@ export async function getTotalWarningCount(guildId: string, userId: string, sinc
 
 export async function removeWarning(guildId: string, warningId: string): Promise<boolean> {
   const result = await WarningModel.findOneAndDelete({ _id: warningId, guildId });
+  if (result) noteTrustChange(guildId, String((result as { userId?: unknown }).userId ?? ""));
   return result !== null;
 }
 
@@ -108,5 +113,6 @@ export async function revokeWarning(guildId: string, warningId: string, revokedB
     { _id: warningId, guildId, ...NOT_REVOKED },
     { $set: { revoked: true, revokedBy, revokedAt: new Date() } },
   );
+  if (result) noteTrustChange(guildId, String((result as { userId?: unknown }).userId ?? ""));
   return result !== null;
 }

@@ -6,6 +6,7 @@
 import {
   SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, EmbedBuilder, MessageFlags, type Role, type User,
 } from "discord.js";
+import { queueGuildSweep } from "../../services/lowTrustSync";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 import { clearTrustCache, getMemberTrust, subjectFromMember } from "../../services/trustService";
@@ -37,7 +38,7 @@ export function describeTrustConfig(c: TrustConfig): string {
     `**Low-trust threshold:** below ${c.lowThreshold}`,
     `**Link filter only for low trust:** ${c.linkFilterLowTrustOnly ? "yes" : "no"}`,
     `**Incident join gate uses trust:** ${c.incidentGate ? "yes" : "no"}`,
-    `**Low-trust role on join:** ${c.lowTrustRoleId ? `<@&${c.lowTrustRoleId}>` : "off"}`,
+    `**Low-trust role:** ${c.lowTrustRoleId ? `<@&${c.lowTrustRoleId}>` : "off"}`,
   ].join("\n");
 }
 
@@ -83,7 +84,7 @@ export const command: Command = {
       .addIntegerOption(o => o.setName("threshold").setDescription("Scores below this are low trust (5–90, default 30)").setMinValue(5).setMaxValue(90))
       .addBooleanOption(o => o.setName("link_filter_low_trust_only").setDescription("Automod link filter only applies to low-trust members"))
       .addBooleanOption(o => o.setName("incident_gate").setDescription("Incident Mode's join gate also gates low-trust joins"))
-      .addRoleOption(o => o.setName("low_trust_role").setDescription("Give this role to low-trust members when they join"))
+      .addRoleOption(o => o.setName("low_trust_role").setDescription("Give this role to low-trust members; taken away when their score recovers"))
       .addBooleanOption(o => o.setName("clear_low_trust_role").setDescription("Stop giving a low-trust role"))),
 
   guildOnly: true,
@@ -149,6 +150,7 @@ export const command: Command = {
     });
     await updateGuildConfig(guild.id, { trust: next });
     clearTrustCache(guild.id);
+    queueGuildSweep(guild.id);
     await sendGuildLog(interaction.client, guild.id, {
       title: "🧭 Trust Score settings changed",
       color: 0x5865f2,
