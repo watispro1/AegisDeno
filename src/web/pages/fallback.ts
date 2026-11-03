@@ -3,7 +3,7 @@ import { REPO_URL } from "../layout";
 import { type SiteConfig, endNote, escapeHtml, page, safeUrl } from "./shared";
 import { renderFeatures } from "./home";
 
-/* ── 404 ───────────────────────────────────────────────────────────── */
+/* 404 */
 
 export function renderNotFound(cfg: SiteConfig, suggestions: { href: string; label: string }[] = []): string {
   const suggest = suggestions.length
@@ -44,7 +44,7 @@ export function renderNotFound(cfg: SiteConfig, suggestions: { href: string; lab
   });
 }
 
-/* ── Legacy routes ─────────────────────────────────────────────────── */
+/* Legacy routes */
 
 export function renderPlayground(cfg: SiteConfig): string {
   return renderFeatures(cfg);

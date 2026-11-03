@@ -2,7 +2,7 @@ import { REPO_URL } from "../layout";
 import { DASHBOARD_VERSION } from "../../version";
 import { type SiteConfig, breadcrumb, escapeHtml, page, safeUrl } from "./shared";
 
-/* ── Legal ─────────────────────────────────────────────────────────── */
+/* Legal */
 
 /** Shown on /terms and /privacy. Change both pages together. */
 export const LEGAL_LAST_UPDATED = "November 2, 2026";
@@ -329,7 +329,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
   });
 }
 
-/* ── Security ──────────────────────────────────────────────────────── */
+/* Security */
 
 export function renderSecurity(cfg: SiteConfig): string {
   const body = `

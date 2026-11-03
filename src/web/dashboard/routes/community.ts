@@ -18,7 +18,7 @@ export function registerCommunityRoutes(router: Router, k: RouteKit): void {
   const { deps, modules, send, fail, actorOf, logAudit, noticeParam, validationContext, requirePermission, guildGet, guildPost } = k;
   const locals = (res: { locals: Record<string, unknown> }) => (res.locals.dash as GuildLocals).ctx;
 
-  /* ── Settings (all modules) ──────────────────────────────────────── */
+  /* Settings (all modules) */
 
   router.get("/:guildId/settings", ...guildGet, async (_req, res, next) => {
     try {
@@ -36,7 +36,7 @@ export function registerCommunityRoutes(router: Router, k: RouteKit): void {
     } catch (err) { next(err); }
   });
 
-  /* ── Giveaways ───────────────────────────────────────────────────── */
+  /* Giveaways */
 
   router.get("/:guildId/giveaways", ...guildGet, async (req, res, next) => {
     try {
@@ -59,7 +59,7 @@ export function registerCommunityRoutes(router: Router, k: RouteKit): void {
     } catch (err) { next(err); }
   });
 
-  /* ── Suggestions ─────────────────────────────────────────────────── */
+  /* Suggestions */
 
   async function suggestionsPage(ctx: GuildContext, query: Record<string, unknown>, noticeCode: string | null, state?: FormState): Promise<string> {
     const { filter, page } = parseSuggestionFilter(query);
@@ -104,7 +104,7 @@ export function registerCommunityRoutes(router: Router, k: RouteKit): void {
     } catch (err) { next(err); }
   });
 
-  /* ── Ghost Watch (the viewer's own list) ─────────────────────────── */
+  /* Ghost Watch (the viewer's own list) */
 
   router.get("/:guildId/watchlist", ...guildGet, async (req, res, next) => {
     try {

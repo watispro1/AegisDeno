@@ -4,7 +4,7 @@ import { CASE_REASON_MAX, CASE_TYPES, CASE_QUERY_MAX, type CaseFilter, CASE_PAGE
 import { type GuildContext, csrfField, head, idCode, notice, person, personId, relTime, shell } from "./layout";
 import { caseTable } from "./overview";
 
-/* ── Cases ─────────────────────────────────────────────────────────── */
+/* Cases */
 
 export function casesQuery(filter: CaseFilter, page: number): string {
   const q = new URLSearchParams();

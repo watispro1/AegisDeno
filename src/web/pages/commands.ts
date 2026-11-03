@@ -2,7 +2,7 @@ import { buildCatalog, groupByCategory, catalogStats, type CommandInfo, type Opt
 import { examplesFor, examplesForPath } from "../commandExamples";
 import { type SiteConfig, breadcrumb, endNote, escapeHtml, jsonLd, page } from "./shared";
 
-/* ── Commands ──────────────────────────────────────────────────────── */
+/* Commands */
 
 function optHint(o: OptionInfo): string {
   return `${o.name}:${o.type.toLowerCase()}`;

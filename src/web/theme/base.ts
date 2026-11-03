@@ -1,6 +1,6 @@
 /** Tokens, base element styles and buttons. */
 export const cssBase = String.raw`
-/* ── Tokens ─────────────────────────────────────────────────────────── */
+/* Tokens */
 :root {
   --bg: #fbfaf8;
   --bg-sunk: #f3f2ee;
@@ -63,7 +63,7 @@ export const cssBase = String.raw`
   color-scheme: dark;
 }
 
-/* ── Base ───────────────────────────────────────────────────────────── */
+/* Base */
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--nav-h) + 16px); }
 body {
@@ -147,7 +147,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .muted { color: var(--muted); }
 .faint { color: var(--faint); }
 
-/* ── Buttons ────────────────────────────────────────────────────────── */
+/* Buttons */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
   min-height: 44px; padding: .45rem 1rem;

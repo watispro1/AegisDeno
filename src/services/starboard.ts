@@ -51,8 +51,7 @@ async function loadStarboardConfig(guildId: string): Promise<StarboardConfig> {
     .lean();
   if (doc) return doc as StarboardConfig;
 
-  // Return the defaults without persisting — a record is only saved when the
-  // server owner actually configures something via /starboard setup.
+  // Not persisted: a record is only saved once /starboard setup runs.
   return {
     guildId,
     channelId: null,
@@ -183,12 +182,8 @@ export function buildStarboardEmbed(
 // Reaction logic
 
 /**
- * Core handler — called whenever a reaction is added or removed.
- *
- * @param message  The full (fetched) message that was reacted to.
- * @param guildId  The guild the reaction occurred in.
- * @param config   The guild's starboard config.
- * @param starboardChannel  The resolved TextChannel to post to.
+ * Runs on every reaction add or remove. `message` must already be fetched
+ * (not partial).
  */
 export async function handleStarReaction(
   message: Message,

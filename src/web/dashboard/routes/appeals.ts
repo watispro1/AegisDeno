@@ -7,7 +7,7 @@ import { APPEALS_PER_PAGE, type RouteKit, type GuildLocals } from "./context";
 export function registerAppealRoutes(router: Router, k: RouteKit): void {
   const { deps, send, fail, missingPermission, requirePermission, actorOf, logAudit, noticeParam, guildGet, guildPost } = k;
 
-  /* ── Appeals ─────────────────────────────────────────────────────── */
+  /* Appeals */
 
   router.get("/:guildId/appeals", ...guildGet, async (req, res, next) => {
     try {

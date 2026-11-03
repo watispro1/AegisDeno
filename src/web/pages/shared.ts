@@ -86,7 +86,7 @@ export function jsonLd(data: unknown): string {
   return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
 }
 
-/* ── Shared bits ───────────────────────────────────────────────────── */
+/* Shared bits */
 
 export function breadcrumb(label: string): string {
   return `<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep">/</span><span>${label}</span></nav>`;

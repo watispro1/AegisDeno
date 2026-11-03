@@ -140,7 +140,7 @@ export function memberActionRefusal(input: {
   return null;
 }
 
-/* ── Memory version (tests and local previews) ─────────────────────── */
+/* Memory version (tests and local previews) */
 
 export function memoryDashboardExtras(seed: {
   members?: MemberProfile[];

@@ -1,7 +1,7 @@
 import { head, shell } from "./layout";
 import { escapeHtml as esc } from "../../pages";
 
-/* ── Shared bits for the newer pages ───────────────────────────────── */
+/* Shared bits for the newer pages */
 
 export function errorSummary(errors: Record<string, string>, prefix = "f-"): string {
   // prefix matches the Form's id prefix: "f-" + its own prefix.

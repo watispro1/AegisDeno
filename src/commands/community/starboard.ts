@@ -1,16 +1,4 @@
-/**
- * /starboard — Configure and inspect the Starboard plugin.
- *
- * Subcommands:
- *   setup     — Set the channel where starred messages are posted
- *   threshold — Change the minimum reaction count required
- *   emoji     — Change the trigger emoji
- *   selfstar  — Allow/deny the message author's own reaction from counting
- *   ignore    — Add or remove a channel/role from the ignore list
- *   list      — Show the most recent starboard entries
- *   config    — Show the current configuration
- *   toggle    — Enable or disable the starboard
- */
+/** /starboard: configure and inspect the starboard. */
 
 import {
   SlashCommandBuilder,

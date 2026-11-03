@@ -4,7 +4,7 @@ import type { SettingsSnapshot } from "../data";
 import { embedValues } from "./embedBuilder";
 import { AUTOMOD_ACTIONS, ESCALATION_ROWS, LOG_CATEGORY_LABELS, type FormBody, type SettingsSection } from "../validation";
 
-/* ── Settings ──────────────────────────────────────────────────────── */
+/* Settings */
 
 export type Values = Record<string, string | boolean>;
 

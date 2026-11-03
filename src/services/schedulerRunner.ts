@@ -85,7 +85,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
     const channel = await client.channels.fetch(task.channelId).catch(() => null);
 
     if (!channel) {
-      // Channel deleted or inaccessible — no point retrying, just clean up
       logger.warn(`Task ${taskId}: channel ${task.channelId} not accessible — removing task.`);
       await deleteTask(task.guildId, taskId).catch(err =>
         logger.error(`Task ${taskId}: failed to delete undeliverable task`, err)
@@ -160,7 +159,6 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
         logger.warn(`Task ${taskId}: failed ${attempts} time(s); skipping this run, next at ${nextTime.toISOString()}.`);
         if (updated) scheduleTask(client, updated);
       } else if (next === "delete") {
-        // Exhausted retries — log and delete to prevent zombie tasks
         logger.error(
           `Task ${taskId} failed after ${attempts} attempt(s) — giving up and removing from DB.`
         );

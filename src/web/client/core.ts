@@ -14,7 +14,7 @@ export const jsCore = String.raw`
       .replace(/'/g, '&#39;');
   }
 
-  /* ── Theme: light by default, dark when chosen ───────────────────── */
+  /* Theme: light by default, dark when chosen */
   var STORAGE_KEY = 'aegis-theme';
 
   function currentTheme() {
@@ -43,7 +43,7 @@ export const jsCore = String.raw`
   });
   syncToggle();
 
-  /* ── Site search (Ctrl/Cmd+K) ────────────────────────────────────── */
+  /* Site search (Ctrl/Cmd+K) */
   var searchDialog = document.getElementById('site-search-dialog');
   var searchInput = document.getElementById('site-search-input');
   var searchResults = document.getElementById('site-search-results');
@@ -323,7 +323,7 @@ export const jsCore = String.raw`
     }
   });
 
-  /* ── Mobile nav ──────────────────────────────────────────────────── */
+  /* Mobile nav */
   var navToggle = document.querySelector('.nav-toggle');
   var navLinks = document.getElementById('nav-links');
   if (navToggle && navLinks) {
@@ -346,7 +346,7 @@ export const jsCore = String.raw`
     });
   }
 
-  /* ── Toasts ──────────────────────────────────────────────────────── */
+  /* Toasts */
   function showToast(msg) {
     var container = document.getElementById('toast-container');
     if (!container) return;

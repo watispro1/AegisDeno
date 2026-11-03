@@ -60,7 +60,7 @@ export type AutomodAction = (typeof AUTOMOD_ACTIONS)[number];
 export const WELCOME_MESSAGE_MAX = 1000;
 export const CASE_REASON_MAX = 512;
 
-/* ── Field readers ─────────────────────────────────────────────────── */
+/* Field readers */
 
 /** First value of a field as a trimmed string (urlencoded bodies can repeat keys). */
 export function field(body: FormBody, key: string): string {
@@ -156,7 +156,7 @@ export function finish<T>(errors: Errors, value: T): Parsed<T> {
   return errors.empty ? { ok: true, value } : { ok: false, errors: errors.map };
 }
 
-/* ── Sections ──────────────────────────────────────────────────────── */
+/* Sections */
 
 export interface LoggingSettings {
   loggingEnabled: boolean;
@@ -435,7 +435,7 @@ export function parseStarboard(
   return finish(errors, { enabled, channelId, threshold, selfStar, emoji, ignoredChannels, ignoredRoles });
 }
 
-/* ── Cases ─────────────────────────────────────────────────────────── */
+/* Cases */
 
 export function parseCaseReason(body: FormBody): Parsed<string> {
   const reason = field(body, "reason");
@@ -495,7 +495,7 @@ export function parseRevoke(body: FormBody): { unban: boolean } {
   return { unban: checkbox(body, "unban") };
 }
 
-/* ── Panels ────────────────────────────────────────────────────────── */
+/* Panels */
 
 export const PANEL_TITLE_MAX = 100;
 export const TICKET_PANEL_DESCRIPTION_MAX = 2000;
@@ -565,7 +565,7 @@ export function rolePanelBlockedRole(roleIds: readonly string[], ctx: Validation
   return null;
 }
 
-/* ── Appeals ───────────────────────────────────────────────────────── */
+/* Appeals */
 
 export const APPEAL_FILTERS = ["pending", "approved", "denied", "expired", "all"] as const;
 export type AppealFilter = (typeof APPEAL_FILTERS)[number];

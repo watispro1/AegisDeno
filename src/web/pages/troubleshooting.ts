@@ -1,6 +1,6 @@
 import { type SiteConfig, breadcrumb, endNote, escapeHtml, page } from "./shared";
 
-/* ── Troubleshooting ───────────────────────────────────────────────── */
+/* Troubleshooting */
 
 const ISSUES: { group: string; id: string; items: { q: string; a: string }[] }[] = [
   {

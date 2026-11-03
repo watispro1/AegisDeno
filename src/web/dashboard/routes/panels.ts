@@ -9,7 +9,7 @@ import { type RouteKit, type GuildLocals } from "./context";
 export function registerPanelRoutes(router: Router, k: RouteKit): void {
   const { deps, send, fail, missingPermission, requirePermission, actorOf, logAudit, noticeParam, validationContext, rolesFor, guildGet, guildPost } = k;
 
-  /* ── Panels ──────────────────────────────────────────────────────── */
+  /* Panels */
 
   async function panelsPage(ctx: GuildContext, noticeCode: string | null, state?: PanelsState): Promise<string> {
     const [rolePanels, snapshot, ticketsMissing, rolesMissing] = await Promise.all([

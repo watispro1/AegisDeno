@@ -13,7 +13,7 @@ export const dashboardAppScript = String.raw`
   var doc = document;
   function all(sel, root) { return Array.prototype.slice.call((root || doc).querySelectorAll(sel)); }
 
-  /* ── Drawer (small screens) ─────────────────────────────────────── */
+  /* Drawer (small screens) */
   var app = doc.querySelector('[data-app]');
   var toggle = doc.querySelector('[data-drawer-toggle]');
   var side = doc.querySelector('[data-drawer]');
@@ -37,7 +37,7 @@ export const dashboardAppScript = String.raw`
     });
   });
 
-  /* ── Toasts from notices ────────────────────────────────────────── */
+  /* Toasts from notices */
   var region = doc.querySelector('[data-toasts]');
   function toast(text, bad) {
     if (!region) return;
@@ -53,7 +53,7 @@ export const dashboardAppScript = String.raw`
   }
   if (region) all('[data-toast-source]').forEach(function (n) { toast(n.textContent.trim(), n.hasAttribute('data-toast-bad')); if (!n.hasAttribute('data-toast-bad')) n.setAttribute('data-toasted', ''); });
 
-  /* ── Unsaved changes bar ────────────────────────────────────────── */
+  /* Unsaved changes bar */
   var bar = doc.querySelector('[data-unsaved-bar]');
   var dirtyForm = null;
   function serialize(form) {
@@ -87,7 +87,7 @@ export const dashboardAppScript = String.raw`
     if (dirtyForm) { e.preventDefault(); e.returnValue = ''; }
   });
 
-  /* ── Table filter ───────────────────────────────────────────────── */
+  /* Table filter */
   all('[data-filter-target]').forEach(function (input) {
     var id = input.getAttribute('data-filter-target');
     var table = doc.getElementById(id);
@@ -104,7 +104,7 @@ export const dashboardAppScript = String.raw`
     });
   });
 
-  /* ── Character counters ─────────────────────────────────────────── */
+  /* Character counters */
   function counter(el) {
     var max = parseInt(el.getAttribute('data-count-max'), 10);
     if (!max) return;
@@ -115,7 +115,7 @@ export const dashboardAppScript = String.raw`
   }
   all('[data-count-max]').forEach(counter);
 
-  /* ── Embed preview ──────────────────────────────────────────────── */
+  /* Embed preview */
   function fill(text, b) {
     return String(text || '').replace(/\{(user|username|server|memberCount|member_count|count)\}/g, function (_, k) {
       if (k === 'user') return b.getAttribute('data-sample-user') || '@member';

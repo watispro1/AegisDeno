@@ -1,7 +1,7 @@
 import { breadcrumb, escapeHtml, fmtUptime, page, type SiteConfig } from "./shared";
 import type { ComponentState, HistoryWindow, OverallState, StatusPayload } from "../statusData";
 
-/* ── Status ────────────────────────────────────────────────────────── */
+/* Status */
 
 const STATE_LABEL: Record<ComponentState, string> = { operational: "Operational", degraded: "Degraded", outage: "Outage", unknown: "Unknown" };
 const OVERALL_CLASS: Record<OverallState, string> = { operational: "ok", degraded: "warn", major_outage: "bad", maintenance: "info" };

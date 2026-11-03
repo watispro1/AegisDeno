@@ -22,7 +22,7 @@ export function registerAutomationRoutes(router: Router, k: RouteKit): void {
     (await deps.data.loadSettings(guildId).catch(() => null))?.guild.modules?.scheduled !== false;
   const panelNotice = (r: PanelResult, ok: string) => (r === "posted" ? ok : r === "channel-missing" ? "panel-channel-missing" : "panel-failed");
 
-  /* ── Autoresponders ──────────────────────────────────────────────── */
+  /* Autoresponders */
 
   async function arPage(ctx: GuildContext, noticeCode: string | null, state?: FormState): Promise<string> {
     const [rows, snapshot] = await Promise.all([modules.listAutoResponders(ctx.guild.id), deps.data.loadSettings(ctx.guild.id)]);
@@ -74,7 +74,7 @@ export function registerAutomationRoutes(router: Router, k: RouteKit): void {
     } catch (err) { next(err); }
   });
 
-  /* ── Scheduled messages ──────────────────────────────────────────── */
+  /* Scheduled messages */
 
   async function taskPage(ctx: GuildContext, noticeCode: string | null, state?: FormState): Promise<string> {
     return renderAutomations(deps.site, ctx, {
@@ -117,7 +117,7 @@ export function registerAutomationRoutes(router: Router, k: RouteKit): void {
     } catch (err) { next(err); }
   });
 
-  /* ── Announcements (embed builder) ───────────────────────────────── */
+  /* Announcements (embed builder) */
 
   const announcePage = (ctx: GuildContext, noticeCode: string | null, state?: FormState) => renderAnnounce(deps.site, ctx, {
     channels: deps.bot.textChannels(ctx.guild.id), hidden: deps.bot.hiddenChannelIds(ctx.guild.id), noticeCode, state,

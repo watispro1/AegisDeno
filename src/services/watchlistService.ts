@@ -289,7 +289,7 @@ async function sendWatchAlert(
 
 async function getWatches(guildId: string, targetId: string): Promise<CachedWatch[]> {
   const key = `${guildId}:${targetId}`;
-  // 99.99% of members are not on a watchlist — fast O(1) in-memory rejection
+  // Almost nobody is watched, so check the in-memory key set before Mongo.
   if (!activeWatchKeys.has(key)) {
     return [];
   }

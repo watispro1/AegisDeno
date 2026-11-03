@@ -20,7 +20,7 @@ export const jsWidgets = String.raw`  /* ── Troubleshooting filter ───
     }, 80));
   }
 
-  /* ── FAQ: one answer open at a time ──────────────────────────────── */
+  /* FAQ: one answer open at a time */
   var faqs = document.querySelectorAll('[data-faq] details');
   for (var f = 0; f < faqs.length; f++) {
     faqs[f].addEventListener('toggle', function (e) {
@@ -29,7 +29,7 @@ export const jsWidgets = String.raw`  /* ── Troubleshooting filter ───
     });
   }
 
-  /* ── Table of contents: mark the section in view, drive the section pager ── */
+  /* Table of contents: mark the section in view, drive the section pager */
   var tocLinks = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#"]'));
   var docPrev = document.querySelector('[data-doc-prev]');
   var docNext = document.querySelector('[data-doc-next]');
@@ -95,7 +95,7 @@ export const jsWidgets = String.raw`  /* ── Troubleshooting filter ───
     updateSpy();
   }
 
-  /* ── Uptime ticker ───────────────────────────────────────────────── */
+  /* Uptime ticker */
   var uptimeEls = document.querySelectorAll('[data-uptime-from]');
   if (uptimeEls.length) {
     var startedAt = Date.now() - (parseFloat(uptimeEls[0].getAttribute('data-uptime-from')) || 0);
@@ -111,7 +111,7 @@ export const jsWidgets = String.raw`  /* ── Troubleshooting filter ───
     setInterval(tick, 1000);
   }
 
-  /* ── Live numbers from /api/stats ────────────────────────────────── */
+  /* Live numbers from /api/stats */
   var live = document.querySelectorAll('[data-live]');
   if (live.length) {
     var refresh = function () {
@@ -157,7 +157,7 @@ export const jsWidgets = String.raw`  /* ── Troubleshooting filter ───
     }
     setInterval(refresh, 30000);
   }
-  /* ── Changelog: filter releases and their version list ────────────── */
+  /* Changelog: filter releases and their version list */
   var clSearch = document.getElementById('cl-search');
   if (clSearch) {
     var clReleases = Array.prototype.slice.call(document.querySelectorAll('.release'));

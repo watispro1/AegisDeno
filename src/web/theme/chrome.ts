@@ -52,7 +52,7 @@ export const cssChrome = String.raw`/* ── Header ─────────
   .nav-mobile-cta { display: block; margin-top: .75rem; }
 }
 
-/* ── Search dialog ──────────────────────────────────────────────────── */
+/* Search dialog */
 .site-search[hidden] { display: none; }
 .site-search { position: fixed; inset: 0; z-index: 90; display: flex; justify-content: center; align-items: flex-start; padding: 10vh 1rem 1rem; }
 .site-search-backdrop { position: absolute; inset: 0; background: rgba(20, 20, 18, .45); }
@@ -100,7 +100,7 @@ export const cssChrome = String.raw`/* ── Header ─────────
 .site-search-recent:hover, .site-search-recent:focus-visible { border-color: var(--accent); color: var(--accent); }
 .site-search-empty { color: var(--muted); font-size: .9rem; padding: .5rem; margin: 0; }
 
-/* ── Toast ──────────────────────────────────────────────────────────── */
+/* Toast */
 #toast-container { position: fixed; right: max(1rem, env(safe-area-inset-right)); bottom: max(1rem, env(safe-area-inset-bottom)); z-index: 95; display: flex; flex-direction: column; gap: .5rem; pointer-events: none; }
 .toast {
   background: var(--text); color: var(--bg);
@@ -109,7 +109,7 @@ export const cssChrome = String.raw`/* ── Header ─────────
   max-width: min(320px, calc(100vw - 2rem));
 }
 
-/* ── Page furniture ─────────────────────────────────────────────────── */
+/* Page furniture */
 main { display: block; min-height: 60vh; }
 .page-head { padding: 2.5rem 0 1.75rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
 .page-head h1 { margin-bottom: .35rem; }
@@ -133,7 +133,7 @@ main { display: block; min-height: 60vh; }
 .callout.warn { border-left-color: var(--warn); }
 .callout p:last-child { margin-bottom: 0; }
 
-/* ── Discord mock ───────────────────────────────────────────────────── */
+/* Discord mock */
 .dc {
   background: var(--dc-bg); color: var(--dc-text);
   border-radius: var(--r-lg); border: 1px solid #1f2023;

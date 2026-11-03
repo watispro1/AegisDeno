@@ -249,7 +249,7 @@ export function startWebServer(client: Client) {
 
     const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, unknown>;
     const field = (v: unknown) => (typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v).slice(0, 40).replace(/[^\w.-]/g, "") : "?");
-    logger.info(`👍 Top.gg Vote Received: User ${field(body.user)} (Type: ${field(body.type)}, Weekend: ${field(body.isWeekend)}, Guild: ${body.guild ? field(body.guild) : "N/A"})`);
+    logger.info(`top.gg vote: user ${field(body.user)}, type ${field(body.type)}, weekend ${field(body.isWeekend)}, guild ${body.guild ? field(body.guild) : "none"}`);
     res.json({ status: "ok" });
   });
 
