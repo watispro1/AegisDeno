@@ -34,7 +34,7 @@ const ctx: ValidationContext = {
   roles: new Map([[ROLE, { assignable: true }], [HIGH_ROLE, { assignable: false }]]),
 };
 
-/* ── Permissions ─────────────────────────────────────────────────── */
+/* Permissions */
 
 test("canManageGuild accepts Manage Server, Administrator and owners only", () => {
   assert.ok(canManageGuild(PermissionFlagsBits.ManageGuild.toString()));
@@ -73,7 +73,7 @@ test("guildInviteUrl preselects the server", () => {
   assert.equal(guildInviteUrl("", "1"), null);
 });
 
-/* ── Settings ────────────────────────────────────────────────────── */
+/* Settings */
 
 test("logging requires a visible channel when enabled", () => {
   const ok = parseLogging({ loggingEnabled: "on", loggingChannelId: CH, cat_modActions: "on" }, ctx);
@@ -200,7 +200,7 @@ test("case reason and filters", () => {
   assert.equal(parseCaseFilter({ page: ["2", "9"] }).page, 2);
 });
 
-/* ── v1.2.0 forms ────────────────────────────────────────────────── */
+/* v1.2.0 forms */
 
 test("word list: one per line, lower-cased, de-duplicated, same length rules as /automod words add", () => {
   assert.deepEqual(parseWordList("Spam\r\n  free nitro \n\nspam\nSPAM"), { list: ["spam", "free nitro"], error: null });

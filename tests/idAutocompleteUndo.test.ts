@@ -17,7 +17,7 @@ function task(id: string, creatorId: string, inMs: number, extra: Partial<TaskSu
   return { id, type: "scheduled", creatorId, channelId: "1", executeAt: new Date(NOW + inMs), preview: `message ${id}`, ...extra };
 }
 
-/* ── autocomplete ─────────────────────────────────────────────────── */
+/* autocomplete */
 
 test("taskIdSuggestions: own tasks only without Manage Server, all with it, soonest first", () => {
   const rows = [task("b", OTHER, 7_200_000), task("a", ME, 3_600_000, { type: "reminder" }), task("c", ME, 90_000_000, { intervalMs: 600_000 })];
@@ -93,7 +93,7 @@ test("/appeal autocomplete: nothing without Ban Members; server-scoped pending l
   }
 });
 
-/* ── quick Undo ───────────────────────────────────────────────────── */
+/* quick Undo */
 
 test("quickUndoVerdict: author only, 60 seconds; buttons and IDs", () => {
   assert.equal(quickUndoVerdict(ME, ME, NOW, NOW + 1_000), "ok");

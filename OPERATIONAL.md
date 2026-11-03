@@ -15,35 +15,32 @@ The bot relies on several environment variables that must be configured correctl
 
 ## Admin Commands
 
-Aegis provides a robust set of moderation and administration commands. Key commands include:
+The main admin commands:
 - `/automod`: Configure automoderation settings (requires `ManageGuild` permission).
   - `/automod words toggle|add|remove|action`: Manage blocked words filter.
   - `/automod links toggle|action`: Manage link filtering.
   - `/automod mentions toggle|limit|action`: Manage mention-spam filter.
   - `/automod caps toggle|threshold|action`: Manage uppercase and character flood detection.
   - `/automod status`: Interactive status hub with toggle buttons.
-- `/warn`, `/timeout`, `/ban`, `/kick`: Core moderation suite with preset reason choices, confirmation embeds, and instant quick-actions (Timeout 10m, +1h Extend, Undo, Revoke Ban).
-- `/case`: Comprehensive moderation case history lookup (`/case view`, `/case user`), reason updates (`/case edit`), and JSON audit exports (`/case export`).
+- `/warn`, `/timeout`, `/ban`, `/kick`: Preset reasons, a confirmation step, and quick actions afterwards (Timeout 10m, +1h Extend, Undo, Revoke Ban).
+- `/case`: Case lookup (`/case view`, `/case user`), reason updates (`/case edit`), and JSON audit exports (`/case export`).
 - `/purge`: Filtered bulk message deletion with preview prompt, audit reason logging, and progress bar.
 - `/developer`: Restricted bot-owner diagnostics for live heap memory, cached guilds, and loaded commands.
 - `/sync`: Live slash command re-registration without process restarts.
 
 ## Web Portal Operations & Visual Performance
 
-The web portal features an Apple VisionOS-inspired Liquid Glass design system with real-time telemetry streaming:
-- **Liquid Glass Materials**: Translucent frosted panels with multi-layer blur and specular rim highlights.
-- **Glass Toggle Mode**: Operators and visitors can toggle Liquid Glass on or off via the `.glass-toggle` button in the navbar or `/dashboard`, or by pressing `G`. When set to off (`data-glass="off"`), the site falls back to clean, high-performance solid surfaces to conserve GPU resources on low-power devices.
-- **Real-time Live Telemetry**: `/status` and `/dashboard` stream live shard latency, memory consumption, connected guilds, and AutoMod rule triggers.
-- **Interactive Simulator**: The `/playground` route allows operators to preview Discord embeds, support tickets, verification panels, and moderation prompts before server deployment.
+- `/status` shows uptime, gateway latency and incident notices; `/api/status` returns the same as JSON.
+- `/playground` is retired and redirects to `/features`.
 
 ## Deployment Checks
 
-Aegis is optimized for deployment via platforms like Fly.io. Follow these checks to ensure a safe rollout:
-1. **Secrets Validation**: Ensure all environment variables (especially `DISCORD_TOKEN` and `MONGO_URI`) are securely set via `fly secrets set`.
-2. **Database Availability**: The bot relies on MongoDB. If the DB is unavailable, the bot will exit early during startup to prevent data corruption. Check your cluster's connection limits and network allowlists.
-3. **Smoke Tests**: Run `npm run test` before deployment to verify web endpoint health and API responses. The smoke tests validate HTTP 200 statuses, correct cache headers, security headers (CSP, HSTS), and accurate JSON formatting.
-4. **Discord Intent and Permissions**: Verify that your bot has been granted the `Server Members` intent (if necessary for fetching member data) and `Message Content` intent (vital for automod link and word filtering) via the Discord Developer Portal.
-5. **Logs**: Monitor your deployment using `fly logs`. The application outputs clear info messages on successful DB connection, command registration, and web server boot up.
+Aegis runs on Fly.io. Before a rollout:
+1. **Secrets Validation**: `DISCORD_TOKEN`, `MONGO_URI` and the rest are set with `fly secrets set`.
+2. **Database Availability**: The bot exits at startup if it cannot reach MongoDB. Check your cluster's connection limits and network allowlists.
+3. **Smoke Tests**: Run `npm run test` before deployment to verify web endpoint health and API responses. It checks status codes, cache and security headers (CSP, HSTS) and the JSON endpoints.
+4. **Discord Intent and Permissions**: Verify that your bot has been granted the `Server Members` intent (if necessary for fetching member data) and `Message Content` intent (automod needs it to read messages) via the Discord Developer Portal.
+5. **Logs**: Monitor your deployment using `fly logs`. Startup logs one line each for the DB connection, command registration and the web server.
 
 ## Retired settings collection (`pluginconfigs`)
 

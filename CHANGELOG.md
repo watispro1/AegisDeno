@@ -88,6 +88,8 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   section.
 
 ### Changed
+- Tidied code comments, log lines and the operator docs (no behavior change).
+  Startup and registration log lines are plain text without emoji.
 - Server-only commands are registered for servers only, so Discord no longer
   lists them in the slash menu in DMs. Commands that work in DMs (`/help`,
   `/about`, `/ping` and the like) are unchanged.

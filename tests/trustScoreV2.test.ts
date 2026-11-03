@@ -169,7 +169,7 @@ test("histogram: ten buckets, low bands marked, accessible text", () => {
   assert.doesNotMatch(svg, /style=|<script/);
 });
 
-/* ── Dashboard ─────────────────────────────────────────────────────── */
+/* Dashboard */
 
 const USER = "900000000000000001";
 const GUILD = "800000000000000001";

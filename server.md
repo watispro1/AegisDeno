@@ -1,6 +1,6 @@
-# 🛡️ Official Aegis Support Discord Server — Architecture & Setup Blueprint
+# Aegis support server setup
 
-> Complete blueprint and administrative manual for creating and configuring the official **Aegis Support & Community Discord Server**. This document specifies the complete hierarchy of roles, channels, categories, permission overrides, automations, and bot integrations.
+> How the official **Aegis Support & Community** Discord server is set up: roles, categories and channels, permission overrides, automations and bot integrations.
 
 ---
 

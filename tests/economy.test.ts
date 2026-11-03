@@ -14,7 +14,7 @@ const B = "900000000000000002";
 const HOUR = 3_600_000;
 const on: EconomyConfig = { ...DEFAULT_ECONOMY_CONFIG, enabled: true };
 
-/* ── Settings ──────────────────────────────────────────────────────── */
+/* Settings */
 
 test("economy config: off by default, normalizes junk, keeps workMax ≥ workMin", () => {
   const c = normalizeEconomyConfig(undefined);
@@ -60,7 +60,7 @@ test("amounts: integers only, commas allowed, 1..1e12", () => {
   assert.equal(formatCoins(on, 1234567), "🪙 1,234,567 coins");
 });
 
-/* ── Cooldowns ─────────────────────────────────────────────────────── */
+/* Cooldowns */
 
 test("daily: 24h cooldown with retry time, streak grows within 48h, resets after, bonus capped", () => {
   const t0 = Date.UTC(2026, 10, 2, 12);
@@ -109,7 +109,7 @@ test("service: concurrent /daily claims pay exactly once", async () => {
   assert.equal(store.transactions.length, 1);
 });
 
-/* ── Balances: atomic guards ───────────────────────────────────────── */
+/* Balances: atomic guards */
 
 test("pay: no overdraft or double-spend under concurrency; totals are conserved", async () => {
   const { service, store } = memoryEconomy({ config: { enabled: true } });
@@ -155,7 +155,7 @@ test("adjust: give respects the cap, take never goes negative, reset logs what w
   assert.deepEqual(types, [["admin_give", 50, B], ["admin_reset", -50, B]]);
 });
 
-/* ── Shop ──────────────────────────────────────────────────────────── */
+/* Shop */
 
 test("shop items: validation, unique names, 50-item cap", async () => {
   const bad = validateShopItem({ name: "", price: "0", stock: "-1", roleId: "x", description: "d".repeat(201) });
@@ -258,7 +258,7 @@ test("leaderboard: richest first, ties by ID, zero balances hidden, paged", asyn
   assert.deepEqual((await service.leaderboard(G, 0, 2)).rows.length, 2, "page < 1 is page 1");
 });
 
-/* ── Mongo store: the guards live in the query ─────────────────────── */
+/* Mongo store: the guards live in the query */
 
 function fakeModels() {
   const calls: Array<{ model: string; op: string; args: unknown[] }> = [];

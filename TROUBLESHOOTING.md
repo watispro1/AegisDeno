@@ -1,12 +1,12 @@
-# Aegis — Troubleshooting Guide
+# Aegis troubleshooting
 
 Common problems and how to fix them.
 
 ---
 
-## 🔴 Bot won't start
+## Bot won't start
 
-### "MONGO_URI is missing in your .env file!"
+### "MONGO_URI is not set"
 
 The bot exits immediately because the MongoDB connection string isn't set.
 
@@ -24,9 +24,9 @@ The bot found `MONGO_URI` but couldn't actually connect.
 
 **Common causes:**
 
-- Wrong password in the connection string (check for special characters — URL-encode them if needed, e.g. `@` → `%40`).
+- Wrong password in the connection string (URL-encode special characters, e.g. `@` → `%40`).
 - MongoDB Atlas IP allow-list doesn't include your machine or the Fly.io region. Add `0.0.0.0/0` temporarily to test.
-- Cluster is paused (Atlas free tier auto-pauses after 60 days of inactivity — click **Resume** in the Atlas UI).
+- Cluster is paused (Atlas free tier auto-pauses after 60 days of inactivity; click **Resume** in the Atlas UI).
 
 ---
 
@@ -34,11 +34,11 @@ The bot found `MONGO_URI` but couldn't actually connect.
 
 The `DISCORD_TOKEN` environment variable is not set.
 
-**Fix:** Add `DISCORD_TOKEN=your-bot-token` to `.env`. Regenerate the token in the Discord Developer Portal if you've lost it — old tokens are immediately invalidated.
+**Fix:** Add `DISCORD_TOKEN=your-bot-token` to `.env`. Regenerate the token in the Discord Developer Portal if you have lost it; the old token stops working right away.
 
 ---
 
-## 🟡 Slash commands not appearing
+## Slash commands not appearing
 
 ### Commands don't show up after the bot starts
 
@@ -46,7 +46,7 @@ Global slash command registration can take **up to 1 hour** to propagate to all 
 
 **Faster alternative (development):**
 
-- Set `DISCORD_TEST_GUILD_ID=your-server-id` in `.env` — commands will register instantly to that guild only.
+- Set `DISCORD_TEST_GUILD_ID=your-server-id` in `.env` and commands will register instantly to that guild only.
 - **Do not** set this in production, or commands won't be globally visible.
 
 ### Commands appeared in one server but not others
@@ -61,7 +61,7 @@ Same root cause as above. Use `DISCORD_CLEAR_GUILD_IDS` to clean up the guild-sc
 
 ---
 
-## 🟡 Moderation commands failing
+## Moderation commands failing
 
 ### "Unknown Member" / moderation action silently fails
 
@@ -81,24 +81,24 @@ This is the hierarchy guard working correctly. The _moderator_ running the comma
 
 ---
 
-## 🟡 Automod not triggering
+## Automod not triggering
 
 ### Messages with banned words aren't deleted
 
-1. Run `/automod status` — check that the "Words" rule is **Enabled**.
-2. Run `/automod words list` — confirm the word is in the list.
+1. Run `/automod status` and check that the "Words" rule is **Enabled**.
+2. Run `/automod words list` and confirm the word is in the list.
 3. Check if the channel or the user's role is exempt: `/automod exempt list`.
 4. Confirm the bot has **Manage Messages** permission in that channel.
 
 ### Spam detection isn't firing
 
-1. Run `/automod status` — confirm "Spam" is enabled and the threshold looks right.
+1. Run `/automod status` and confirm "Spam" is enabled and the threshold looks right.
 2. The spam detector uses an in-memory window. It resets on bot restart. After a restart, the counter starts fresh.
 3. Bot roles and channel exemptions bypass spam checks.
 
 ---
 
-## 🟡 Scheduler / reminders not firing
+## Scheduler / reminders not firing
 
 ### A reminder or scheduled message never arrived
 
@@ -114,23 +114,23 @@ The task ran 3 times and failed each time. Likely the target channel was deleted
 
 ---
 
-## 🟡 Welcome messages / auto-roles not working
+## Welcome messages / auto-roles not working
 
 ### New members don't get a welcome message
 
-1. Run `/welcome status` — confirm **Status** is `✅ Enabled` and a **Channel** is set.
+1. Run `/welcome status` and confirm **Status** is `✅ Enabled` and a **Channel** is set.
 2. Check the bot has **Send Messages** and **View Channel** permission in that channel.
 3. Welcome messages require the **Server Members Intent** to be enabled in the Discord Developer Portal (Bot → Privileged Gateway Intents).
 
 ### Auto-role isn't assigned
 
-1. Run `/welcome status` — confirm **Auto-Role** is set.
+1. Run `/welcome status` and confirm **Auto-Role** is set.
 2. The bot's role must be **higher** than the auto-role in the role hierarchy.
 3. Confirm the bot has **Manage Roles** permission.
 
 ---
 
-## 🟡 Suggestions not posting
+## Suggestions not posting
 
 ### `/suggest submit` says "suggestions are not set up"
 
@@ -142,7 +142,7 @@ The bot needs **Read Message History** and **View Channel** in the suggestions c
 
 ---
 
-## 🟡 Web dashboard issues
+## Web dashboard issues
 
 ### Health endpoint returns 503 or times out
 
@@ -156,17 +156,9 @@ The web server sets `Cache-Control: no-cache` on HTML pages by default. If you'r
 
 The bot is connected but hasn't joined any guilds yet. Invite it using the OAuth2 URL from `/diagnostics` or the invite link in `.env`.
 
-### Frosted glass background looks flat or solid
-
-Liquid Glass requires CSS `backdrop-filter` support:
-
-1. **Device Setting**: Check if your operating system has "Reduce transparency" enabled (Windows: Settings → Accessibility → Visual effects → Transparency effects; macOS: System Settings → Accessibility → Display → Reduce transparency). The site automatically respects this accessibility preference.
-2. **Site Glass Toggle**: Check if Liquid Glass was toggled off. Click the `.glass-toggle` button in the navbar or press `G` to re-enable VisionOS frosted materials.
-3. **Browser Support**: Older browser versions without `-webkit-backdrop-filter` support will automatically receive clean solid fallbacks.
-
 ---
 
-## 🟡 "Aegis can't see this channel"
+## "Aegis can't see this channel"
 
 From 2026-11-16 Discord hides channels from bots that lack **View Channel** on
 them: the bot still receives them, but named `___hidden___`, with no topic and
@@ -180,7 +172,7 @@ Messages and Embed Links where it posts), or pick another channel.
 
 ---
 
-## 🔵 Fly.io deployment issues
+## Fly.io deployment issues
 
 ### "fly deploy" fails with "image build failed"
 
@@ -190,9 +182,9 @@ Check the Dockerfile for correct Node version. The project requires Node 20+. Ve
 
 Check `fly logs` for the crash reason. Common causes:
 
-- Missing secret (DISCORD_TOKEN, MONGO_URI) — run `fly secrets list` to verify they're set.
-- Memory exhaustion — upgrade from 256MB to 512MB or 1GB in `fly.toml`.
-- MongoDB connection refused — check Atlas IP allowlist includes Fly.io IPs.
+- Missing secret (DISCORD_TOKEN, MONGO_URI): run `fly secrets list` to verify they're set.
+- Memory exhaustion: upgrade from 256MB to 512MB or 1GB in `fly.toml`.
+- MongoDB connection refused: check Atlas IP allowlist includes Fly.io IPs.
 
 ### `fly secrets set` shows no confirmation
 
@@ -200,7 +192,7 @@ This is normal. Fly.io silently accepts secrets. Run `fly secrets list` to confi
 
 ---
 
-## 🔵 Getting more debug info
+## Getting more debug info
 
 Set `LOG_LEVEL=debug` in `.env` (or as a Fly.io secret) to see verbose output including:
 

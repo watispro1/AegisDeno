@@ -66,7 +66,7 @@ function content(payload: unknown): string {
   return String((payload as { content?: string })?.content ?? payload);
 }
 
-/* ── Modal IDs ─────────────────────────────────────────────────────── */
+/* Modal IDs */
 
 test("scopedModalId: one ID per opening interaction, within Discord's 100-character limit", () => {
   assert.notEqual(scopedModalId("suggest_submit_modal", "1"), scopedModalId("suggest_submit_modal", "2"));
@@ -97,7 +97,7 @@ test("/suggest submit: a submit from an earlier, abandoned invocation does not r
   }
 });
 
-/* ── Role hierarchy for self-service roles ────────────────────────── */
+/* Role hierarchy for self-service roles */
 
 test("roleAboveActor: roles must be strictly below the actor's top role; the owner may use any", () => {
   const roles = [{ id: "low", position: 3 }, { id: "equal", position: 5 }, { id: "high", position: 9 }];
@@ -152,7 +152,7 @@ test("/verify setup refuses a verified role at or above the invoker's highest ro
   assert.equal(owner.calls[0].method, "showModal", "the owner may use any role");
 });
 
-/* ── Tickets ───────────────────────────────────────────────────────── */
+/* Tickets */
 
 test("closeTicket: when another close wins the race, this one posts and deletes nothing", async () => {
   const { closeTicket } = await import("../src/services/ticketService");
