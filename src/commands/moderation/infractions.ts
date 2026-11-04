@@ -117,7 +117,7 @@ export const command: Command = {
         const totalPages = Math.max(1, Math.ceil(cases.length / CASES_PER_PAGE));
         const slice = cases.slice(page * CASES_PER_PAGE, (page + 1) * CASES_PER_PAGE);
         const ACTION_EMOJI: Record<string, string> = {
-          ban: "🔨", kick: "👢", timeout: "⏱️", untimeout: "🔓",
+          ban: "🔨", softban: "🧹", kick: "👢", timeout: "⏱️", untimeout: "🔓", temprole: "🏷️",
           warn: "⚠️", unban: "✅", note: "📝",
         };
         const lines = slice.length === 0

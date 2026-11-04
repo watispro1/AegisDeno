@@ -116,6 +116,8 @@ export const command: Command = {
 
     const ACTION_ICONS: Record<string, string> = {
       ban: "🔨",
+      softban: "🧹",
+      temprole: "🏷️",
       unban: "↩️",
       kick: "👢",
       timeout: "⏱️",

@@ -11,6 +11,7 @@ const OVERDUE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
  * - verify_kick: kick a member still unverified after the configured delay (payload is JSON)
  * - poll_close: timed `/poll` auto-close (payload is JSON `{ messageId }`)
  * - timed_unban: lift a `/ban duration:` ban (creatorId is the banned user, payload is JSON, see timedActions.ts)
+ * - temprole_remove: take a `/temprole` role off (creatorId is the member, payload is JSON, see tempRoleLogic.ts)
  * - staff_digest: the weekly staff digest (one per guild, see digestService.ts; each run schedules the next)
  */
 export type TaskType =
@@ -22,10 +23,11 @@ export type TaskType =
   | "verify_kick"
   | "poll_close"
   | "timed_unban"
+  | "temprole_remove"
   | "staff_digest";
 
 /** Restored on boot however overdue: each re-checks current state before acting. */
-const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick", "poll_close", "timed_unban", "staff_digest"];
+const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick", "poll_close", "timed_unban", "temprole_remove", "staff_digest"];
 
 /** Most tasks one listing returns (a guild's automation list, a user's reminders). */
 export const MAX_LISTED_TASKS = 200;

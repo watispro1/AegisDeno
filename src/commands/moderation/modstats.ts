@@ -16,7 +16,7 @@ import { getRecentCasesForGuild, getTopOffendersForGuild } from "../../services/
 import { WarningModel, ModerationCaseModel } from "../../database/mongo";
 
 const ACTION_EMOJI: Record<string, string> = {
-  warn: "⚠️", kick: "👢", ban: "🔨", timeout: "⏱️",
+  warn: "⚠️", kick: "👢", ban: "🔨", softban: "🧹", timeout: "⏱️", temprole: "🏷️",
   untimeout: "✅", unban: "✅", clearwarnings: "🗑️",
 };
 

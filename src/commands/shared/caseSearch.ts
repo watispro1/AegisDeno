@@ -7,7 +7,7 @@ import { EmbedBuilder, MessageFlags, type ChatInputCommandInteraction, type Slas
 import { ModerationCaseModel, WarningModel } from "../../database/mongo";
 import { parseFriendlyDuration } from "../../utils/duration";
 
-export const CASE_SEARCH_ACTIONS = ["warn", "timeout", "kick", "ban", "unban", "untimeout", "clearwarnings", "purge", "lock", "unlock"] as const;
+export const CASE_SEARCH_ACTIONS = ["warn", "timeout", "kick", "ban", "softban", "unban", "untimeout", "temprole", "clearwarnings", "purge", "lock", "unlock"] as const;
 export const CASE_SEARCH_LIMIT = 10;
 const REASON_MAX = 100;
 

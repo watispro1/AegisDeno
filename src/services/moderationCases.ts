@@ -8,6 +8,8 @@ export type ModerationAction =
   | "warn"
   | "kick"
   | "ban"
+  | "softban"
+  | "temprole"
   | "timeout"
   | "untimeout"
   | "unban"
