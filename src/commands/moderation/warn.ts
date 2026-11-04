@@ -21,6 +21,7 @@ import { checkEscalation } from "../../services/escalation";
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
 import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
 import { caseLinkButton, modLogRow } from "../../services/modLogLinks";
+import { softFail } from "../../utils/softFail";
 
 const SEVERITY_CONFIG: Record<string, { color: number; label: string; emoji: string }> = {
   low:    { color: 0xFEE75C, label: "Low",    emoji: "🟡" },
@@ -163,7 +164,7 @@ export const command: Command = {
           )
           .setFooter({ text: "Please review the server rules to avoid further action." })
           .setTimestamp();
-        target.send({ embeds: [dmEmbed] }).catch(() => null); // ignore if DMs are closed
+        target.send({ embeds: [dmEmbed] }).catch(softFail(`Warning notice DM to ${target.id}`, "debug"));
       }
 
       const collector = sent.createMessageComponentCollector({

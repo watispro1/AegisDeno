@@ -4,6 +4,9 @@ import { logger } from "../utils/logger";
 import { getGuildConfig } from "./configuration";
 import { buildEmbedFromSpec, renderTemplate } from "./embedSpec";
 import { isObfuscatedChannel } from "../utils/channels";
+import { shouldAssignWelcomeRole } from "../bot/eventFilters";
+import { softFail } from "../utils/softFail";
+import { describeStay } from "./templateText";
 
 /**
  * Gives a new member the welcome auto-role. Adding a role during membership
@@ -22,6 +25,22 @@ export async function assignWelcomeRole(member: GuildMember, roleId: string): Pr
   );
 }
 
+/**
+ * GuildMemberUpdate side of the welcome role: gives it once the member passes
+ * membership screening, including when the old member was not cached.
+ */
+export async function assignWelcomeRoleAfterScreening(oldMember: GuildMember | PartialGuildMember, newMember: GuildMember): Promise<void> {
+  if (newMember.pending || !(oldMember.pending || oldMember.partial)) return;
+  const roleId = (await getGuildConfig(newMember.guild.id).catch(() => null))?.welcomeRoleId;
+  if (!roleId) return;
+  const passed = shouldAssignWelcomeRole(oldMember, {
+    pending: newMember.pending,
+    joinedTimestamp: newMember.joinedTimestamp,
+    hasRole: newMember.roles.cache.has(roleId),
+  });
+  if (passed) await assignWelcomeRole(newMember, roleId);
+}
+
 /** Posts the goodbye message for a member who left, if the server turned it on. */
 export async function sendGoodbye(member: GuildMember | PartialGuildMember): Promise<void> {
   const config = await getGuildConfig(member.guild.id);
@@ -34,9 +53,12 @@ export async function sendGoodbye(member: GuildMember | PartialGuildMember): Pro
   }
   if (!channel.isTextBased() || !("send" in channel)) return;
   const name = member.user?.username ?? "A member";
-  const values = { user: name, username: name, server: member.guild.name, memberCount: member.guild.memberCount };
+  const values = {
+    user: name, username: name, server: member.guild.name, memberCount: member.guild.memberCount,
+    timeInServer: describeStay(member.joinedTimestamp),
+  };
   const content = renderTemplate(config.goodbyeMessage ?? "", values).slice(0, 2000);
   const embeds = config.goodbyeEmbed ? [buildEmbedFromSpec(config.goodbyeEmbed, values)] : [];
   if (!content && embeds.length === 0) return;
-  await channel.send({ content: content || undefined, embeds, allowedMentions: { parse: [] } }).catch(() => null);
+  await channel.send({ content: content || undefined, embeds, allowedMentions: { parse: [] } }).catch(softFail(`Goodbye message in guild ${member.guild.id}`));
 }

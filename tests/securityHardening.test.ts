@@ -1,5 +1,5 @@
 /**
- * 3.6.2 security hardening: response headers and CSP, error handling that
+ * Security hardening: response headers and CSP, error handling that
  * leaks nothing, NoSQL-operator input, open redirects, __Host- cookies with
  * migration from the old name, session rotation on login, CSRF, secret
  * redaction in logs and the bot's allowedMentions default. No network.

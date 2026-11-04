@@ -10,6 +10,7 @@ import {
   shouldLiftTimedBan,
   decodeChannelUnlock,
   decodePersonalReminder,
+  reminderPostsInChannel,
   nextTimerDelay,
   reminderSnoozeCustomId,
   SNOOZE_OPTIONS_MINUTES,
@@ -17,14 +18,15 @@ import {
 import { sendGuildLog } from "./logging";
 import { isSendableChannel, isObfuscatedChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
+import { softFail } from "../utils/softFail";
 import { auditReason } from "../utils/safeText";
 import { formatDurationLong } from "../utils/duration";
 import { addModerationCase } from "./moderationCases";
 
 /**
- * Deliver a `/remindme` reminder: DM the user, and optionally ping them in the
- * channel the reminder was set from. Delivery failures are swallowed (as before
- * persistence was added) so a user with closed DMs is not retried and spammed.
+ * Deliver a `/remindme` reminder: DM the user, and ping them in the channel
+ * the reminder was set from when they asked for that or the DM failed.
+ * Delivery failures are not retried, so a user with closed DMs is not spammed.
  */
 export async function deliverPersonalReminder(client: Client, task: ScheduledTask): Promise<void> {
   const payload = decodePersonalReminder(task.payload);
@@ -61,17 +63,17 @@ export async function deliverPersonalReminder(client: Client, task: ScheduledTas
     );
 
     const user = await client.users.fetch(task.creatorId).catch(() => null);
-    if (user) {
-      await user.send({ embeds: [dmEmbed], components: [snoozeRow] }).catch(() => null);
-    }
+    const dm = user
+      ? await user.send({ embeds: [dmEmbed], components: [snoozeRow] }).catch(softFail(`Reminder DM to ${task.creatorId}`, "debug"))
+      : null;
 
-    if (payload.inChannel) {
+    if (reminderPostsInChannel(payload.inChannel, dm !== null)) {
       const channel = await client.channels.fetch(task.channelId).catch(() => null);
       if (isSendableChannel(channel)) {
         await channel.send({
           content: `<@${task.creatorId}> ⏰ **Reminder:** ${payload.text}`,
           allowedMentions: { users: [task.creatorId] },
-        }).catch(() => null);
+        }).catch(softFail(`Reminder ping in channel ${task.channelId}`));
       }
     }
   } catch (err) {
@@ -165,6 +167,6 @@ export async function performTimedUnban(client: Client, task: ScheduledTask): Pr
     title: "⏲️ Temporary Ban Expired",
     color: 0x57F287,
     description: `**User:** ${ban.user.tag} (<@${userId}>)\n**Ban length:** ${formatDurationLong(payload.durationSeconds)}\n**Originally banned by:** ${payload.moderatorTag}${payload.caseId ? `\n**Case:** \`${payload.caseId}\`` : ""}`,
-  }).catch(err => logger.warn(`Task ${task.id}: timed-unban log failed`, err));
+  }, "modActions").catch(err => logger.warn(`Task ${task.id}: timed-unban log failed`, err));
 }
 

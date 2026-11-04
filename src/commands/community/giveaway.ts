@@ -23,7 +23,7 @@ import { MAX_TIMEOUT_MS } from "../../services/timedActions";
 import { formatDurationLong, parseFriendlyDuration } from "../../utils/duration";
 import { DISCORD_LIMITS, truncate } from "../../utils/safeText";
 import { pickWeightedWinners } from "../../services/communityLogic";
-import { enterGiveaway, requirementLines, type GiveawayEntryStore } from "../../services/giveawayEntry";
+import { bonusLines, requirementLines } from "../../services/giveawayEntry";
 
 import {
   fmtDuration,
@@ -34,6 +34,7 @@ import {
   handleGiveawayButton,
   endGiveaway,
   rerollGiveaway,
+  cancelGiveaway,
 } from "../../services/giveawayService";
 
 export {
@@ -82,11 +83,25 @@ export const command: Command = {
         .addIntegerOption(opt =>
           opt.setName("min_server_days").setDescription("Must have been in this server this many days (default: none)").setMinValue(1).setMaxValue(365).setRequired(false)
         )
+        .addRoleOption(opt =>
+          opt.setName("bonus_role").setDescription("Members with this role get extra entries").setRequired(false)
+        )
+        .addIntegerOption(opt =>
+          opt.setName("bonus_entries").setDescription("Entries for bonus_role holders (default 2)").setMinValue(2).setMaxValue(10).setRequired(false)
+        )
     )
     .addSubcommand(sub =>
       sub
         .setName("end")
         .setDescription("End a giveaway early and draw winners.")
+        .addStringOption(opt =>
+          opt.setName("message_id").setDescription("The giveaway: pick one, or paste its message ID or link").setRequired(true).setAutocomplete(true)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("cancel")
+        .setDescription("Cancel a running giveaway without drawing any winners.")
         .addStringOption(opt =>
           opt.setName("message_id").setDescription("The giveaway: pick one, or paste its message ID or link").setRequired(true).setAutocomplete(true)
         )
@@ -155,6 +170,16 @@ export const command: Command = {
         minMemberDays: interaction.options.getInteger("min_server_days") ?? 0,
       };
       const reqLines = requirementLines(requirements);
+      const bonusRole = interaction.options.getRole("bonus_role");
+      const bonusEntriesRaw = interaction.options.getInteger("bonus_entries");
+      if (bonusEntriesRaw && !bonusRole) {
+        return interaction.reply({ content: "❌ `bonus_entries` needs a `bonus_role` to give the extra entries to.", flags: MessageFlags.Ephemeral });
+      }
+      if (bonusRole && bonusRole.id === guildId) {
+        return interaction.reply({ content: "❌ Everyone has @everyone, so it can't be a bonus role. Pick a role only some members have.", flags: MessageFlags.Ephemeral });
+      }
+      const bonus = { bonusRoleId: bonusRole?.id ?? null, bonusEntries: bonusRole ? (bonusEntriesRaw ?? 2) : 1 };
+      const extraLines = bonusLines({ boosterMultiplier: boosterMult, ...bonus });
 
       const durationSec = parseFriendlyDuration(durationRaw);
       if (!durationSec || durationSec < 10) {
@@ -190,9 +215,8 @@ export const command: Command = {
         .setDescription(
           `${description ? `${description}\n\n` : ""}` +
           `Click **🎉 Enter Giveaway** below to participate!\n\n` +
-          `${reqLines.map(l => `${l}\n`).join("")}` +
-          `${boosterMult > 1 ? `> 🚀 **Server boosters** get **${boosterMult}×** entries\n` : ""}` +
-          `${reqLines.length || boosterMult > 1 ? "\n" : ""}` +
+          `${[...reqLines, ...extraLines].map(l => `${l}\n`).join("")}` +
+          `${reqLines.length || extraLines.length ? "\n" : ""}` +
           `**Ends:** <t:${endsTs}:R> (<t:${endsTs}:f>)`
         )
         .addFields(
@@ -228,6 +252,7 @@ export const command: Command = {
         winnerCount,
         ...requirements,
         boosterMultiplier: boosterMult,
+        ...bonus,
         hostId: interaction.user.id,
         entrants: [],
         endsAt,
@@ -239,7 +264,7 @@ export const command: Command = {
       await sendGuildLog(interaction.client, guildId, {
         title: "🎉 Giveaway Started",
         color: 0xF1C40F,
-        description: `**Prize:** ${prize}\n**Duration:** ${fmtDuration(durationSec)}\n**Winners:** ${winnerCount}\n${boosterMult > 1 ? `**Booster bonus:** ${boosterMult}×\n` : ""}**Host:** ${interaction.user.tag}\n**Channel:** <#${targetChan.id}>`,
+        description: `**Prize:** ${prize}\n**Duration:** ${fmtDuration(durationSec)}\n**Winners:** ${winnerCount}\n${boosterMult > 1 ? `**Booster bonus:** ${boosterMult}×\n` : ""}${bonus.bonusRoleId ? `**Bonus role:** <@&${bonus.bonusRoleId}> (${bonus.bonusEntries}×)\n` : ""}**Host:** ${interaction.user.tag}\n**Channel:** <#${targetChan.id}>`,
       });
 
       scheduleGiveawayEnd(interaction.client, guildId, gMsg.id, endsAt);
@@ -260,6 +285,18 @@ export const command: Command = {
         return;
       }
       await interaction.editReply(`✅ Giveaway ended. Winners: ${result.winners?.map(w => `<@${w}>`).join(", ") ?? "None"}`);
+      return;
+    }
+
+    // /giveaway cancel
+    if (sub === "cancel") {
+      const messageId = parseMessageRef(interaction.options.getString("message_id", true));
+      if (!messageId) {
+        return interaction.reply({ content: "❌ That isn't a giveaway. Pick one from the list, or paste its message ID or link.", flags: MessageFlags.Ephemeral });
+      }
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const result = await cancelGiveaway(interaction.client, guildId, messageId, interaction.user.tag);
+      await interaction.editReply(result.ok ? "✅ Giveaway cancelled. No winners were drawn and the entry button is gone." : `❌ ${result.error}`);
       return;
     }
 
@@ -289,11 +326,12 @@ export const command: Command = {
         await interaction.editReply("ℹ️ No active giveaways in this server.");
         return;
       }
-      const lines = active.map((g: any, i: number) => {
+      const lines = active.map((g, i) => {
         const ts = Math.floor(new Date(g.endsAt).getTime() / 1000);
-        return `**${i + 1}.** 🏆 **${truncate(String(g.prize), 80)}** — ${g.winnerCount} winner(s) — ${g.entrants?.length ?? 0} entr${(g.entrants?.length ?? 0) === 1 ? "y" : "ies"} — ends <t:${ts}:R> — [Jump](https://discord.com/channels/${guildId}/${g.channelId}/${g.messageId})`;
+        const bonusNote = g.bonusRoleId && (g.bonusEntries ?? 1) > 1 ? ` — <@&${g.bonusRoleId}> ${g.bonusEntries}×` : "";
+        return `**${i + 1}.** 🏆 **${truncate(String(g.prize), 80)}** — ${g.winnerCount} winner(s) — ${g.entrants?.length ?? 0} entr${(g.entrants?.length ?? 0) === 1 ? "y" : "ies"}${bonusNote} — ends <t:${ts}:R> — [Jump](https://discord.com/channels/${guildId}/${g.channelId}/${g.messageId})`;
       });
-      await interaction.editReply(`🎉 **Active Giveaways (${active.length}):**\n\n${lines.join("\n")}`);
+      await interaction.editReply({ content: `🎉 **Active Giveaways (${active.length}):**\n\n${lines.join("\n")}`, allowedMentions: { parse: [] } });
       return;
     }
   },

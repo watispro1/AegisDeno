@@ -1,5 +1,5 @@
 /**
- * 3.6.1 command improvements: confirmations, autocomplete, paging and the
+ * Command confirmations, autocomplete, paging and the
  * hidden-ticket auto-close fix. Discord and Mongo are faked; no network.
  */
 import { test, mock } from "node:test";
@@ -205,7 +205,7 @@ test("/case delete asks first and deletes nothing when cancelled", async () => {
     (interaction as { guild: Record<string, unknown> }).guild.name = "G";
     await command.execute(interaction as never);
     assert.equal(deleteOne.mock.callCount(), 0, "cancel keeps the case");
-    assert.equal(calls[0].method, "deferReply", "acknowledged before the lookup (3.6.2)");
+    assert.equal(calls[0].method, "deferReply", "acknowledged before the lookup");
     assert.equal(calls[1].method, "editReply", "the prompt edits the deferred reply");
     assert.match(text(calls[1].payload), /Delete this case\?/);
     assert.ok(!calls.some(c => c.method === "reply"), "never replies to an already-deferred interaction");
@@ -406,15 +406,15 @@ test("/autoresponder: duplicate and empty triggers, capped list, ID autocomplete
   assert.deepEqual(calls[0].payload, [], "no IDs for members without Manage Server");
 });
 
-/* Codex #13: hidden tickets stay open */
+/* Hidden tickets stay open */
 
-test("Codex #13: auto-close defers instead of closing a ticket hidden from Aegis", () => {
+test("auto-close defers instead of closing a ticket hidden from Aegis", () => {
   assert.deepEqual(autoCloseDecision(0, 48, 100 * HOUR, { channelHidden: true }), { action: "defer", at: 148 * HOUR });
   assert.deepEqual(autoCloseDecision(0, 48, 100 * HOUR), { action: "close" }, "visible quiet tickets still close");
   assert.deepEqual(autoCloseDecision(0, 0, 100 * HOUR, { channelHidden: true }), { action: "disabled" });
 });
 
-test("Codex #13: closeTicket leaves a hidden ticket open and untouched", async () => {
+test("closeTicket leaves a hidden ticket open and untouched", async () => {
   const { closeTicket } = await import("../src/services/ticketService");
   const { TicketModel } = await import("../src/database/mongo");
   const save = mock.fn(async () => undefined);

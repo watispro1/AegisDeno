@@ -8,6 +8,8 @@ import { pagerNav, tableFilter } from "./parts";
 
 const AUDIT_LABELS: Record<string, string> = {
   "case.reason": "Edited a case reason",
+  "settings.automod.exemptions": "Changed one automod rule's exemptions",
+  "cases.export": "Exported cases as CSV",
   "case.revoke": "Revoked a case",
   "case.revoke+unban": "Revoked a ban and unbanned",
   "appeal.approved": "Approved an appeal",

@@ -23,10 +23,11 @@ export function renderAutoResponders(cfg: SiteConfig, ctx: GuildContext, o: {
   const state = o.state ?? { values: { matchType: "contains" }, errors: {} };
   const f = new Form(state, "ar-");
   const rows = o.rows.map(r => `<tr>
-      <td data-label="Trigger"><code class="inline">${esc(r.trigger)}</code></td>
+      <td data-label="Trigger"><code class="inline">${esc(r.trigger)}</code> ${copyId(r.id, "Copy autoresponder ID")}</td>
       <td data-label="Match">${esc(MATCH_LABELS[r.matchType] ?? r.matchType)}</td>
       <td data-label="Response" class="prewrap">${esc(clip(r.response, 160))}</td>
       <td data-label="Status">${moduleStatus(r.enabled, r.enabled ? "On" : "Off")}</td>
+      <td data-label="Added">${relTime(r.createdAt)} <span class="faint">by</span> ${personId(ctx, r.createdBy)}</td>
       <td data-label="Actions"><span class="btn-row">
         ${actionButton(`${base}/${esc(r.id)}/toggle`, ctx.viewer.csrf, r.enabled ? "Turn off" : "Turn on", { fields: { enabled: r.enabled ? "0" : "1" } })}
         ${actionButton(`${base}/${esc(r.id)}/delete`, ctx.viewer.csrf, "Delete", { danger: true, confirm: `Delete the autoresponder for "${clip(r.trigger, 60)}"? This can't be undone.` })}
@@ -63,7 +64,7 @@ export function renderAutoResponders(cfg: SiteConfig, ctx: GuildContext, o: {
   ${o.rows.length ? `${tableFilter("ar-table", "Filter by trigger or response")}
   <div class="table-wrap"><table class="case-table" id="ar-table" data-filterable>
     <caption class="visually-hidden">Autoresponders</caption>
-    <thead><tr><th scope="col">Trigger</th><th scope="col">Match</th><th scope="col">Response</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
+    <thead><tr><th scope="col">Trigger</th><th scope="col">Match</th><th scope="col">Response</th><th scope="col">Status</th><th scope="col">Added</th><th scope="col">Actions</th></tr></thead>
     <tbody>${rows}</tbody></table></div>` : emptyState("No autoresponders yet.", "Add one above, or with <code class=\"inline\">/autoresponder add</code>.")}`,
   });
 }
@@ -86,7 +87,7 @@ export function renderAutomations(cfg: SiteConfig, ctx: GuildContext, o: {
   const chan = (id: string) => o.channels.find(c => c.id === id)?.name;
   const rows = o.rows.map(t => `<tr>
       <td data-label="Next post">${relTime(t.executeAt)}</td>
-      <td data-label="Channel">${chan(t.channelId) ? `#${esc(chan(t.channelId) as string)}` : `<span class="faint">hidden or deleted</span>`}</td>
+      <td data-label="Channel">${chan(t.channelId) ? `#${esc(chan(t.channelId) as string)}` : `<span class="faint">hidden or deleted</span>`} ${copyId(t.channelId, "Copy channel ID")}</td>
       <td data-label="Repeats">${esc(every(t.intervalMs))}${t.type === "reminder" ? ' <span class="tag">reminder</span>' : ""}</td>
       <td data-label="Message" class="prewrap">${esc(clip(t.payload, 140))} <span class="faint">ID <code class="inline">${esc(t.id)}</code></span> ${copyId(t.id, "Copy task ID")}</td>
       <td data-label="By">${personId(ctx, t.creatorId)}</td>

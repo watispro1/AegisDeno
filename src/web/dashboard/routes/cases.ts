@@ -4,9 +4,11 @@ import { describeChanges } from "../audit";
 import { parseRevoke, parseCaseFilter, parseCaseReason, type FormBody } from "../validation";
 import { renderCase, renderCases, renderOverview } from "../views";
 import { CASES_PER_PAGE, type RouteKit, type GuildLocals } from "./context";
+import { CASE_EXPORT_MAX, casesToCsv } from "../casesCsv";
+import { casesQuery } from "../views/cases";
 
 export function registerCaseRoutes(router: Router, k: RouteKit): void {
-  const { deps, send, fail, missingPermission, actorOf, logAudit, noticeParam, guildGet, guildPost } = k;
+  const { deps, send, fail, missingPermission, actorOf, logAudit, noticeParam, guildGet, guildPost, exportLimit } = k;
 
   /* Guild pages */
 
@@ -39,6 +41,25 @@ export function registerCaseRoutes(router: Router, k: RouteKit): void {
       const per = filter.per ?? CASES_PER_PAGE;
       const result = await deps.data.listCases(ctx.guild.id, filter, per);
       send(res, renderCases(deps.site, ctx, filter, result, per));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Registered before /cases/:caseId so "export.csv" is never read as a case ID.
+  router.get("/:guildId/cases/export.csv", exportLimit, ...guildGet, async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const filter = { ...parseCaseFilter(req.query as Record<string, unknown>), page: 1 };
+      const result = await deps.data.listCases(ctx.guild.id, filter, CASE_EXPORT_MAX);
+      const day = new Date().toISOString().slice(0, 10);
+      const shown = casesQuery({ ...filter, per: undefined }, 1).slice(1).replace(/&/g, ", ");
+      await logAudit(ctx, "cases.export", null, `${result.items.length} of ${result.total} record(s)${shown ? `, filter ${shown}` : ""}`);
+      res.status(200)
+        .type("text/csv; charset=utf-8")
+        .setHeader("Content-Disposition", `attachment; filename="aegis-cases-${ctx.guild.id}-${day}.csv"`)
+        .setHeader("Cache-Control", "no-store")
+        .send(casesToCsv(result.items));
     } catch (err) {
       next(err);
     }

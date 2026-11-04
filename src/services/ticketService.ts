@@ -45,7 +45,7 @@ export async function postTicketPanel(
     const oldPanels = fetchedMsgs.filter(
       (m) =>
         m.author.id === botId &&
-        m.components.some((row: any) => row.components?.some((c: any) => c.customId?.startsWith("ticket_create_"))),
+        m.components.some((row) => "components" in row && row.components.some((c) => "customId" in c && c.customId?.startsWith("ticket_create_"))),
     );
     for (const [, msg] of oldPanels) {
       await msg.delete().catch(() => null);

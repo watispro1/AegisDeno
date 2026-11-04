@@ -21,6 +21,7 @@ import { SECTION_TITLES } from "./validation";
 import type {
   AutomodSettings,
   CaseFilter,
+  RuleExemptionsInput,
   EscalationSettings,
   LoggingSettings,
   SettingsSection,
@@ -88,6 +89,8 @@ export type SettingsValue =
   | { section: "logging"; value: LoggingSettings }
   | { section: "escalation"; value: EscalationSettings }
   | { section: "automod"; value: AutomodSettings }
+  /** One automod rule's own exemption lists (the per-rule form on the automod page). */
+  | { section: "automodRule"; value: RuleExemptionsInput }
   | { section: "welcome"; value: WelcomeSettings }
   | { section: "tickets"; value: TicketSettingsInput }
   | { section: "verification"; value: VerificationSettingsInput }

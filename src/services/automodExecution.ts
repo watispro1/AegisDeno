@@ -4,8 +4,10 @@ import { noteIncidentDeletes } from "./incidentHooks";
 import { Client, Message, GuildMember, PermissionFlagsBits } from "discord.js";
 import { codeBlock } from "../utils/safeText";
 import { getAutomodConfig, type AutomodRule } from "./automod";
-import { blockedWordHit, capsOrFlood, hasLink } from "./automodChecks";
+import { blockedInvite, blockedLinkHost, blockedWordHit, capsOrFlood, DuplicateTracker, emojiOrZalgo } from "./automodChecks";
 import { addWarning } from "./warnings";
+import { checkEscalation } from "./escalation";
+import { addModerationCase } from "./moderationCases";
 import { sendGuildLog } from "./logging";
 import { logger } from "../utils/logger";
 import { AutomodHitModel } from "../database/mongo";
@@ -38,6 +40,8 @@ function recordAndCheckSpam(
 
   return timestamps.length > maxMessages;
 }
+
+const duplicateTracker = new DuplicateTracker();
 
 // Exemption check
 /**
@@ -128,6 +132,15 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
     }
   }
 
+  // Repeated identical messages. Edits are skipped for the same reason as spam.
+  if (!triggeredRule && config.duplicates.enabled && !isEdit && applies(config.duplicates)) {
+    const windowMs = config.duplicates.windowSeconds * 1000;
+    if (duplicateTracker.record(`${message.guildId}:${message.author.id}`, message.content, windowMs) > config.duplicates.maxRepeats) {
+      triggeredRule = config.duplicates;
+      ruleName = "Duplicate Messages";
+    }
+  }
+
   // Blocked words (zero-width characters and soft hyphens are stripped first)
   if (!triggeredRule && config.words.enabled && config.words.list.length > 0 && applies(config.words)) {
     if (blockedWordHit(config.words.list, message.content)) {
@@ -144,9 +157,17 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
     }
   }
 
-  // Links
+  // Discord invites to other servers (the server's own vanity invite and allow-listed codes pass)
+  if (!triggeredRule && config.invites.enabled && applies(config.invites)) {
+    if (blockedInvite(message.content, config.invites.allowedCodes, message.guild?.vanityURLCode ?? null)) {
+      triggeredRule = config.invites;
+      ruleName = "Invite Links";
+    }
+  }
+
+  // Links (allow-listed domains and their subdomains pass)
   if (!triggeredRule && config.links.enabled && applies(config.links)) {
-    if (hasLink(message.content) && await linkFilterAppliesTo(message)) {
+    if (blockedLinkHost(message.content, config.links.allowedDomains) && await linkFilterAppliesTo(message)) {
       triggeredRule = config.links;
       ruleName = "Link Filtering";
     }
@@ -161,6 +182,15 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
     }
   }
 
+  // Emoji walls and zalgo text
+  if (!triggeredRule && config.emoji.enabled && applies(config.emoji)) {
+    const hit = emojiOrZalgo(message.content, config.emoji);
+    if (hit) {
+      triggeredRule = config.emoji;
+      ruleName = hit;
+    }
+  }
+
   if (!triggeredRule) return false;
 
   // Map the human-readable rule name to a short schema key for analytics
@@ -171,10 +201,14 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
     "Link Filtering":  "links",
     "Excessive Caps":  "caps",
     "Character Flood": "caps",
+    "Duplicate Messages": "duplicates",
+    "Invite Links":    "invites",
+    "Emoji Spam":      "emoji",
+    "Zalgo Text":      "emoji",
   };
   const ruleKey = ruleKeyMap[ruleName] ?? ruleName.toLowerCase();
 
-  await enforceAutomod(client, message, member, triggeredRule.action, ruleName);
+  await enforceAutomod(client, message, member, triggeredRule.action, ruleName, config.timeoutMinutes);
 
   // Log the hit for /modreport analytics (fire-and-forget)
   AutomodHitModel.create({
@@ -194,12 +228,13 @@ async function enforceAutomod(
   message: Message,
   member: GuildMember | null,
   action: string,
-  ruleName: string
+  ruleName: string,
+  timeoutMinutes: number,
 ): Promise<void> {
   if (!message.guildId) return;
 
   logger.info(
-    `Automod [${ruleName}] triggered on msg ${message.id} by ${message.author.id} in guild ${message.guildId} — action: ${action}`
+    `Automod [${ruleName}] triggered on msg ${message.id} by ${message.author.id} in guild ${message.guildId}, action: ${action}`
   );
 
   // Delete the message for all enforcement actions
@@ -211,24 +246,33 @@ async function enforceAutomod(
     if (deleted) noteIncidentDeletes(message.guildId, 1, `automod (${ruleName})`, message.author.id);
   }
 
+  const botId = client.user?.id ?? "Aegis";
+  const reason = `Automod violation: ${ruleName}`;
+  let outcome = "";
   if (action === "warn") {
     try {
-      await addWarning(
-        message.guildId,
-        message.author.id,
-        client.user?.id ?? "Aegis",
-        `Automod violation: ${ruleName}`
-      );
+      await addWarning(message.guildId, message.author.id, botId, reason);
+      // Automod warnings count toward the escalation thresholds the same as /warn.
+      const esc = await checkEscalation(client, message.guildId, message.author.id, botId);
+      if (esc.triggered) outcome = `Escalation: ${esc.action} at ${esc.atWarnings} warnings`;
     } catch (err) {
       logger.error(`Automod: failed to add warning for user ${message.author.id} in guild ${message.guildId}`, err);
     }
   } else if (action === "timeout") {
     if (member?.moderatable) {
-      await member.timeout(5 * 60 * 1000, `Automod violation: ${ruleName}`).catch(err => {
+      const ok = await member.timeout(timeoutMinutes * 60_000, reason).then(() => true).catch(err => {
         logger.error(`Automod: failed to timeout user ${message.author.id} in guild ${message.guildId}`, err);
+        return false;
       });
+      if (ok) {
+        await addModerationCase({ guildId: message.guildId, userId: message.author.id, moderatorId: botId, action: "timeout", reason, details: `Automod, ${timeoutMinutes} minute(s)` });
+        outcome = `Timed out for ${timeoutMinutes} minute(s)`;
+      } else {
+        outcome = "Timeout failed (check my Moderate Members permission and role position)";
+      }
     } else {
-      logger.warn(`Automod: cannot timeout user ${message.author.id} in guild ${message.guildId} — not moderatable or member unavailable.`);
+      logger.warn(`Automod: cannot timeout user ${message.author.id} in guild ${message.guildId}: not moderatable or member unavailable.`);
+      outcome = "Could not time out this member (role above mine or member unavailable)";
     }
   }
 
@@ -243,7 +287,10 @@ async function enforceAutomod(
         `**Channel:** <#${message.channelId}>`,
         `\n**Content:**\n${codeBlock(message.content || "[no text]", 420)}`,
       ].join("\n"),
-      fields: [{ name: "User ID", value: message.author.id, inline: true }],
+      fields: [
+        { name: "User ID", value: message.author.id, inline: true },
+        ...(outcome ? [{ name: "Result", value: outcome, inline: true }] : []),
+      ],
     });
   } catch (err) {
     logger.error(`Automod: failed to send guild log for guild ${message.guildId}`, err);

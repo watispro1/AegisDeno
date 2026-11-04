@@ -1,5 +1,5 @@
 /**
- * The /features page (3.7.0 rework): every command it references exists in the
+ * The /features page: every command it references exists in the
  * real command definitions, links point at real /commands anchors, and the
  * markup stays CSP-clean, accessible and organised by category.
  */

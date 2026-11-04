@@ -1,7 +1,10 @@
-import { ActionRowBuilder, ButtonBuilder, Client, TextChannel, EmbedBuilder, EmbedData } from "discord.js";
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, Client, TextChannel, EmbedBuilder, EmbedData } from "discord.js";
 import { getGuildConfig } from "./configuration";
 import { logger } from "../utils/logger";
 import { isObfuscatedChannel } from "../utils/channels";
+import { isLogCategoryOn } from "./logCategories";
+
+export { isLogCategoryOn };
 
 /** Audit log categories that can be toggled per guild via /logging status. */
 export type LogCategory =
@@ -11,7 +14,8 @@ export type LogCategory =
   | "messageEdits"
   | "messageDeletes"
   | "roleChanges"
-  | "channelEvents";
+  | "channelEvents"
+  | "voiceEvents";
 
 export async function sendGuildLog(
   client: Client,
@@ -19,13 +23,13 @@ export async function sendGuildLog(
   embed: Omit<EmbedData, "timestamp">,
   category?: LogCategory,
   components?: ActionRowBuilder<ButtonBuilder>[],
+  files?: AttachmentBuilder[],
 ): Promise<void> {
   try {
     const config = await getGuildConfig(guildId);
     if (!config.loggingEnabled || !config.loggingChannelId) return;
 
-    // Per-category toggles default to enabled unless explicitly turned off.
-    if (category && config.logCategories && config.logCategories[category] === false) return;
+    if (category && !isLogCategoryOn(config.logCategories, category)) return;
 
     // A category may have its own channel (set on the dashboard); otherwise the main log channel.
     const channelId = (category && config.logChannels?.[category]) || config.loggingChannelId;
@@ -41,8 +45,12 @@ export async function sendGuildLog(
       timestamp: new Date().toISOString(),
     });
 
-    const payload = { embeds: [built], allowedMentions: { parse: [] as const } };
-    await channel.send(components?.length ? { ...payload, components } : payload);
+    await channel.send({
+      embeds: [built],
+      allowedMentions: { parse: [] },
+      ...(components?.length ? { components } : {}),
+      ...(files?.length ? { files } : {}),
+    });
   } catch (error) {
     logger.error(`Failed to send log to guild ${guildId}:`, error);
   }

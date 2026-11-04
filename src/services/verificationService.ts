@@ -37,7 +37,7 @@ export async function getVerificationConfig(guildId: string): Promise<Verificati
     type: doc.type as "button" | "captcha",
     channelId: doc.channelId ?? null,
     messageId: doc.messageId ?? null,
-    kickUnverifiedMinutes: normalizeKickMinutes((doc as any).kickUnverifiedMinutes ?? 0),
+    kickUnverifiedMinutes: normalizeKickMinutes(doc.kickUnverifiedMinutes ?? 0),
   };
 }
 
@@ -141,7 +141,7 @@ export async function setupVerification(
       const oldPanels = fetchedMsgs.filter(
         (m) =>
           m.author.id === guild.client.user?.id &&
-          m.components.some((row: any) => row.components?.some((c: any) => c.customId === "verify_start"))
+          m.components.some((row) => "components" in row && row.components.some((c) => "customId" in c && c.customId === "verify_start"))
       );
       for (const [, msg] of oldPanels) {
         await msg.delete().catch(() => null);
@@ -192,7 +192,7 @@ export async function setupVerification(
       type: config.type as "button" | "captcha",
       channelId: config.channelId ?? null,
       messageId: config.messageId ?? null,
-      kickUnverifiedMinutes: (config as any).kickUnverifiedMinutes ?? 0,
+      kickUnverifiedMinutes: config.kickUnverifiedMinutes ?? 0,
     };
   } catch (err) {
     logger.error("Failed to setup verification:", err);

@@ -10,6 +10,7 @@ import { auditReason } from "../utils/safeText";
 import { EmbedBuilder, type Client } from "discord.js";
 import { BanAppealModel } from "../database/mongo";
 import { logger } from "../utils/logger";
+import { softFail } from "../utils/softFail";
 
 export type AppealStatus = "pending" | "approved" | "denied" | "expired";
 export type AppealDecision = "approved" | "denied";
@@ -139,7 +140,7 @@ export async function reviewBanAppeal(
       )
       .addFields({ name: "💬 Staff Note", value: note ?? "No additional comments." })
       .setTimestamp();
-    dmSent = (await appellant.send({ embeds: [dmEmbed] }).catch(() => null)) !== null;
+    dmSent = (await appellant.send({ embeds: [dmEmbed] }).catch(softFail(`Appeal decision DM to ${appellant.id}`, "debug"))) !== null;
   } catch {
     /* user left Discord or DMs closed */
   }

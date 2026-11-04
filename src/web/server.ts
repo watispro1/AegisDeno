@@ -8,7 +8,7 @@ import { statusScript } from "./client/status";
 import { type StatusPayload } from "./statusData";
 import { registerStatusRoutes } from "./statusRoutes";
 import { faviconSvg, ogImageSvg, ogImagePng, manifest, themeInitScript } from "./assets";
-import { botPermissionBitfield, buildCatalog, catalogStats, getCommand } from "./catalog";
+import { botPermissionBitfield } from "./catalog";
 import {
   renderHome,
   renderFeatures,
@@ -25,10 +25,8 @@ import {
   SiteConfig,
   Stats,
 } from "./pages";
-import { atomFeed } from "./changelog";
-import { buildInviteUrl, guildInviteUrl } from "./invite";
+import { buildInviteUrl } from "./invite";
 import { suggestPages } from "./notFound";
-import { securityTxt } from "./wellKnown";
 import { commands } from "../commands/loader";
 import { VERSION } from "../version";
 import { createDashboardRouter } from "./dashboard/router";
@@ -41,7 +39,10 @@ import { mongoRateLimitStore } from "./dashboard/rateLimitStore";
 import { mongoAuditStore } from "./dashboard/audit";
 import { mongoDashboardExtras } from "./dashboard/extrasMongo";
 import { dashboardScript } from "./dashboard/client";
-import { clientIp, secretMatches, securityHeaders } from "./securityHeaders";
+import { securityHeaders } from "./securityHeaders";
+import { databaseConnected } from "../services/statusMonitor";
+import { registerApiRoutes } from "./apiRoutes";
+import { registerSiteRoutes } from "./siteRoutes";
 import { apiRateLimit, compression, siteErrorHandler } from "./serverMiddleware";
 
 export { siteErrorHandler };
@@ -138,15 +139,12 @@ const SUGGESTABLE = [
 ];
 
 
-function xmlEscape(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+export interface WebServerOptions {
+  /** Defaults to the mongoose connection state. */
+  databaseReady?: () => boolean;
 }
 
-export function startWebServer(client: Client) {
+export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
   const cfg = siteConfig();
@@ -172,7 +170,6 @@ export function startWebServer(client: Client) {
   app.use("/api", apiRateLimit);
 
   const online = (): boolean => Boolean(client?.isReady?.());
-  const isOnline = (): boolean => online();
 
   // Heartbeat samples, the public status payload and /api/status (statusRoutes.ts).
   const statusPayload = registerStatusRoutes(app, {
@@ -194,158 +191,10 @@ export function startWebServer(client: Client) {
   app.get("/assets/og.png", (_req, res) => asset(res, "image/png", ogImagePng, 31536000));
   app.get("/manifest.webmanifest", (_req, res) => asset(res, "application/manifest+json", manifest, 3600));
 
-  app.get("/health", (_req, res) => {
-    const stats = collectStats(client);
-    res.setHeader("Cache-Control", "no-store");
-    res.json({
-      status: isOnline() ? "ok" : "degraded",
-      version: SITE_VERSION,
-      uptime: Math.floor(stats.uptime / 1000),
-      guilds: stats.guilds,
-      users: stats.users,
-      commands: stats.commands,
-      gatewayPing: stats.ping,
-    });
+  registerApiRoutes(app, {
+    online, databaseReady: opts.databaseReady ?? databaseConnected, stats: () => collectStats(client), version: SITE_VERSION, startedAt: STARTED_AT,
   });
-
-  app.get("/api/stats", (_req, res) => {
-    const stats = collectStats(client);
-    const cs = catalogStats();
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("X-Robots-Tag", "noindex");
-    res.json({
-      online: isOnline(),
-      version: SITE_VERSION,
-      ping: stats.ping,
-      uptime: Math.floor(stats.uptime / 1000),
-      guilds: stats.guilds,
-      users: stats.users,
-      commands: stats.commands,
-      catalog: cs,
-    });
-  });
-
-  app.get("/api/commands", (_req, res) => {
-    res.setHeader("Cache-Control", "public, max-age=600");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("X-Robots-Tag", "noindex");
-    res.json({ commands: buildCatalog() });
-  });
-
-  // Top.gg sends a small JSON object; bound parsing prevents unauthenticated
-  // requests from consuming unbounded memory before the shared-secret check.
-  app.post("/api/topgg/webhook", express.json({ limit: "16kb" }), (req, res) => {
-    const auth = process.env.TOPGG_WEBHOOK_AUTH;
-    if (!auth) {
-      logger.warn("Rejected Top.gg webhook because TOPGG_WEBHOOK_AUTH is not configured.");
-      res.status(503).json({ error: "webhook_not_configured" });
-      return;
-    }
-    if (!secretMatches(req.headers.authorization, auth)) {
-      res.status(401).json({ error: "unauthorized" });
-      return;
-    }
-
-    const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, unknown>;
-    const field = (v: unknown) => (typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v).slice(0, 40).replace(/[^\w.-]/g, "") : "?");
-    logger.info(`top.gg vote: user ${field(body.user)}, type ${field(body.type)}, weekend ${field(body.isWeekend)}, guild ${body.guild ? field(body.guild) : "none"}`);
-    res.json({ status: "ok" });
-  });
-
-  app.get("/api/commands/:name", (req, res) => {
-    const name = String(req.params.name ?? "").replace(/^\//, "").slice(0, 64);
-    const found = getCommand(name);
-
-    if (!found) {
-      res.setHeader("Cache-Control", "no-store");
-      res.status(404).json({ error: "unknown_command", name: name.replace(/[^a-z0-9_-]/gi, "") });
-      return;
-    }
-
-    res.setHeader("Cache-Control", "public, max-age=600");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("X-Robots-Tag", "noindex");
-    res.json({
-      name: found.name,
-      description: found.description,
-      category: found.category,
-      guildOnly: found.guildOnly,
-      permissions: {
-        declared: found.declaredPermissions,
-        enforced: found.enforcedPermissions,
-        bot: found.botPermissions,
-        botFeatures: found.featurePermissions,
-      },
-      options: found.options,
-      subcommands: found.subcommands,
-    });
-  });
-
-  app.get("/robots.txt", (_req, res) => {
-    const lines = [
-      "User-agent: *",
-      "Allow: /",
-      "Disallow: /api/",
-      "Disallow: /health",
-      // Longest match wins, so the public dashboard changelog stays crawlable
-      // while every per-user dashboard page is blocked.
-      "Allow: /dashboard/changelog",
-      "Disallow: /dashboard",
-      origin ? `Sitemap: ${origin}/sitemap.xml` : "Sitemap: /sitemap.xml",
-      "",
-    ];
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    res.type("text/plain").send(lines.join("\n"));
-  });
-
-  app.get("/sitemap.xml", (_req, res) => {
-    const base = origin || "";
-    const lastmod = new Date(STARTED_AT).toISOString().slice(0, 10);
-    const urls = ROUTES.map(
-      r =>
-        `  <url><loc>${xmlEscape(base + r.path)}</loc><lastmod>${lastmod}</lastmod>` +
-        `<changefreq>weekly</changefreq><priority>${r.priority}</priority></url>`
-    ).join("\n");
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res
-      .type("application/xml")
-      .send(
-        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
-      );
-  });
-
-  app.get("/.well-known/security.txt", (_req, res) => {
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    res.type("text/plain").send(securityTxt(origin));
-  });
-  app.get("/security.txt", (_req, res) => res.redirect(301, "/.well-known/security.txt"));
-
-  app.get("/changelog.xml", (_req, res) => {
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.type("application/atom+xml").send(atomFeed(origin || ""));
-  });
-
-  // Stable, shareable invite link: /invite or /invite?guild_id=<server id>.
-  // A plain 302 to Discord's https authorize page; no app deep link.
-  app.get("/invite", (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    if (cfg.inviteUrl === "#") return res.redirect(302, "/docs#quickstart");
-    const guildId = typeof req.query.guild_id === "string" ? req.query.guild_id : "";
-    res.redirect(302, (guildId && guildInviteUrl(cfg.inviteUrl, guildId)) || cfg.inviteUrl);
-  });
-  app.get("/add", (_req, res) => res.redirect(301, "/invite"));
-  app.get("/command", (_req, res) => res.redirect(302, "/commands"));
-  app.get("/commands/:name", (req, res) => {
-    const name = String(req.params.name ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32);
-    res.redirect(301, name ? `/commands#cmd-${name}` : "/commands");
-  });
-  app.get("/playground", (_req, res) => res.redirect(301, "/features"));
-  app.get("/privacy-policy", (_req, res) => res.redirect(301, "/privacy"));
-  app.get("/terms-of-service", (_req, res) => res.redirect(301, "/terms"));
-  app.get("/guide", (_req, res) => res.redirect(301, "/docs"));
-  app.get("/help", (_req, res) => res.redirect(301, "/troubleshooting"));
-  app.get("/status.json", (_req, res) => res.redirect(301, "/health"));
+  registerSiteRoutes(app, { origin, inviteUrl: cfg.inviteUrl, startedAt: STARTED_AT, sitemap: ROUTES });
 
   const send = (res: Response, html: string, code = 200, cacheControl?: string) => {
     res.setHeader(

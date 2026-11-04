@@ -34,7 +34,7 @@ export const features: Feature[] = [
       "/purge deletes up to 500 messages with filters for bots, humans, links, images, a user or text, skips pinned messages and anything over Discord's 14-day limit, and shows a preview first.",
       "/lock for a channel or a whole category, with an optional message and timed unlock; /slowmode for when a channel gets out of hand.",
       "Incident Mode (/incident start) for raids: slowmode, lockdown, a join gate that times out or kicks brand-new accounts, and paused invites in one step. Every change is recorded and restored exactly when it ends, by hand or on its timer (up to 24 hours, even across restarts), and a full report goes to the mod log. An optional auto-trigger starts it when many accounts join at once.",
-      "/case view, /case user (with Prev/Next pages), /case edit and /case export (capped at 5,000 records) for the paper trail.",
+      "/case view, /case user (with Prev/Next pages), /case search (by member, moderator, action, reason or date), /case edit and /case export (capped at 5,000 records) for the paper trail. The dashboard's Cases page filters by date too and downloads the result as CSV.",
       "Escalation can ignore warnings older than a set number of days.",
       "Warnings, cases and staff notes expire after one year.",
     ],
@@ -53,12 +53,12 @@ export const features: Feature[] = [
     id: "automod",
     start: "/automod status",
     title: "Automod",
-    short: "Filters for blocked words, invite links, mention spam, message spam and caps.",
-    text: "Each filter is switched on separately and has its own action: delete, warn or timeout. Staff roles and channels can be exempted so the filters stay out of your moderators' way.",
+    short: "Filters for blocked words, links, invites, mention spam, message spam, repeats, caps, emoji walls and zalgo.",
+    text: "Each filter is switched on separately and has its own action: delete, warn or timeout, with a timeout length you choose. Automod warnings count toward your escalation rules. Staff roles and channels can be exempted so the filters stay out of your moderators' way.",
     points: [
       "Blocked word list per server, matched case-insensitively.",
-      "Link filter for Discord invites and other URLs.",
-      "Mention, spam-rate and caps-percentage limits you set yourself.",
+      "Link filter with an allowed-domains list, and a separate invite filter that lets your own vanity invite and partner codes through.",
+      "Mention, spam-rate, repeated-message, caps-percentage and emoji limits you set yourself, plus zalgo text detection.",
       "Exempt roles and channels with /automod exempt.",
     ],
     commands: [
@@ -66,6 +66,8 @@ export const features: Feature[] = [
       ["/automod words add word:free nitro", "Block a phrase"],
       ["/automod links toggle enabled:true", "Turn on the link filter"],
       ["/automod mentions limit count:5", "Act on 5+ mentions in one message"],
+      ["/automod invites toggle enabled:true", "Block invites to other servers"],
+      ["/automod duplicates limit repeats:3 window:60", "Act on the same message sent 3 times in a minute"],
       ["/automod exempt addrole role:@Staff", "Let staff through"],
     ],
     docs: "automod",
@@ -233,7 +235,7 @@ export const features: Feature[] = [
     points: [
       "Durations like 30s, 10m, 2h or 1d.",
       "Personal reminders can repeat daily or weekly and be snoozed from the DM.",
-      "List and cancel tasks by ID.",
+      "List, edit and cancel tasks by ID; /remindme edit changes a reminder's text, time or repeat.",
     ],
     commands: [
       ["/remindme set reminder:Check the appeal queue duration:2h", "DM yourself later"],
@@ -285,7 +287,7 @@ export const quickstart: { title: string; body: string; cmd: string }[] = [
   },
   {
     title: "Check the setup",
-    body: `Diagnostics lists missing permissions and role-order problems.`,
+    body: `Diagnostics lists missing permissions, role-order problems, channels Aegis can't view or post in, and ModMail thread permissions. /config overview shows every module at a glance.`,
     cmd: "/diagnostics",
   },
 ];

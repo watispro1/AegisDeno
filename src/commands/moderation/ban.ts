@@ -21,36 +21,16 @@ import { caseLinkButton, modLogRow } from "../../services/modLogLinks";
 import { BanAppealModel } from "../../database/mongo";
 import { generateAppealCode } from "./appeal";
 import { buildDurationSuggestions } from "../../utils/moderationPresets";
-import { formatDurationLong, parseFriendlyDuration } from "../../utils/duration";
+import { formatDurationLong } from "../../utils/duration";
 import { auditReason } from "../../utils/safeText";
 import { TEMP_BAN_MAX_SECONDS, TEMP_BAN_MIN_SECONDS, tempBanMarker } from "../../services/timedActions";
 import { randomBytes } from "node:crypto";
 import { clearTimedUnbans, scheduleTimedUnban } from "../../services/tempBan";
 import type { AutocompleteInteraction } from "discord.js";
-
-const TEMP_BAN_PRESETS = [
-  { name: "1 day", value: "1d" },
-  { name: "3 days", value: "3d" },
-  { name: "1 week", value: "7d" },
-  { name: "2 weeks", value: "14d" },
-  { name: "30 days", value: "30d" },
-  { name: "90 days", value: "90d" },
-] as const;
-
-/**
- * Read `/ban duration:`. Empty means a permanent ban; otherwise the length in
- * seconds, or an error message for the moderator.
- */
-export function parseBanDuration(raw: string | null): { ok: true; seconds: number | null } | { ok: false; error: string } {
-  const text = raw?.trim() ?? "";
-  if (!text || /^(perm|permanent|forever|never)$/i.test(text)) return { ok: true, seconds: null };
-  const seconds = parseFriendlyDuration(text);
-  if (seconds === null) return { ok: false, error: "❌ I couldn't read that duration. Try `12h`, `7d`, `2 weeks` or `1d 12h`, or leave it empty for a permanent ban." };
-  if (seconds < TEMP_BAN_MIN_SECONDS || seconds > TEMP_BAN_MAX_SECONDS) {
-    return { ok: false, error: `❌ A temporary ban must last between ${formatDurationLong(TEMP_BAN_MIN_SECONDS)} and ${formatDurationLong(TEMP_BAN_MAX_SECONDS)}.` };
-  }
-  return { ok: true, seconds };
-}
+import { parseBanDuration, TEMP_BAN_PRESETS } from "./ban/logic";
+import { softFail } from "../../utils/softFail";
+import { dmOutcome, dmSentLabel } from "../../services/dmNotice";
+export { parseBanDuration } from "./ban/logic";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -231,6 +211,7 @@ export const command: Command = {
         }
 
         // DM the user before banning (so message can still be delivered)
+        let noticeDelivered = false;
         if (!silent && member) {
           const dmEmbed = new EmbedBuilder()
             .setColor(0xED4245)
@@ -238,7 +219,7 @@ export const command: Command = {
             .addFields({ name: "📝 Reason", value: reason })
             .setFooter({ text: "If you believe this was a mistake, please contact server staff." })
             .setTimestamp();
-          await target.send({ embeds: [dmEmbed] }).catch(() => null);
+          noticeDelivered = (await target.send({ embeds: [dmEmbed] }).catch(softFail(`Ban notice DM to ${target.id}`, "debug"))) !== null;
         }
 
         // A temporary ban carries a marker at the start of its reason (kept by
@@ -281,6 +262,7 @@ export const command: Command = {
 
         // Auto-generate ban appeal record & DM the user their appeal code
         let appealCode = "";
+        let appealDelivered = false;
         try {
           appealCode = generateAppealCode();
           await BanAppealModel.create({
@@ -311,7 +293,7 @@ export const command: Command = {
             .setFooter({ text: `Aegis Ban Appeal System • ${guild.name}` })
             .setTimestamp();
           // `silent` means no DMs at all; the code is still shown to the moderator below.
-          if (!silent) await target.send({ embeds: [appealEmbed] }).catch(() => null);
+          if (!silent) appealDelivered = (await target.send({ embeds: [appealEmbed] }).catch(softFail(`Appeal code DM to ${target.id}`, "debug"))) !== null;
         } catch (appealErr) {
           logger.warn(`Failed to create/send appeal for ban of ${target.id} in ${guildId}:`, appealErr);
         }
@@ -325,9 +307,9 @@ export const command: Command = {
             { name: "📝 Reason",        value: reason, inline: false },
             { name: "🛡️ Moderator",    value: interaction.user.tag, inline: true },
             { name: "🗑️ Msg Deletion",  value: `${deleteDays} day(s)`, inline: true },
-            { name: "🔕 DM Sent",       value: (!silent && member) ? "✅ Yes" : "❌ No / Silent", inline: true },
+            { name: "🔕 DM Sent",       value: !silent && !member ? "❌ No (not in the server)" : dmSentLabel(dmOutcome(silent, noticeDelivered)), inline: true },
             { name: "⏳ Length",        value: durationSeconds ? (unbanScheduled ? `${durationLabel} — unbans <t:${Math.floor((bannedAt + durationSeconds * 1000) / 1000)}:R>` : `${durationLabel} — ⚠️ the automatic unban could not be scheduled; unban by hand`) : "Permanent", inline: true },
-            ...(appealCode ? [{ name: "📋 Appeal Code", value: silent ? `\`${appealCode}\` — not sent (silent); share it if you want them to appeal` : `\`${appealCode}\` — DM sent with instructions`, inline: false }] : []),
+            ...(appealCode ? [{ name: "📋 Appeal Code", value: silent ? `\`${appealCode}\` — not sent (silent); share it if you want them to appeal` : appealDelivered ? `\`${appealCode}\` — DM sent with instructions` : `\`${appealCode}\` — the DM didn't go through; share it if you want them to appeal`, inline: false }] : []),
             ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
           )
           .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)

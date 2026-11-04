@@ -13,7 +13,7 @@ dashboard.
 | Command reference | https://aegisdeno.fly.dev/commands |
 | Web dashboard | https://aegisdeno.fly.dev/dashboard |
 | Status | https://aegisdeno.fly.dev/status |
-| Current version | bot 3.7.1, dashboard 1.2.4 |
+| Current version | bot 3.7.2, dashboard 1.2.4 |
 
 Despite the repository name, Aegis is a **Node.js** app (TypeScript,
 discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.

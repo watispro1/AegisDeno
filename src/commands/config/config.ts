@@ -8,6 +8,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
+import { runConfigOverview } from "../shared/configOverview";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -15,6 +16,9 @@ export const command: Command = {
     .setDescription("View or update server configuration settings.")
     .addSubcommand(sub =>
       sub.setName("view").setDescription("View all current server configuration values.")
+    )
+    .addSubcommand(sub =>
+      sub.setName("overview").setDescription("Every module at a glance: what is on, what needs attention, and missing permissions.")
     )
     .addSubcommand(sub =>
       sub
@@ -85,6 +89,11 @@ export const command: Command = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     try {
       const config = await getGuildConfig(guildId);
+
+      if (sub === "overview") {
+        await runConfigOverview(interaction, config);
+        return;
+      }
 
       if (sub === "view") {
         const embed = new EmbedBuilder()

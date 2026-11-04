@@ -99,10 +99,10 @@ export const command: Command = {
 
       await interaction.editReply({ embeds: [embed] });
 
-    } catch (error: any) {
+    } catch (error) {
       logger.error("[SYNC] Failed to sync commands:", error);
       await interaction.editReply({
-        content: `❌ Sync failed: \`${error?.message ?? String(error)}\``,
+        content: `❌ Sync failed: \`${error instanceof Error ? error.message : String(error)}\``,
       });
     }
   },

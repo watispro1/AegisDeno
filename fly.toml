@@ -12,6 +12,13 @@ primary_region = "dfw"
   min_machines_running = 1
   processes = ['app']
 
+  [[http_service.checks]]
+    grace_period = '30s'
+    interval = '30s'
+    method = 'GET'
+    path = '/health'
+    timeout = '5s'
+
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'

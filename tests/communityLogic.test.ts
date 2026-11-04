@@ -170,7 +170,7 @@ test("renderWelcomeTemplate does not re-expand variables inside substituted valu
   assert.equal(renderWelcomeTemplate("{count}", { userId: "1", username: "u", serverName: "S", memberCount: null }), "?");
 });
 
-// Poll fixes from the PR #5 review
+// Polls
 
 /** Evaluates a pollVoteGuard filter against one user's stored picks, like MongoDB would. */
 function guardMatches(guard: Record<string, unknown>, stored: number[] | undefined): boolean {

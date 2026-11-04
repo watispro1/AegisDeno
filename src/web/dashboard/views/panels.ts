@@ -3,7 +3,7 @@ import type { ChannelOption, RoleOption } from "../botView";
 import type { RolePanelSummary } from "../data";
 import { PANEL_TITLE_MAX, TICKET_PANEL_DESCRIPTION_MAX, VERIFY_PANEL_DESCRIPTION_MAX } from "../validation";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
-import { type GuildContext, csrfField, head, notice, shell } from "./layout";
+import { type GuildContext, copyId, csrfField, head, notice, relTime, shell } from "./layout";
 import { Form, ROLE_PICKER_HELP, type Values, channelOptions, channelPickerEmptyNote, hiddenChannelNote, roleOptions, rolePickerEmptyNote } from "./form";
 import { errorSummary, permissionNote } from "./parts";
 
@@ -48,8 +48,8 @@ export function renderPanels(
         const blocked = (p.roleIds ?? []).some(id => aboveViewer.has(id));
         const noteId = `rp-blocked-${esc(p.id)}`;
         return `<li class="panel-item">
-        <div class="panel-meta"><strong>${esc(p.title)}</strong>
-          <span class="faint">${p.roleCount} role${p.roleCount === 1 ? "" : "s"}, ${esc(p.style)}, in ${channelName(p.channelId) ? `#${esc(channelName(p.channelId)!)}` : `<code class="inline">${esc(p.channelId)}</code>`}</span></div>
+        <div class="panel-meta"><strong>${esc(p.title)}</strong> ${copyId(p.id, "Copy role panel ID")}
+          <span class="faint">${p.roleCount} role${p.roleCount === 1 ? "" : "s"}, ${esc(p.style)}, in ${channelName(p.channelId) ? `#${esc(channelName(p.channelId)!)}` : `<code class="inline">${esc(p.channelId)}</code>`} ${copyId(p.channelId, "Copy channel ID")} · created ${relTime(p.createdAt)}</span></div>
         ${hidden.has(p.channelId) ? hiddenChannelNote(p.channelId, "role panel channel") : ""}
         ${blocked ? `<p class="callout warn" id="${noteId}" data-rolepanel-blocked>This panel hands out a role equal to or above your highest role, so only someone above it (or the server owner) can re-post it.</p>` : ""}
         <form class="panel-repost" method="post" action="${base}/roles/${esc(p.id)}" novalidate>

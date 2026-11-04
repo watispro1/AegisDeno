@@ -61,7 +61,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     id: "moderation", title: "Moderation", lead: "Careful versions of the basics. Every action checks role hierarchy and becomes a case you can look up later.",
     cards: [
       { id: "actions", icon: "gavel", title: "Warn, timeout, kick and ban", text: "Reason suggestions, proof attachments and an Undo button on reversible actions.", commands: ["warn", "timeout", "kick", "ban", "unban", "removetimeout"], dashboard: "Members" },
-      { id: "cases", icon: "chart", title: "Cases and history", text: "Numbered cases with moderator, reason and proof; look them up, edit, export or page through a member's record.", commands: ["case view", "case user", "case export", "modhistory", "infractions"], dashboard: "Cases" },
+      { id: "cases", icon: "chart", title: "Cases and history", text: "Numbered cases with moderator, reason and proof; look them up, search by moderator, action or date, edit, export (CSV from the dashboard) or page through a member's record.", commands: ["case view", "case search", "case user", "case export", "modhistory", "infractions"], dashboard: "Cases" },
       { id: "warnings", icon: "bell", title: "Warnings and escalation", text: "Warnings that expire if you want them to, and rules that turn repeat warnings into timeouts or bans.", commands: ["warnings", "clearwarnings", "escalation add", "escalation expiry"], dashboard: "Moderation" },
       { id: "channels", icon: "lock", title: "Channel control", text: "Lock a channel, a category or the whole server with exact restore, set slowmode, and bulk-delete with filters.", commands: ["lock channel", "lock server", "slowmode set", "purge"] },
       { id: "notes", icon: "mail", title: "Staff notes and watchlist", text: "Private notes on members and a Ghost Watch list that alerts staff when a watched member joins or changes roles.", commands: ["note add", "note view", "watchlist add", "watchlist list"], dashboard: "Ghost Watch" },
@@ -72,7 +72,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
   {
     id: "automod", title: "Automod & Safety", lead: "Filters that act before a human has to, with exemptions for the roles and channels you trust.",
     cards: [
-      { id: "filters", icon: "filter", title: "Content filters", text: "Blocked words, links and invites, mention spam, message spam and caps floods, each with its own action.", commands: ["automod words add", "automod links toggle", "automod mentions limit", "automod spam limit", "automod caps limit"], dashboard: "Automod" },
+      { id: "filters", icon: "filter", title: "Content filters", text: "Blocked words, links (with an allowed-domains list), invites to other servers, mention spam, message spam, repeated messages, caps floods, emoji walls and zalgo text, each with its own action and an adjustable timeout length.", commands: ["automod words add", "automod links allow", "automod invites toggle", "automod duplicates limit", "automod emoji limit", "automod timeout"], dashboard: "Automod" },
       { id: "exempt", icon: "check", title: "Exemptions and presets", text: "Exempt staff roles and channels, or start from a ready-made preset.", commands: ["automod exempt addrole", "preset apply"] },
       { id: "verification", icon: "shield", title: "Verification", text: "Button or captcha verification with an optional kick for members who never verify.", commands: ["verify setup", "verify autokick"], dashboard: "Verification" },
     ],
@@ -88,17 +88,17 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     id: "trust", title: "Trust Score", lead: "Who is likely fine and who to watch, with the reasons shown. Counts and dates only, never message content.",
     cards: [
       { id: "trust-score", icon: "gauge", title: "Explainable score", text: "Account age, time in the server, verification, activity, cases and warnings by severity and recency, automod hits and join-gate flags, each shown as + or − points.", commands: ["trust user", "userinfo"], dashboard: "Trust Score" },
-      { id: "trust-integrations", icon: "role", title: "Opt-in integrations", text: "Link filtering only for low-trust members, a trust threshold for Incident Mode's join gate, and a low-trust role on join. All off until you turn them on.", commands: ["trust config"], dashboard: "Trust Score" },
+      { id: "trust-integrations", icon: "role", title: "Opt-in integrations", text: "Link filtering only for low-trust members, a trust threshold for Incident Mode's join gate, and a low-trust role that is given and taken away as scores change. All off until you turn them on.", commands: ["trust config"], dashboard: "Trust Score" },
     ],
   },
   {
     id: "community", title: "Community", lead: "The friendly side of running a server.",
     cards: [
-      { id: "welcome", icon: "people", title: "Welcome and goodbye", text: "Messages with embeds, placeholders and a join role that waits for membership screening.", commands: ["welcome channel", "welcome message", "welcome preview"], dashboard: "Welcome & Goodbye" },
+      { id: "welcome", icon: "people", title: "Welcome and goodbye", text: "Messages with embeds, placeholders like the member's place ({memberOrdinal}) and how long they stayed ({timeInServer}), a real test post, and a join role that waits for membership screening.", commands: ["welcome channel", "welcome message", "welcome preview", "welcome test"], dashboard: "Welcome & Goodbye" },
       { id: "roles", icon: "role", title: "Role panels", text: "Self-assign roles with buttons or menus, limited to roles below yours and Aegis's.", commands: ["rolepanel create"], dashboard: "Role panels" },
-      { id: "engage", icon: "star", title: "Polls, giveaways, starboard, suggestions", text: "Polls, giveaways with rerolls, a starboard for great posts, and a suggestion queue staff can approve or deny.", commands: ["poll", "giveaway start", "starboard setup", "suggest submit"], dashboard: "Giveaways" },
+      { id: "engage", icon: "star", title: "Polls, giveaways, starboard, suggestions", text: "Polls, giveaways with bonus entries for a role, rerolls and cancelling, a starboard for great posts, and a suggestion queue staff can approve or deny.", commands: ["poll", "giveaway start", "giveaway cancel", "starboard setup", "suggest submit"], dashboard: "Giveaways" },
       { id: "economy", icon: "star", title: "Economy (opt-in)", text: "Per-server coins with /daily streaks, /work, /pay, a leaderboard that never pings, and a shop that can sell roles below Aegis's and yours. Off until you turn it on.", commands: ["economy toggle", "daily", "work", "pay", "shop buy", "leaderboard"], dashboard: "Economy" },
-      { id: "automation", icon: "clock", title: "Reminders and scheduled messages", text: "Personal reminders, repeating announcements and autoresponders.", commands: ["remindme set", "automation message", "autoresponder add", "announce", "embed builder"], dashboard: "Scheduled messages" },
+      { id: "automation", icon: "clock", title: "Reminders and scheduled messages", text: "Personal reminders, repeating announcements and autoresponders.", commands: ["remindme set", "remindme edit", "automation message", "autoresponder add", "announce", "embed builder"], dashboard: "Scheduled messages" },
     ],
   },
   {
@@ -112,7 +112,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
   {
     id: "dashboard", title: "Dashboard", lead: "Everything above, in the browser, for people with Manage Server.",
     cards: [
-      { id: "dash-pages", icon: "layout", title: "Settings and modules", text: "Every module's settings, module switches, settings export and import, and a command palette (Ctrl+K).", commands: ["dashboard", "config view"], dashboard: "Settings" },
+      { id: "dash-pages", icon: "layout", title: "Settings and modules", text: "Every module's settings, module switches, settings export and import, and a command palette (Ctrl+K).", commands: ["dashboard", "config overview", "config view"], dashboard: "Settings" },
       { id: "dash-members", icon: "people", title: "Members and quick actions", text: "Look up anyone by name or ID, see their cases, warnings, notes and Trust Score, and act with the same hierarchy rules as the commands.", commands: ["userinfo"], dashboard: "Members" },
     ],
   },
@@ -120,7 +120,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     id: "reliability", title: "Status & Reliability", lead: "Built to be checked, not trusted blindly.",
     cards: [
       { id: "status", icon: "pulse", title: "Public status page", text: "Live bot status and incident notices at /status.", commands: ["ping", "about"] },
-      { id: "logging", icon: "eye", title: "Audit logging", text: "Mod actions, joins and leaves, edits and deletions, role and channel changes, each routable to its own channel. Dashboard changes are audited too.", commands: ["logging channel", "logging toggle", "logging test"], dashboard: "Logging" },
+      { id: "logging", icon: "eye", title: "Audit logging", text: "Mod actions, joins and leaves, edits with what changed, deletions, bulk deletes with a text transcript, role and nickname changes, channel changes and opt-in voice activity, each routable to its own channel. Dashboard changes are audited too.", commands: ["logging channel", "logging toggle", "logging test"], dashboard: "Logging" },
       { id: "diagnostics", icon: "check", title: "Diagnostics", text: "Checks how Aegis is set up in your server and says what to fix.", commands: ["diagnostics", "help"] },
     ],
   },

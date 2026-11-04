@@ -1,5 +1,5 @@
 /**
- * The 3.6.2 dashboard overhaul: sidebar shell, overview, module pages and the
+ * Dashboard sidebar shell, overview, module pages and the
  * embed builder. Runs the real router with a fake bot, fake data, the
  * in-memory module data and a session created directly in the memory store.
  */

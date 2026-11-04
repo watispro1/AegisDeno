@@ -18,6 +18,7 @@ import { editCaseReason } from "../../services/moderationCases";
 import { MAX_CASES_BROWSABLE, pageInfo, stepPage } from "../../services/casePaging";
 import { rankChoices, shortAge, type AutocompleteItem } from "../../utils/autocomplete";
 import { requestConfirmation } from "../../utils/confirmation";
+import { addCaseSearchSubcommand, runCaseSearch } from "../shared/caseSearch";
 
 const MAX_EXPORT_CASES = 5_000;
 /** How many recent cases the case_id autocomplete searches. */
@@ -48,7 +49,7 @@ export function caseChoice(
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("case")
-    .setDescription("Moderation case lookup, reason edits, deletion, and log export.")
+    .setDescription("Moderation case lookup, search, reason edits, deletion, and log export.")
     .setDMPermission(false)
     .addSubcommand(sub =>
       sub
@@ -62,6 +63,7 @@ export const command: Command = {
         .setDescription("List recent moderation cases for a specific member.")
         .addUserOption(opt => opt.setName("user").setDescription("The member whose cases to list").setRequired(true))
     )
+    .addSubcommand(addCaseSearchSubcommand)
     .addSubcommand(sub =>
       sub
         .setName("edit")
@@ -123,6 +125,15 @@ export const command: Command = {
       lock: "🔒",
       unlock: "🔓",
     };
+
+    if (subcommand === "search") {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
+        await interaction.reply({ content: "❌ You need `Moderate Members` permission to search cases.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await runCaseSearch(interaction);
+      return;
+    }
 
     if (subcommand === "view") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {

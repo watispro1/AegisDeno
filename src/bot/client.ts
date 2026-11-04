@@ -24,6 +24,7 @@ import { scheduleUnverifiedKick } from "../services/verificationService";
 import { componentRouter } from "./interactions";
 import { answerExpiredComponent } from "./interactions/expired";
 import { registerStarboardEvents } from "./events/starboard";
+import { registerServerLogs } from "./events/serverLogs";
 import {
   watchlistOnJoin,
   watchlistOnLeave,
@@ -44,8 +45,9 @@ import { incidentService, joinActionable } from "../services/incidentDiscord";
 import { recordMemberFlow } from "../services/memberFlow";
 import { handleModmailDM, relayPrefixedStaffMessage } from "../services/modmailService";
 import { reconcileDigestTasks } from "../services/digestService";
-import { assignWelcomeRole, sendGoodbye } from "../services/memberGreetings";
+import { assignWelcomeRole, assignWelcomeRoleAfterScreening, sendGoodbye } from "../services/memberGreetings";
 import { handleGuildEntryHelp, sendJoinWelcome } from "../services/entryPoint";
+import { softFail } from "../utils/softFail";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -86,6 +88,7 @@ export function createClient(): Client {
 
 export function setupEvents(client: Client): void {
   registerStarboardEvents(client);
+  registerServerLogs(client);
 
   // Ready
   client.once(Events.ClientReady, (c) => {
@@ -317,7 +320,7 @@ export function setupEvents(client: Client): void {
         const content = renderTemplate(config.welcomeMessage, values).slice(0, 2000);
         const embeds = config.welcomeEmbed ? [buildEmbedFromSpec(config.welcomeEmbed, values)] : [];
         // Only the joining member may be pinged by a welcome; never roles or @everyone.
-        await channel.send({ content: content || undefined, embeds, allowedMentions: { users: [member.user.id] } }).catch(() => null);
+        await channel.send({ content: content || undefined, embeds, allowedMentions: { users: [member.user.id] } }).catch(softFail(`Welcome message in guild ${member.guild.id}`));
       }
     }
 
@@ -329,10 +332,7 @@ export function setupEvents(client: Client): void {
 
   // Member Update (role changes for Ghost Watch)
   client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-    if (oldMember.pending && !newMember.pending) {
-      const roleId = (await getGuildConfig(newMember.guild.id).catch(() => null))?.welcomeRoleId;
-      if (roleId) await assignWelcomeRole(newMember, roleId);
-    }
+    await assignWelcomeRoleAfterScreening(oldMember, newMember);
     watchlistOnRoleChange(client, oldMember, newMember).catch(err =>
       logger.warn("Watchlist roleChange error:", err)
     );

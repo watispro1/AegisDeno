@@ -28,8 +28,28 @@ export interface TrustOverview {
   lowest: Array<{ userId: string; name: string; avatarUrl: string | null; score: number; bandLabel: string }>;
 }
 
+/** Page sizes offered for the Trust page's member list. */
+export const TRUST_PAGE_SIZES = [25, 50, 100] as const;
+
+export interface TrustMemberQuery {
+  /** Discord's member list is ordered by user ID; the page starts after this one. */
+  after: string | null;
+  per: number;
+  lowOnly: boolean;
+}
+
+export interface TrustMemberPage {
+  rows: Array<{ userId: string; name: string; score: number; bandLabel: string; low: boolean }>;
+  /** Cursor for the next page, or null on the last one. */
+  next: string | null;
+  /** Members looked at for this page (the low-only filter shows a subset). */
+  scanned: number;
+}
+
 export interface TrustDashboard {
   overview(guildId: string): Promise<TrustOverview>;
+  /** One page of members from Discord's member list, scored. */
+  members(guildId: string, query: TrustMemberQuery): Promise<TrustMemberPage>;
   /** null when they are not in the server (tenure and roles can't be scored). */
   member(guildId: string, userId: string): Promise<TrustResult | null>;
   saveConfig(guildId: string, config: TrustConfig): Promise<void>;
@@ -147,7 +167,7 @@ export function memoryDashboardExtras(seed: {
   records?: Record<string, MemberRecords>;
   analytics?: AnalyticsData;
   incidents?: IncidentDashboard;
-  trust?: { overview?: Partial<TrustOverview>; members?: Record<string, TrustResult> };
+  trust?: { overview?: Partial<TrustOverview>; members?: Record<string, TrustResult>; list?: TrustMemberPage["rows"] };
   modmail?: ModmailDashboard;
   digest?: DigestDashboard;
   economy?: EconomyService;
@@ -171,6 +191,7 @@ export function memoryDashboardExtras(seed: {
     trust: {
       overview: async () => ({ config: normalizeTrustConfig(saved.trust.at(-1)), scored: 0, truncated: false, distribution: new Array(10).fill(0), average: null, lowCount: 0, lowest: [], ...seed.trust?.overview }),
       member: async (_g, id) => seed.trust?.members?.[id] ?? null,
+      members: async (_g, q) => pageTrustRows(seed.trust?.list ?? [], q),
       saveConfig: async (_g, c) => { saved.trust.push(c); },
     },
     modmail: seed.modmail ?? memoryModmailDashboard(),
@@ -180,4 +201,16 @@ export function memoryDashboardExtras(seed: {
     saveModuleSwitches: async (_g, s) => { saved.modules.push(s); },
     applySettingsImport: async (_g, u, a, e) => { saved.import.push({ update: u, automod: a, economy: e }); },
   };
+}
+
+/**
+ * Cursor paging over rows sorted by user ID, the order Discord's member list
+ * uses. Shared by the in-memory store and tests.
+ */
+export function pageTrustRows(all: TrustMemberPage["rows"], q: TrustMemberQuery): TrustMemberPage {
+  const sorted = [...all].sort((a, b) => (BigInt(a.userId) < BigInt(b.userId) ? -1 : 1));
+  const start = q.after ? sorted.findIndex(r => BigInt(r.userId) > BigInt(q.after as string)) : 0;
+  const slice = start < 0 ? [] : sorted.slice(start, start + q.per);
+  const more = start >= 0 && start + q.per < sorted.length;
+  return { rows: q.lowOnly ? slice.filter(r => r.low) : slice, next: more && slice.length ? slice[slice.length - 1].userId : null, scanned: slice.length };
 }

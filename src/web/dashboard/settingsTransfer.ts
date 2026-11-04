@@ -116,7 +116,12 @@ export function parseSettingsImport(text: string, ctx: ValidationContext): Impor
     const dropped = (Array.isArray(a.exemptChannelIds) ? a.exemptChannelIds.length : 0) - exemptChannelIds.length + (Array.isArray(a.exemptRoleIds) ? a.exemptRoleIds.length : 0) - exemptRoleIds.length;
     if (dropped > 0) warnings.push(`Automod: ${dropped} exempt channel(s) or role(s) don't exist in this server and were skipped.`);
     // updateAutomodConfig re-normalises every rule (actions, thresholds, word list caps).
-    automod = { words: a.words, links: a.links, mentions: a.mentions, spam: a.spam, caps: a.caps, exemptChannelIds, exemptRoleIds } as Partial<Omit<AutomodConfig, "guildId">>;
+    automod = {
+      words: a.words, links: a.links, mentions: a.mentions, spam: a.spam, caps: a.caps,
+      invites: a.invites, duplicates: a.duplicates, emoji: a.emoji,
+      ...(a.timeoutMinutes !== undefined ? { timeoutMinutes: a.timeoutMinutes } : {}),
+      exemptChannelIds, exemptRoleIds,
+    } as Partial<Omit<AutomodConfig, "guildId">>;
   }
   const economy = doc.economy === undefined ? null : normalizeEconomyConfig(rec(doc.economy));
   return { ok: true, update, automod, economy, warnings };

@@ -21,6 +21,7 @@ import { siteUrl } from "../config/links";
 import { firstDmFrom, sendDmHelp } from "./entryPoint";
 import { shouldDmHelp } from "./entryPointLogic";
 import { logger } from "../utils/logger";
+import { softFail } from "../utils/softFail";
 
 /** 5 DMs per 10 s per member, and 3 new tickets per hour. */
 const dmLimiter = new SlidingLimiter(5, 10_000);
@@ -125,7 +126,7 @@ export async function openTicket(client: Client, guild: Guild, user: User, cfg: 
   threadOwners.delete(thread.id);
 
   const greeting = buildEmbedFromSpec(cfg.greeting ?? DEFAULT_GREETING, templateValues(guild, user));
-  await user.send({ embeds: [greeting], allowedMentions: RELAY_MENTIONS }).catch(() => null);
+  await user.send({ embeds: [greeting], allowedMentions: RELAY_MENTIONS }).catch(softFail(`Modmail greeting DM to ${user.id}`, "debug"));
   return { ok: true, ticket, thread };
 }
 
@@ -247,12 +248,12 @@ export async function staffReply(client: Client, o: {
   const body = relayBody(o.content, o.attachments ?? []);
   const signature = staffSignature({ anonymous: o.anonymous, staffTag: o.staff.tag, guildName: o.guild.name });
   const dm = new EmbedBuilder().setColor(0x5865f2).setAuthor({ name: signature.slice(0, 256) }).setDescription(body).setTimestamp();
-  const sent = await user.send({ embeds: [dm], allowedMentions: RELAY_MENTIONS }).catch(() => null);
+  const sent = await user.send({ embeds: [dm], allowedMentions: RELAY_MENTIONS }).catch(softFail(`Modmail reply DM to ${user.id}`, "debug"));
   if (!sent) return { ok: false, error: "The member's DMs are closed or they blocked Aegis, so the reply wasn't delivered." };
   const thread = await client.channels.fetch(o.threadId).catch(() => null);
   if (thread?.isThread()) {
     const echo = new EmbedBuilder().setColor(0x5865f2).setAuthor({ name: `${o.staff.tag}${o.anonymous ? " (anonymous)" : ""} → member`, iconURL: o.staff.displayAvatarURL() }).setDescription(body).setTimestamp();
-    await thread.send({ embeds: [echo], allowedMentions: RELAY_MENTIONS }).catch(() => null);
+    await thread.send({ embeds: [echo], allowedMentions: RELAY_MENTIONS }).catch(softFail(`Modmail reply echo in thread ${o.threadId}`));
   }
   await pushLine(ticket._id, { authorId: o.staff.id, authorTag: o.staff.tag.slice(0, 64), fromStaff: true, anonymous: o.anonymous, content: body, at: new Date() });
   return { ok: true };
@@ -273,12 +274,12 @@ export async function closeTicket(client: Client, o: { guild: Guild; threadId: s
   if (user) {
     const embed = buildEmbedFromSpec(cfg?.closeMessage ?? DEFAULT_CLOSE, templateValues(o.guild, user));
     if (o.reason) embed.addFields({ name: "Reason", value: o.reason.slice(0, 1024) });
-    await user.send({ embeds: [embed], allowedMentions: RELAY_MENTIONS }).catch(() => null);
+    await user.send({ embeds: [embed], allowedMentions: RELAY_MENTIONS }).catch(softFail(`Modmail close DM to ${user.id}`, "debug"));
   }
   const thread = await client.channels.fetch(o.threadId).catch(() => null);
   if (thread?.isThread()) {
-    await thread.send({ content: `🔒 Closed by ${o.staff.tag}${o.reason ? `: ${o.reason.slice(0, 300)}` : ""}`, allowedMentions: RELAY_MENTIONS }).catch(() => null);
-    await thread.setLocked(true).catch(() => null);
+    await thread.send({ content: `🔒 Closed by ${o.staff.tag}${o.reason ? `: ${o.reason.slice(0, 300)}` : ""}`, allowedMentions: RELAY_MENTIONS }).catch(softFail(`Modmail close notice in thread ${o.threadId}`));
+    await thread.setLocked(true).catch(softFail(`Locking modmail thread ${o.threadId}`));
     await thread.setArchived(true).catch(() => null);
   }
   const lines = doc.lines ?? [];

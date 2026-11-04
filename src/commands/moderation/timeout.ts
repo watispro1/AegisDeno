@@ -21,60 +21,13 @@ import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from 
 import { caseLinkButton, modLogRow } from "../../services/modLogLinks";
 import { ModerationCaseModel } from "../../database/mongo";
 import { buildDurationSuggestions } from "../../utils/moderationPresets";
-import { formatDurationLong, parseFriendlyDuration } from "../../utils/duration";
+import { formatDurationLong } from "../../utils/duration";
 import { auditReason, truncate } from "../../utils/safeText";
 import type { AutocompleteInteraction } from "discord.js";
-
-/** Discord's longest timeout: 28 days. */
-export const MAX_TIMEOUT_SECONDS = 28 * 86_400;
-
-/**
- * The timeout length from `/timeout`: the `custom_duration` text when given
- * (e.g. "90m", "1d 12h", "2 weeks"), otherwise the `duration` choice. One of
- * the two is required; the result is 1 minute to 28 days.
- */
-export function resolveTimeoutSeconds(choice: number | null, custom: string | null): { ok: true; seconds: number } | { ok: false; error: string } {
-  const text = custom?.trim() ?? "";
-  if (text) {
-    const seconds = parseFriendlyDuration(text);
-    if (seconds === null) return { ok: false, error: "❌ I couldn't read that duration. Try `90m`, `2h`, `1d 12h` or `2 weeks`." };
-    if (seconds < 60 || seconds > MAX_TIMEOUT_SECONDS) return { ok: false, error: "❌ A timeout must last between 1 minute and 28 days (Discord's limit)." };
-    return { ok: true, seconds };
-  }
-  if (choice === null || !Number.isInteger(choice) || choice <= 0) {
-    return { ok: false, error: "❌ Pick a `duration`, or type one in `custom_duration` (e.g. `90m`, `1d 12h`)." };
-  }
-  return { ok: true, seconds: Math.min(choice, MAX_TIMEOUT_SECONDS) };
-}
-
-const CUSTOM_DURATION_PRESETS = [
-  { name: "15 minutes", value: "15m" },
-  { name: "2 hours", value: "2h" },
-  { name: "1 day 12 hours", value: "1d 12h" },
-  { name: "2 weeks", value: "2w" },
-  { name: "28 days (maximum)", value: "28d" },
-] as const;
-
-const DURATION_CHOICES = [
-  { name: "60 seconds",  value: 60 },
-  { name: "5 minutes",   value: 300 },
-  { name: "10 minutes",  value: 600 },
-  { name: "30 minutes",  value: 1800 },
-  { name: "1 hour",      value: 3600 },
-  { name: "6 hours",     value: 21600 },
-  { name: "12 hours",    value: 43200 },
-  { name: "1 day",       value: 86400 },
-  { name: "3 days",      value: 259200 },
-  { name: "1 week",      value: 604800 },
-];
-
-function formatDuration(seconds: number): string {
-  if (seconds < 60)     return `${seconds} second${seconds !== 1 ? "s" : ""}`;
-  if (seconds < 3600)   return `${seconds / 60} minute${seconds / 60 !== 1 ? "s" : ""}`;
-  if (seconds < 86400)  return `${seconds / 3600} hour${seconds / 3600 !== 1 ? "s" : ""}`;
-  if (seconds < 604800) return `${seconds / 86400} day${seconds / 86400 !== 1 ? "s" : ""}`;
-  return `${seconds / 604800} week${seconds / 604800 !== 1 ? "s" : ""}`;
-}
+import { CUSTOM_DURATION_PRESETS, DURATION_CHOICES, MAX_TIMEOUT_SECONDS, extendedTimeout, formatDuration, resolveTimeoutSeconds } from "./timeout/logic";
+import { softFail } from "../../utils/softFail";
+import { dmOutcome, dmSentLabel } from "../../services/dmNotice";
+export { MAX_TIMEOUT_SECONDS, resolveTimeoutSeconds, extendedTimeout } from "./timeout/logic";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -255,6 +208,7 @@ export const command: Command = {
           proofUrl: proof?.url ?? null,
         });
 
+        let delivered = false;
         if (!silent) {
           const dmEmbed = new EmbedBuilder()
             .setColor(0xFEE75C)
@@ -266,7 +220,7 @@ export const command: Command = {
             )
             .setFooter({ text: "Please review the server rules to avoid further moderation action." })
             .setTimestamp();
-          target.user.send({ embeds: [dmEmbed] }).catch(() => null);
+          delivered = (await target.user.send({ embeds: [dmEmbed] }).catch(softFail(`Timeout notice DM to ${target.id}`, "debug"))) !== null;
         }
 
         const resultEmbed = new EmbedBuilder()
@@ -278,7 +232,7 @@ export const command: Command = {
             { name: "⏳ Duration",   value: `**${durationLabel}** (expires <t:${Math.floor(until.getTime() / 1000)}:R>)`, inline: false },
             { name: "📝 Reason",     value: reason, inline: false },
             { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
-            { name: "🔕 DM Sent",   value: !silent ? "✅ Yes" : "❌ No (silent)", inline: true },
+            { name: "🔕 DM Sent",   value: dmSentLabel(dmOutcome(silent, delivered)), inline: true },
             ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
           )
           .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)
@@ -367,15 +321,11 @@ export const command: Command = {
               await bi.followUp({ content: "❌ Member no longer found in the server.", flags: MessageFlags.Ephemeral });
               return;
             }
-            const currentEnd = (refreshedMember.communicationDisabledUntil && refreshedMember.communicationDisabledUntil > new Date())
-              ? refreshedMember.communicationDisabledUntil.getTime()
-              : Date.now();
-            const maxAllowed = Date.now() + 28 * 86400_000;
-            const newExpiryMs = Math.min(currentEnd + 3600_000, maxAllowed);
-            const durationMs = Math.max(newExpiryMs - Date.now(), 60_000);
-            const newUntil = new Date(newExpiryMs);
+            const { untilMs, durationMs } = extendedTimeout(refreshedMember.communicationDisabledUntil, Date.now());
+            const newUntil = new Date(untilMs);
 
-            const extended = await refreshedMember.timeout(durationMs, auditReason(`Timeout extended +1h by ${bi.user.tag}`)).then(() => true).catch(() => false);
+            const extended = (await refreshedMember.timeout(durationMs, auditReason(`Timeout extended +1h by ${bi.user.tag}`))
+              .catch(softFail(`Timeout extension for ${target.id} in ${guildId}`))) !== null;
             if (!extended) {
               // Don't record or log an extension that did not happen.
               await bi.followUp({ content: "❌ Could not extend the timeout. Check my permissions and role position.", flags: MessageFlags.Ephemeral });

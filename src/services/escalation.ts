@@ -83,7 +83,7 @@ export async function checkEscalation(
         title: "⚡ Auto-Escalation: Timeout",
         color: 0xFFA500,
         description: `**User:** <@${userId}>\n**Reason:** ${reason}\n**Duration:** ${threshold.durationMinutes ?? 60} minutes\n**Triggered at:** ${totalWarnings} warnings`,
-      });
+      }, "modActions");
     } else if (threshold.action === "kick" && member) {
       await member.kick(auditReason(reason));
       await createModerationCase({ guildId, userId, moderatorId, action: "kick", reason, details: `Auto-escalation at ${totalWarnings} warnings` });
@@ -91,7 +91,7 @@ export async function checkEscalation(
         title: "⚡ Auto-Escalation: Kick",
         color: 0xFF6B00,
         description: `**User:** <@${userId}>\n**Reason:** ${reason}\n**Triggered at:** ${totalWarnings} warnings`,
-      });
+      }, "modActions");
     } else if (threshold.action === "ban") {
       await guild.bans.create(userId, { reason: auditReason(reason) });
       await createModerationCase({ guildId, userId, moderatorId, action: "ban", reason, details: `Auto-escalation at ${totalWarnings} warnings` });
@@ -99,7 +99,7 @@ export async function checkEscalation(
         title: "⚡ Auto-Escalation: Ban",
         color: 0xFF0000,
         description: `**User:** <@${userId}>\n**Reason:** ${reason}\n**Triggered at:** ${totalWarnings} warnings`,
-      });
+      }, "modActions");
     }
 
     logger.info(`Escalation triggered for user ${userId} in guild ${guildId}: ${threshold.action} at ${totalWarnings} warnings`);

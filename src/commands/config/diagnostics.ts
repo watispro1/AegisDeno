@@ -7,6 +7,10 @@ import { botPermissionBitfield } from "../../web/catalogPermissions";
 import { BOT_PERMISSION_WHY } from "../../permissions/botPermissionGuide";
 import { permissionName } from "../../utils/embedStyle";
 import { inviteUrl } from "../../config/links";
+import { getStarboardConfig } from "../../services/starboard";
+import { getTicketSettings } from "../../services/ticketSettings";
+import { getVerificationConfig } from "../../services/verificationService";
+import { checkConfiguredChannels, checkModmailChannel, configuredChannels, fitField } from "../../services/channelAccess";
 
 /**
  * One line per permission the invite asks for (✅/❌ with what it is for),
@@ -43,7 +47,15 @@ export const command: Command = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const [guildConfig, automodConfig] = await Promise.all([getGuildConfig(guild.id), getAutomodConfig(guild.id)]);
+    const [guildConfig, automodConfig, starboard, tickets, verification] = await Promise.all([
+      getGuildConfig(guild.id), getAutomodConfig(guild.id),
+      getStarboardConfig(guild.id).catch(() => null), getTicketSettings(guild.id).catch(() => null), getVerificationConfig(guild.id).catch(() => null),
+    ]);
+    const channels = configuredChannels({ guild: guildConfig, starboard, ticketLogChannelId: tickets?.logChannelId ?? null, verification });
+    const [channelProblems, modmailStatus] = await Promise.all([
+      checkConfiguredChannels(guild, botMember, channels),
+      checkModmailChannel(guild, botMember, guildConfig.modmail),
+    ]);
 
     // Permissions: exactly the set the invite asks for, so a fresh
     // invite with the default permissions reports nothing missing.
@@ -89,13 +101,14 @@ export const command: Command = {
           : `✅ Configured (<@&${role.id}>)`;
     }
 
-    const hasAnyAutomod = automodConfig.words.enabled || automodConfig.links.enabled || automodConfig.mentions.enabled || automodConfig.spam.enabled;
+    const hasAnyAutomod = automodConfig.words.enabled || automodConfig.links.enabled || automodConfig.mentions.enabled || automodConfig.spam.enabled || automodConfig.caps.enabled;
     const automodStatus = hasAnyAutomod
       ? `✅ Active (Rules enabled: ${[
           automodConfig.words.enabled ? "Words" : "",
           automodConfig.links.enabled ? "Links" : "",
           automodConfig.mentions.enabled ? "Mentions" : "",
           automodConfig.spam.enabled ? "Spam" : "",
+          automodConfig.caps.enabled ? "Caps" : "",
         ].filter(Boolean).join(", ")})`
       : "❌ All rules disabled";
 
@@ -109,6 +122,14 @@ export const command: Command = {
         { name: "Welcome Channel", value: welcomeStatus, inline: true },
         { name: "Welcome Role", value: welcomeRoleStatus, inline: true },
         { name: "Automod", value: automodStatus, inline: false },
+        {
+          name: "Channel access",
+          value: channels.length === 0
+            ? "ℹ️ No module is set to post in a channel yet."
+            : channelProblems.length ? fitField(channelProblems) : `✅ Aegis can view, post and embed in all ${channels.length} configured channel${channels.length === 1 ? "" : "s"}.`,
+          inline: false,
+        },
+        ...(modmailStatus ? [{ name: "ModMail staff channel", value: modmailStatus, inline: false }] : []),
       );
 
     const recommendations: string[] = [];
@@ -117,6 +138,12 @@ export const command: Command = {
     }
     if (!guildConfig.loggingEnabled || !guildConfig.loggingChannelId) {
       recommendations.push("• Set up a logging channel using `/logging channel`.");
+    }
+    if (channelProblems.length) {
+      recommendations.push("• Fix the channels under **Channel access**. From 16 November 2026 Discord hides channels from bots without **View Channel**, so Aegis stops seeing them entirely.");
+    }
+    if (modmailStatus?.startsWith("⚠️")) {
+      recommendations.push("• Give Aegis the permissions listed under **ModMail staff channel**, or members' DMs can't reach staff.");
     }
     if (!hasAnyAutomod) {
       recommendations.push("• Enable some automod features using `/automod <rule> toggle`.");

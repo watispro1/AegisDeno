@@ -154,6 +154,7 @@ const AutomodSchema = new mongoose.Schema({
   links: {
     enabled: { type: Boolean, default: false },
     action: { type: String, default: "delete" },
+    allowedDomains: { type: [String], default: [] },
     ...ruleExemptions(),
   },
   mentions: {
@@ -176,6 +177,28 @@ const AutomodSchema = new mongoose.Schema({
     action: { type: String, default: "delete" },
     ...ruleExemptions(),
   },
+  // Invite, duplicate and emoji rules; see services/automod.ts for bounds.
+  invites: {
+    enabled: { type: Boolean, default: false },
+    action: { type: String, default: "delete" },
+    allowedCodes: { type: [String], default: [] },
+    ...ruleExemptions(),
+  },
+  duplicates: {
+    enabled: { type: Boolean, default: false },
+    maxRepeats: { type: Number, default: 3 },
+    windowSeconds: { type: Number, default: 60 },
+    action: { type: String, default: "delete" },
+    ...ruleExemptions(),
+  },
+  emoji: {
+    enabled: { type: Boolean, default: false },
+    maxEmoji: { type: Number, default: 10 },
+    zalgo: { type: Boolean, default: true },
+    action: { type: String, default: "delete" },
+    ...ruleExemptions(),
+  },
+  timeoutMinutes: { type: Number, default: 5 },
   // Role or channel IDs that are exempt from all automod rules
   exemptRoleIds:    { type: [String], default: [] },
   exemptChannelIds: { type: [String], default: [] },
@@ -301,6 +324,12 @@ const GiveawaySchema = new mongoose.Schema({
   // Server boosters get `boosterMultiplier` tickets; boosting is checked when they enter.
   boosterMultiplier: { type: Number, default: 1, min: 1, max: 10 },
   boosterEntrants: { type: [String], default: [] },
+  // Members holding bonusRoleId when they enter get `bonusEntries` tickets.
+  bonusRoleId:   { type: String, default: null },
+  bonusEntries:  { type: Number, default: 1, min: 1, max: 10 },
+  bonusEntrants: { type: [String], default: [] },
+  // Ended with /giveaway cancel: no winners drawn, never rerolled.
+  cancelled:     { type: Boolean, default: false },
   endsAt:        { type: Date, required: true },
   endedAt:       { type: Date, default: null },
   ended:         { type: Boolean, default: false },

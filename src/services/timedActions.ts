@@ -62,6 +62,15 @@ export function parseReminderSnoozeCustomId(customId: string): { userId: string;
   return { userId: m[1], minutes };
 }
 
+/**
+ * Whether a due reminder is also posted in the channel it was set from: when
+ * the user asked for that, or when the DM could not be delivered (closed DMs,
+ * unknown user), so the reminder is not lost.
+ */
+export function reminderPostsInChannel(inChannel: boolean, dmDelivered: boolean): boolean {
+  return inChannel || !dmDelivered;
+}
+
 export function encodePersonalReminder(payload: PersonalReminderPayload): string {
   return JSON.stringify(payload);
 }

@@ -3,6 +3,8 @@ import type { Router } from "express";
 import { parseTrustSettings } from "../extrasValidation";
 import { submittedValues } from "../views/form";
 import { renderTrust, trustValues } from "../views/trust";
+import { parseTrustMemberQuery } from "../views/trustMembers";
+import { logger } from "../../../utils/logger";
 import type { FormBody } from "../validation";
 import { type GuildLocals, type RouteKit } from "./context";
 
@@ -13,7 +15,15 @@ export function registerTrustRoutes(router: Router, k: RouteKit): void {
   router.get("/:guildId/trust", ...guildGet, async (req, res, next) => {
     try {
       const ctx = locals(res);
-      send(res, renderTrust(deps.site, ctx, { overview: await extras.trust.overview(ctx.guild.id), roles: rolesFor(ctx), noticeCode: noticeParam(req) }));
+      const query = parseTrustMemberQuery(req.query as Record<string, unknown>);
+      const [overview, page] = await Promise.all([
+        extras.trust.overview(ctx.guild.id),
+        extras.trust.members(ctx.guild.id, query).catch((err) => {
+          logger.warn(`Dashboard: trust member list failed for guild ${ctx.guild.id}:`, err);
+          return null;
+        }),
+      ]);
+      send(res, renderTrust(deps.site, ctx, { overview, roles: rolesFor(ctx), noticeCode: noticeParam(req), members: { query, page } }));
     } catch (err) { next(err); }
   });
 

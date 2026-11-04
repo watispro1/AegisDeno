@@ -78,7 +78,8 @@ async function main() {
   delete process.env.DASHBOARD_SESSION_SECRET;
 
   await loadCommands();
-  startWebServer(fakeClient);
+  // No database in the smoke run; report it as connected so /health reads ok.
+  startWebServer(fakeClient, { databaseReady: () => true });
   await new Promise(r => setTimeout(r, 400));
 
   console.log("\nRoutes");

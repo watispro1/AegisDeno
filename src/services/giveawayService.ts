@@ -24,9 +24,10 @@ import { MAX_TIMEOUT_MS } from "../services/timedActions";
 import { formatDurationLong, parseFriendlyDuration } from "../utils/duration";
 import { DISCORD_LIMITS, truncate } from "../utils/safeText";
 import { pickWeightedWinners } from "../services/communityLogic";
-import { enterGiveaway, giveawayEntryBlock, needsMemberLookup, type GiveawayEntryStore } from "../services/giveawayEntry";
+import { enterGiveaway, entryConfirmation, giveawayEntryBlock, needsMemberLookup, type GiveawayEntryStore } from "../services/giveawayEntry";
+import { notifyWinners } from "./giveawayNotify";
 import {
-  endTransition, finalizeEnd, rerollTransition,
+  cancelTransition, endTransition, finalizeEnd, rerollTransition,
   type GiveawayTransitionStore, type TransitionGiveaway, type TransitionResult,
 } from "../services/giveawayTransitions";
 
@@ -53,6 +54,8 @@ interface DrawableGiveaway {
   entrants?: string[] | null;
   boosterEntrants?: string[] | null;
   boosterMultiplier?: number | null;
+  bonusEntrants?: string[] | null;
+  bonusEntries?: number | null;
   winners?: string[] | null;
   previousWinners?: string[] | null;
 }
@@ -62,6 +65,8 @@ function drawWinners(giveaway: DrawableGiveaway, count: number, excludePast = fa
   return pickWeightedWinners(giveaway.entrants ?? [], count, {
     boosterIds: giveaway.boosterEntrants ?? [],
     multiplier: giveaway.boosterMultiplier ?? 1,
+    bonusIds: giveaway.bonusEntrants ?? [],
+    bonusEntries: giveaway.bonusEntries ?? 1,
     exclude: excludePast ? [...(giveaway.winners ?? []), ...(giveaway.previousWinners ?? [])] : [],
   });
 }
@@ -184,11 +189,13 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
   }
 
   const isBooster = multiplier > 1 && Boolean(member?.premiumSince);
+  const bonusEntries = giveaway.bonusEntries ?? 1;
+  const hasBonusRole = Boolean(giveaway.bonusRoleId && bonusEntries > 1 && member?.roles.cache.has(giveaway.bonusRoleId));
   const { outcome, entrantCount } = await enterGiveaway(giveawayEntryStore, {
     guildId: interaction.guildId,
     messageId: interaction.message.id,
     userId: interaction.user.id,
-  }, isBooster);
+  }, isBooster, hasBonusRole);
 
   if (outcome === "closed") {
     await interaction.editReply({ content: "❌ This giveaway just ended. Better luck next time!" });
@@ -197,9 +204,10 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
   await interaction.editReply({
     content: outcome === "already"
       ? "ℹ️ You are already entered in this giveaway."
-      : isBooster
-        ? `✅ You are entered with **${multiplier}×** entries as a server booster! Good luck!`
-        : "✅ You are entered! Good luck!",
+      : entryConfirmation(
+        1 + (isBooster ? multiplier - 1 : 0) + (hasBonusRole ? bonusEntries - 1 : 0),
+        [...(isBooster ? [`${multiplier}× as a server booster`] : []), ...(hasBonusRole ? [`${bonusEntries}× from your bonus role`] : [])],
+      ),
   });
   if (outcome !== "entered" || entrantCount === null) return;
 
@@ -279,24 +287,8 @@ async function announceEnd(client: Client, doc: TransitionGiveaway, winners: str
     } catch (e) {
       logger.warn("Could not edit or send giveaway end message", e);
     }
-
-    for (const winnerId of winners) {
-      const winner = client.users.cache.get(winnerId) ?? await client.users.fetch(winnerId).catch(() => null);
-      if (winner) {
-        await winner.send({
-          embeds: [new EmbedBuilder()
-            .setColor(0xF1C40F)
-            .setTitle("🎉 Congratulations! You won a Giveaway!")
-            .setDescription(`You were selected as a winner!`)
-            .addFields(
-              { name: "🏆 Prize", value: giveaway.prize },
-            )
-            .setFooter({ text: "Contact the host to claim your prize." })
-            .setTimestamp()],
-        }).catch(() => null);
-      }
-    }
   }
+  await notifyWinners(client, giveaway, winners, "won");
 }
 
 // Shared reroll logic
@@ -328,18 +320,7 @@ export async function rerollGiveaway(
     }).catch(err => logger.warn("Could not post giveaway reroll message", err));
   }
 
-  for (const winnerId of winners) {
-    const winner = client.users.cache.get(winnerId) ?? await client.users.fetch(winnerId).catch(() => null);
-    if (winner) {
-      await winner.send({
-        embeds: [new EmbedBuilder()
-          .setColor(0xF1C40F)
-          .setTitle("🎉 You've been rerolled as a Giveaway Winner!")
-          .addFields({ name: "🏆 Prize", value: giveaway.prize })
-          .setTimestamp()],
-      }).catch(() => null);
-    }
-  }
+  await notifyWinners(client, giveaway, winners, "rerolled");
 
   await sendGuildLog(client, guildId, {
     title: "🔄 Giveaway Rerolled",
@@ -350,3 +331,38 @@ export async function rerollGiveaway(
   return { ok: true, winners };
 }
 
+
+/** End a running giveaway with no winners (`/giveaway cancel`, dashboard Cancel). */
+export async function cancelGiveaway(
+  client: Client,
+  guildId: string,
+  messageId: string,
+  cancelledBy: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const result = await cancelTransition(giveawayTransitionStore, { guildId, messageId });
+  if (!result.ok) return { ok: false, error: result.error };
+  const timer = giveawayTimers.get(messageId);
+  if (timer) clearTimeout(timer);
+  giveawayTimers.delete(messageId);
+
+  const giveaway = result.giveaway as TransitionGiveaway & { channelId: string; prize: string };
+  const channel = (client.channels.cache.get(giveaway.channelId)
+    ?? await client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;
+  if (channel && !isObfuscatedChannel(channel)) {
+    const msg = await channel.messages.fetch(messageId).catch(() => null);
+    await msg?.edit({
+      embeds: [new EmbedBuilder()
+        .setColor(0x95A5A6)
+        .setTitle(giveawayTitle("🚫 GIVEAWAY CANCELLED", giveaway.prize))
+        .setDescription(`This giveaway was cancelled. No winners were drawn.\n\n**Entries:** ${giveaway.entrants?.length ?? 0}`)
+        .setTimestamp()],
+      components: [],
+    }).catch(err => logger.warn(`Could not edit cancelled giveaway ${messageId}`, err));
+  }
+  await sendGuildLog(client, guildId, {
+    title: "🚫 Giveaway Cancelled",
+    color: 0x95A5A6,
+    description: `**Prize:** ${giveaway.prize}\n**Entries:** ${giveaway.entrants?.length ?? 0}\n**Cancelled by:** ${cancelledBy}`,
+  });
+  return { ok: true };
+}

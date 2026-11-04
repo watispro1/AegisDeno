@@ -28,6 +28,9 @@ export interface TransitionGiveaway {
   winners?: string[] | null;
   previousWinners?: string[] | null;
   winnerCount?: number | null;
+  bonusEntrants?: string[] | null;
+  bonusEntries?: number | null;
+  cancelled?: boolean | null;
   [key: string]: unknown;
 }
 
@@ -51,6 +54,7 @@ export const TRANSITION_MESSAGES = {
   notEnded: "No completed giveaway found with that message ID.",
   nobodyLeft: "Every entrant has already won this giveaway; there is nobody new to draw.",
   rerollRace: "Someone else rerolled or ended this giveaway a moment ago. Check the channel for the current winners.",
+  cancelled: "This giveaway was cancelled, so it has no winners to reroll.",
 } as const;
 
 export function endClaimFilter(guildId: string, messageId: string): Record<string, unknown> {
@@ -76,6 +80,7 @@ export function rerollFilter(guildId: string, messageId: string, seq: number): R
     messageId,
     ended: true,
     winnersDrawn: { $ne: false },
+    cancelled: { $ne: true },
     rerollSeq: seq === 0 ? { $in: [0, null] } : seq,
   };
 }
@@ -127,6 +132,7 @@ export async function rerollTransition(
   const current = await store.find({ guildId: ids.guildId, messageId: ids.messageId, ended: true });
   if (!current) return { ok: false, error: TRANSITION_MESSAGES.notEnded };
   if (current.winnersDrawn === false) return { ok: false, error: TRANSITION_MESSAGES.ending };
+  if (current.cancelled === true) return { ok: false, error: TRANSITION_MESSAGES.cancelled };
 
   const seq = current.rerollSeq ?? 0;
   const winners = draw(current, count ?? current.winnerCount ?? 1, true);
@@ -138,4 +144,24 @@ export async function rerollTransition(
   );
   if (!swapped) return { ok: false, error: TRANSITION_MESSAGES.rerollRace };
   return { ok: true, giveaway: swapped, winners };
+}
+
+/**
+ * Cancel a running giveaway: it ends with no winners and can never be
+ * rerolled. Claims the same `ended:false` state an end does, so a cancel and
+ * an end pressed together cannot both win.
+ */
+export async function cancelTransition(
+  store: GiveawayTransitionStore,
+  ids: { guildId: string; messageId: string },
+  now: Date = new Date(),
+): Promise<TransitionResult> {
+  const claimed = await store.update(
+    endClaimFilter(ids.guildId, ids.messageId),
+    { $set: { ended: true, endedAt: now, winnersDrawn: true, cancelled: true, winners: [], rerollSeq: 0 } },
+  );
+  if (claimed) return { ok: true, giveaway: claimed, winners: [] };
+  const current = await store.find({ guildId: ids.guildId, messageId: ids.messageId });
+  if (!current) return { ok: false, error: TRANSITION_MESSAGES.notFound };
+  return { ok: false, error: current.winnersDrawn === false ? TRANSITION_MESSAGES.ending : TRANSITION_MESSAGES.alreadyEnded };
 }

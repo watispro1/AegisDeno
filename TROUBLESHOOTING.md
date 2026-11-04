@@ -170,6 +170,11 @@ panel channel shows this message (in `/diagnostics`, a command reply or the
 dashboard), give Aegis's role **View Channel** in that channel (plus Send
 Messages and Embed Links where it posts), or pick another channel.
 
+`/diagnostics` checks every configured channel at once and lists, under
+**Channel access**, each one where Aegis is missing View Channel, Send
+Messages or Embed Links. With ModMail set up it also checks the staff channel
+for Create Private Threads, Send Messages in Threads and Manage Threads.
+
 ---
 
 ## Fly.io deployment issues
