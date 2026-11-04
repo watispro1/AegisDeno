@@ -6,6 +6,7 @@ import { buildEmbedFromSpec, renderTemplate } from "./embedSpec";
 import { isObfuscatedChannel } from "../utils/channels";
 import { shouldAssignWelcomeRole } from "../bot/eventFilters";
 import { softFail } from "../utils/softFail";
+import { describeStay } from "./templateText";
 
 /**
  * Gives a new member the welcome auto-role. Adding a role during membership
@@ -52,7 +53,10 @@ export async function sendGoodbye(member: GuildMember | PartialGuildMember): Pro
   }
   if (!channel.isTextBased() || !("send" in channel)) return;
   const name = member.user?.username ?? "A member";
-  const values = { user: name, username: name, server: member.guild.name, memberCount: member.guild.memberCount };
+  const values = {
+    user: name, username: name, server: member.guild.name, memberCount: member.guild.memberCount,
+    timeInServer: describeStay(member.joinedTimestamp),
+  };
   const content = renderTemplate(config.goodbyeMessage ?? "", values).slice(0, 2000);
   const embeds = config.goodbyeEmbed ? [buildEmbedFromSpec(config.goodbyeEmbed, values)] : [];
   if (!content && embeds.length === 0) return;

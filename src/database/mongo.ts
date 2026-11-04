@@ -324,6 +324,12 @@ const GiveawaySchema = new mongoose.Schema({
   // Server boosters get `boosterMultiplier` tickets; boosting is checked when they enter.
   boosterMultiplier: { type: Number, default: 1, min: 1, max: 10 },
   boosterEntrants: { type: [String], default: [] },
+  // Members holding bonusRoleId when they enter get `bonusEntries` tickets.
+  bonusRoleId:   { type: String, default: null },
+  bonusEntries:  { type: Number, default: 1, min: 1, max: 10 },
+  bonusEntrants: { type: [String], default: [] },
+  // Ended with /giveaway cancel: no winners drawn, never rerolled.
+  cancelled:     { type: Boolean, default: false },
   endsAt:        { type: Date, required: true },
   endedAt:       { type: Date, default: null },
   ended:         { type: Boolean, default: false },

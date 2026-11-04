@@ -18,9 +18,10 @@ import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 import { renderWelcomeTemplate } from "../../services/communityLogic";
+import { sendGreetingTest } from "../../services/welcomeTest";
 
 // Variables that can be interpolated in welcome messages ({member_count} still works as an alias of {count}).
-const VARIABLES = ["{user}", "{username}", "{server}", "{count}"];
+const VARIABLES = ["{user}", "{username}", "{server}", "{count}", "{memberOrdinal}"];
 
 /** Resolve template variables with the invoking moderator as a stand-in for the new member. */
 function applyVariables(text: string, interaction: ChatInputCommandInteraction): string {
@@ -58,6 +59,15 @@ export const command: Command = {
       sub
         .setName("preview")
         .setDescription("Preview the current welcome message as it would appear for a new member.")
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("test")
+        .setDescription("Post the saved welcome or goodbye message in its channel, with you as the member.")
+        .addStringOption(opt =>
+          opt.setName("type").setDescription("Which message to test (default: welcome)").setRequired(false)
+            .addChoices({ name: "Welcome", value: "welcome" }, { name: "Goodbye", value: "goodbye" })
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -309,6 +319,14 @@ export const command: Command = {
     }
 
     // Toggle
+    if (sub === "test") {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const member = await interaction.guild!.members.fetch(interaction.user.id);
+      const kind = interaction.options.getString("type") === "goodbye" ? "goodbye" : "welcome";
+      await interaction.editReply({ content: await sendGreetingTest(member, kind) });
+      return;
+    }
+
     if (sub === "toggle") {
       const enabled = interaction.options.getBoolean("enabled", true);
       await updateGuildConfig(guildId, { welcomeEnabled: enabled });

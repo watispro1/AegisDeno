@@ -5,6 +5,7 @@
  */
 
 import { randomInt } from "node:crypto";
+import { renderTemplate } from "./templateText";
 
 // Giveaways
 
@@ -21,6 +22,21 @@ export function entryWeight(userId: string, boosterIds: ReadonlySet<string>, mul
 }
 
 /**
+ * Extra tickets from the bonus role: `entries - 1`, clamped like the booster
+ * multiplier. They stack with the booster bonus (a boosting bonus-role holder
+ * with 3× and 2× gets 1 + 2 + 1 = 4 tickets).
+ */
+export function bonusExtra(userId: string, bonusIds: ReadonlySet<string>, entries: number): number {
+  if (!bonusIds.has(userId)) return 0;
+  return Math.min(MAX_BOOSTER_MULTIPLIER, Math.max(MIN_BOOSTER_MULTIPLIER, Math.floor(entries || 1))) - 1;
+}
+
+/** Tickets one entrant holds: 1, plus the booster and bonus-role extras. */
+export function totalTickets(userId: string, o: { boosterIds?: readonly string[]; multiplier?: number; bonusIds?: readonly string[]; bonusEntries?: number }): number {
+  return entryWeight(userId, new Set(o.boosterIds ?? []), o.multiplier ?? 1) + bonusExtra(userId, new Set(o.bonusIds ?? []), o.bonusEntries ?? 1);
+}
+
+/**
  * Draw up to `count` distinct winners. Each entrant's chance on every draw is
  * proportional to their weight (booster bonus); a winner is removed before the
  * next draw so nobody wins twice. `exclude` drops previous winners on reroll.
@@ -31,18 +47,23 @@ export function pickWeightedWinners(
   options: {
     boosterIds?: readonly string[];
     multiplier?: number;
+    /** Entrants who held the giveaway's bonus role when they entered. */
+    bonusIds?: readonly string[];
+    bonusEntries?: number;
     exclude?: readonly string[];
     rand?: RandomIntFn;
   } = {},
 ): string[] {
   const rand = options.rand ?? randomInt;
   const boosters = new Set(options.boosterIds ?? []);
+  const bonus = new Set(options.bonusIds ?? []);
   const excluded = new Set(options.exclude ?? []);
   const multiplier = options.multiplier ?? 1;
+  const bonusEntries = options.bonusEntries ?? 1;
 
   const pool = [...new Set(entrants)]
     .filter(id => !excluded.has(id))
-    .map(id => ({ id, weight: entryWeight(id, boosters, multiplier) }));
+    .map(id => ({ id, weight: entryWeight(id, boosters, multiplier) + bonusExtra(id, bonus, bonusEntries) }));
 
   const winners: string[] = [];
   const target = Math.max(0, Math.floor(count));
@@ -294,7 +315,7 @@ export function pickStarboardMedia(
 
 // Welcome
 
-export const WELCOME_VARIABLES = ["{user}", "{username}", "{server}", "{count}", "{member_count}", "{memberCount}"] as const;
+export const WELCOME_VARIABLES = ["{user}", "{username}", "{server}", "{count}", "{member_count}", "{memberCount}", "{memberOrdinal}"] as const;
 
 export interface WelcomeContext {
   userId: string;
@@ -303,17 +324,12 @@ export interface WelcomeContext {
   memberCount: number | null;
 }
 
-/** Fill `{user}`, `{username}`, `{server}` and `{count}` (aliases `{member_count}`, `{memberCount}`). */
+/** Fill the welcome variables (see TEMPLATE_VARIABLES in embedSpec.ts); same engine as the real join message. */
 export function renderWelcomeTemplate(template: string, ctx: WelcomeContext): string {
-  const count = ctx.memberCount == null ? "?" : String(ctx.memberCount);
-  const values: Record<string, string> = {
+  return renderTemplate(template, {
     user: `<@${ctx.userId}>`,
     username: ctx.username,
     server: ctx.serverName,
-    count,
-    member_count: count,
-    memberCount: count,
-  };
-  // Single pass, so a username or server name containing "{server}" is not re-expanded.
-  return template.replace(/\{(user|username|server|count|member_count|memberCount)\}/g, (_, key: string) => values[key]);
+    memberCount: ctx.memberCount == null ? "?" : ctx.memberCount,
+  });
 }
