@@ -194,7 +194,8 @@ export function renderDocs(cfg: SiteConfig): string {
 /starboard threshold count:5
 /starboard emoji emoji:⭐
 /starboard selfstar allowed:false
-/starboard ignore action:add channel:#staff`)}
+/starboard ignore action:add channel:#staff
+/starboard top period:Past 7 days`)}
       ${docHeading("polls-giveaways", "Polls and giveaways", 3)}
       ${cmdBlock(`/giveaway start prize:Nitro duration:24h winners:1 booster_multiplier:2
 /giveaway reroll message_id:123456789012345678

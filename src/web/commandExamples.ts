@@ -108,6 +108,8 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
     "/starboard setup channel:#starboard",
     "/starboard threshold count:5",
     "/starboard ignore action:add channel:#staff",
+    "/starboard top period:Past 7 days",
+    "/starboard top user:@member share:true",
   ],
   giveaway: [
     "/giveaway start prize:Nitro duration:24h winners:1 booster_multiplier:2",
