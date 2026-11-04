@@ -3,7 +3,7 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { ChannelOption } from "../botView";
 import type { GiveawayRow, SuggestionFilter, SuggestionRow, WatchView } from "../moduleData";
 import { SUGGESTION_NOTE_MAX } from "../moduleValidation";
-import { type GuildContext, copyId, csrfField, emptyState, moduleStatus, notice, person, personId, relTime } from "./layout";
+import { type GuildContext, copyId, csrfField, emptyState, moduleStatus, notice, personId, relTime } from "./layout";
 import { Form, channelOptions, channelPickerEmptyNote, hiddenChannelNote, type FormState } from "./form";
 import { actionButton, errorSummary, modulePage, pagerNav, tableFilter } from "./parts";
 import { moduleGrid, type ModuleState } from "./overview";
@@ -18,11 +18,11 @@ export function renderGiveaways(cfg: SiteConfig, ctx: GuildContext, o: { rows: G
   const chan = (id: string) => o.channels.find(c => c.id === id)?.name;
   const row = (gw: GiveawayRow) => `<tr>
       <td data-label="Prize"><strong>${esc(clip(gw.prize, 120))}</strong> ${copyId(gw.messageId, "Copy giveaway message ID")}</td>
-      <td data-label="Channel">${chan(gw.channelId) ? `#${esc(chan(gw.channelId) as string)}` : `<span class="faint">hidden or deleted</span>`}</td>
+      <td data-label="Channel">${chan(gw.channelId) ? `#${esc(chan(gw.channelId) as string)}` : `<span class="faint">hidden or deleted</span>`} ${copyId(gw.channelId, "Copy channel ID")}</td>
       <td data-label="${gw.ended ? "Ended" : "Ends"}">${relTime(gw.endsAt)}</td>
       <td data-label="Entries">${gw.entrants.toLocaleString("en-US")}</td>
-      <td data-label="Winners">${gw.ended ? (gw.winners.length ? gw.winners.map(w => person(ctx, w)).join(", ") : `<span class="faint">none</span>`) : `${gw.winnerCount} to draw`}</td>
-      <td data-label="Host">${person(ctx, gw.hostId)}</td>
+      <td data-label="Winners">${gw.ended ? (gw.winners.length ? gw.winners.map(w => personId(ctx, w)).join(", ") : `<span class="faint">none</span>`) : `${gw.winnerCount} to draw`}</td>
+      <td data-label="Host">${personId(ctx, gw.hostId)}</td>
       <td data-label="Actions">${gw.ended
         ? actionButton(`${base}/${esc(gw.messageId)}/reroll`, ctx.viewer.csrf, "Reroll", { confirm: `Draw new winners for "${clip(gw.prize, 60)}"? Previous winners are skipped and the new ones are announced.` })
         : actionButton(`${base}/${esc(gw.messageId)}/end`, ctx.viewer.csrf, "End now", { danger: true, confirm: `End "${clip(gw.prize, 60)}" now and draw winners?` })}</td>
@@ -66,6 +66,7 @@ export function renderSuggestions(cfg: SiteConfig, ctx: GuildContext, o: {
         <span class="faint">${relTime(s.createdAt)} · by ${personId(ctx, s.authorId)} · ID <code class="inline">${esc(s.id)}</code> ${copyId(s.id, "Copy suggestion ID")} · 👍 ${s.up} 👎 ${s.down}</span></div>
       <p class="prewrap">${esc(clip(s.content, 1200))}</p>
       ${s.reviewReason ? `<p class="muted"><strong>Staff note:</strong> ${esc(s.reviewReason)}</p>` : ""}
+      ${!open && s.reviewedBy ? `<p class="faint">Reviewed by ${personId(ctx, s.reviewedBy)}</p>` : ""}
       ${open ? `<form class="review-form" method="post" action="${base}/${esc(s.id)}/review">
         ${csrfField(ctx.viewer)}
         <label class="visually-hidden" for="note-${esc(s.id)}">Staff note</label>
@@ -109,6 +110,7 @@ export function renderWatchlist(cfg: SiteConfig, ctx: GuildContext, o: { rows: W
       <td data-label="Reason">${w.reason ? esc(clip(w.reason, 140)) : `<span class="faint">none</span>`}</td>
       <td data-label="Watching">${esc(w.events.join(", ") || "everything")}</td>
       <td data-label="Alerts">${w.alertCount.toLocaleString("en-US")}</td>
+      <td data-label="Added">${relTime(w.createdAt)}</td>
       <td data-label="Until">${w.expiresAt ? relTime(w.expiresAt) : "No end"}</td>
       <td data-label="Actions">${actionButton(`${base}/${esc(w.targetId)}/remove`, ctx.viewer.csrf, "Stop watching", { danger: true, confirm: "Remove this member from your Ghost Watch list? Alerts stop at once." })}</td>
     </tr>`).join("");
@@ -121,7 +123,7 @@ export function renderWatchlist(cfg: SiteConfig, ctx: GuildContext, o: { rows: W
   ${o.rows.length ? `${tableFilter("watch-table", "Filter your watch list")}
   <div class="table-wrap"><table class="case-table" id="watch-table" data-filterable>
     <caption class="visually-hidden">Your Ghost Watch list</caption>
-    <thead><tr><th scope="col">Member</th><th scope="col">Reason</th><th scope="col">Watching</th><th scope="col">Alerts</th><th scope="col">Until</th><th scope="col">Actions</th></tr></thead>
+    <thead><tr><th scope="col">Member</th><th scope="col">Reason</th><th scope="col">Watching</th><th scope="col">Alerts</th><th scope="col">Added</th><th scope="col">Until</th><th scope="col">Actions</th></tr></thead>
     <tbody>${rows}</tbody></table></div>` : emptyState("You are not watching anyone.", "Use <code class=\"inline\">/watchlist add</code> in Discord to start.")}`,
   });
 }

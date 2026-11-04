@@ -2,7 +2,7 @@
 import type { Router } from "express";
 import { describeChanges } from "../audit";
 import type { SettingsSnapshot, SettingsValue } from "../data";
-import { isSettingsSection, parseAutomod, parseEscalation, parseLogging, parseStarboard, parseTickets, parseVerification, parseWelcome, Errors, LOG_CATEGORY_LABELS, type FormBody, type Parsed, type SettingsSection, type ValidationContext } from "../validation";
+import { EXEMPTION_RULE_LABELS, fieldValues, isExemptionRule, parseRuleExemptions, isSettingsSection, parseAutomod, parseEscalation, parseLogging, parseStarboard, parseTickets, parseVerification, parseWelcome, Errors, LOG_CATEGORY_LABELS, type FormBody, type Parsed, type SettingsSection, type ValidationContext } from "../validation";
 import { parseGoodbye, parseLogChannels, parseWelcomeEmbed } from "../moduleValidation";
 import { MULTI_FIELDS, renderSettings, settingsValues, submittedValues } from "../views";
 import { type RouteKit, type GuildLocals } from "./context";
@@ -10,7 +10,7 @@ import { previewAutomod } from "../../../services/automodChecks";
 import { AUTOMOD_TEST_MAX } from "../views/automodTest";
 
 export function registerSettingsRoutes(router: Router, k: RouteKit): void {
-  const { deps, send, fail, actorOf, logAudit, noticeParam, validationContext, rolesFor, guildGet, settingsPost } = k;
+  const { deps, send, fail, actorOf, logAudit, noticeParam, validationContext, rolesFor, guildGet, guildPost, settingsPost } = k;
 
   /* Settings */
 
@@ -72,6 +72,41 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
         deps.bot.textChannels(ctx.guild.id), rolesFor(ctx), null, deps.bot.hiddenChannelIds(ctx.guild.id),
         { content: content.slice(0, AUTOMOD_TEST_MAX), result: error ? null : previewAutomod(snapshot.automod, content), error },
       ), error ? 400 : 200);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // One rule's own exemptions. Only that rule's two lists are written; the rest of the config is untouched.
+  router.post("/:guildId/settings/automod/exemptions", ...guildPost, async (req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      const body = (req.body ?? {}) as FormBody;
+      const before = await deps.data.loadSettings(ctx.guild.id);
+      const rule = isExemptionRule(body.rule) ? body.rule : null;
+      const parsed = parseRuleExemptions(body, validationContext(ctx), rule ? before.automod[rule] : {});
+      if (!parsed.ok) {
+        // Show the rejected form with what was ticked, so nothing has to be picked again.
+        const shown = rule ?? "words";
+        const values = { roles: fieldValues(body, "roles").join(","), channels: fieldValues(body, "channels").join(",") };
+        return send(res, renderSettings(
+          deps.site, ctx, "automod", before,
+          { values: settingsValues("automod", before), errors: {} },
+          deps.bot.textChannels(ctx.guild.id), rolesFor(ctx), null, deps.bot.hiddenChannelIds(ctx.guild.id),
+          null, { rule: shown, values, errors: parsed.errors },
+        ), 400);
+      }
+      const { rule: saved, exemptRoleIds, exemptChannelIds } = parsed.value;
+      await deps.data.saveSettings(ctx.guild.id, { section: "automodRule", value: parsed.value }, actorOf(ctx));
+      const was = before.automod[saved];
+      const diff = (label: string, prev: readonly string[] = [], next: readonly string[]) => {
+        const added = next.filter(id => !prev.includes(id));
+        const removed = prev.filter(id => !next.includes(id));
+        return [added.length ? `${label} added ${added.join(", ")}` : "", removed.length ? `${label} removed ${removed.join(", ")}` : ""].filter(Boolean);
+      };
+      const changes = [...diff("roles", was.exemptRoleIds, exemptRoleIds), ...diff("channels", was.exemptChannelIds, exemptChannelIds)];
+      await logAudit(ctx, "settings.automod.exemptions", saved, `${EXEMPTION_RULE_LABELS[saved]}: ${changes.join("; ") || "no change"}`);
+      res.redirect(303, `/dashboard/${ctx.guild.id}/settings/automod?notice=saved#rx-${saved}`);
     } catch (err) {
       next(err);
     }

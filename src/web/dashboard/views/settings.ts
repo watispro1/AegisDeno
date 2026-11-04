@@ -8,6 +8,7 @@ import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic
 import { type GuildContext, type GuildSection, csrfField, head, moduleStatus, notice, shell } from "./layout";
 import { embedBuilder } from "./embedBuilder";
 import { automodTestPanel, type AutomodTestState } from "./automodTest";
+import { ruleExemptionsPanel, type RuleExemptionState } from "./automodExemptions";
 import { GOODBYE_MESSAGE_MAX } from "../../../services/configuration";
 import { ACTION_OPTIONS, Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
 
@@ -87,7 +88,7 @@ function sectionForm(
       </fieldset>
       <h2 class="section-title">Exemptions</h2>
       <p class="muted">Members with an exempt role, and messages in an exempt channel, skip every automod rule.</p>
-      <p class="muted">To exempt a role or channel from one rule only, use <code class="inline">/automod exempt addrole</code> or <code class="inline">addchannel</code> with <code class="inline">rule:</code>. Saving this form keeps those per-rule exemptions; <code class="inline">/automod status</code> lists them.</p>
+      <p class="muted">To exempt a role or channel from one rule only, use <a href="#rx-h">Per-rule exemptions</a> below (or <code class="inline">/automod exempt</code> with <code class="inline">rule:</code>). Saving this form keeps them.</p>
       ${f.multi("exempt_roles", "Exempt roles", rolePicks(roles))}
       ${f.multi("exempt_channels", "Exempt channels", channelPicks(channels, hidden, f.str("exempt_channels")), "Text and announcement channels are listed. Other channels exempted with /automod stay exempt and show as Unknown.")}`;
 
@@ -223,6 +224,7 @@ export function renderSettings(
   noticeCode: string | null,
   hiddenChannelIds: ReadonlySet<string> = new Set(),
   automodTest: AutomodTestState | null = null,
+  ruleExemptions: RuleExemptionState | null = null,
 ): string {
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}/settings`;
@@ -252,6 +254,7 @@ export function renderSettings(
     ${sectionForm(section, f, ctx, channels, roles, snapshot, hiddenChannelIds)}
     ${canSave ? `<button class="btn" type="submit" data-save-button>Save ${SECTION_TITLES[section].toLowerCase()} settings</button>` : ""}
   </form>
+  ${section === "automod" ? ruleExemptionsPanel(ctx, snapshot.automod, roles, channels, hiddenChannelIds, ruleExemptions) : ""}
   ${section === "automod" ? automodTestPanel(ctx, automodTest) : ""}`,
   });
 }

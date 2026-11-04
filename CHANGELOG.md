@@ -86,6 +86,13 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   per-rule ones.
 - `/help`, the commands page, the features page and the docs have an Economy
   section.
+- **`/case search`** finds cases and warnings by member, moderator, action,
+  reason text and date (`since:7d`, `until:2026-10-31`), showing the newest
+  ten and the total.
+- **`/config overview`** shows every module at a glance (on, off, or on but
+  missing a channel or step) with the permissions Aegis lacks.
+- **`/remindme edit`** changes a pending reminder's text, time or repeat
+  without cancelling it.
 
 ### Changed
 - Tidied code comments, log lines and the operator docs (no behavior change).
@@ -109,6 +116,24 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   (`1460691659798`); both were already requested for `/kick` and `/ban`.
 - `/appeal submit` with an unknown code now says no appeal with that code was
   found for your account, instead of "no pending appeal".
+- **The low-trust role follows the score.** With the Trust Score role set in
+  `/trust config`, Aegis now re-checks a member a few seconds after one of
+  their cases or warnings is added, revoked or removed, and gives or takes
+  away the role to match. A slow background sweep (every six hours, up to
+  1,000 members and 50 role changes per server per pass, one change a second)
+  catches scores that change with time. Only the configured role is touched,
+  never one that is managed or above Aegis, and nothing happens while the
+  integration is off. Changing the trust settings re-checks the server.
+- **`/diagnostics` checks channels.** Every channel a module posts in (logs,
+  welcome, goodbye, suggestions, starboard, ticket transcripts, verification,
+  staff digest) is checked for View Channel, Send Messages and Embed Links,
+  with hidden and deleted channels called out, ahead of Discord hiding
+  channels from bots without View Channel on 2026-11-16. When ModMail is set
+  up, its staff channel is checked for Create Private Threads, Send Messages
+  in Threads and Manage Threads (or the forum equivalents). The automod line
+  now counts the caps rule too.
+- Ticket transcripts list who took part (with message counts), how long the
+  ticket ran from first to last message, and a divider for each day.
 
 - **`/purge` result is simpler.** It says "Deleted X of Y" and, when some
   were skipped, why: already gone, older than 14 days, or failed. The

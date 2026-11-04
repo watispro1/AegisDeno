@@ -2,7 +2,8 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { RoleOption } from "../botView";
 import { formatPoints, isLowTrust, type TrustConfig, type TrustResult } from "../../../services/trustEngine";
-import type { TrustOverview } from "../extras";
+import type { TrustMemberPage, TrustMemberQuery, TrustOverview } from "../extras";
+import { trustMemberList } from "./trustMembers";
 import { type GuildContext, copyId, csrfField, emptyState, notice } from "./layout";
 import { Form, ROLE_PICKER_HELP, roleOptions, type FormState, type Values } from "./form";
 import { errorSummary, modulePage } from "./parts";
@@ -46,7 +47,11 @@ export function trustCard(guildId: string, r: TrustResult | null, config: TrustC
     <p class="field-help">Counts and dates only, never message content. Same as <code class="inline">/trust user</code>. <a href="/dashboard/${esc(guildId)}/trust">Trust settings</a></p></section>`;
 }
 
-export function renderTrust(cfg: SiteConfig, ctx: GuildContext, o: { overview: TrustOverview; roles: RoleOption[]; noticeCode: string | null; state?: FormState }): string {
+export function renderTrust(cfg: SiteConfig, ctx: GuildContext, o: {
+  overview: TrustOverview; roles: RoleOption[]; noticeCode: string | null; state?: FormState;
+  /** The member list; absent on pages rendered without it (a rejected settings form). */
+  members?: { query: TrustMemberQuery; page: TrustMemberPage | null };
+}): string {
   const base = `/dashboard/${esc(ctx.guild.id)}/trust`;
   const ov = o.overview;
   const f = new Form(o.state ?? { values: trustValues(ov.config), errors: {} }, "trust-");
@@ -55,7 +60,7 @@ export function renderTrust(cfg: SiteConfig, ctx: GuildContext, o: { overview: T
       <thead><tr><th scope="col">Member</th><th scope="col">Score</th><th scope="col">Band</th></tr></thead>
       <tbody>${ov.lowest.map(m => `<tr><td data-label="Member"><a href="/dashboard/${esc(ctx.guild.id)}/members/${esc(m.userId)}">${esc(m.name)}</a> ${copyId(m.userId, "Copy user ID")}</td>
         <td data-label="Score">${m.score}</td><td data-label="Band">${esc(m.bandLabel)}</td></tr>`).join("")}</tbody></table></div>`
-    : emptyState("No members scored yet.", "Scores appear once Aegis has members cached for this server.");
+    : emptyState("No members scored yet.", "Scores appear once Aegis can read this server's member list.");
   return modulePage(cfg, ctx, {
     active: "trust",
     title: "Trust Score",
@@ -69,9 +74,10 @@ export function renderTrust(cfg: SiteConfig, ctx: GuildContext, o: { overview: T
   </dl>
   <section class="panel-card" aria-labelledby="trust-dist-h"><h2 id="trust-dist-h">Distribution</h2>
     ${trustHistogram(ov.distribution, ov.config.lowThreshold)}
-    ${ov.truncated ? `<p class="faint">Large server: the first 1,000 cached members are scored.</p>` : ""}
+    ${ov.truncated ? `<p class="faint">Large server: the first ${ov.scored.toLocaleString("en-US")} members are scored here. Every member is listed below.</p>` : ""}
     <p class="faint">Refreshed every few minutes.</p></section>
   <section class="panel-card" aria-labelledby="trust-low-h"><h2 id="trust-low-h">Lowest trust</h2>${lowest}</section>
+  ${o.members ? `<section class="panel-card" aria-labelledby="trust-members-h"><h2 id="trust-members-h">All members</h2>${trustMemberList(ctx, base, o.members.query, o.members.page)}</section>` : ""}
   <section class="panel-card" aria-labelledby="trust-cfg-h"><h2 id="trust-cfg-h">Settings and integrations</h2>
     <p class="muted">Every integration is off until you turn it on. Scores themselves work either way.</p>
     ${errorSummary(o.state?.errors ?? {}, "f-trust-")}
@@ -84,7 +90,7 @@ export function renderTrust(cfg: SiteConfig, ctx: GuildContext, o: { overview: T
       </div>
       ${f.checkbox("linkFilterLowTrustOnly", "Automod link filter only for low-trust members", "Needs the automod link filter on. Trusted members can post links.")}
       ${f.checkbox("incidentGate", "Incident Mode join gate also gates low-trust joins", "Applies only while an incident is active and its join gate is on.")}
-      ${f.select("lowTrustRoleId", "Give low-trust members this role when they join", roleOptions(o.roles, "No role"), ROLE_PICKER_HELP)}
+      ${f.select("lowTrustRoleId", "Give low-trust members this role", roleOptions(o.roles, "No role"), `Given on join and whenever a score drops below the threshold; taken away again once it recovers. ${ROLE_PICKER_HELP}`)}
       <button class="btn" type="submit" data-save-button>Save trust settings</button>
     </form>
   </section>`,

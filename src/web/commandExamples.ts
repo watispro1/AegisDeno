@@ -29,6 +29,8 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
     "/case user user:@member",
     "/case view case_id:65f0c0ffee0000000000abcd",
     "/case edit case_id:65f0c0ffee0000000000abcd reason:Updated reason",
+    "/case search moderator:@mod action:ban since:30d",
+    "/case search user:@member reason:spam since:2026-10-01 until:2026-10-31",
   ],
   infractions: ["/infractions user:@member"],
   modhistory: ["/modhistory user:@member filter:Bans"],
@@ -84,7 +86,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
     "/automod spam limit max:6 window:5",
   ],
   logging: ["/logging channel channel:#mod-log", "/logging test"],
-  config: ["/config view", "/config logging channel:#mod-log enabled:true"],
+  config: ["/config overview", "/config view", "/config logging channel:#mod-log enabled:true"],
   preset: ["/preset view type:Gaming Hub", "/preset apply type:Standard Community"],
   ticket: [
     "/ticket setup channel:#support staff_role:@Staff",
@@ -120,6 +122,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   remindme: [
     "/remindme set reminder:Review appeals duration:2h",
     "/remindme set reminder:Stand-up notes duration:1d repeat:Daily",
+    "/remindme edit id:65f0c0ffee0000000000abcd duration:3h",
   ],
   automation: [
     "/automation message in:1d channel:#announcements message:Event starts in an hour",

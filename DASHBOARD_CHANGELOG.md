@@ -32,6 +32,20 @@ OAuth scopes.
     recorded in the transactions, the Activity page and the mod log.
 - **Economy card on member pages** with the member's balance and daily streak
   while the economy is on (or while they still hold coins).
+- **Per-rule automod exemptions** can be edited on the Automod page: each
+  rule has its own roles and channels (up to 25 each), saved on its own
+  without touching the rest of the automod settings, the same lists as
+  `/automod exempt` with `rule:`. Roles at or above your highest role can stay
+  exempt but only someone above them can add or remove them. Every save is in
+  the Activity log.
+- **Trust Score lists every member.** A new All members table pages through
+  Discord's member list (25, 50 or 100 at a time, with an Everyone / Below
+  the threshold filter), so large servers are no longer limited to the 1,000
+  members Aegis had cached. The distribution now scores up to 10,000 members.
+- **Cases: date range and CSV download.** Filter the Cases page by From and To
+  (UTC days) and download the filtered list as CSV (up to 5,000 records).
+  Values a spreadsheet would run as formulas are written as plain text, and
+  each download is in the Activity log.
 
 ### Changed
 - Save buttons read "Saving…" while the form is on its way, on top of the
@@ -39,6 +53,13 @@ OAuth scopes.
   Back button.
 - Activity entries for economy changes read as sentences ("Changed economy
   settings", "Gave a member coins").
+- Relative times ("3 hours ago", exact UTC time on hover) and copy buttons on
+  more of the community and automation pages: autoresponders (when and who
+  added each one), giveaways (host, winners and channel), Ghost Watch (when a
+  member was added), suggestions (who reviewed them), scheduled messages
+  (channel) and role panels (panel and channel IDs, when they were created).
+- The low-trust role setting on the Trust page explains that the role is now
+  given and taken away as scores change.
 
 ### Fixed
 - The "Aegis is missing permissions" notice checked a fixed list that

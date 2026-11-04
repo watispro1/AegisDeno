@@ -1,6 +1,7 @@
 import { isValidObjectId } from "mongoose";
 import { ModerationCaseModel, WarningModel } from "../database/mongo";
 import { noteIncidentCase } from "./incidentHooks";
+import { noteTrustChange } from "./trustHooks";
 import { logger } from "../utils/logger";
 
 export type ModerationAction =
@@ -41,6 +42,7 @@ export async function addModerationCase(input: {
     const doc = await ModerationCaseModel.create(input);
     const id = String(doc._id);
     noteIncidentCase(input.guildId, id, input.action, input.userId);
+    noteTrustChange(input.guildId, input.userId);
     return id;
   } catch (error) {
     logger.error(`Failed to record ${input.action} case for user ${input.userId}:`, error);
@@ -58,6 +60,7 @@ export async function revokeModerationCase(guildId: string, caseId: string, revo
       { _id: caseId, guildId, revoked: { $ne: true } },
       { $set: { revoked: true, revokedBy, revokedAt: new Date() } },
     );
+    if (result) noteTrustChange(guildId, String((result as { userId?: unknown }).userId ?? ""));
     return result !== null;
   } catch (error) {
     logger.error(`Failed to revoke case ${caseId} in guild ${guildId}:`, error);
