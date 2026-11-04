@@ -9,6 +9,37 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.7.3] - 2026-11-04
+
+Temporary roles, softbans and a starboard leaderboard, with dashboard
+additions in 1.2.5 (see `DASHBOARD_CHANGELOG.md`).
+
+Upgrade notes: two new slash commands (`/temprole`, `/softban`) and a new
+`/starboard top` subcommand, so commands are re-registered on deploy. No new
+environment variables or permissions. Requires Node 22 or newer.
+
+### Added
+- **`/temprole`** gives a member a role for a set time (`add user role
+  duration`, 1 minute to a year) and takes it off when it runs out, even after
+  a restart. Re-adding moves the end time later; `/temprole remove` ends one
+  early and `/temprole list` shows what is running. Each one is logged and
+  recorded as a case.
+- **`/softban`** bans and immediately unbans a member to clear 1 to 7 days of
+  their messages (default 1). It DMs them first unless `silent`, follows the
+  same role checks as `/ban`, refuses members who are already banned, and
+  records a `softban` case.
+- **`/starboard top`** ranks the server's most-starred posts for the past
+  week, past month or all time, with links to the original and the starboard
+  post, a short excerpt, and the members with the most stars. Add `user` to
+  see one member's posts, or `share:true` to post the list in the channel.
+
+### Changed
+- `softban` and `temprole` are new case types in `/case search`,
+  `/modhistory`, `/infractions`, `/modstats` and `/modreport`.
+- Starboard entries now save a short excerpt of the original message and the
+  channel they were posted in; older entries fill in their excerpt the next
+  time they are starred or listed.
+
 ## [3.7.2] - 2026-11-04
 
 Stronger automod, full server activity logs, new lookup commands, giveaway

@@ -8,6 +8,41 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.2.5] - 2026-11-04
+
+Dashboard 1.2.5. A Polls page, giveaway cancelling, starboard top posts,
+suggestion search and the full automod rule set. Released alongside bot
+version 3.7.3. No new environment variables or OAuth scopes.
+
+### Added
+- New Polls page: the 25 newest polls with each option's votes and
+  percentage, open or closed, and a link to the message.
+- Cancel a running giveaway from the dashboard: tick to confirm, and Aegis
+  ends it with no winners and updates its message, just like
+  `/giveaway cancel`.
+- The Starboard page has a read-only Top posts list: the ten most-starred
+  posts of all time with star counts, authors, excerpts and links to the
+  original and the starboard post.
+- The Automod page covers every rule the bot has: an invite filter with an
+  allowed-invites list, a duplicate-message filter, and an emoji filter with a
+  zalgo-text switch, each with its own switch and action.
+- The link filter has an allowed-domains list on the page, the same list as
+  `/automod links allow`, and the automod timeout length (1 minute to 7 days)
+  can be set there too.
+
+### Changed
+- Giveaways show each giveaway's bonus role and extra entries, and mark
+  cancelled giveaways clearly.
+- Suggestions can be searched by text and sorted by newest, oldest, most
+  upvoted or most downvoted, alongside the status tabs.
+- Per-rule automod exemptions cover invites, duplicate messages, and emoji and
+  zalgo.
+- The Cases type filter includes `softban` and `temprole`.
+- Out-of-range automod limits, unreadable domains or invite codes, and unknown
+  actions are explained next to the field, and nothing is saved until they are
+  fixed. The activity log lists allowed domains and invites that were added or
+  removed.
+
 ## [1.2.4] - 2026-11-02
 
 Dashboard 1.2.4. A new Economy page, a balance card on member pages and small
