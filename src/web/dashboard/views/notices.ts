@@ -35,6 +35,8 @@ export const NOTICES: Record<string, { text: string; bad?: boolean }> = {
   "task-missing": { text: "That scheduled message no longer exists. It may already have posted.", bad: true },
   "gw-ended": { text: "Giveaway ended. Winners were drawn and announced in its channel." },
   "gw-rerolled": { text: "Giveaway rerolled. The new winners were announced in its channel." },
+  "gw-cancelled": { text: "Giveaway cancelled. No winners were drawn and its message now says so." },
+  "gw-confirm": { text: "Nothing was cancelled. Tick the box to confirm, then press Cancel giveaway.", bad: true },
   "gw-failed": { text: "That giveaway could not be changed. It may already have ended, or have nobody new to draw.", bad: true },
   "sg-reviewed": { text: "Suggestion updated. The post was restyled and the author told by DM if their DMs are open." },
   "sg-failed": { text: "That suggestion was not changed. It may already have been reviewed, or it no longer exists.", bad: true },
