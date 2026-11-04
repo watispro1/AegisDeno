@@ -16,6 +16,7 @@ import {
   listStarboardEntries,
 } from "../../services/starboard";
 import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
+import { runStarboardTop } from "../shared/starboardTop";
 
 /** What Aegis needs in the starboard channel to post there. */
 const STARBOARD_CHANNEL_PERMISSIONS: ReadonlyArray<[bigint, string]> = [
@@ -131,6 +132,30 @@ export const command: Command = {
             .setMinValue(1)
             .setMaxValue(20)
             .setRequired(false),
+        ),
+    )
+
+    // top
+    .addSubcommand((sub) =>
+      sub
+        .setName("top")
+        .setDescription("Show the most-starred posts and the members with the most stars.")
+        .addStringOption((opt) =>
+          opt
+            .setName("period")
+            .setDescription("Which starboard posts to count (default: all time)")
+            .setRequired(false)
+            .addChoices(
+              { name: "Past 7 days", value: "week" },
+              { name: "Past 30 days", value: "month" },
+              { name: "All time", value: "all" },
+            ),
+        )
+        .addUserOption((opt) =>
+          opt.setName("user").setDescription("Only posts by this member").setRequired(false),
+        )
+        .addBooleanOption((opt) =>
+          opt.setName("share").setDescription("Post the list in the channel instead of only to you").setRequired(false),
         ),
     )
 
@@ -300,6 +325,12 @@ export const command: Command = {
         .setFooter({ text: `Showing ${entries.length} most recent` });
 
       await interaction.editReply({ embeds: [embed] });
+      return;
+    }
+
+    // /starboard top
+    if (sub === "top") {
+      await runStarboardTop(interaction, guildId);
       return;
     }
 
