@@ -54,5 +54,5 @@ test("previewAutomod: first enabled hit acts; others listed; off rules reported;
 
 test("the live handler uses the shared checks", async () => {
   const src = (await import("node:fs")).readFileSync(`${__dirname}/../src/services/automodExecution.ts`, "utf8");
-  for (const fn of ["blockedWordHit(", "hasLink(", "capsOrFlood("]) assert.ok(src.includes(fn), fn);
+  for (const fn of ["blockedWordHit(", "blockedLinkHost(", "capsOrFlood(", "blockedInvite(", "emojiOrZalgo("]) assert.ok(src.includes(fn), fn);
 });

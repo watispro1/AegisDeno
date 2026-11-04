@@ -10,8 +10,13 @@ export interface AutomodRule {
   exemptChannelIds?: string[];
 }
 
-export type AutomodRuleKey = "words" | "links" | "mentions" | "spam" | "caps";
-export const AUTOMOD_RULE_KEYS: readonly AutomodRuleKey[] = ["words", "links", "mentions", "spam", "caps"];
+export type AutomodRuleKey = "words" | "links" | "mentions" | "spam" | "caps" | "invites" | "duplicates" | "emoji";
+export const AUTOMOD_RULE_KEYS: readonly AutomodRuleKey[] = ["words", "links", "mentions", "spam", "caps", "invites", "duplicates", "emoji"];
+/** Most allowed domains or invite codes one rule keeps. */
+export const MAX_ALLOWLIST = 50;
+/** Default and bounds for the timeout automod hands out, in minutes (up to 7 days). */
+export const DEFAULT_AUTOMOD_TIMEOUT_MINUTES = 5;
+export const MAX_AUTOMOD_TIMEOUT_MINUTES = 10_080;
 /** Most roles or channels one rule (or the global list) may exempt. */
 export const MAX_EXEMPTIONS = 25;
 
@@ -29,6 +34,29 @@ export interface SpamRule extends AutomodRule {
   windowSeconds: number;
 }
 
+export interface LinksRule extends AutomodRule {
+  /** Domains (and their subdomains) whose links always pass, e.g. "youtube.com". */
+  allowedDomains: string[];
+}
+
+export interface InvitesRule extends AutomodRule {
+  /** Invite codes that always pass. The server's own vanity invite always passes too. */
+  allowedCodes: string[];
+}
+
+export interface DuplicatesRule extends AutomodRule {
+  /** Identical messages allowed within windowSeconds; the next one is acted on. */
+  maxRepeats: number;
+  windowSeconds: number;
+}
+
+export interface EmojiRule extends AutomodRule {
+  /** Most emoji (Unicode and custom) one message may carry. */
+  maxEmoji: number;
+  /** Also catch "zalgo" text stacked with combining marks. */
+  zalgo: boolean;
+}
+
 export interface CapsRule extends AutomodRule {
   /** Percentage of letters that must be uppercase before enforcement. */
   threshold: number;
@@ -37,22 +65,35 @@ export interface CapsRule extends AutomodRule {
 export interface AutomodConfig {
   guildId: string;
   words: WordsRule;
-  links: AutomodRule;
+  links: LinksRule;
   mentions: MentionsRule;
   spam: SpamRule;
   caps: CapsRule;
+  invites: InvitesRule;
+  duplicates: DuplicatesRule;
+  emoji: EmojiRule;
+  /** Length of the timeout for rules whose action is "timeout". */
+  timeoutMinutes: number;
   /** Role IDs that bypass all automod checks. */
   exemptRoleIds: string[];
   /** Channel IDs where automod is fully disabled. */
   exemptChannelIds: string[];
 }
 
+/** A partial change: any rule may carry only the fields being changed. */
+export type AutomodPatch = { [K in AutomodRuleKey]?: Partial<AutomodConfig[K]> }
+  & Partial<Pick<AutomodConfig, "exemptRoleIds" | "exemptChannelIds" | "timeoutMinutes">>;
+
 const DEFAULT_CONFIG: Omit<AutomodConfig, "guildId"> = {
   words:    { enabled: false, action: "delete", list: [] },
-  links:    { enabled: false, action: "delete" },
+  links:    { enabled: false, action: "delete", allowedDomains: [] },
   mentions: { enabled: false, action: "timeout", threshold: 5 },
   spam:     { enabled: false, action: "timeout", maxMessages: 5, windowSeconds: 5 },
   caps:     { enabled: false, action: "delete", threshold: 80 },
+  invites:  { enabled: false, action: "delete", allowedCodes: [] },
+  duplicates: { enabled: false, action: "delete", maxRepeats: 3, windowSeconds: 60 },
+  emoji:    { enabled: false, action: "delete", maxEmoji: 10, zalgo: true },
+  timeoutMinutes: DEFAULT_AUTOMOD_TIMEOUT_MINUTES,
   exemptRoleIds:    [],
   exemptChannelIds: [],
 };
@@ -65,9 +106,49 @@ export function cleanIdList(value: unknown, max = MAX_EXEMPTIONS): string[] {
   return [...new Set(value.map(String).filter(id => SNOWFLAKE.test(id)))].slice(0, max);
 }
 
+const ACTIONS: ReadonlySet<string> = new Set(["delete", "warn", "timeout"]);
+
 function normalizeRule<T extends AutomodRule>(rule: Partial<T> | undefined, fallback: T): T {
   const merged = { ...fallback, ...(rule ?? {}) };
-  return { ...merged, exemptRoleIds: cleanIdList(merged.exemptRoleIds), exemptChannelIds: cleanIdList(merged.exemptChannelIds) };
+  return {
+    ...merged,
+    enabled: merged.enabled === true,
+    action: ACTIONS.has(String(merged.action)) ? merged.action : fallback.action,
+    exemptRoleIds: cleanIdList(merged.exemptRoleIds),
+    exemptChannelIds: cleanIdList(merged.exemptChannelIds),
+  };
+}
+
+/** A whole number clamped to [min, max], or the fallback when the value is not a finite number. */
+export function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(min, Math.min(max, Math.round(value))) : fallback;
+}
+
+const DOMAIN = /^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+
+/**
+ * Turn what a moderator typed ("https://www.YouTube.com/watch", "*.github.io")
+ * into a bare lowercase domain, or null when it is not one.
+ */
+export function cleanDomain(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  let d = raw.trim().toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//, "").replace(/^\*\./, "");
+  d = d.split(/[/?#:]/)[0].replace(/^www\./, "").replace(/\.$/, "");
+  return DOMAIN.test(d) ? d : null;
+}
+
+const INVITE_CODE = /^[a-z0-9-]{2,32}$/i;
+
+/** An invite code from a code or a full invite URL, or null. Codes are case-sensitive on Discord, so case is kept. */
+export function cleanInviteCode(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const code = raw.trim().replace(/^(?:https?:\/\/)?(?:www\.)?(?:discord(?:app)?\.com\/invite|discord\.gg)\//i, "").split(/[/?#]/)[0];
+  return INVITE_CODE.test(code) ? code : null;
+}
+
+function cleanList(value: unknown, clean: (v: unknown) => string | null): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(clean).filter((v): v is string => v !== null))].slice(0, MAX_ALLOWLIST);
 }
 
 /**
@@ -76,11 +157,12 @@ function normalizeRule<T extends AutomodRule>(rule: Partial<T> | undefined, fall
  * never wipes the rest, such as per-rule exemptions, caps or the global
  * exemption lists.
  */
-export function mergeAutomodConfig(current: AutomodConfig, patch: Partial<Omit<AutomodConfig, "guildId">>): AutomodConfig {
+export function mergeAutomodConfig(current: AutomodConfig, patch: AutomodPatch): AutomodConfig {
   const out: AutomodConfig = { ...current };
   for (const key of AUTOMOD_RULE_KEYS) {
     if (patch[key]) (out as unknown as Record<string, unknown>)[key] = { ...current[key], ...patch[key] };
   }
+  if (patch.timeoutMinutes !== undefined) out.timeoutMinutes = patch.timeoutMinutes;
   if (patch.exemptRoleIds) out.exemptRoleIds = patch.exemptRoleIds;
   if (patch.exemptChannelIds) out.exemptChannelIds = patch.exemptChannelIds;
   return normalizeAutomodConfig(current.guildId, out);
@@ -131,15 +213,41 @@ function normalizeCapsRule(rule: Partial<CapsRule> | undefined): CapsRule {
   return { ...normalized, threshold };
 }
 
+function normalizeLinksRule(rule: Partial<LinksRule> | undefined): LinksRule {
+  return { ...normalizeRule(rule, DEFAULT_CONFIG.links), allowedDomains: cleanList(rule?.allowedDomains, cleanDomain) };
+}
+
+function normalizeInvitesRule(rule: Partial<InvitesRule> | undefined): InvitesRule {
+  return { ...normalizeRule(rule, DEFAULT_CONFIG.invites), allowedCodes: cleanList(rule?.allowedCodes, cleanInviteCode) };
+}
+
+function normalizeDuplicatesRule(rule: Partial<DuplicatesRule> | undefined): DuplicatesRule {
+  const d = DEFAULT_CONFIG.duplicates;
+  return {
+    ...normalizeRule(rule, d),
+    maxRepeats: clampInt(rule?.maxRepeats, 2, 10, d.maxRepeats),
+    windowSeconds: clampInt(rule?.windowSeconds, 10, 600, d.windowSeconds),
+  };
+}
+
+function normalizeEmojiRule(rule: Partial<EmojiRule> | undefined): EmojiRule {
+  const d = DEFAULT_CONFIG.emoji;
+  return { ...normalizeRule(rule, d), maxEmoji: clampInt(rule?.maxEmoji, 3, 50, d.maxEmoji), zalgo: rule?.zalgo !== false };
+}
+
 export function normalizeAutomodConfig(guildId: string, source?: Partial<AutomodConfig>): AutomodConfig {
   const config = source ?? {};
   return {
     guildId,
     words:    normalizeWordsRule(config.words),
-    links:    normalizeRule(config.links, DEFAULT_CONFIG.links),
+    links:    normalizeLinksRule(config.links),
     mentions: normalizeMentionsRule(config.mentions),
     spam:     normalizeSpamRule(config.spam),
     caps:     normalizeCapsRule(config.caps),
+    invites:  normalizeInvitesRule(config.invites),
+    duplicates: normalizeDuplicatesRule(config.duplicates),
+    emoji:    normalizeEmojiRule(config.emoji),
+    timeoutMinutes: clampInt(config.timeoutMinutes, 1, MAX_AUTOMOD_TIMEOUT_MINUTES, DEFAULT_AUTOMOD_TIMEOUT_MINUTES),
     exemptRoleIds:    cleanIdList(config.exemptRoleIds, 100),
     exemptChannelIds: cleanIdList(config.exemptChannelIds, 100),
   };
@@ -164,7 +272,7 @@ export async function getAutomodConfig(guildId: string): Promise<AutomodConfig> 
 
 export async function updateAutomodConfig(
   guildId: string,
-  config: Partial<Omit<AutomodConfig, "guildId">>
+  config: AutomodPatch
 ): Promise<AutomodConfig> {
   const normalized = mergeAutomodConfig(await getAutomodConfig(guildId), config);
 

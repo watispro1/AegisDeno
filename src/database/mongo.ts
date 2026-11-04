@@ -154,6 +154,7 @@ const AutomodSchema = new mongoose.Schema({
   links: {
     enabled: { type: Boolean, default: false },
     action: { type: String, default: "delete" },
+    allowedDomains: { type: [String], default: [] },
     ...ruleExemptions(),
   },
   mentions: {
@@ -176,6 +177,28 @@ const AutomodSchema = new mongoose.Schema({
     action: { type: String, default: "delete" },
     ...ruleExemptions(),
   },
+  // 3.7.2 rules; see services/automod.ts for bounds.
+  invites: {
+    enabled: { type: Boolean, default: false },
+    action: { type: String, default: "delete" },
+    allowedCodes: { type: [String], default: [] },
+    ...ruleExemptions(),
+  },
+  duplicates: {
+    enabled: { type: Boolean, default: false },
+    maxRepeats: { type: Number, default: 3 },
+    windowSeconds: { type: Number, default: 60 },
+    action: { type: String, default: "delete" },
+    ...ruleExemptions(),
+  },
+  emoji: {
+    enabled: { type: Boolean, default: false },
+    maxEmoji: { type: Number, default: 10 },
+    zalgo: { type: Boolean, default: true },
+    action: { type: String, default: "delete" },
+    ...ruleExemptions(),
+  },
+  timeoutMinutes: { type: Number, default: 5 },
   // Role or channel IDs that are exempt from all automod rules
   exemptRoleIds:    { type: [String], default: [] },
   exemptChannelIds: { type: [String], default: [] },

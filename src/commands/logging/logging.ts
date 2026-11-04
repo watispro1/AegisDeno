@@ -13,7 +13,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
-import { sendGuildLog } from "../../services/logging";
+import { isLogCategoryOn, sendGuildLog } from "../../services/logging";
 
 // What gets logged in each category
 const LOG_CATEGORIES = [
@@ -24,6 +24,7 @@ const LOG_CATEGORIES = [
   { key: "messageDeletes", label: "Msg Deletes",  emoji: "🗑️", desc: "Deleted messages and bulk purges" },
   { key: "roleChanges",  label: "Role Changes",    emoji: "🎭", desc: "Member role additions and removals" },
   { key: "channelEvents", label: "Channel Events", emoji: "📌", desc: "Channel creates, deletes, renames" },
+  { key: "voiceEvents",  label: "Voice Activity",  emoji: "🔊", desc: "Voice channel joins, leaves and moves" },
 ] as const;
 
 export const command: Command = {
@@ -69,7 +70,7 @@ export const command: Command = {
 
       const buildStatusEmbed = (cats: Record<string, boolean> | undefined) => {
         const catLines = LOG_CATEGORIES.map(c => {
-          const on = cats ? (cats[c.key] ?? true) : true;
+          const on = isLogCategoryOn(cats, c.key);
           return `${c.emoji} **${c.label}** — ${on ? "✅ On" : "❌ Off"}\n> ${c.desc}`;
         }).join("\n");
 
@@ -99,7 +100,7 @@ export const command: Command = {
           rows.push(
             new ActionRowBuilder<ButtonBuilder>().addComponents(
               ...chunk.map(c => {
-                const on = cats ? (cats[c.key] ?? true) : true;
+                const on = isLogCategoryOn(cats, c.key);
                 return new ButtonBuilder()
                   .setCustomId(`log_cat_${c.key}`)
                   .setLabel(`${c.label}`)
@@ -150,8 +151,8 @@ export const command: Command = {
 
         if (i.customId.startsWith("log_cat_")) {
           const key = i.customId.replace("log_cat_", "");
-          if (!currentCats) currentCats = Object.fromEntries(LOG_CATEGORIES.map(c => [c.key, true]));
-          currentCats[key] = !(currentCats[key] ?? true);
+          if (!currentCats) currentCats = Object.fromEntries(LOG_CATEGORIES.map(c => [c.key, isLogCategoryOn(undefined, c.key)]));
+          currentCats[key] = !isLogCategoryOn(currentCats, key);
           await updateGuildConfig(guildId, { logCategories: currentCats });
         } else if (i.customId === "log_toggle_master") {
           currentEnabled = !currentEnabled;

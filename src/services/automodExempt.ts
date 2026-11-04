@@ -12,6 +12,9 @@ export const EXEMPT_SCOPE_CHOICES: Array<{ name: string; value: ExemptScope }> =
   { name: "Mention spam", value: "mentions" },
   { name: "Message spam", value: "spam" },
   { name: "Caps and floods", value: "caps" },
+  { name: "Invites", value: "invites" },
+  { name: "Duplicate messages", value: "duplicates" },
+  { name: "Emoji and zalgo", value: "emoji" },
 ];
 const SCOPE_LABEL: Record<ExemptScope, string> = Object.fromEntries(EXEMPT_SCOPE_CHOICES.map(c => [c.value, c.name])) as Record<ExemptScope, string>;
 

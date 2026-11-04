@@ -39,7 +39,7 @@ export interface ConfiguredChannel { id: string; labels: string[] }
 
 const LOG_LABELS: Record<string, string> = {
   modActions: "mod action log", memberJoins: "join log", memberLeaves: "leave log", messageEdits: "edit log",
-  messageDeletes: "delete log", roleChanges: "role log", channelEvents: "channel log",
+  messageDeletes: "delete log", roleChanges: "role log", channelEvents: "channel log", voiceEvents: "voice log",
 };
 
 /**

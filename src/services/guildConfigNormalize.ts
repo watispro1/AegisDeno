@@ -155,7 +155,7 @@ export function normalizeWarnExpiryDays(value: unknown): number | null {
 export const DISCORD_ID = /^\d{17,20}$/;
 const LOG_CATEGORIES = new Set([
   "modActions", "memberJoins", "memberLeaves", "messageEdits",
-  "messageDeletes", "roleChanges", "channelEvents",
+  "messageDeletes", "roleChanges", "channelEvents", "voiceEvents",
 ]);
 const ESCALATION_ACTIONS = new Set(["timeout", "kick", "ban"]);
 

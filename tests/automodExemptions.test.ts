@@ -78,6 +78,6 @@ test("/automod exempt subcommands take an optional rule", () => {
   assert.deepEqual(exempt.options!.map(o => o.name), ["addrole", "removerole", "addchannel", "removechannel"]);
   for (const sub of exempt.options!) {
     const rule = sub.options!.find(o => o.name === "rule")!;
-    assert.ok(rule && !rule.required && rule.choices!.length === 6, sub.name);
+    assert.ok(rule && !rule.required && rule.choices!.length === 9, sub.name);
   }
 });

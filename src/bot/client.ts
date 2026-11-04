@@ -24,6 +24,7 @@ import { scheduleUnverifiedKick } from "../services/verificationService";
 import { componentRouter } from "./interactions";
 import { answerExpiredComponent } from "./interactions/expired";
 import { registerStarboardEvents } from "./events/starboard";
+import { registerServerLogs } from "./events/serverLogs";
 import {
   watchlistOnJoin,
   watchlistOnLeave,
@@ -87,6 +88,7 @@ export function createClient(): Client {
 
 export function setupEvents(client: Client): void {
   registerStarboardEvents(client);
+  registerServerLogs(client);
 
   // Ready
   client.once(Events.ClientReady, (c) => {

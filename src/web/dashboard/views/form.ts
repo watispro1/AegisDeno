@@ -2,6 +2,7 @@ import { escapeHtml as esc } from "../../pages";
 import type { ChannelOption, RoleOption } from "../botView";
 import type { SettingsSnapshot } from "../data";
 import { embedValues } from "./embedBuilder";
+import { isLogCategoryOn } from "../../../services/logCategories";
 import { AUTOMOD_ACTIONS, ESCALATION_ROWS, LOG_CATEGORY_LABELS, type FormBody, type SettingsSection } from "../validation";
 
 /* Settings */
@@ -19,7 +20,7 @@ export function settingsValues(section: SettingsSection, s: SettingsSnapshot): V
     case "logging": {
       const v: Values = { loggingEnabled: s.guild.loggingEnabled, loggingChannelId: s.guild.loggingChannelId ?? "" };
       for (const [key] of LOG_CATEGORY_LABELS) {
-        v[`cat_${key}`] = s.guild.logCategories?.[key] !== false;
+        v[`cat_${key}`] = isLogCategoryOn(s.guild.logCategories, key);
         v[`chan_${key}`] = s.guild.logChannels?.[key] ?? "";
       }
       return v;

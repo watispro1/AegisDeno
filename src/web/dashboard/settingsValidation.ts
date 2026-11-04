@@ -38,6 +38,7 @@ export const LOG_CATEGORY_LABELS: ReadonlyArray<[string, string]> = [
   ["messageDeletes", "Message deletes"],
   ["roleChanges", "Role changes"],
   ["channelEvents", "Channel events"],
+  ["voiceEvents", "Voice activity"],
 ];
 
 export const ESCALATION_ROWS = 8;
