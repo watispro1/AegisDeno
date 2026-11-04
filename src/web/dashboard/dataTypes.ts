@@ -8,6 +8,7 @@ import { editCaseReason, revokeModerationCase } from "../../services/moderationC
 import { revokeWarning } from "../../services/warnings";
 import { ensureAutoCloseChecks, getTicketSettings, updateTicketSettings, type TicketSettings } from "../../services/ticketService";
 import { getVerificationConfig, updateVerificationSettings, type VerificationConfig } from "../../services/verificationService";
+import type { StarboardTopEntry } from "../../services/starboardTop";
 import { getStarboardConfig, updateStarboardConfig, type StarboardConfig } from "../../services/starboard";
 import { sendGuildLog } from "../../services/logging";
 import { getAppeal, listAppeals, reviewBanAppeal, type AppealRecord, type AppealStatus } from "../../services/appeals";
@@ -138,5 +139,7 @@ export interface DashboardData {
   loadSettings(guildId: string): Promise<SettingsSnapshot>;
   /** Saves one section. Resolves false when the section cannot be saved yet (verification not set up). */
   saveSettings(guildId: string, input: SettingsValue, actor: Actor): Promise<boolean>;
+  /** The ten most-starred posts of all time, as /starboard top shows them. */
+  topStarboard?(guildId: string): Promise<StarboardTopEntry[]>;
 }
 

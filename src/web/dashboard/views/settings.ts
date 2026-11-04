@@ -9,6 +9,7 @@ import { type GuildContext, type GuildSection, csrfField, head, moduleStatus, no
 import { embedBuilder } from "./embedBuilder";
 import { automodTestPanel, type AutomodTestState } from "./automodTest";
 import { ruleExemptionsPanel, type RuleExemptionState } from "./automodExemptions";
+import { starboardTopPanel, type StarboardTopView } from "./starboardTop";
 import { GOODBYE_MESSAGE_MAX } from "../../../services/configuration";
 import { ACTION_OPTIONS, Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
 
@@ -225,6 +226,7 @@ export function renderSettings(
   hiddenChannelIds: ReadonlySet<string> = new Set(),
   automodTest: AutomodTestState | null = null,
   ruleExemptions: RuleExemptionState | null = null,
+  starboardTop: StarboardTopView | null = null,
 ): string {
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}/settings`;
@@ -255,6 +257,7 @@ export function renderSettings(
     ${canSave ? `<button class="btn" type="submit" data-save-button>Save ${SECTION_TITLES[section].toLowerCase()} settings</button>` : ""}
   </form>
   ${section === "automod" ? ruleExemptionsPanel(ctx, snapshot.automod, roles, channels, hiddenChannelIds, ruleExemptions) : ""}
-  ${section === "automod" ? automodTestPanel(ctx, automodTest) : ""}`,
+  ${section === "automod" ? automodTestPanel(ctx, automodTest) : ""}
+  ${section === "starboard" && starboardTop ? starboardTopPanel(ctx, starboardTop, channels) : ""}`,
   });
 }

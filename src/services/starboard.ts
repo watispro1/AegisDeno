@@ -22,6 +22,7 @@ import { effectiveStarCount, pickStarboardMedia } from "./communityLogic";
 import { TtlCache } from "../utils/ttlCache";
 import { channelDisplayName } from "../utils/channels";
 import { softFail } from "../utils/softFail";
+import { storedExcerpt } from "./starboardTop";
 
 // Types
 
@@ -94,7 +95,9 @@ export async function createStarboardEntry(data: {
   sourceMessageId: string;
   authorId: string;
   starboardMessageId: string;
+  starboardChannelId?: string | null;
   starCount: number;
+  excerpt?: string | null;
 }) {
   return StarboardEntryModel.create(data);
 }
@@ -104,10 +107,11 @@ export async function updateStarCount(
   guildId: string,
   sourceMessageId: string,
   starCount: number,
+  excerpt?: string,
 ) {
   return StarboardEntryModel.findOneAndUpdate(
     { guildId, sourceMessageId },
-    { starCount },
+    excerpt === undefined ? { starCount } : { starCount, excerpt },
     { new: true },
   ).lean();
 }
@@ -180,6 +184,12 @@ export function buildStarboardEmbed(
   return { content, embeds: [embed] };
 }
 
+/** The text /starboard top shows for a message: its content, else its first embed's text. */
+export function messageExcerpt(message: Pick<Message, "content" | "embeds">): string {
+  const embed = message.embeds[0];
+  return storedExcerpt(message.content || embed?.description || embed?.title || "");
+}
+
 // Reaction logic
 
 /**
@@ -221,7 +231,7 @@ export async function handleStarReaction(
       const { content } = buildStarboardEmbed(message, count, config.emoji);
       await starboardMsg.edit({ content }).catch(() => null);
     }
-    await updateStarCount(guildId, message.id, count);
+    await updateStarCount(guildId, message.id, count, existing.excerpt ? undefined : messageExcerpt(message));
   } else {
     const { content, embeds } = buildStarboardEmbed(message, count, config.emoji);
     const posted = await starboardChannel.send({ content, embeds }).catch(softFail(`Starboard post in guild ${guildId}`));
@@ -233,7 +243,9 @@ export async function handleStarReaction(
       sourceMessageId: message.id,
       authorId: message.author.id,
       starboardMessageId: posted.id,
+      starboardChannelId: starboardChannel.id,
       starCount: count,
+      excerpt: messageExcerpt(message),
     });
   }
 }

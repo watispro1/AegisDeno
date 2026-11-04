@@ -213,7 +213,7 @@ export const features: Feature[] = [
     short: "Starboard, giveaways, polls, suggestions, welcome messages and role panels.",
     text: "The things most servers end up wanting once moderation is sorted. All of them use buttons rather than reactions where Discord allows it.",
     points: [
-      "Starboard with your own emoji, threshold and ignored channels. Self-stars never count, and images and attachments carry over.",
+      "Starboard with your own emoji, threshold and ignored channels. Self-stars never count, images and attachments carry over, and /starboard top ranks the most-starred posts and members.",
       "Giveaways up to 30 days long, with role requirements, bonus entries for server boosters, up to 20 winners, early end and a Reroll button.",
       "Polls with up to 10 options, anonymous and multi-select modes, live result bars, and timed auto-close that posts results.",
       "Suggestions with voting and Approve, Consider or Deny buttons; the author gets a DM with the reason.",

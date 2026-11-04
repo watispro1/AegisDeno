@@ -30,11 +30,16 @@ const StarboardEntrySchema = new mongoose.Schema({
   sourceMessageId: { type: String, required: true },  // ID of original message
   authorId:        { type: String, required: true },
   starboardMessageId: { type: String, required: true }, // posted embed message ID
+  starboardChannelId: { type: String, default: null },  // channel the embed was posted in (null on older entries)
   starCount:       { type: Number, default: 0 },
+  excerpt:         { type: String, default: null },     // short plain text of the original, for /starboard top
   createdAt:       { type: Date, default: Date.now },
 });
 StarboardEntrySchema.index({ guildId: 1, sourceMessageId: 1 }, { unique: true });
 StarboardEntrySchema.index({ guildId: 1, createdAt: -1 });
+// /starboard top: equality on guild (and author), sort by stars, range on createdAt for a period.
+StarboardEntrySchema.index({ guildId: 1, starCount: -1, createdAt: 1 });
+StarboardEntrySchema.index({ guildId: 1, authorId: 1, starCount: -1, createdAt: 1 });
 export const StarboardEntryModel = mongoose.model("StarboardEntry", StarboardEntrySchema);
 
 // Ghost Watch (Watchlist)
