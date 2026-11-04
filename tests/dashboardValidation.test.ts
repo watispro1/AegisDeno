@@ -132,6 +132,8 @@ test("automod enforces the same ranges as the slash command", () => {
     mentions_action: "timeout", mentions_threshold: "5",
     spam_enabled: "on", spam_action: "timeout", spam_maxMessages: "5", spam_windowSeconds: "5",
     caps_action: "delete", caps_threshold: "80",
+    invites_action: "delete", duplicates_action: "delete", duplicates_maxRepeats: "3", duplicates_windowSeconds: "60",
+    emoji_action: "delete", emoji_maxEmoji: "10", timeoutMinutes: "5",
   };
   const ok = parseAutomod(body, ctx);
   assert.ok(ok.ok);
@@ -214,6 +216,8 @@ test("automod exemptions accept visible IDs and previously saved ones only", () 
   const body = {
     words_action: "delete", links_action: "delete", mentions_action: "delete", mentions_threshold: "5",
     spam_action: "delete", spam_maxMessages: "5", spam_windowSeconds: "5", caps_action: "delete", caps_threshold: "80",
+    invites_action: "delete", duplicates_action: "delete", duplicates_maxRepeats: "3", duplicates_windowSeconds: "60",
+    emoji_action: "delete", emoji_maxEmoji: "10", timeoutMinutes: "5",
   };
   const ok = parseAutomod({ ...body, exempt_roles: [HIGH_ROLE, HIGH_ROLE], exempt_channels: ["999999999999999999", CH] }, ctx, { exemptRoleIds: [], exemptChannelIds: ["999999999999999999"] });
   assert.ok(ok.ok);
