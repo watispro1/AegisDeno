@@ -84,6 +84,11 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
     "/automod words action action:Delete and warn",
     "/automod mentions limit count:5",
     "/automod spam limit max:6 window:5",
+    "/automod links allow domain:youtube.com",
+    "/automod invites allow code:discord.gg/partner",
+    "/automod duplicates limit repeats:3 window:60",
+    "/automod emoji limit max:10 zalgo:true",
+    "/automod timeout minutes:30",
   ],
   logging: ["/logging channel channel:#mod-log", "/logging test"],
   config: ["/config overview", "/config view", "/config logging channel:#mod-log enabled:true"],
@@ -109,12 +114,14 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
     "/giveaway start prize:Server role duration:3d min_account_age:30 min_server_days:7",
     "/giveaway end message_id:https://discord.com/channels/123456789012345678/123456789012345679/123456789012345680",
     "/giveaway reroll message_id:123456789012345678",
+    "/giveaway start prize:Nitro duration:2d bonus_role:@Supporter bonus_entries:3",
+    "/giveaway cancel message_id:123456789012345678",
   ],
   poll: [
     "/poll question:Next game night? option1:Friday option2:Saturday duration:24 Hours (1 Day) multiselect:true",
   ],
   suggest: ["/suggest setup channel:#suggestions", "/suggest approve id:5d0c8a1e-7b3f-4c2e-9a61-2f4b8e9d1c70 reason:Doing it"],
-  welcome: ["/welcome channel channel:#welcome", "/welcome message", "/welcome preview"],
+  welcome: ["/welcome channel channel:#welcome", "/welcome message", "/welcome preview", "/welcome test type:Goodbye"],
   rolepanel: [
     "/rolepanel create channel:#roles role1:@Events role2:@Updates",
     "/rolepanel create channel:#colors role1:@Red role2:@Blue style:Dropdown menu exclusive:true required_role:@Member",
@@ -136,6 +143,9 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   announce: ["/announce channel:#announcements message:Server maintenance at 9pm title:Heads up ping:@here"],
   help: ["/help command:ban"],
   userinfo: ["/userinfo user:@member"],
+  avatar: ["/avatar user:@member server:true"],
+  roleinfo: ["/roleinfo role:@Moderator"],
+  channelinfo: ["/channelinfo channel:#general"],
 };
 
 export interface ParsedExample {

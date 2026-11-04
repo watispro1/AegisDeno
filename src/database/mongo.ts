@@ -177,7 +177,7 @@ const AutomodSchema = new mongoose.Schema({
     action: { type: String, default: "delete" },
     ...ruleExemptions(),
   },
-  // 3.7.2 rules; see services/automod.ts for bounds.
+  // Invite, duplicate and emoji rules; see services/automod.ts for bounds.
   invites: {
     enabled: { type: Boolean, default: false },
     action: { type: String, default: "delete" },

@@ -11,12 +11,17 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 
 ## [3.7.2] - 2026-11-04
 
-Reliability fixes and a round of quality-of-life improvements across
-moderation, trust, diagnostics and the dashboard. Includes additions to
-dashboard 1.2.4 (see `DASHBOARD_CHANGELOG.md`).
+Stronger automod, full server activity logs, new lookup commands, giveaway
+bonus entries and cancelling, plus reliability fixes and quality-of-life
+improvements across moderation, trust, diagnostics and the dashboard.
+Includes additions to dashboard 1.2.4 (see `DASHBOARD_CHANGELOG.md`).
 
-Upgrade notes: new subcommands, so commands are re-registered on deploy. No
-new environment variables. Requires Node 22 or newer.
+Upgrade notes: three new slash commands (`/avatar`, `/roleinfo`,
+`/channelinfo`) and new subcommands, so commands are re-registered on deploy.
+No new environment variables or permissions. Requires Node 22 or newer. The
+new invite, duplicate and emoji automod rules start off. Voice activity
+logging starts off; edit, bulk-delete, role, nickname and channel logs follow
+each server's existing category toggles.
 
 ### Added
 - **`/case search`** finds cases and warnings by member, moderator, action,
@@ -26,6 +31,34 @@ new environment variables. Requires Node 22 or newer.
   missing a channel or step) with the permissions Aegis lacks.
 - **`/remindme edit`** changes a pending reminder's text, time or repeat
   without cancelling it.
+- **New automod rules.** `/automod invites` blocks invites to other servers
+  (catching zero-width tricks and short links like dsc.gg) while your own
+  vanity invite and codes you allow pass. `/automod duplicates` acts on the
+  same message sent over and over. `/automod emoji` limits emoji walls and
+  catches zalgo text without flagging Vietnamese or Hindi.
+- `/automod links allow` and `unallow` keep an allowed-domains list; a domain
+  passes with its subdomains, lookalikes such as `youtube.com.evil.example`
+  do not.
+- `/automod timeout minutes:` sets how long the timeout action lasts
+  (1 to 10,080 minutes; it was always 5).
+- **Server activity logs.** Message edits now show before, after and what
+  changed. Bulk deletes are logged with a text file of every cached message.
+  Role and nickname changes, channel creates, deletes and updates, and voice
+  joins, leaves and moves are logged too. Voice activity is a new log
+  category that stays off until a server turns it on in `/logging status`.
+- **`/avatar`**, **`/roleinfo`** and **`/channelinfo`** look up a member's
+  avatar (or server avatar) with download links, a role's colour, members and
+  notable permissions, and a channel's type, topic, slowmode and settings.
+- **`/welcome test`** posts the saved welcome or goodbye message for real in
+  its channel, with you standing in for the member and no pings, after
+  checking the channel and Aegis's permissions there.
+- New welcome and goodbye variables: `{memberOrdinal}` (for example
+  "1,204th") and, for goodbyes, `{timeInServer}` (for example "3 months").
+- **Giveaway bonus entries.** `/giveaway start bonus_role: bonus_entries:`
+  gives holders of a role 2 to 10 entries, stacking with the booster bonus.
+- **`/giveaway cancel`** ends a giveaway without drawing winners. A cancel
+  and an end pressed together cannot both win, and a cancelled giveaway can
+  never be rerolled.
 
 ### Changed
 - **The low-trust role follows the score.** With the Trust Score role set in
@@ -46,7 +79,6 @@ new environment variables. Requires Node 22 or newer.
   now counts the caps rule too.
 - Ticket transcripts list who took part (with message counts), how long the
   ticket ran from first to last message, and a divider for each day.
-
 - **`/purge` result is simpler.** It says "Deleted X of Y" and, when some
   were skipped, why: already gone, older than 14 days, or failed. The
   progress bar is gone.
@@ -61,6 +93,10 @@ new environment variables. Requires Node 22 or newer.
   discord.js 14.28.0, mongoose 9.11.4, express 5.3.0 and dotenv 18.0.9.
 - Split the largest command, service and web files into smaller modules.
   No behavior change.
+- `/automod status` covers all eight rules, with toggle buttons in two rows.
+- Settings import on the dashboard now brings over the invite, duplicate and
+  emoji rules and the timeout length.
+- Winner DMs name the server, link to the giveaway and name the host.
 
 ### Fixed
 - **`/purge`:** if one batch of deletions failed (a rate limit or a
@@ -80,6 +116,17 @@ new environment variables. Requires Node 22 or newer.
   bans, `/removetimeout` and `/clearwarnings` ignored the moderation-actions
   category, so they went to the main log channel even when moderation actions
   had their own channel or were turned off.
+- Automod "warn" added a warning but never ran escalation, so automod
+  warnings never reached your escalation thresholds.
+- Automod "timeout" left no moderation case; it now records one and logs the
+  result, including a failure.
+- Imported automod settings with an unknown action (for example `ban`) were
+  saved as-is and the rule then did nothing; unknown actions now fall back to
+  the rule's default.
+- The Message Edits, Role Changes and Channel Events log toggles were offered
+  but nothing ever posted to them.
+- Giveaway winner DMs were only sent when the giveaway channel was still
+  reachable.
 
 ## [3.7.1] - 2026-11-02
 

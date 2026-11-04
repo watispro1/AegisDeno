@@ -132,7 +132,7 @@ export function textMentionCount(content: string): number {
 
 export type AutomodRuleKey = "words" | "mentions" | "invites" | "links" | "caps" | "emoji";
 
-/** Rules added in 3.7.2 are optional here so older callers and saved exports still preview. */
+/** The invite, duplicate and emoji rules are optional here so older callers and saved exports still preview. */
 export type PreviewConfig = Omit<AutomodConfig, "guildId" | "invites" | "duplicates" | "emoji" | "timeoutMinutes" | "links">
   & Partial<Pick<AutomodConfig, "invites" | "emoji">>
   & { links: AutomodConfig["links"] | Omit<AutomodConfig["links"], "allowedDomains"> };

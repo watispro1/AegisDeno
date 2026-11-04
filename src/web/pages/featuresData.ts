@@ -72,7 +72,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
   {
     id: "automod", title: "Automod & Safety", lead: "Filters that act before a human has to, with exemptions for the roles and channels you trust.",
     cards: [
-      { id: "filters", icon: "filter", title: "Content filters", text: "Blocked words, links and invites, mention spam, message spam and caps floods, each with its own action.", commands: ["automod words add", "automod links toggle", "automod mentions limit", "automod spam limit", "automod caps limit"], dashboard: "Automod" },
+      { id: "filters", icon: "filter", title: "Content filters", text: "Blocked words, links (with an allowed-domains list), invites to other servers, mention spam, message spam, repeated messages, caps floods, emoji walls and zalgo text, each with its own action and an adjustable timeout length.", commands: ["automod words add", "automod links allow", "automod invites toggle", "automod duplicates limit", "automod emoji limit", "automod timeout"], dashboard: "Automod" },
       { id: "exempt", icon: "check", title: "Exemptions and presets", text: "Exempt staff roles and channels, or start from a ready-made preset.", commands: ["automod exempt addrole", "preset apply"] },
       { id: "verification", icon: "shield", title: "Verification", text: "Button or captcha verification with an optional kick for members who never verify.", commands: ["verify setup", "verify autokick"], dashboard: "Verification" },
     ],
@@ -94,9 +94,9 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
   {
     id: "community", title: "Community", lead: "The friendly side of running a server.",
     cards: [
-      { id: "welcome", icon: "people", title: "Welcome and goodbye", text: "Messages with embeds, placeholders and a join role that waits for membership screening.", commands: ["welcome channel", "welcome message", "welcome preview"], dashboard: "Welcome & Goodbye" },
+      { id: "welcome", icon: "people", title: "Welcome and goodbye", text: "Messages with embeds, placeholders like the member's place ({memberOrdinal}) and how long they stayed ({timeInServer}), a real test post, and a join role that waits for membership screening.", commands: ["welcome channel", "welcome message", "welcome preview", "welcome test"], dashboard: "Welcome & Goodbye" },
       { id: "roles", icon: "role", title: "Role panels", text: "Self-assign roles with buttons or menus, limited to roles below yours and Aegis's.", commands: ["rolepanel create"], dashboard: "Role panels" },
-      { id: "engage", icon: "star", title: "Polls, giveaways, starboard, suggestions", text: "Polls, giveaways with rerolls, a starboard for great posts, and a suggestion queue staff can approve or deny.", commands: ["poll", "giveaway start", "starboard setup", "suggest submit"], dashboard: "Giveaways" },
+      { id: "engage", icon: "star", title: "Polls, giveaways, starboard, suggestions", text: "Polls, giveaways with bonus entries for a role, rerolls and cancelling, a starboard for great posts, and a suggestion queue staff can approve or deny.", commands: ["poll", "giveaway start", "giveaway cancel", "starboard setup", "suggest submit"], dashboard: "Giveaways" },
       { id: "economy", icon: "star", title: "Economy (opt-in)", text: "Per-server coins with /daily streaks, /work, /pay, a leaderboard that never pings, and a shop that can sell roles below Aegis's and yours. Off until you turn it on.", commands: ["economy toggle", "daily", "work", "pay", "shop buy", "leaderboard"], dashboard: "Economy" },
       { id: "automation", icon: "clock", title: "Reminders and scheduled messages", text: "Personal reminders, repeating announcements and autoresponders.", commands: ["remindme set", "remindme edit", "automation message", "autoresponder add", "announce", "embed builder"], dashboard: "Scheduled messages" },
     ],
@@ -120,7 +120,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     id: "reliability", title: "Status & Reliability", lead: "Built to be checked, not trusted blindly.",
     cards: [
       { id: "status", icon: "pulse", title: "Public status page", text: "Live bot status and incident notices at /status.", commands: ["ping", "about"] },
-      { id: "logging", icon: "eye", title: "Audit logging", text: "Mod actions, joins and leaves, edits and deletions, role and channel changes, each routable to its own channel. Dashboard changes are audited too.", commands: ["logging channel", "logging toggle", "logging test"], dashboard: "Logging" },
+      { id: "logging", icon: "eye", title: "Audit logging", text: "Mod actions, joins and leaves, edits with what changed, deletions, bulk deletes with a text transcript, role and nickname changes, channel changes and opt-in voice activity, each routable to its own channel. Dashboard changes are audited too.", commands: ["logging channel", "logging toggle", "logging test"], dashboard: "Logging" },
       { id: "diagnostics", icon: "check", title: "Diagnostics", text: "Checks how Aegis is set up in your server and says what to fix.", commands: ["diagnostics", "help"] },
     ],
   },

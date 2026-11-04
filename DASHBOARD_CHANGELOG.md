@@ -60,6 +60,10 @@ OAuth scopes.
   (channel) and role panels (panel and channel IDs, when they were created).
 - The low-trust role setting on the Trust page explains that the role is now
   given and taken away as scores change.
+- The Logging page has a Voice activity toggle (off until you turn it on).
+- Settings import brings over the invite, duplicate and emoji automod rules
+  and the automod timeout length.
+- The automod rule preview checks invites, allowed link domains and emoji.
 
 ### Fixed
 - The "Aegis is missing permissions" notice checked a fixed list that
