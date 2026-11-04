@@ -323,9 +323,13 @@ export function mongoDashboardData(client: Client): DashboardData {
           await updateAutomodConfig(guildId, {
             words: { ...v.words },
             links: { ...v.links },
+            invites: { ...v.invites },
             mentions: { ...v.mentions },
             spam: { ...v.spam },
+            duplicates: { ...v.duplicates },
             caps: { ...v.caps },
+            emoji: { ...v.emoji },
+            timeoutMinutes: v.timeoutMinutes,
             exemptRoleIds: v.exemptRoleIds,
             exemptChannelIds: v.exemptChannelIds,
           });

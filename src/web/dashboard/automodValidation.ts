@@ -3,16 +3,21 @@
  * exemptions, and one rule's own exemptions (the per-rule form).
  */
 import { Errors, checkbox, field, finish, integer, pickedIds, type FormBody, type Parsed, type ValidationContext } from "./formFields";
+import { MAX_ALLOWLIST, MAX_AUTOMOD_TIMEOUT_MINUTES, cleanDomain, cleanInviteCode } from "../../services/automod";
 
 export const AUTOMOD_ACTIONS = ["delete", "warn", "timeout"] as const;
 export type AutomodAction = (typeof AUTOMOD_ACTIONS)[number];
 
 export interface AutomodSettings {
   words: { enabled: boolean; action: AutomodAction; list: string[] };
-  links: { enabled: boolean; action: AutomodAction };
+  links: { enabled: boolean; action: AutomodAction; allowedDomains: string[] };
+  invites: { enabled: boolean; action: AutomodAction; allowedCodes: string[] };
   mentions: { enabled: boolean; action: AutomodAction; threshold: number };
   spam: { enabled: boolean; action: AutomodAction; maxMessages: number; windowSeconds: number };
+  duplicates: { enabled: boolean; action: AutomodAction; maxRepeats: number; windowSeconds: number };
   caps: { enabled: boolean; action: AutomodAction; threshold: number };
+  emoji: { enabled: boolean; action: AutomodAction; maxEmoji: number; zalgo: boolean };
+  timeoutMinutes: number;
   exemptRoleIds: string[];
   exemptChannelIds: string[];
 }
@@ -44,6 +49,65 @@ export function parseWordList(raw: string): { list: string[]; error: string | nu
   return { list, error: null };
 }
 
+/** Same bounds as the /automod limit subcommands and normalizeAutomodConfig. */
+export const AUTOMOD_BOUNDS = {
+  mentions: { min: 2, max: 50 },
+  spamMessages: { min: 2, max: 30 },
+  spamWindow: { min: 2, max: 60 },
+  duplicatesRepeats: { min: 2, max: 10 },
+  duplicatesWindow: { min: 10, max: 600 },
+  caps: { min: 50, max: 100 },
+  emoji: { min: 3, max: 50 },
+  timeout: { min: 1, max: MAX_AUTOMOD_TIMEOUT_MINUTES },
+} as const;
+
+/** Allowed-list fields: what one line may be before cleaning (the slash options' max lengths). */
+export const ALLOWED_DOMAIN_LINE_MAX = 253;
+export const ALLOWED_INVITE_LINE_MAX = 100;
+export const ALLOWED_LIST_MAX_COUNT = MAX_ALLOWLIST;
+export const ALLOWED_DOMAINS_TEXT_MAX = ALLOWED_LIST_MAX_COUNT * (ALLOWED_DOMAIN_LINE_MAX + 2);
+export const ALLOWED_INVITES_TEXT_MAX = ALLOWED_LIST_MAX_COUNT * (ALLOWED_INVITE_LINE_MAX + 2);
+
+interface AllowListSpec {
+  clean: (raw: unknown) => string | null;
+  lineMax: number;
+  textMax: number;
+  /** What a bad line is called in the error, e.g. "domain". */
+  noun: string;
+  example: string;
+}
+
+const DOMAIN_LIST: AllowListSpec = { clean: cleanDomain, lineMax: ALLOWED_DOMAIN_LINE_MAX, textMax: ALLOWED_DOMAINS_TEXT_MAX, noun: "domain", example: "youtube.com" };
+const INVITE_LIST: AllowListSpec = { clean: cleanInviteCode, lineMax: ALLOWED_INVITE_LINE_MAX, textMax: ALLOWED_INVITES_TEXT_MAX, noun: "invite", example: "discord.gg/partner" };
+
+/**
+ * An allowed list as typed: one entry per line, each cleaned the same way as
+ * /automod links allow and /automod invites allow (so pasted URLs work).
+ * Duplicates are dropped, ignoring case like the slash commands do.
+ */
+function parseAllowList(raw: string, spec: AllowListSpec): { list: string[]; error: string | null } {
+  if (raw.length > spec.textMax) return { list: [], error: `The allowed ${spec.noun} list is too long. Keep it to ${ALLOWED_LIST_MAX_COUNT} entries.` };
+  const entries = raw.replace(/\r\n/g, "\n").split("\n").map(line => line.trim()).filter(Boolean);
+  const list: string[] = [];
+  for (const line of entries) {
+    const cleaned = line.length <= spec.lineMax ? spec.clean(line) : null;
+    if (!cleaned) return { list, error: `"${line.slice(0, 40)}" doesn't look like ${spec.noun === "invite" ? "an invite" : "a domain"}. Use one per line, like ${spec.example}.` };
+    if (!list.some(v => v.toLowerCase() === cleaned.toLowerCase())) list.push(cleaned);
+  }
+  if (list.length > ALLOWED_LIST_MAX_COUNT) return { list, error: `Keep the list to ${ALLOWED_LIST_MAX_COUNT} ${spec.noun}s or fewer (it has ${list.length}).` };
+  return { list, error: null };
+}
+
+export const parseDomainList = (raw: string) => parseAllowList(raw, DOMAIN_LIST);
+export const parseInviteList = (raw: string) => parseAllowList(raw, INVITE_LIST);
+
+function allowList(body: FormBody, key: string, parse: (raw: string) => { list: string[]; error: string | null }, errors: Errors): string[] {
+  const raw = body?.[key];
+  const r = parse(typeof raw === "string" ? raw : "");
+  if (r.error) errors.add(key, r.error);
+  return r.list;
+}
+
 function automodAction(body: FormBody, key: string, errors: Errors): AutomodAction {
   const raw = field(body, key);
   if ((AUTOMOD_ACTIONS as readonly string[]).includes(raw)) return raw as AutomodAction;
@@ -62,25 +126,48 @@ export function parseAutomod(
     ? { list: [] as string[], error: `The blocked word list is too long. Keep it to ${AUTOMOD_WORDS_MAX_COUNT} words of up to ${AUTOMOD_WORD_MAX} characters.` }
     : parseWordList(rawWords);
   if (words.error) errors.add("words_list", words.error);
+  const b = AUTOMOD_BOUNDS;
   const value: AutomodSettings = {
     words: { enabled: checkbox(body, "words_enabled"), action: automodAction(body, "words_action", errors), list: words.list },
-    links: { enabled: checkbox(body, "links_enabled"), action: automodAction(body, "links_action", errors) },
+    links: {
+      enabled: checkbox(body, "links_enabled"),
+      action: automodAction(body, "links_action", errors),
+      allowedDomains: allowList(body, "links_allowedDomains", parseDomainList, errors),
+    },
+    invites: {
+      enabled: checkbox(body, "invites_enabled"),
+      action: automodAction(body, "invites_action", errors),
+      allowedCodes: allowList(body, "invites_allowedCodes", parseInviteList, errors),
+    },
     mentions: {
       enabled: checkbox(body, "mentions_enabled"),
       action: automodAction(body, "mentions_action", errors),
-      threshold: integer(body, "mentions_threshold", 2, 50, "Mention limit", errors),
+      threshold: integer(body, "mentions_threshold", b.mentions.min, b.mentions.max, "Mention limit", errors),
     },
     spam: {
       enabled: checkbox(body, "spam_enabled"),
       action: automodAction(body, "spam_action", errors),
-      maxMessages: integer(body, "spam_maxMessages", 2, 30, "Message limit", errors),
-      windowSeconds: integer(body, "spam_windowSeconds", 2, 60, "Time window", errors),
+      maxMessages: integer(body, "spam_maxMessages", b.spamMessages.min, b.spamMessages.max, "Message limit", errors),
+      windowSeconds: integer(body, "spam_windowSeconds", b.spamWindow.min, b.spamWindow.max, "Time window", errors),
+    },
+    duplicates: {
+      enabled: checkbox(body, "duplicates_enabled"),
+      action: automodAction(body, "duplicates_action", errors),
+      maxRepeats: integer(body, "duplicates_maxRepeats", b.duplicatesRepeats.min, b.duplicatesRepeats.max, "Identical messages allowed", errors),
+      windowSeconds: integer(body, "duplicates_windowSeconds", b.duplicatesWindow.min, b.duplicatesWindow.max, "Duplicate time window", errors),
     },
     caps: {
       enabled: checkbox(body, "caps_enabled"),
       action: automodAction(body, "caps_action", errors),
-      threshold: integer(body, "caps_threshold", 50, 100, "Capitals percentage", errors),
+      threshold: integer(body, "caps_threshold", b.caps.min, b.caps.max, "Capitals percentage", errors),
     },
+    emoji: {
+      enabled: checkbox(body, "emoji_enabled"),
+      action: automodAction(body, "emoji_action", errors),
+      maxEmoji: integer(body, "emoji_maxEmoji", b.emoji.min, b.emoji.max, "Emoji allowed", errors),
+      zalgo: checkbox(body, "emoji_zalgo"),
+    },
+    timeoutMinutes: integer(body, "timeoutMinutes", b.timeout.min, b.timeout.max, "Timeout length", errors),
     exemptRoleIds: pickedIds(body, "exempt_roles", id => ctx.roles.has(id), previous.exemptRoleIds, "exempt roles", errors),
     exemptChannelIds: pickedIds(body, "exempt_channels", id => ctx.textChannelIds.has(id), previous.exemptChannelIds, "exempt channels", errors),
   };
@@ -88,10 +175,11 @@ export function parseAutomod(
 }
 
 /** The rules that can carry their own exemptions, as the per-rule form posts them. */
-export const EXEMPTION_RULES = ["words", "links", "mentions", "spam", "caps"] as const;
+export const EXEMPTION_RULES = ["words", "links", "invites", "mentions", "spam", "duplicates", "caps", "emoji"] as const;
 export type ExemptionRule = (typeof EXEMPTION_RULES)[number];
 export const EXEMPTION_RULE_LABELS: Record<ExemptionRule, string> = {
-  words: "Blocked words", links: "Links", mentions: "Mention spam", spam: "Message spam", caps: "Capitals",
+  words: "Blocked words", links: "Links", invites: "Invites", mentions: "Mention spam", spam: "Message spam",
+  duplicates: "Duplicate messages", caps: "Capitals", emoji: "Emoji and zalgo",
 };
 /** Same cap as /automod exempt: 25 roles and 25 channels per rule. */
 export const RULE_EXEMPTIONS_MAX = 25;

@@ -120,7 +120,7 @@ const EX = `/dashboard/${GUILD}/settings/automod/exemptions`;
 
 test("automod page: one exemption form per rule, prefilled, roles above the viewer labelled, no inline script or style", async () => {
   const html = await (await get(`/dashboard/${GUILD}/settings/automod`)).text();
-  assert.equal((html.match(/action="\/dashboard\/800000000000000001\/settings\/automod\/exemptions"/g) ?? []).length, 5);
+  assert.equal((html.match(/action="\/dashboard\/800000000000000001\/settings\/automod\/exemptions"/g) ?? []).length, 8);
   assert.match(html, /<summary>Links <span class="faint">\(1 role, 1 channel\)<\/span><\/summary>/);
   assert.match(html, /@Senior Mod \(at or above your highest role\)/);
   assert.match(html, /id="f-rx-links-channels-\d+" name="channels" value="700000000000000001" checked/);

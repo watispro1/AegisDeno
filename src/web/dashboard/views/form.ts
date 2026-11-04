@@ -3,6 +3,7 @@ import type { ChannelOption, RoleOption } from "../botView";
 import type { SettingsSnapshot } from "../data";
 import { embedValues } from "./embedBuilder";
 import { isLogCategoryOn } from "../../../services/logCategories";
+import { normalizeAutomodConfig } from "../../../services/automod";
 import { AUTOMOD_ACTIONS, ESCALATION_ROWS, LOG_CATEGORY_LABELS, type FormBody, type SettingsSection } from "../validation";
 
 /* Settings */
@@ -35,14 +36,22 @@ export function settingsValues(section: SettingsSection, s: SettingsSnapshot): V
       return v;
     }
     case "automod": {
-      const a = s.automod;
+      // Normalised so a snapshot saved before a rule existed still shows its defaults.
+      const a = normalizeAutomodConfig(s.automod.guildId, s.automod);
       return {
         words_enabled: a.words.enabled, words_action: a.words.action,
         links_enabled: a.links.enabled, links_action: a.links.action,
+        invites_enabled: a.invites.enabled, invites_action: a.invites.action,
         mentions_enabled: a.mentions.enabled, mentions_action: a.mentions.action, mentions_threshold: String(a.mentions.threshold),
         spam_enabled: a.spam.enabled, spam_action: a.spam.action, spam_maxMessages: String(a.spam.maxMessages), spam_windowSeconds: String(a.spam.windowSeconds),
+        duplicates_enabled: a.duplicates.enabled, duplicates_action: a.duplicates.action,
+        duplicates_maxRepeats: String(a.duplicates.maxRepeats), duplicates_windowSeconds: String(a.duplicates.windowSeconds),
         caps_enabled: a.caps.enabled, caps_action: a.caps.action, caps_threshold: String(a.caps.threshold),
+        emoji_enabled: a.emoji.enabled, emoji_action: a.emoji.action, emoji_maxEmoji: String(a.emoji.maxEmoji), emoji_zalgo: a.emoji.zalgo,
+        timeoutMinutes: String(a.timeoutMinutes),
         words_list: a.words.list.join("\n"),
+        links_allowedDomains: a.links.allowedDomains.join("\n"),
+        invites_allowedCodes: a.invites.allowedCodes.join("\n"),
         exempt_roles: a.exemptRoleIds.join(","),
         exempt_channels: a.exemptChannelIds.join(","),
       };

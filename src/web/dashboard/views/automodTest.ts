@@ -32,7 +32,7 @@ export function automodTestPanel(ctx: GuildContext, state: AutomodTestState | nu
   const content = state?.content ?? "";
   return `<section class="panel-card" aria-labelledby="am-test-h" id="automod-test">
     <h2 id="am-test-h">Test a message</h2>
-    <p class="muted">Checks text against the <strong>saved</strong> rules, as if a member without an exempt role posted it in a channel that isn't exempt. Nothing is posted or stored. Message spam depends on posting speed, so it can't be tested here; Server staff with Manage Server are always exempt.</p>
+    <p class="muted">Checks text against the <strong>saved</strong> rules, as if a member without an exempt role posted it in a channel that isn't exempt. Nothing is posted or stored. Message spam and duplicate messages depend on what was posted before, so they can't be tested here, and your server's own vanity invite is treated like any other invite. Server staff with Manage Server are always exempt.</p>
     <form class="dash-form" method="post" action="${action}" novalidate>
       ${csrfField(ctx.viewer)}
       <div class="field">

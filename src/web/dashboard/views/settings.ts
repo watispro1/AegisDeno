@@ -1,17 +1,19 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { ChannelOption, RoleOption } from "../botView";
 import type { SettingsSnapshot } from "../data";
-import { ESCALATION_ROWS, LOG_CATEGORY_LABELS, MAX_TIMEOUT_MINUTES, SECTION_TITLES, WELCOME_MESSAGE_MAX, AUTOMOD_WORD_MAX, AUTOMOD_WORDS_MAX_COUNT, AUTOMOD_WORDS_TEXT_MAX, welcomePreview, type SettingsSection } from "../validation";
+import { ESCALATION_ROWS, LOG_CATEGORY_LABELS, MAX_TIMEOUT_MINUTES, SECTION_TITLES, WELCOME_MESSAGE_MAX, welcomePreview, type SettingsSection } from "../validation";
 import { MAX_WARN_EXPIRY_DAYS } from "../../../services/configuration";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../../services/ticketTranscript";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
 import { type GuildContext, type GuildSection, csrfField, head, moduleStatus, notice, shell } from "./layout";
 import { embedBuilder } from "./embedBuilder";
 import { automodTestPanel, type AutomodTestState } from "./automodTest";
+import { automodForm } from "./automodForm";
+import { AUTOMOD_RULE_KEYS, normalizeAutomodConfig } from "../../../services/automod";
 import { ruleExemptionsPanel, type RuleExemptionState } from "./automodExemptions";
 import { starboardTopPanel, type StarboardTopView } from "./starboardTop";
 import { GOODBYE_MESSAGE_MAX } from "../../../services/configuration";
-import { ACTION_OPTIONS, Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
+import { Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
 
 function sectionForm(
   section: SettingsSection,
@@ -58,40 +60,7 @@ function sectionForm(
     }
 
     case "automod":
-      return `<fieldset><legend>Blocked words</legend>
-        ${f.checkbox("words_enabled", "Filter blocked words")}
-        ${f.select("words_action", "When it matches", ACTION_OPTIONS)}
-        ${f.textarea("words_list", "Blocked words", AUTOMOD_WORDS_TEXT_MAX,
-          `One word or phrase per line, 2 to ${AUTOMOD_WORD_MAX} characters, up to ${AUTOMOD_WORDS_MAX_COUNT}. Matching ignores case. Same list as <code class="inline">/automod words add</code>.`,
-          ' spellcheck="false" autocapitalize="off"')}
-      </fieldset>
-      <fieldset><legend>Links</legend>
-        ${f.checkbox("links_enabled", "Filter links")}
-        ${f.select("links_action", "When it matches", ACTION_OPTIONS)}
-      </fieldset>
-      <fieldset><legend>Mention spam</legend>
-        ${f.checkbox("mentions_enabled", "Limit mentions per message")}
-        ${f.number("mentions_threshold", "Mentions allowed", 2, 50)}
-        ${f.select("mentions_action", "When it matches", ACTION_OPTIONS)}
-      </fieldset>
-      <fieldset><legend>Message spam</legend>
-        ${f.checkbox("spam_enabled", "Limit how fast one member can post")}
-        <div class="field-row">
-          ${f.number("spam_maxMessages", "Messages", 2, 30)}
-          ${f.number("spam_windowSeconds", "Within (seconds)", 2, 60)}
-        </div>
-        ${f.select("spam_action", "When it matches", ACTION_OPTIONS)}
-      </fieldset>
-      <fieldset><legend>Capitals</legend>
-        ${f.checkbox("caps_enabled", "Filter messages that are mostly capitals")}
-        ${f.number("caps_threshold", "Percentage of capitals", 50, 100)}
-        ${f.select("caps_action", "When it matches", ACTION_OPTIONS)}
-      </fieldset>
-      <h2 class="section-title">Exemptions</h2>
-      <p class="muted">Members with an exempt role, and messages in an exempt channel, skip every automod rule.</p>
-      <p class="muted">To exempt a role or channel from one rule only, use <a href="#rx-h">Per-rule exemptions</a> below (or <code class="inline">/automod exempt</code> with <code class="inline">rule:</code>). Saving this form keeps them.</p>
-      ${f.multi("exempt_roles", "Exempt roles", rolePicks(roles))}
-      ${f.multi("exempt_channels", "Exempt channels", channelPicks(channels, hidden, f.str("exempt_channels")), "Text and announcement channels are listed. Other channels exempted with /automod stay exempt and show as Unknown.")}`;
+      return automodForm(f, channels, roles, hidden);
 
     case "welcome": {
       const sample = { username: ctx.viewer.username, serverName: ctx.guild.name, memberCount: ctx.guild.memberCount };
@@ -192,7 +161,7 @@ export function sectionEnabled(section: SettingsSection, s: SettingsSnapshot): b
   switch (section) {
     case "logging": return s.guild.loggingEnabled;
     case "escalation": return s.guild.escalation.enabled;
-    case "automod": return s.automod.words.enabled || s.automod.links.enabled || s.automod.mentions.enabled || s.automod.spam.enabled || s.automod.caps.enabled;
+    case "automod": return AUTOMOD_RULE_KEYS.some(key => s.automod[key]?.enabled === true);
     case "welcome": return s.guild.welcomeEnabled;
     case "goodbye": return s.guild.goodbyeEnabled === true;
     case "verification": return s.verification?.enabled ?? false;
@@ -256,7 +225,7 @@ export function renderSettings(
     ${sectionForm(section, f, ctx, channels, roles, snapshot, hiddenChannelIds)}
     ${canSave ? `<button class="btn" type="submit" data-save-button>Save ${SECTION_TITLES[section].toLowerCase()} settings</button>` : ""}
   </form>
-  ${section === "automod" ? ruleExemptionsPanel(ctx, snapshot.automod, roles, channels, hiddenChannelIds, ruleExemptions) : ""}
+  ${section === "automod" ? ruleExemptionsPanel(ctx, normalizeAutomodConfig(snapshot.automod.guildId, snapshot.automod), roles, channels, hiddenChannelIds, ruleExemptions) : ""}
   ${section === "automod" ? automodTestPanel(ctx, automodTest) : ""}
   ${section === "starboard" && starboardTop ? starboardTopPanel(ctx, starboardTop, channels) : ""}`,
   });

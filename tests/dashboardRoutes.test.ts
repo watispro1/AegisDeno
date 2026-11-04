@@ -419,6 +419,8 @@ function lastSaved<S extends SettingsValue["section"]>(section: S): Extract<Sett
 const automodBase = {
   words_action: "delete", links_action: "delete", mentions_action: "timeout", mentions_threshold: "5",
   spam_action: "timeout", spam_maxMessages: "5", spam_windowSeconds: "5", caps_action: "delete", caps_threshold: "80",
+  invites_action: "delete", duplicates_action: "delete", duplicates_maxRepeats: "3", duplicates_windowSeconds: "60",
+  emoji_action: "delete", emoji_maxEmoji: "10", timeoutMinutes: "5",
 };
 
 test("automod page shows the word list and exemption pickers from the bot cache", async () => {
@@ -444,9 +446,17 @@ test("automod POST saves the word list and exemptions, and validates them", asyn
   assert.equal(unknownRole.status, 400);
   const badId = await post(path, { _csrf: csrf, ...automodBase, exempt_channels: "<#1>" });
   assert.equal(badId.status, 400);
+  const badInvite = await post(path, { _csrf: csrf, ...automodBase, invites_allowedCodes: "partner\n<b>x</b>" });
+  assert.equal(badInvite.status, 400);
+  assert.match(await badInvite.text(), /doesn&#39;t look like an invite|doesn't look like an invite/);
+  const badAction = await post(path, { _csrf: csrf, ...automodBase, emoji_action: "ban" });
+  assert.equal(badAction.status, 400);
   assert.equal(saved.length, before, "nothing saved");
 
-  const body = new URLSearchParams({ _csrf: csrf, ...automodBase, words_enabled: "on", words_list: "Spam\nfree nitro\nspam\n\n" });
+  const body = new URLSearchParams({
+    _csrf: csrf, ...automodBase, words_enabled: "on", words_list: "Spam\nfree nitro\nspam\n\n",
+    invites_enabled: "on", invites_allowedCodes: "discord.gg/Partner", links_allowedDomains: "https://www.youtube.com/x", timeoutMinutes: "30",
+  });
   body.append("exempt_roles", ROLE_HIGH);
   body.append("exempt_channels", CHANNEL);
   body.append("exempt_channels", SAVED_ELSEWHERE);
@@ -460,6 +470,9 @@ test("automod POST saves the word list and exemptions, and validates them", asyn
   assert.equal(v.words.enabled, true);
   assert.deepEqual(v.exemptRoleIds, [ROLE_HIGH]);
   assert.deepEqual(v.exemptChannelIds, [CHANNEL, SAVED_ELSEWHERE], "previously saved non-text channel kept");
+  assert.deepEqual(v.invites, { enabled: true, action: "delete", allowedCodes: ["Partner"] });
+  assert.deepEqual(v.links.allowedDomains, ["youtube.com"]);
+  assert.equal(v.timeoutMinutes, 30);
 });
 
 test("starboard POST saves emoji and ignore lists; rejects a non-emoji", async () => {
