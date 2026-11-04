@@ -197,8 +197,7 @@ test("3.7.1 and dashboard 1.2.4: dated 2026-11-02, carry the economy and the ent
   const bot = releases.find((r) => r.version === "3.7.1")!;
   const older = releases.find((r) => r.version === "3.7.0")!;
   const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases.find((r) => r.version === "1.2.4")!;
-  assert.equal(releases[0].version, "3.7.1");
-  assert.equal(VERSION, "3.7.1");
+  assert.equal(releases[1].version, "3.7.1");
   assert.equal(DASHBOARD_VERSION, "1.2.4");
   assert.equal(bot.date, "2026-11-02");
   assert.equal(dash.date, "2026-11-02");
@@ -211,4 +210,16 @@ test("3.7.1 and dashboard 1.2.4: dated 2026-11-02, carry the economy and the ent
     const items = r.sections.flatMap((s) => s.items);
     assert.equal(new Set(items).size, items.length, `${r.version} has duplicate entries`);
   }
+});
+
+test("3.7.2: newest release, dated 2026-11-04, dashboard stays 1.2.4", () => {
+  const releases = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
+  assert.equal(releases[0].version, "3.7.2");
+  assert.equal(releases[0].date, "2026-11-04");
+  assert.equal(VERSION, "3.7.2");
+  assert.equal(DASHBOARD_VERSION, "1.2.4");
+  const text = releases[0].sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["/case search", "/purge", "/health"]) assert.ok(text.includes(needle), `3.7.2 mentions ${needle}`);
+  const older = releases[1].sections.flatMap((s) => s.items).join(" ");
+  assert.ok(!older.includes("/case search"), "3.7.2 notes are not left in 3.7.1");
 });

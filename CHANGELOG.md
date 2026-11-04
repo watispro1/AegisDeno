@@ -9,6 +9,78 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.7.2] - 2026-11-04
+
+Reliability fixes and a round of quality-of-life improvements across
+moderation, trust, diagnostics and the dashboard. Includes additions to
+dashboard 1.2.4 (see `DASHBOARD_CHANGELOG.md`).
+
+Upgrade notes: new subcommands, so commands are re-registered on deploy. No
+new environment variables. Requires Node 22 or newer.
+
+### Added
+- **`/case search`** finds cases and warnings by member, moderator, action,
+  reason text and date (`since:7d`, `until:2026-10-31`), showing the newest
+  ten and the total.
+- **`/config overview`** shows every module at a glance (on, off, or on but
+  missing a channel or step) with the permissions Aegis lacks.
+- **`/remindme edit`** changes a pending reminder's text, time or repeat
+  without cancelling it.
+
+### Changed
+- **The low-trust role follows the score.** With the Trust Score role set in
+  `/trust config`, Aegis now re-checks a member a few seconds after one of
+  their cases or warnings is added, revoked or removed, and gives or takes
+  away the role to match. A slow background sweep (every six hours, up to
+  1,000 members and 50 role changes per server per pass, one change a second)
+  catches scores that change with time. Only the configured role is touched,
+  never one that is managed or above Aegis, and nothing happens while the
+  integration is off. Changing the trust settings re-checks the server.
+- **`/diagnostics` checks channels.** Every channel a module posts in (logs,
+  welcome, goodbye, suggestions, starboard, ticket transcripts, verification,
+  staff digest) is checked for View Channel, Send Messages and Embed Links,
+  with hidden and deleted channels called out, ahead of Discord hiding
+  channels from bots without View Channel on 2026-11-16. When ModMail is set
+  up, its staff channel is checked for Create Private Threads, Send Messages
+  in Threads and Manage Threads (or the forum equivalents). The automod line
+  now counts the caps rule too.
+- Ticket transcripts list who took part (with message counts), how long the
+  ticket ran from first to last message, and a divider for each day.
+
+- **`/purge` result is simpler.** It says "Deleted X of Y" and, when some
+  were skipped, why: already gone, older than 14 days, or failed. The
+  progress bar is gone.
+- **Health check.** `GET /health` now returns 503 when the Discord gateway or
+  the database has been down for over a minute (never in the first two
+  minutes after start), and `fly.toml` checks it every 30 seconds. The JSON
+  also reports `gateway` and `database`.
+- **Failed DMs and posts are logged.** Notice DMs, welcome and goodbye posts,
+  ModMail relays, starboard posts and reminder pings that Discord refuses are
+  logged with what failed and why (closed DMs only at debug level).
+- Requires Node 22 or newer (`engines` in `package.json`). Updated
+  discord.js 14.28.0, mongoose 9.11.4, express 5.3.0 and dotenv 18.0.9.
+- Split the largest command, service and web files into smaller modules.
+  No behavior change.
+
+### Fixed
+- **`/purge`:** if one batch of deletions failed (a rate limit or a
+  permission change mid-run), the whole result was lost: no case, no mod-log
+  entry, and the moderator was told nothing was deleted. Each batch now runs
+  on its own, and the case and log are recorded whenever anything was removed.
+- **Welcome role after membership screening** was skipped when the member was
+  not in Aegis's cache (for example after a restart), because Discord sent the
+  update without the old pending state. A member who joined in the last 7
+  days, is no longer pending and lacks the role now gets it.
+- **Kick, ban and timeout results** said "DM Sent: Yes" even when the member's
+  DMs were closed. They now say whether the DM went through, and a ban says
+  when the appeal code DM did not arrive so staff can share it.
+- **Reminders** were lost when the DM failed and the reminder was DM-only.
+  Aegis now pings the member in the channel the reminder was set from.
+- **Mod-log categories:** automatic escalations, unbans, expired temporary
+  bans, `/removetimeout` and `/clearwarnings` ignored the moderation-actions
+  category, so they went to the main log channel even when moderation actions
+  had their own channel or were turned off.
+
 ## [3.7.1] - 2026-11-02
 
 The economy release. Servers can turn on a simple, per-server economy with
@@ -86,13 +158,6 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   per-rule ones.
 - `/help`, the commands page, the features page and the docs have an Economy
   section.
-- **`/case search`** finds cases and warnings by member, moderator, action,
-  reason text and date (`since:7d`, `until:2026-10-31`), showing the newest
-  ten and the total.
-- **`/config overview`** shows every module at a glance (on, off, or on but
-  missing a channel or step) with the permissions Aegis lacks.
-- **`/remindme edit`** changes a pending reminder's text, time or repeat
-  without cancelling it.
 
 ### Changed
 - Tidied code comments, log lines and the operator docs (no behavior change).
@@ -116,39 +181,6 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   (`1460691659798`); both were already requested for `/kick` and `/ban`.
 - `/appeal submit` with an unknown code now says no appeal with that code was
   found for your account, instead of "no pending appeal".
-- **The low-trust role follows the score.** With the Trust Score role set in
-  `/trust config`, Aegis now re-checks a member a few seconds after one of
-  their cases or warnings is added, revoked or removed, and gives or takes
-  away the role to match. A slow background sweep (every six hours, up to
-  1,000 members and 50 role changes per server per pass, one change a second)
-  catches scores that change with time. Only the configured role is touched,
-  never one that is managed or above Aegis, and nothing happens while the
-  integration is off. Changing the trust settings re-checks the server.
-- **`/diagnostics` checks channels.** Every channel a module posts in (logs,
-  welcome, goodbye, suggestions, starboard, ticket transcripts, verification,
-  staff digest) is checked for View Channel, Send Messages and Embed Links,
-  with hidden and deleted channels called out, ahead of Discord hiding
-  channels from bots without View Channel on 2026-11-16. When ModMail is set
-  up, its staff channel is checked for Create Private Threads, Send Messages
-  in Threads and Manage Threads (or the forum equivalents). The automod line
-  now counts the caps rule too.
-- Ticket transcripts list who took part (with message counts), how long the
-  ticket ran from first to last message, and a divider for each day.
-
-- **`/purge` result is simpler.** It says "Deleted X of Y" and, when some
-  were skipped, why: already gone, older than 14 days, or failed. The
-  progress bar is gone.
-- **Health check.** `GET /health` now returns 503 when the Discord gateway or
-  the database has been down for over a minute (never in the first two
-  minutes after start), and `fly.toml` checks it every 30 seconds. The JSON
-  also reports `gateway` and `database`.
-- **Failed DMs and posts are logged.** Notice DMs, welcome and goodbye posts,
-  ModMail relays, starboard posts and reminder pings that Discord refuses are
-  logged with what failed and why (closed DMs only at debug level).
-- Requires Node 22 or newer (`engines` in `package.json`). Updated
-  discord.js 14.28.0, mongoose 9.11.4, express 5.3.0 and dotenv 18.0.9.
-- Split the largest command, service and web files into smaller modules.
-  No behavior change.
 
 ### Fixed
 - **Ticket creation works without Attach Files (top.gg review).** Discord
@@ -271,24 +303,6 @@ re-inviting from `/invite` grants the rest without kicking the bot.
   along with the welcome. Only the welcome is skipped now.
 - `/sync` (owner only) could fail once the list of registered commands passed
   Discord's 1,024-character field limit; the list is now shortened to fit.
-
-- **`/purge`:** if one batch of deletions failed (a rate limit or a
-  permission change mid-run), the whole result was lost: no case, no mod-log
-  entry, and the moderator was told nothing was deleted. Each batch now runs
-  on its own, and the case and log are recorded whenever anything was removed.
-- **Welcome role after membership screening** was skipped when the member was
-  not in Aegis's cache (for example after a restart), because Discord sent the
-  update without the old pending state. A member who joined in the last 7
-  days, is no longer pending and lacks the role now gets it.
-- **Kick, ban and timeout results** said "DM Sent: Yes" even when the member's
-  DMs were closed. They now say whether the DM went through, and a ban says
-  when the appeal code DM did not arrive so staff can share it.
-- **Reminders** were lost when the DM failed and the reminder was DM-only.
-  Aegis now pings the member in the channel the reminder was set from.
-- **Mod-log categories:** automatic escalations, unbans, expired temporary
-  bans, `/removetimeout` and `/clearwarnings` ignored the moderation-actions
-  category, so they went to the main log channel even when moderation actions
-  had their own channel or were turned off.
 
 ### Security
 - Every balance change is one atomic database update with its guard in the
