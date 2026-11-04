@@ -48,10 +48,15 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
       const section = req.params.section;
       if (!isSettingsSection(section)) return fail(res, 404, "No such settings page", "Pick a section from the settings menu.", ctx.viewer);
       const snapshot = await deps.data.loadSettings(ctx.guild.id);
+      // Top posts are a read-only extra: a failed read leaves the settings form working.
+      const top = section === "starboard" && deps.data.topStarboard
+        ? await deps.data.topStarboard(ctx.guild.id).catch(() => null)
+        : null;
       send(res, renderSettings(
         deps.site, ctx, section, snapshot,
         { values: settingsValues(section, snapshot), errors: {} },
         deps.bot.textChannels(ctx.guild.id), rolesFor(ctx), noticeParam(req), deps.bot.hiddenChannelIds(ctx.guild.id),
+        null, null, top ? { entries: top, starboardChannelId: snapshot.starboard.channelId, emoji: snapshot.starboard.emoji } : null,
       ));
     } catch (err) {
       next(err);

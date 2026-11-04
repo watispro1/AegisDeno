@@ -13,6 +13,9 @@ import { revokeWarning } from "../../services/warnings";
 import { ensureAutoCloseChecks, getTicketSettings, updateTicketSettings, type TicketSettings } from "../../services/ticketService";
 import { getVerificationConfig, updateVerificationSettings, type VerificationConfig } from "../../services/verificationService";
 import { getStarboardConfig, updateStarboardConfig, type StarboardConfig } from "../../services/starboard";
+import { STARBOARD_TOP_LIMIT } from "../../services/starboardTop";
+import { fillMissingExcerpts, findTopStarboardEntries } from "../../services/starboardTopQuery";
+import { discordExcerptFetcher } from "../../services/starboardExcerpt";
 import { sendGuildLog } from "../../services/logging";
 import { getAppeal, listAppeals, reviewBanAppeal, type AppealRecord, type AppealStatus } from "../../services/appeals";
 import { unbanMember } from "../../services/unban";
@@ -236,6 +239,12 @@ export function mongoDashboardData(client: Client): DashboardData {
           `**Reviewed by:** <@${actor.userId}> on the web dashboard`,
       );
       return { ok: true, unban: result.unban };
+    },
+
+    async topStarboard(guildId) {
+      const entries = await findTopStarboardEntries(guildId, { period: "all", limit: STARBOARD_TOP_LIMIT });
+      const guild = client.guilds?.cache?.get(guildId);
+      return guild ? fillMissingExcerpts(guildId, entries, discordExcerptFetcher(guild)) : entries;
     },
 
     async listRolePanels(guildId) {
