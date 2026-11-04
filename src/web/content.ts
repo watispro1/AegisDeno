@@ -31,6 +31,8 @@ export const features: Feature[] = [
       "An Undo button on /warn, /timeout and /ban for five minutes; undoing reverses the action and marks the case revoked.",
       "Timeouts from 60 seconds to Discord's 28-day limit: pick a preset or type custom_duration (90m, 1d 12h, 2 weeks); /removetimeout lifts one early.",
       "Temporary bans with /ban duration: (12h, 7d, 2 weeks, up to a year); Aegis lifts the ban when it runs out, even after a restart.",
+      "/softban bans and unbans in one step to clear 1 to 7 days of a member's messages; they can rejoin, and it is recorded as a softban case.",
+      "/temprole add gives a role for a set time (up to a year) and takes it off when it runs out, even after a restart; /temprole list shows what is running.",
       "/purge deletes up to 500 messages with filters for bots, humans, links, images, a user or text, skips pinned messages and anything over Discord's 14-day limit, and shows a preview first.",
       "/lock for a channel or a whole category, with an optional message and timed unlock; /slowmode for when a channel gets out of hand.",
       "Incident Mode (/incident start) for raids: slowmode, lockdown, a join gate that times out or kicks brand-new accounts, and paused invites in one step. Every change is recorded and restored exactly when it ends, by hand or on its timer (up to 24 hours, even across restarts), and a full report goes to the mod log. An optional auto-trigger starts it when many accounts join at once.",

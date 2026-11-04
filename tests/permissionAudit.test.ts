@@ -36,6 +36,8 @@ const AUDIT: Record<string, Audit> = {
   purge: { bot: ["ManageMessages", "ReadMessageHistory"], feature: [] },
   removetimeout: { bot: ["ModerateMembers"], feature: [] },
   slowmode: { bot: ["ManageChannels"], feature: [] },
+  softban: { bot: ["BanMembers"], feature: [] },
+  temprole: { bot: ["ManageRoles"], feature: [] },
   timeout: { bot: ["ModerateMembers"], feature: [] },
   trust: { bot: [], feature: ["ManageRoles"] },
   unban: { bot: ["BanMembers"], feature: [] },
