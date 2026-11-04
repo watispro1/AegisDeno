@@ -6,7 +6,8 @@
  * functions the slash commands use.
  */
 import { ChannelType, PermissionFlagsBits, type Client, type TextChannel } from "discord.js";
-import { AutomodHitModel, GiveawayModel, ModerationCaseModel, SuggestionModel, TaskModel, WatchlistEntryModel, WarningModel } from "../../database/mongo";
+import type { PipelineStage } from "mongoose";
+import { AutomodHitModel, GiveawayModel, ModerationCaseModel, PollModel, SuggestionModel, TaskModel, WatchlistEntryModel, WarningModel } from "../../database/mongo";
 import { addAutoResponder, autoResponderExists, getAutoResponders, removeAutoResponder, setAutoResponderEnabled } from "../../services/autoResponderService";
 import { AUTOMATION_TASK_TYPES, createTask, deleteTask, getTasksForGuild } from "../../services/scheduler";
 import { cancelTask, scheduleTask } from "../../services/schedulerRunner";
@@ -18,6 +19,7 @@ import { updateGuildConfig } from "../../services/configuration";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { logger } from "../../utils/logger";
 import type { Actor, PanelResult } from "./data";
+import { suggestionMatch, suggestionPipeline, toPollRow, type PollRow, type SuggestionSort } from "./communityQuery";
 
 export type MatchType = "exact" | "contains" | "startsWith";
 
@@ -51,6 +53,11 @@ export interface GiveawayRow {
   hostId: string;
   endsAt: Date;
   ended: boolean;
+  /** Ended with Cancel: no winners were drawn. */
+  cancelled?: boolean;
+  /** Members holding this role when they enter get `bonusEntries` tickets. */
+  bonusRoleId?: string | null;
+  bonusEntries?: number;
 }
 
 export type SuggestionFilter = "open" | "approved" | "rejected" | "all";
@@ -100,7 +107,10 @@ export interface ModuleData {
   listGiveaways(guildId: string): Promise<GiveawayRow[]>;
   endGiveaway(guildId: string, messageId: string, actor: Actor): Promise<ActionResult>;
   rerollGiveaway(guildId: string, messageId: string, actor: Actor): Promise<ActionResult>;
-  listSuggestions(guildId: string, filter: SuggestionFilter, page: number, perPage: number): Promise<{ items: SuggestionRow[]; total: number }>;
+  /** End a running giveaway with no winners, through the same service as /giveaway cancel. */
+  cancelGiveaway(guildId: string, messageId: string, actor: Actor): Promise<ActionResult>;
+  listPolls(guildId: string, limit: number): Promise<PollRow[]>;
+  listSuggestions(guildId: string, filter: SuggestionFilter, page: number, perPage: number, opts?: { q?: string; sort?: SuggestionSort }): Promise<{ items: SuggestionRow[]; total: number }>;
   reviewSuggestion(guildId: string, id: string, action: "approve" | "deny" | "consider", note: string | null, actor: Actor): Promise<ActionResult>;
   /** Only the viewer's own watches: Ghost Watch lists are personal, as in /watchlist list. */
   listWatches(guildId: string, moderatorId: string): Promise<WatchView[]>;
@@ -113,6 +123,12 @@ export interface ModuleData {
 export interface ModuleConfigPatch {
   suggestionsChannelId?: string | null;
   autorespondersEnabled?: boolean;
+}
+
+/** A suggestion document as the list pipeline returns it. */
+interface SuggestionDoc {
+  id: string; authorId: string; content: string; status: string;
+  upvotes?: string[]; downvotes?: string[]; reviewedBy?: string | null; reviewReason?: string | null; createdAt?: Date;
 }
 
 export const MAX_AUTORESPONDERS = 50;
@@ -218,6 +234,7 @@ export function mongoModuleData(client: Client): ModuleData {
         messageId: String(g.messageId), channelId: String(g.channelId), prize: String(g.prize),
         winnerCount: Number(g.winnerCount ?? 1), entrants: g.entrants?.length ?? 0, winners: g.winners ?? [],
         hostId: String(g.hostId), endsAt: new Date(g.endsAt), ended: g.ended === true,
+        cancelled: g.cancelled === true, bonusRoleId: g.bonusRoleId ?? null, bonusEntries: Number(g.bonusEntries ?? 1),
       }));
     },
     async endGiveaway(guildId, messageId, actor) {
@@ -230,12 +247,20 @@ export function mongoModuleData(client: Client): ModuleData {
       const result = await (await giveaways()).rerollGiveaway(client, guildId, messageId, null, `<@${actor.userId}> on the web dashboard`);
       return result.ok ? { ok: true, detail: `${result.winners?.length ?? 0}` } : { ok: false, error: result.error ?? "That giveaway could not be rerolled." };
     },
+    async cancelGiveaway(guildId, messageId, actor) {
+      const result = await (await import("../../services/giveawayService")).cancelGiveaway(client, guildId, messageId, `<@${actor.userId}> on the web dashboard`);
+      return result.ok ? { ok: true } : { ok: false, error: result.error ?? "That giveaway could not be cancelled." };
+    },
 
-    async listSuggestions(guildId, filter, page, perPage) {
-      const status = filter === "open" ? { $in: ["pending", "considered"] } : filter === "all" ? undefined : filter;
-      const query: Record<string, unknown> = { guildId, ...(status ? { status } : {}) };
+    async listPolls(guildId, limit) {
+      const docs = await PollModel.find({ guildId }).sort({ createdAt: -1 }).limit(limit).lean();
+      return docs.map(d => toPollRow(d as unknown as Record<string, unknown>));
+    },
+
+    async listSuggestions(guildId, filter, page, perPage, opts = {}) {
+      const query = suggestionMatch(guildId, filter, opts.q ?? "");
       const [docs, total] = await Promise.all([
-        SuggestionModel.find(query).sort({ createdAt: -1 }).skip((page - 1) * perPage).limit(perPage).lean(),
+        SuggestionModel.aggregate<SuggestionDoc>(suggestionPipeline(query, opts.sort ?? "newest", page, perPage) as unknown as PipelineStage[]),
         SuggestionModel.countDocuments(query),
       ]);
       return {

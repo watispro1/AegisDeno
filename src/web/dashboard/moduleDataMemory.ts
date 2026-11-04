@@ -5,6 +5,7 @@
  */
 import type { EmbedSpec } from "../../services/embedSpec";
 import type { PanelResult } from "./data";
+import { filterAndSortSuggestions, type PollRow } from "./communityQuery";
 import { MAX_AUTORESPONDERS, type AutoResponderRow, type AutomationRow, type GiveawayRow, type ModuleConfigPatch, type ModuleData, type SuggestionRow, type WatchView } from "./moduleData";
 
 export interface MemoryModuleData extends ModuleData {
@@ -12,6 +13,7 @@ export interface MemoryModuleData extends ModuleData {
   automations: AutomationRow[];
   giveaways: GiveawayRow[];
   suggestions: SuggestionRow[];
+  polls: PollRow[];
   watches: Map<string, WatchView[]>;
   posts: Array<{ channelId: string; content: string | null; embed: EmbedSpec }>;
   calls: string[];
@@ -20,12 +22,13 @@ export interface MemoryModuleData extends ModuleData {
   config: ModuleConfigPatch;
 }
 
-export function memoryModuleData(seed: Partial<Pick<MemoryModuleData, "responders" | "automations" | "giveaways" | "suggestions">> = {}): MemoryModuleData {
+export function memoryModuleData(seed: Partial<Pick<MemoryModuleData, "responders" | "automations" | "giveaways" | "suggestions" | "polls">> = {}): MemoryModuleData {
   const m: MemoryModuleData = {
     responders: seed.responders ?? [],
     automations: seed.automations ?? [],
     giveaways: seed.giveaways ?? [],
     suggestions: seed.suggestions ?? [],
+    polls: seed.polls ?? [],
     watches: new Map(),
     posts: [],
     calls: [],
@@ -92,14 +95,25 @@ export function memoryModuleData(seed: Partial<Pick<MemoryModuleData, "responder
       return { ok: true, detail: "1" };
     },
     async rerollGiveaway(_g, messageId) {
-      const g = m.giveaways.find(x => x.messageId === messageId && x.ended);
+      const g = m.giveaways.find(x => x.messageId === messageId && x.ended && !x.cancelled);
       if (!g) return { ok: false, error: "No completed giveaway found with that message ID." };
       m.calls.push(`gw.reroll:${messageId}`);
       return { ok: true, detail: "1" };
     },
-    async listSuggestions(_g, filter, page, perPage) {
-      const match = m.suggestions.filter(s =>
-        filter === "all" ? true : filter === "open" ? s.status === "pending" || s.status === "considered" : s.status === filter);
+    async cancelGiveaway(_g, messageId) {
+      const g = m.giveaways.find(x => x.messageId === messageId && !x.ended);
+      if (!g) return { ok: false, error: "No active giveaway found with that message ID." };
+      g.ended = true;
+      g.cancelled = true;
+      g.winners = [];
+      m.calls.push(`gw.cancel:${messageId}`);
+      return { ok: true };
+    },
+    async listPolls(_g, limit) {
+      return [...m.polls].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
+    },
+    async listSuggestions(_g, filter, page, perPage, opts = {}) {
+      const match = filterAndSortSuggestions(m.suggestions, { filter, q: opts.q ?? "", sort: opts.sort ?? "newest" });
       return { items: match.slice((page - 1) * perPage, page * perPage), total: match.length };
     },
     async reviewSuggestion(_g, id, action, note, actor) {
