@@ -40,32 +40,8 @@ export interface EmbedSpec {
   fields: EmbedFieldSpec[];
 }
 
-/** Template variables the welcome/goodbye/announcement texts understand. */
-export const TEMPLATE_VARIABLES: ReadonlyArray<[string, string]> = [
-  ["{user}", "Mentions the member (@name)"],
-  ["{username}", "The member's username, no ping"],
-  ["{server}", "The server's name"],
-  ["{memberCount}", "Members in the server now"],
-  ["{member_count}", "Same as {memberCount}"],
-  ["{count}", "Same as {memberCount}"],
-];
-
-export interface TemplateValues {
-  user: string;
-  username: string;
-  server: string;
-  memberCount: number | string;
-}
-
-/** Replaces the variables in one pass, so a value containing "{server}" is never expanded again. */
-export function renderTemplate(text: string, v: TemplateValues): string {
-  return text.replace(/\{(user|username|server|memberCount|member_count|count)\}/g, (_m, key: string) => {
-    if (key === "user") return v.user;
-    if (key === "username") return v.username;
-    if (key === "server") return v.server;
-    return String(v.memberCount);
-  });
-}
+export { TEMPLATE_VARIABLES, ordinal, renderTemplate, type TemplateValues } from "./templateText";
+import { renderTemplate, type TemplateValues } from "./templateText";
 
 /** An https URL Discord will accept for an embed image, or null. */
 export function safeEmbedUrl(value: unknown): string | null {

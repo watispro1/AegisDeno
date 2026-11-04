@@ -21,18 +21,20 @@ export function entryFilter(guildId: string, messageId: string, userId: string):
   return { guildId, messageId, ended: false, entrants: { $ne: userId } };
 }
 
-export function entryUpdate(userId: string, isBooster: boolean): Record<string, unknown> {
-  return {
-    $addToSet: isBooster ? { entrants: userId, boosterEntrants: userId } : { entrants: userId },
-  };
+export function entryUpdate(userId: string, isBooster: boolean, hasBonusRole = false): Record<string, unknown> {
+  const add: Record<string, string> = { entrants: userId };
+  if (isBooster) add.boosterEntrants = userId;
+  if (hasBonusRole) add.bonusEntrants = userId;
+  return { $addToSet: add };
 }
 
 export async function enterGiveaway(
   store: GiveawayEntryStore,
   ids: { guildId: string; messageId: string; userId: string },
   isBooster: boolean,
+  hasBonusRole = false,
 ): Promise<{ outcome: EntryOutcome; entrantCount: number | null }> {
-  const updated = await store.enter(entryFilter(ids.guildId, ids.messageId, ids.userId), entryUpdate(ids.userId, isBooster));
+  const updated = await store.enter(entryFilter(ids.guildId, ids.messageId, ids.userId), entryUpdate(ids.userId, isBooster, hasBonusRole));
   if (updated) return { outcome: "entered", entrantCount: updated.entrants?.length ?? null };
   const open = await store.exists({ guildId: ids.guildId, messageId: ids.messageId, ended: false });
   return { outcome: open ? "already" : "closed", entrantCount: null };
@@ -56,9 +58,16 @@ export interface EntrantFacts {
 
 const DAY_MS = 86_400_000;
 
-/** True when the giveaway needs the member object (role, server age or booster bonus). */
-export function needsMemberLookup(req: GiveawayRequirements, boosterMultiplier: number): boolean {
-  return Boolean(req.requiredRoleId) || (req.minMemberDays ?? 0) > 0 || boosterMultiplier > 1;
+/** True when the giveaway needs the member object (role, server age, booster or bonus-role tickets). */
+export function needsMemberLookup(req: GiveawayRequirements & { bonusRoleId?: string | null; bonusEntries?: number | null }, boosterMultiplier: number): boolean {
+  return Boolean(req.requiredRoleId) || (req.minMemberDays ?? 0) > 0 || boosterMultiplier > 1
+    || (Boolean(req.bonusRoleId) && (req.bonusEntries ?? 1) > 1);
+}
+
+/** The reply after a successful entry, naming any extra tickets. */
+export function entryConfirmation(tickets: number, reasons: string[]): string {
+  if (tickets <= 1) return "✅ You are entered! Good luck!";
+  return `✅ You are entered with **${tickets}** entries (${reasons.join(" + ")})! Good luck!`;
 }
 
 /** Why this member can't enter, or null when they can. Days left are rounded up. */
@@ -90,5 +99,13 @@ export function requirementLines(req: GiveawayRequirements): string[] {
   if (req.requiredRoleId) lines.push(`> ⚠️ **Required Role:** <@&${req.requiredRoleId}>`);
   if ((req.minAccountAgeDays ?? 0) > 0) lines.push(`> 🗓️ **Account age:** at least ${req.minAccountAgeDays} day${req.minAccountAgeDays === 1 ? "" : "s"}`);
   if ((req.minMemberDays ?? 0) > 0) lines.push(`> 🏠 **In this server:** at least ${req.minMemberDays} day${req.minMemberDays === 1 ? "" : "s"}`);
+  return lines;
+}
+
+/** Bonus ticket lines for the giveaway embed (booster and bonus role). */
+export function bonusLines(o: { boosterMultiplier?: number | null; bonusRoleId?: string | null; bonusEntries?: number | null }): string[] {
+  const lines: string[] = [];
+  if ((o.boosterMultiplier ?? 1) > 1) lines.push(`> 💎 **Server boosters:** ${o.boosterMultiplier}× entries`);
+  if (o.bonusRoleId && (o.bonusEntries ?? 1) > 1) lines.push(`> 🎟️ **<@&${o.bonusRoleId}>:** ${o.bonusEntries}× entries`);
   return lines;
 }

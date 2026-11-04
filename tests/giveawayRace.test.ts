@@ -160,3 +160,27 @@ test("giveaway service uses the guarded transitions, not a blind winners write",
   assert.match(src, /rerollTransition\(/);
   assert.doesNotMatch(src, /updateOne\(\{ guildId, messageId \}, \{ \$set: \{ winners \} \}\)/);
 });
+
+test("giveaway cancel vs end at once: exactly one wins, and a cancelled giveaway has no winners", async () => {
+  const { cancelTransition } = await import("../src/services/giveawayTransitions");
+  const store = fakeStore(running());
+  const [c, e] = await Promise.all([cancelTransition(store, IDS), endTransition(store, IDS, draw)]);
+  assert.equal([c, e].filter(r => r.ok).length, 1);
+  if (c.ok) {
+    assert.equal(store.doc.cancelled, true);
+    assert.deepEqual(store.doc.winners, []);
+  } else {
+    assert.notEqual(store.doc.cancelled, true);
+  }
+});
+
+test("giveaway cancel: a second cancel is refused, and a cancelled giveaway cannot be rerolled", async () => {
+  const { cancelTransition } = await import("../src/services/giveawayTransitions");
+  const store = fakeStore(running());
+  assert.equal((await cancelTransition(store, IDS)).ok, true);
+  const again = await cancelTransition(store, IDS);
+  assert.ok(!again.ok && again.error === TRANSITION_MESSAGES.alreadyEnded);
+  const reroll = await rerollTransition(store, IDS, null, draw);
+  assert.ok(!reroll.ok && reroll.error === TRANSITION_MESSAGES.cancelled);
+  assert.equal(reroll.ok, false);
+});
