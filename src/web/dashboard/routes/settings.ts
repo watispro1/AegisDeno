@@ -84,7 +84,7 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
       const body = (req.body ?? {}) as FormBody;
       const before = await deps.data.loadSettings(ctx.guild.id);
       const rule = isExemptionRule(body.rule) ? body.rule : null;
-      const parsed = parseRuleExemptions(body, validationContext(ctx), rule ? before.automod[rule] : {});
+      const parsed = parseRuleExemptions(body, validationContext(ctx), rule ? before.automod[rule] ?? {} : {});
       if (!parsed.ok) {
         // Show the rejected form with what was ticked, so nothing has to be picked again.
         const shown = rule ?? "words";
@@ -98,7 +98,7 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
       }
       const { rule: saved, exemptRoleIds, exemptChannelIds } = parsed.value;
       await deps.data.saveSettings(ctx.guild.id, { section: "automodRule", value: parsed.value }, actorOf(ctx));
-      const was = before.automod[saved];
+      const was = before.automod[saved] ?? {};
       const diff = (label: string, prev: readonly string[] = [], next: readonly string[]) => {
         const added = next.filter(id => !prev.includes(id));
         const removed = prev.filter(id => !next.includes(id));
