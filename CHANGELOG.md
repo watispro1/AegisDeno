@@ -40,6 +40,11 @@ environment variables or permissions. Requires Node 22 or newer.
   channel they were posted in; older entries fill in their excerpt the next
   time they are starred or listed.
 
+### Fixed
+- An allowed link followed by punctuation, such as `(https://youtube.com)` or
+  `https://youtube.com.`, is no longer treated as a blocked domain by the link
+  filter.
+
 ## [3.7.2] - 2026-11-04
 
 Stronger automod, full server activity logs, new lookup commands, giveaway

@@ -23,10 +23,22 @@ export function hasLink(content: string): boolean {
   return LINK_REGEX.test(content);
 }
 
+/** Brackets, quotes and commas never belong to a hostname, so the host ends at the first one. */
+const HOST_END = /[()[\]{}'",;!*|`].*$/;
+/** Sentence punctuation left at the end of a link. */
+const TRAILING_PUNCTUATION = /[.:_~]+$/;
+
 /** Hostnames of every http(s) link in the text, lowercased, without "www.". */
 export function linkHosts(content: string): string[] {
   return [...content.replace(ZERO_WIDTH, "").matchAll(/https?:\/\/([^\s/?#<>]+)/gi)]
-    .map(m => m[1].toLowerCase().replace(/^[^@]*@/, "").replace(/:\d+$/, "").replace(/^www\./, "").replace(/\.$/, ""));
+    .map(m => m[1].toLowerCase()
+      .replace(/^[^@]*@/, "")
+      .replace(HOST_END, "")
+      .replace(TRAILING_PUNCTUATION, "")
+      .replace(/:\d*$/, "")
+      .replace(/^www\./, "")
+      .replace(/\.$/, ""))
+    .filter(Boolean);
 }
 
 /** Whether a host is one of the allowed domains or a subdomain of one. */
