@@ -16,6 +16,16 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
     "/ban user:@member reason:Cooling off duration:7d",
   ],
   kick: ["/kick user:@member reason:Alt account"],
+  softban: [
+    "/softban user:@member reason:Spam wave",
+    "/softban user:@member reason:Scam links delete_messages:7 silent:true",
+  ],
+  temprole: [
+    "/temprole add user:@member role:@Muted duration:2h reason:Cooling off",
+    "/temprole add user:@member role:@Winner duration:7d",
+    "/temprole remove user:@member role:@Muted",
+    "/temprole list user:@member",
+  ],
   timeout: [
     "/timeout user:@member duration:1 hour reason:Arguing with staff",
     "/timeout user:@member duration:10 minutes preset:Excessive Spamming / Chat Flooding",
@@ -108,6 +118,8 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
     "/starboard setup channel:#starboard",
     "/starboard threshold count:5",
     "/starboard ignore action:add channel:#staff",
+    "/starboard top period:Past 7 days",
+    "/starboard top user:@member share:true",
   ],
   giveaway: [
     "/giveaway start prize:Nitro duration:24h winners:1 booster_multiplier:2",

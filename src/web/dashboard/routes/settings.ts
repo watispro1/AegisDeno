@@ -48,10 +48,15 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
       const section = req.params.section;
       if (!isSettingsSection(section)) return fail(res, 404, "No such settings page", "Pick a section from the settings menu.", ctx.viewer);
       const snapshot = await deps.data.loadSettings(ctx.guild.id);
+      // Top posts are a read-only extra: a failed read leaves the settings form working.
+      const top = section === "starboard" && deps.data.topStarboard
+        ? await deps.data.topStarboard(ctx.guild.id).catch(() => null)
+        : null;
       send(res, renderSettings(
         deps.site, ctx, section, snapshot,
         { values: settingsValues(section, snapshot), errors: {} },
         deps.bot.textChannels(ctx.guild.id), rolesFor(ctx), noticeParam(req), deps.bot.hiddenChannelIds(ctx.guild.id),
+        null, null, top ? { entries: top, starboardChannelId: snapshot.starboard.channelId, emoji: snapshot.starboard.emoji } : null,
       ));
     } catch (err) {
       next(err);
@@ -84,7 +89,7 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
       const body = (req.body ?? {}) as FormBody;
       const before = await deps.data.loadSettings(ctx.guild.id);
       const rule = isExemptionRule(body.rule) ? body.rule : null;
-      const parsed = parseRuleExemptions(body, validationContext(ctx), rule ? before.automod[rule] : {});
+      const parsed = parseRuleExemptions(body, validationContext(ctx), rule ? before.automod[rule] ?? {} : {});
       if (!parsed.ok) {
         // Show the rejected form with what was ticked, so nothing has to be picked again.
         const shown = rule ?? "words";
@@ -98,7 +103,7 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
       }
       const { rule: saved, exemptRoleIds, exemptChannelIds } = parsed.value;
       await deps.data.saveSettings(ctx.guild.id, { section: "automodRule", value: parsed.value }, actorOf(ctx));
-      const was = before.automod[saved];
+      const was = before.automod[saved] ?? {};
       const diff = (label: string, prev: readonly string[] = [], next: readonly string[]) => {
         const added = next.filter(id => !prev.includes(id));
         const removed = prev.filter(id => !next.includes(id));

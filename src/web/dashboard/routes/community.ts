@@ -1,14 +1,16 @@
 /**
- * Community module routes: /:guildId/giveaways, /suggestions, /watchlist and
+ * Community module routes: /:guildId/giveaways, /polls, /suggestions, /watchlist and
  * the general /settings page. Same guards as every dashboard route.
  */
 import type { Router } from "express";
-import { isMessageId, isSuggestionId, parseSuggestionChannel, parseSuggestionFilter, parseSuggestionReview } from "../moduleValidation";
+import { isMessageId, isSuggestionId, parseSuggestionChannel, parseSuggestionReview } from "../moduleValidation";
 import { isSnowflake } from "../permissions";
 import type { FormBody } from "../validation";
 import { submittedValues, type GuildContext } from "../views";
 import type { FormState } from "../views/form";
 import { renderGeneralSettings, renderGiveaways, renderSuggestions, renderWatchlist } from "../views/community";
+import { renderPolls } from "../views/polls";
+import { POLLS_SHOWN, cancelConfirmed, parseSuggestionQuery } from "../communityQuery";
 import { moduleStates } from "../views/overview";
 import { type RouteKit, type GuildLocals } from "./context";
 
@@ -41,7 +43,7 @@ export function registerCommunityRoutes(router: Router, k: RouteKit): void {
   router.get("/:guildId/giveaways", ...guildGet, async (req, res, next) => {
     try {
       const ctx = locals(res);
-      send(res, renderGiveaways(deps.site, ctx, { rows: await modules.listGiveaways(ctx.guild.id), channels: deps.bot.textChannels(ctx.guild.id), noticeCode: noticeParam(req) }));
+      send(res, renderGiveaways(deps.site, ctx, { rows: await modules.listGiveaways(ctx.guild.id), channels: deps.bot.textChannels(ctx.guild.id), roles: deps.bot.roles(ctx.guild.id), noticeCode: noticeParam(req) }));
     } catch (err) { next(err); }
   });
 
@@ -50,7 +52,14 @@ export function registerCommunityRoutes(router: Router, k: RouteKit): void {
       const ctx = locals(res);
       const messageId = String(req.params.messageId);
       const action = String(req.params.action);
-      if (!isMessageId(messageId) || (action !== "end" && action !== "reroll")) return fail(res, 404, "Not found", "That giveaway does not exist.", ctx.viewer);
+      if (!isMessageId(messageId) || (action !== "end" && action !== "reroll" && action !== "cancel")) return fail(res, 404, "Not found", "That giveaway does not exist.", ctx.viewer);
+      const back = `/dashboard/${ctx.guild.id}/giveaways?notice=`;
+      if (action === "cancel") {
+        if (!cancelConfirmed((req.body ?? {}) as Record<string, unknown>)) return res.redirect(303, `${back}gw-confirm`);
+        const cancelled = await modules.cancelGiveaway(ctx.guild.id, messageId, actorOf(ctx));
+        if (cancelled.ok) await logAudit(ctx, "giveaway.cancel", messageId, "cancelled, no winners drawn");
+        return res.redirect(303, `${back}${cancelled.ok ? "gw-cancelled" : "gw-failed"}`);
+      }
       const result = action === "end"
         ? await modules.endGiveaway(ctx.guild.id, messageId, actorOf(ctx))
         : await modules.rerollGiveaway(ctx.guild.id, messageId, actorOf(ctx));
@@ -59,16 +68,25 @@ export function registerCommunityRoutes(router: Router, k: RouteKit): void {
     } catch (err) { next(err); }
   });
 
+  /* Polls (read-only) */
+
+  router.get("/:guildId/polls", ...guildGet, async (_req, res, next) => {
+    try {
+      const ctx = locals(res);
+      send(res, renderPolls(deps.site, ctx, { rows: await modules.listPolls(ctx.guild.id, POLLS_SHOWN), channels: deps.bot.textChannels(ctx.guild.id), hidden: deps.bot.hiddenChannelIds(ctx.guild.id) }));
+    } catch (err) { next(err); }
+  });
+
   /* Suggestions */
 
   async function suggestionsPage(ctx: GuildContext, query: Record<string, unknown>, noticeCode: string | null, state?: FormState): Promise<string> {
-    const { filter, page } = parseSuggestionFilter(query);
+    const { filter, page, q, sort } = parseSuggestionQuery(query);
     const [list, snapshot] = await Promise.all([
-      modules.listSuggestions(ctx.guild.id, filter, page, SUGGESTIONS_PER_PAGE),
+      modules.listSuggestions(ctx.guild.id, filter, page, SUGGESTIONS_PER_PAGE, { q, sort }),
       deps.data.loadSettings(ctx.guild.id),
     ]);
     return renderSuggestions(deps.site, ctx, {
-      ...list, page, perPage: SUGGESTIONS_PER_PAGE, filter,
+      ...list, page, perPage: SUGGESTIONS_PER_PAGE, filter, q, sort,
       channelId: snapshot.guild.suggestionsChannelId,
       channels: deps.bot.textChannels(ctx.guild.id), hidden: deps.bot.hiddenChannelIds(ctx.guild.id),
       noticeCode, state,

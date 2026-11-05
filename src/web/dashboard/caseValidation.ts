@@ -12,7 +12,7 @@ export function parseCaseReason(body: FormBody): Parsed<string> {
   return { ok: true, value: reason };
 }
 
-export const CASE_TYPES = ["warn", "kick", "ban", "timeout", "untimeout", "unban", "clearwarnings", "purge", "lock", "unlock"] as const;
+export const CASE_TYPES = ["warn", "kick", "ban", "softban", "timeout", "untimeout", "temprole", "unban", "clearwarnings", "purge", "lock", "unlock"] as const;
 
 export interface CaseFilter {
   type: string | null;

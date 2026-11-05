@@ -17,6 +17,8 @@ const ACTION_LABELS: Record<string, string> = {
   warn:          "⚠️ Warning",
   kick:          "👢 Kick",
   ban:           "🔨 Ban",
+  softban:       "🧹 Softban",
+  temprole:      "🏷️ Temporary Role",
   timeout:       "⏱️ Timeout",
   untimeout:     "🔓 Timeout Removed",
   unban:         "✅ Unban",

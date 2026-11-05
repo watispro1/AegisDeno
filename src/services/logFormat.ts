@@ -137,7 +137,13 @@ export function nicknameChangeEmbed(userTag: string, userId: string, change: Mem
 
 export type VoiceMove = { kind: "join"; to: string } | { kind: "leave"; from: string } | { kind: "move"; from: string; to: string };
 
-export function voiceMove(fromId: string | null, toId: string | null): VoiceMove | null {
+/**
+ * The voice change to log. A channel `isHidden` says Aegis can't see is left
+ * out, so moving into one reads as leaving and nothing names it.
+ */
+export function voiceMove(rawFrom: string | null, rawTo: string | null, isHidden: (id: string) => boolean = () => false): VoiceMove | null {
+  const fromId = rawFrom && !isHidden(rawFrom) ? rawFrom : null;
+  const toId = rawTo && !isHidden(rawTo) ? rawTo : null;
   if (!fromId && toId) return { kind: "join", to: toId };
   if (fromId && !toId) return { kind: "leave", from: fromId };
   if (fromId && toId && fromId !== toId) return { kind: "move", from: fromId, to: toId };
@@ -182,4 +188,18 @@ export function channelEmbed(kind: "create" | "delete" | "update", channel: Chan
     description: [`**Channel:** ${ref}`, `**Type:** ${channel.type}`, ...changes].join("\n"),
     footer: { text: `Channel ID: ${channel.id}` },
   };
+}
+
+const NO_ATTACH_NOTE = "*Aegis can't attach files in this log channel (Attach Files is off), so the file was left out.*";
+
+/**
+ * Whether a log entry's files can go out, and its description to match. A
+ * channel without Attach Files would refuse the whole message, so the entry
+ * is sent without the file and says why.
+ */
+export function logAttachmentPlan(description: string, fileCount: number, canAttach: boolean): { description: string; attach: boolean } {
+  if (fileCount === 0) return { description, attach: false };
+  if (canAttach) return { description, attach: true };
+  const kept = description.split("\n").filter(line => !/attached file/i.test(line)).join("\n");
+  return { description: `${truncate(kept, 4096 - NO_ATTACH_NOTE.length - 1)}\n${NO_ATTACH_NOTE}`, attach: false };
 }

@@ -74,6 +74,14 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       return;
     }
 
+    if (task.type === "temprole_remove") {
+      // Lazy import: tempRole.ts imports this module to arm its timers.
+      const { performTempRoleRemoval } = await import("./tempRole");
+      await performTempRoleRemoval(client, task);
+      retryCount.delete(taskId);
+      return;
+    }
+
     if (task.type === "poll_close") {
       // Lazy import: polls.ts imports this module to arm its timers.
       const { closePollFromTask } = await import("./polls");

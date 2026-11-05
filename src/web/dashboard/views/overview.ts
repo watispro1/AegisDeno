@@ -2,6 +2,7 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord, OverviewData, SettingsSnapshot } from "../data";
 import type { OverviewExtras } from "../moduleData";
 import { type GuildContext, copyId, head, moduleStatus, person, personId, relTime, shell } from "./layout";
+import { AUTOMOD_RULE_KEYS, enabledAutomodRules } from "../../../services/automod";
 
 /* Overview */
 
@@ -50,15 +51,14 @@ export function moduleStates(guildId: string, data: OverviewData, m: OverviewMod
   const x = m.extras;
   const b = `/dashboard/${guildId}`;
   if (!s) return [];
-  const a = s.automod;
-  const rules = [a.words, a.links, a.mentions, a.spam, a.caps].filter(r => r.enabled).length;
+  const rules = enabledAutomodRules(s.automod).length;
   // Module switches from the Modules & backup page (absent means on).
   const sw = (key: "tickets" | "giveaways" | "scheduled" | "appeals") => s.guild.modules?.[key] !== false;
   const auto = s.guild.incident?.autoTrigger;
   return [
     { key: "incident", label: "Incident Mode", href: `${b}/incident`, on: null, detail: auto?.enabled ? `Auto-trigger: ${auto.joins} joins / ${auto.seconds}s` : "Ready; auto-trigger off" },
     { key: "moderation", label: "Moderation", href: `${b}/settings/escalation`, on: s.guild.escalation.enabled, detail: s.guild.escalation.enabled ? `${s.guild.escalation.thresholds.length} escalation step${s.guild.escalation.thresholds.length === 1 ? "" : "s"}` : "Escalation off" },
-    { key: "automod", label: "Automod", href: `${b}/settings/automod`, on: rules > 0, detail: `${rules} of 5 rules on` },
+    { key: "automod", label: "Automod", href: `${b}/settings/automod`, on: rules > 0, detail: `${rules} of ${AUTOMOD_RULE_KEYS.length} rules on` },
     { key: "logging", label: "Logging", href: `${b}/settings/logging`, on: s.guild.loggingEnabled && Boolean(s.guild.loggingChannelId), detail: s.guild.loggingChannelId ? "Log channel set" : "No log channel" },
     { key: "welcome", label: "Welcome", href: `${b}/settings/welcome`, on: s.guild.welcomeEnabled, detail: s.guild.welcomeEmbed ? "Message and embed" : "Message" },
     { key: "goodbye", label: "Goodbye", href: `${b}/settings/goodbye`, on: s.guild.goodbyeEnabled === true, detail: s.guild.goodbyeChannelId ? "Channel set" : "No channel" },
@@ -109,8 +109,7 @@ export function setupChecklist(guildId: string, m: OverviewModel): CheckItem[] {
       if (id && hidden.has(id)) items.push({ level: "warn", text: `Aegis can't see the ${what}. Give Aegis View Channel there, or pick another channel.`, href });
     }
     if (!s.guild.loggingEnabled || !s.guild.loggingChannelId) items.push({ level: "info", text: "Logging is off. Pick a log channel so moderation actions are recorded.", href: `${b}/settings/logging` });
-    const a = s.automod;
-    if (![a.words, a.links, a.mentions, a.spam, a.caps].some(r => r.enabled)) items.push({ level: "info", text: "No automod rules are on.", href: `${b}/settings/automod` });
+    if (!enabledAutomodRules(s.automod).length) items.push({ level: "info", text: "No automod rules are on.", href: `${b}/settings/automod` });
   }
   if (hidden.size > 0) {
     items.push({ level: "info", text: `${hidden.size} channel${hidden.size === 1 ? " is" : "s are"} hidden from Aegis. From 2026-11-16 Discord hides channels a bot can't view (View Channel); Aegis skips them and never posts there. Give Aegis View Channel in any it should use.` });

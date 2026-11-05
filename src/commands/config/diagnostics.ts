@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, PermissionsBitField, EmbedBuilder, MessageFlags } from "discord.js";
 import { Command } from "../../types/discord";
 import { getGuildConfig } from "../../services/configuration";
-import { getAutomodConfig } from "../../services/automod";
+import { AUTOMOD_RULE_SHORT_LABELS, enabledAutomodRules, getAutomodConfig } from "../../services/automod";
 import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 import { botPermissionBitfield } from "../../web/catalogPermissions";
 import { BOT_PERMISSION_WHY } from "../../permissions/botPermissionGuide";
@@ -101,15 +101,9 @@ export const command: Command = {
           : `✅ Configured (<@&${role.id}>)`;
     }
 
-    const hasAnyAutomod = automodConfig.words.enabled || automodConfig.links.enabled || automodConfig.mentions.enabled || automodConfig.spam.enabled || automodConfig.caps.enabled;
-    const automodStatus = hasAnyAutomod
-      ? `✅ Active (Rules enabled: ${[
-          automodConfig.words.enabled ? "Words" : "",
-          automodConfig.links.enabled ? "Links" : "",
-          automodConfig.mentions.enabled ? "Mentions" : "",
-          automodConfig.spam.enabled ? "Spam" : "",
-          automodConfig.caps.enabled ? "Caps" : "",
-        ].filter(Boolean).join(", ")})`
+    const automodRules = enabledAutomodRules(automodConfig);
+    const automodStatus = automodRules.length
+      ? `✅ Active (Rules enabled: ${automodRules.map(k => AUTOMOD_RULE_SHORT_LABELS[k]).join(", ")})`
       : "❌ All rules disabled";
 
     const embed = new EmbedBuilder()
@@ -145,7 +139,7 @@ export const command: Command = {
     if (modmailStatus?.startsWith("⚠️")) {
       recommendations.push("• Give Aegis the permissions listed under **ModMail staff channel**, or members' DMs can't reach staff.");
     }
-    if (!hasAnyAutomod) {
+    if (!automodRules.length) {
       recommendations.push("• Enable some automod features using `/automod <rule> toggle`.");
     }
 

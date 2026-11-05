@@ -12,6 +12,16 @@ export interface AutomodRule {
 
 export type AutomodRuleKey = "words" | "links" | "mentions" | "spam" | "caps" | "invites" | "duplicates" | "emoji";
 export const AUTOMOD_RULE_KEYS: readonly AutomodRuleKey[] = ["words", "links", "mentions", "spam", "caps", "invites", "duplicates", "emoji"];
+/** Short rule names for status lines. */
+export const AUTOMOD_RULE_SHORT_LABELS: Record<AutomodRuleKey, string> = {
+  words: "Words", links: "Links", mentions: "Mentions", spam: "Spam",
+  caps: "Caps", invites: "Invites", duplicates: "Duplicates", emoji: "Emoji",
+};
+
+/** The rules switched on, in AUTOMOD_RULE_KEYS order. Rules missing from `config` count as off. */
+export function enabledAutomodRules(config: Partial<Record<AutomodRuleKey, { enabled?: boolean } | undefined>>): AutomodRuleKey[] {
+  return AUTOMOD_RULE_KEYS.filter(key => config[key]?.enabled === true);
+}
 /** Most allowed domains or invite codes one rule keeps. */
 export const MAX_ALLOWLIST = 50;
 /** Default and bounds for the timeout automod hands out, in minutes (up to 7 days). */

@@ -83,6 +83,8 @@ export function mongoAuditStore(): AuditStore {
 /** Form keys that hold lists (word list one per line; picked IDs comma-joined). */
 export const DEFAULT_LIST_KEYS: Record<string, string> = {
   words_list: "\n",
+  links_allowedDomains: "\n",
+  invites_allowedCodes: "\n",
   exempt_roles: ",",
   exempt_channels: ",",
   ignoredChannels: ",",
@@ -92,6 +94,9 @@ export const DEFAULT_LIST_KEYS: Record<string, string> = {
 /** Friendlier names for the list fields in the activity log. */
 export const DEFAULT_FIELD_LABELS: Record<string, string> = {
   words_list: "blocked words",
+  links_allowedDomains: "allowed link domains",
+  invites_allowedCodes: "allowed invites",
+  timeoutMinutes: "automod timeout minutes",
   exempt_roles: "exempt roles",
   exempt_channels: "exempt channels",
   ignoredChannels: "ignored channels",

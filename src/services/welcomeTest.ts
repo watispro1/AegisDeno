@@ -47,8 +47,14 @@ export function testValues(member: Pick<GuildMember, "id" | "joinedTimestamp"> &
   };
 }
 
-const NEEDED = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks] as const;
-const NEEDED_NAMES = ["View Channel", "Send Messages", "Embed Links"];
+/** What a real greeting needs in its channel: Embed Links only when it carries an embed. */
+export function greetingTestPermissions(hasEmbed: boolean): Array<readonly [bigint, string]> {
+  return [
+    [PermissionFlagsBits.ViewChannel, "View Channel"],
+    [PermissionFlagsBits.SendMessages, "Send Messages"],
+    ...(hasEmbed ? [[PermissionFlagsBits.EmbedLinks, "Embed Links"] as const] : []),
+  ];
+}
 
 /** Post the test. Returns the reply for the moderator. */
 export async function sendGreetingTest(member: GuildMember, kind: GreetingKind): Promise<string> {
@@ -62,7 +68,7 @@ export async function sendGreetingTest(member: GuildMember, kind: GreetingKind):
   if (isObfuscatedChannel(channel)) return `❌ Aegis can't see <#${channel.id}> (no View Channel there).`;
   const me = member.guild.members.me;
   const perms = me ? channel.permissionsFor(me) : null;
-  const missing = NEEDED_NAMES.filter((_, i) => !perms?.has(NEEDED[i]));
+  const missing = greetingTestPermissions(Boolean(s.embed)).filter(([bit]) => !perms?.has(bit)).map(([, name]) => name);
   if (missing.length) return `❌ Aegis is missing **${missing.join(", ")}** in <#${channel.id}>, so real ${kind} messages would fail too.`;
 
   const values = testValues(member, kind);

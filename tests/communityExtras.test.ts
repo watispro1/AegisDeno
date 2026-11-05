@@ -70,3 +70,27 @@ test("winner DMs go out whatever happened to the channel, and closed DMs are cou
   assert.equal(delivered, 2);
   assert.deepEqual(sent, ["1", "2"]);
 });
+
+test("welcome test asks for Embed Links only when the message has an embed", async () => {
+  const { greetingTestPermissions } = await import("../src/services/welcomeTest");
+  assert.deepEqual(greetingTestPermissions(false).map(([, name]) => name), ["View Channel", "Send Messages"]);
+  assert.deepEqual(greetingTestPermissions(true).map(([, name]) => name), ["View Channel", "Send Messages", "Embed Links"]);
+});
+
+test("/giveaway list stays under Discord's 2000-character message limit", async () => {
+  const { activeGiveawayListContent } = await import("../src/services/giveawayEntry");
+  const line = (i: number) => `**${i}.** 🏆 **${"P".repeat(80)}** — 1 winner(s) — 12345 entries — <@&123456789012345678> 10× — ends <t:1800000000:R> — [Jump](https://discord.com/channels/123456789012345678/123456789012345678/123456789012345678)`;
+  const lines = Array.from({ length: 10 }, (_, i) => line(i + 1));
+  const text = activeGiveawayListContent(lines);
+  assert.ok(text.length <= 2000, `length ${text.length}`);
+  assert.match(text, /^🎉 \*\*Active Giveaways \(10\):\*\*/);
+  assert.match(text, /…and \d+ more/);
+  assert.equal(activeGiveawayListContent(["a", "b"]), "🎉 **Active Giveaways (2):**\n\na\nb");
+});
+
+test("giveaway autocomplete offers running giveaways for end and cancel, and only rerollable ones for reroll", async () => {
+  const { giveawayPickerFilter } = await import("../src/services/giveawayEntry");
+  assert.deepEqual(giveawayPickerFilter("g1", "end"), { guildId: "g1", ended: false });
+  assert.deepEqual(giveawayPickerFilter("g1", "cancel"), { guildId: "g1", ended: false });
+  assert.deepEqual(giveawayPickerFilter("g1", "reroll"), { guildId: "g1", ended: true, cancelled: { $ne: true } });
+});

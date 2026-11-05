@@ -1,8 +1,9 @@
-import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, Client, TextChannel, EmbedBuilder, EmbedData } from "discord.js";
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, Client, TextChannel, EmbedBuilder, EmbedData, PermissionFlagsBits } from "discord.js";
 import { getGuildConfig } from "./configuration";
 import { logger } from "../utils/logger";
 import { isObfuscatedChannel } from "../utils/channels";
 import { isLogCategoryOn } from "./logCategories";
+import { logAttachmentPlan } from "./logFormat";
 
 export { isLogCategoryOn };
 
@@ -40,8 +41,11 @@ export async function sendGuildLog(
       return;
     }
 
+    const me = channel.guild.members.me;
+    const plan = logAttachmentPlan(embed.description ?? "", files?.length ?? 0, Boolean(me && channel.permissionsFor(me)?.has(PermissionFlagsBits.AttachFiles)));
     const built = new EmbedBuilder({
       ...embed,
+      ...(files?.length ? { description: plan.description } : {}),
       timestamp: new Date().toISOString(),
     });
 
@@ -49,7 +53,7 @@ export async function sendGuildLog(
       embeds: [built],
       allowedMentions: { parse: [] },
       ...(components?.length ? { components } : {}),
-      ...(files?.length ? { files } : {}),
+      ...(plan.attach ? { files } : {}),
     });
   } catch (error) {
     logger.error(`Failed to send log to guild ${guildId}:`, error);

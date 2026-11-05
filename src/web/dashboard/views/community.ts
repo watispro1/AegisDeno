@@ -1,6 +1,7 @@
 /** Community module pages: giveaways, suggestions, Ghost Watch, and the general Settings page. */
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
-import type { ChannelOption } from "../botView";
+import type { ChannelOption, RoleOption } from "../botView";
+import { SUGGESTION_SEARCH_MAX, SUGGESTION_SORTS, SUGGESTION_SORT_LABELS, suggestionQueryString, type SuggestionQuery } from "../communityQuery";
 import type { GiveawayRow, SuggestionFilter, SuggestionRow, WatchView } from "../moduleData";
 import { SUGGESTION_NOTE_MAX } from "../moduleValidation";
 import { type GuildContext, copyId, csrfField, emptyState, moduleStatus, notice, personId, relTime } from "./layout";
@@ -12,31 +13,56 @@ function clip(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
-export function renderGiveaways(cfg: SiteConfig, ctx: GuildContext, o: { rows: GiveawayRow[]; channels: ChannelOption[]; noticeCode: string | null }): string {
+/** Bonus-entry cell: the role and how many tickets its holders get, or "none". */
+export function giveawayBonus(gw: Pick<GiveawayRow, "bonusRoleId" | "bonusEntries">, roles: readonly Pick<RoleOption, "id" | "name">[]): string {
+  if (!gw.bonusRoleId) return `<span class="faint">none</span>`;
+  const name = roles.find(r => r.id === gw.bonusRoleId)?.name;
+  const label = name ? `@${esc(name)}` : `<span class="faint">deleted role</span>`;
+  const n = Math.max(1, Math.min(10, Math.trunc(gw.bonusEntries ?? 1)));
+  return `${label} <span class="muted">×${n} entries</span> ${copyId(gw.bonusRoleId, "Copy bonus role ID")}`;
+}
+
+/** Cancel for a running giveaway. The tick box is the confirmation and the server refuses the form without it. */
+function cancelForm(action: string, csrf: string, prize: string): string {
+  return `<details class="cancel-gw"><summary class="btn sm ghost">Cancel…</summary>
+    <form class="confirm-form" method="post" action="${esc(action)}">
+      <input type="hidden" name="_csrf" value="${esc(csrf)}">
+      <label><input type="checkbox" name="confirm" value="yes" required> Cancel "${esc(clip(prize, 60))}" with no winners. This can't be undone or rerolled.</label>
+      <button class="btn sm danger" type="submit">Cancel giveaway</button>
+    </form>
+  </details>`;
+}
+
+export function renderGiveaways(cfg: SiteConfig, ctx: GuildContext, o: { rows: GiveawayRow[]; channels: ChannelOption[]; roles?: readonly RoleOption[]; noticeCode: string | null }): string {
   const g = esc(ctx.guild.id);
   const base = `/dashboard/${g}/giveaways`;
+  const roles = o.roles ?? [];
   const chan = (id: string) => o.channels.find(c => c.id === id)?.name;
   const row = (gw: GiveawayRow) => `<tr>
-      <td data-label="Prize"><strong>${esc(clip(gw.prize, 120))}</strong> ${copyId(gw.messageId, "Copy giveaway message ID")}</td>
+      <td data-label="Prize"><strong>${esc(clip(gw.prize, 120))}</strong>${gw.cancelled ? ` <span class="status-pill off">Cancelled</span>` : ""} ${copyId(gw.messageId, "Copy giveaway message ID")}</td>
       <td data-label="Channel">${chan(gw.channelId) ? `#${esc(chan(gw.channelId) as string)}` : `<span class="faint">hidden or deleted</span>`} ${copyId(gw.channelId, "Copy channel ID")}</td>
       <td data-label="${gw.ended ? "Ended" : "Ends"}">${relTime(gw.endsAt)}</td>
       <td data-label="Entries">${gw.entrants.toLocaleString("en-US")}</td>
-      <td data-label="Winners">${gw.ended ? (gw.winners.length ? gw.winners.map(w => personId(ctx, w)).join(", ") : `<span class="faint">none</span>`) : `${gw.winnerCount} to draw`}</td>
+      <td data-label="Bonus">${giveawayBonus(gw, roles)}</td>
+      <td data-label="Winners">${gw.cancelled ? `<span class="faint">cancelled, none drawn</span>` : gw.ended ? (gw.winners.length ? gw.winners.map(w => personId(ctx, w)).join(", ") : `<span class="faint">none</span>`) : `${gw.winnerCount} to draw`}</td>
       <td data-label="Host">${personId(ctx, gw.hostId)}</td>
-      <td data-label="Actions">${gw.ended
+      <td data-label="Actions">${gw.cancelled
+        ? `<span class="faint">none</span>`
+        : gw.ended
         ? actionButton(`${base}/${esc(gw.messageId)}/reroll`, ctx.viewer.csrf, "Reroll", { confirm: `Draw new winners for "${clip(gw.prize, 60)}"? Previous winners are skipped and the new ones are announced.` })
-        : actionButton(`${base}/${esc(gw.messageId)}/end`, ctx.viewer.csrf, "End now", { danger: true, confirm: `End "${clip(gw.prize, 60)}" now and draw winners?` })}</td>
+        : actionButton(`${base}/${esc(gw.messageId)}/end`, ctx.viewer.csrf, "End now", { danger: true, confirm: `End "${clip(gw.prize, 60)}" now and draw winners?` })
+          + cancelForm(`${base}/${esc(gw.messageId)}/cancel`, ctx.viewer.csrf, gw.prize)}</td>
     </tr>`;
   const table = (rows: GiveawayRow[], id: string, caption: string) => `<div class="table-wrap"><table class="case-table" id="${id}" data-filterable>
     <caption class="visually-hidden">${esc(caption)}</caption>
-    <thead><tr><th scope="col">Prize</th><th scope="col">Channel</th><th scope="col">When</th><th scope="col">Entries</th><th scope="col">Winners</th><th scope="col">Host</th><th scope="col">Actions</th></tr></thead>
+    <thead><tr><th scope="col">Prize</th><th scope="col">Channel</th><th scope="col">When</th><th scope="col">Entries</th><th scope="col">Bonus</th><th scope="col">Winners</th><th scope="col">Host</th><th scope="col">Actions</th></tr></thead>
     <tbody>${rows.map(row).join("")}</tbody></table></div>`;
   const active = o.rows.filter(r => !r.ended);
   const ended = o.rows.filter(r => r.ended);
   return modulePage(cfg, ctx, {
     active: "giveaways",
     title: "Giveaways",
-    lead: "Running and finished giveaways. Start new ones with <code class=\"inline\">/giveaway start</code>; end or reroll them here.",
+    lead: "Running and finished giveaways. Start new ones with <code class=\"inline\">/giveaway start</code>; end, cancel or reroll them here.",
     path: base,
     body: `${notice(o.noticeCode)}
   <h2>Running <span class="count-badge">${active.length}</span></h2>
@@ -51,14 +77,16 @@ const STATUS_TAG: Record<string, string> = { pending: "Pending", considered: "Co
 
 export function renderSuggestions(cfg: SiteConfig, ctx: GuildContext, o: {
   items: SuggestionRow[]; total: number; page: number; perPage: number; filter: SuggestionFilter;
+  q?: string; sort?: SuggestionQuery["sort"];
   channelId: string | null; channels: ChannelOption[]; hidden: ReadonlySet<string>; noticeCode: string | null; state?: FormState;
 }): string {
   const g = esc(ctx.guild.id);
   const base = `/dashboard/${g}/suggestions`;
   const f = new Form(o.state ?? { values: { suggestionsChannelId: o.channelId ?? "" }, errors: {} }, "sg-");
   const pages = Math.max(1, Math.ceil(o.total / o.perPage));
+  const view = { filter: o.filter, q: o.q ?? "", sort: o.sort ?? "newest" as const };
   const tabs = (["open", "approved", "rejected", "all"] as const).map(k =>
-    `<a href="${base}?status=${k}"${k === o.filter ? ' aria-current="page"' : ""}>${k === "open" ? "Open" : k === "approved" ? "Approved" : k === "rejected" ? "Denied" : "All"}</a>`).join("");
+    `<a href="${base}${esc(suggestionQueryString({ ...view, filter: k }))}"${k === o.filter ? ' aria-current="page"' : ""}>${k === "open" ? "Open" : k === "approved" ? "Approved" : k === "rejected" ? "Denied" : "All"}</a>`).join("");
   const card = (s: SuggestionRow) => {
     const open = s.status === "pending" || s.status === "considered";
     return `<li class="item-card">
@@ -97,9 +125,25 @@ export function renderSuggestions(cfg: SiteConfig, ctx: GuildContext, o: {
     </form>
   </details>
   <nav class="tabs" aria-label="Filter suggestions">${tabs}</nav>
-  ${o.items.length ? `<ul class="item-list">${o.items.map(card).join("")}</ul>` : emptyState(o.filter === "open" ? "Nothing waiting for review." : "No suggestions here.", "New suggestions show up as members post them.")}
-  ${pagerNav(base, p => `?status=${o.filter}&page=${p}`, o.page, pages, o.total, "suggestion")}`,
+  ${suggestionSearchForm(base, view)}
+  ${o.items.length ? `<ul class="item-list">${o.items.map(card).join("")}</ul>` : view.q
+    ? emptyState("No suggestions match that search.", `<a class="text-link" href="${base}${esc(suggestionQueryString({ ...view, q: "" }))}">Clear the search</a>`)
+    : emptyState(o.filter === "open" ? "Nothing waiting for review." : "No suggestions here.", "New suggestions show up as members post them.")}
+  ${pagerNav(base, p => suggestionQueryString(view, p), o.page, pages, o.total, "suggestion")}`,
   });
+}
+
+/** GET form: search text and sort, keeping the status tab. Works without JavaScript. */
+function suggestionSearchForm(base: string, view: Pick<SuggestionQuery, "filter" | "q" | "sort">): string {
+  return `<form class="search-bar" method="get" action="${base}" role="search">
+    <input type="hidden" name="status" value="${esc(view.filter)}">
+    <label class="visually-hidden" for="sg-q">Search suggestions</label>
+    <input class="table-search" type="search" id="sg-q" name="q" value="${esc(view.q)}" maxlength="${SUGGESTION_SEARCH_MAX}" placeholder="Search suggestions">
+    <label class="visually-hidden" for="sg-sort">Sort by</label>
+    <select id="sg-sort" name="sort">${SUGGESTION_SORTS.map(k => `<option value="${k}"${k === view.sort ? " selected" : ""}>${esc(SUGGESTION_SORT_LABELS[k])}</option>`).join("")}</select>
+    <button class="btn sm" type="submit">Apply</button>
+    ${view.q || view.sort !== "newest" ? `<a class="text-link" href="${base}?status=${esc(view.filter)}">Reset</a>` : ""}
+  </form>`;
 }
 
 export function renderWatchlist(cfg: SiteConfig, ctx: GuildContext, o: { rows: WatchView[]; noticeCode: string | null }): string {

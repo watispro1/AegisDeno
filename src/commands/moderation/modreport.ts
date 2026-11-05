@@ -54,7 +54,7 @@ async function buildSummaryEmbed(guildId: string, period: Period, guild: { name:
   ]);
 
   const actionEmoji: Record<string, string> = {
-    ban: "🔨", kick: "👢", timeout: "⏱️", warn: "⚠️", unban: "✅",
+    ban: "🔨", softban: "🧹", temprole: "🏷️", kick: "👢", timeout: "⏱️", warn: "⚠️", unban: "✅",
     lock: "🔒", unlock: "🔓", purge: "🗑️", note: "📝",
   };
 

@@ -13,6 +13,9 @@ import { revokeWarning } from "../../services/warnings";
 import { ensureAutoCloseChecks, getTicketSettings, updateTicketSettings, type TicketSettings } from "../../services/ticketService";
 import { getVerificationConfig, updateVerificationSettings, type VerificationConfig } from "../../services/verificationService";
 import { getStarboardConfig, updateStarboardConfig, type StarboardConfig } from "../../services/starboard";
+import { STARBOARD_TOP_LIMIT } from "../../services/starboardTop";
+import { fillMissingExcerpts, findTopStarboardEntries } from "../../services/starboardTopQuery";
+import { discordExcerptFetcher } from "../../services/starboardExcerpt";
 import { sendGuildLog } from "../../services/logging";
 import { getAppeal, listAppeals, reviewBanAppeal, type AppealRecord, type AppealStatus } from "../../services/appeals";
 import { unbanMember } from "../../services/unban";
@@ -238,6 +241,12 @@ export function mongoDashboardData(client: Client): DashboardData {
       return { ok: true, unban: result.unban };
     },
 
+    async topStarboard(guildId) {
+      const entries = await findTopStarboardEntries(guildId, { period: "all", limit: STARBOARD_TOP_LIMIT });
+      const guild = client.guilds?.cache?.get(guildId);
+      return guild ? fillMissingExcerpts(guildId, entries, discordExcerptFetcher(guild)) : entries;
+    },
+
     async listRolePanels(guildId) {
       const panels = await getRolePanels(guildId);
       return panels.map(p => ({
@@ -314,9 +323,13 @@ export function mongoDashboardData(client: Client): DashboardData {
           await updateAutomodConfig(guildId, {
             words: { ...v.words },
             links: { ...v.links },
+            invites: { ...v.invites },
             mentions: { ...v.mentions },
             spam: { ...v.spam },
+            duplicates: { ...v.duplicates },
             caps: { ...v.caps },
+            emoji: { ...v.emoji },
+            timeoutMinutes: v.timeoutMinutes,
             exemptRoleIds: v.exemptRoleIds,
             exemptChannelIds: v.exemptChannelIds,
           });

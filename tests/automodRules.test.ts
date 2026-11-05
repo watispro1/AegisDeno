@@ -164,3 +164,26 @@ test("/automod registers every rule group and the status card has a button per r
   assert.equal(toggleKeyFromId("am_toggle_nope"), null);
   assert.equal(parseScope("emoji"), "emoji");
 });
+
+test("allowed links followed by punctuation stay allowed", () => {
+  const allowed = ["youtube.com"];
+  for (const text of [
+    "watch (https://youtube.com)",
+    "see https://youtube.com.",
+    "https://www.youtube.com/watch?v=abc), thanks",
+    "link: https://youtube.com, and more",
+    "\"https://youtube.com\"",
+    "https://music.youtube.com!",
+    "[clip](https://youtube.com)",
+    "https://youtube.com:443)",
+  ]) assert.equal(blockedLinkHost(text, allowed), null, text);
+  assert.equal(blockedLinkHost("(https://evil.example)", allowed), "evil.example");
+  assert.equal(blockedLinkHost("https://youtube.com.evil.example)", allowed), "youtube.com.evil.example");
+});
+
+test("a backslash ends the hostname, as it does in browsers", () => {
+  const allowed = ["youtube.com"];
+  assert.equal(blockedLinkHost("https://evil.example\\.youtube.com", allowed), "evil.example");
+  assert.equal(blockedLinkHost("https://evil.example\\@youtube.com/x", allowed), "evil.example");
+  assert.equal(blockedLinkHost("https://youtube.com\\watch", allowed), null);
+});

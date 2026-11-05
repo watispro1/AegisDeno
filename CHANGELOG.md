@@ -9,6 +9,71 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.7.3] - 2026-11-04
+
+Temporary roles, softbans and a starboard leaderboard, with dashboard
+additions in 1.2.5 (see `DASHBOARD_CHANGELOG.md`).
+
+Upgrade notes: two new slash commands (`/temprole`, `/softban`) and a new
+`/starboard top` subcommand, so commands are re-registered on deploy. No new
+environment variables or permissions. Requires Node 22 or newer.
+
+### Added
+- **`/temprole`** gives a member a role for a set time (`add user role
+  duration`, 1 minute to a year) and takes it off when it runs out, even after
+  a restart. Re-adding moves the end time later; `/temprole remove` ends one
+  early and `/temprole list` shows what is running. Each one is logged and
+  recorded as a case.
+- **`/softban`** bans and immediately unbans a member to clear 1 to 7 days of
+  their messages (default 1). It DMs them first unless `silent`, follows the
+  same role checks as `/ban`, refuses members who are already banned, and
+  records a `softban` case.
+- **`/starboard top`** ranks the server's most-starred posts for the past
+  week, past month or all time, with links to the original and the starboard
+  post, a short excerpt, and the members with the most stars. Add `user` to
+  see one member's posts, or `share:true` to post the list in the channel.
+
+### Changed
+- `softban` and `temprole` are new case types in `/case search`,
+  `/modhistory`, `/infractions`, `/modstats` and `/modreport`.
+- Starboard entries now save a short excerpt of the original message and the
+  channel they were posted in; older entries fill in their excerpt the next
+  time they are starred or listed.
+
+### Fixed
+- An allowed link followed by punctuation, such as `(https://youtube.com)` or
+  `https://youtube.com.`, is no longer treated as a blocked domain by the link
+  filter.
+- The link filter's allowed-domains list could be bypassed with a backslash:
+  `https://evil.example\.youtube.com` opens evil.example in a browser but
+  passed as a youtube.com subdomain. A backslash now ends the hostname.
+- Pinning a message Aegis no longer had cached, starting a thread on it, or a
+  late link preview was logged as a "Message Edited" entry (and re-ran automod
+  on it). Without the old text, an update now counts as an edit only when the
+  message was edited in the last few minutes.
+- The voice activity log named voice channels Aegis can't see. Moving into
+  or out of one now reads as a plain leave or join of the visible channel.
+- A bulk-delete log entry was lost entirely when Aegis lacked Attach Files in
+  the log channel, because Discord refused the transcript. The entry is now
+  posted without the file and says why.
+- `/welcome test` said a text-only welcome or goodbye would fail when Aegis
+  lacked Embed Links in its channel. Embed Links is now only required when the
+  message has an embed.
+- `/config overview`, `/diagnostics` and `/dashboard` ignored the invite,
+  duplicate-message and emoji rules, so a server using only those was told
+  automod was off. They now count all eight rules.
+- `/giveaway list` failed with ten running giveaways once their prizes and
+  bonus roles pushed the reply past Discord's 2000-character limit. It now
+  lists what fits and says how many more there are.
+- The `/giveaway reroll` picker offered cancelled giveaways, which can't be
+  rerolled. It now lists only giveaways that ended with a draw.
+- In servers with membership screening, a member held back by Incident Mode's
+  join gate still got the welcome auto-role once they passed screening. A
+  member under a timeout no longer gets it.
+- A temporary role that ran out right after a restart could be reported as
+  "not removed" and dropped, because Aegis had not loaded its own member yet.
+  It now loads itself first, and a failed lookup is retried.
+
 ## [3.7.2] - 2026-11-04
 
 Stronger automod, full server activity logs, new lookup commands, giveaway
