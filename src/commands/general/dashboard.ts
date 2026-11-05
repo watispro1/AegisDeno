@@ -12,7 +12,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { getAutomodConfig } from "../../services/automod";
+import { AUTOMOD_RULE_KEYS, enabledAutomodRules, getAutomodConfig } from "../../services/automod";
 import { getGuildConfig } from "../../services/configuration";
 import { SuggestionModel, TicketModel, WarningModel, ModerationCaseModel, WatchlistEntryModel } from "../../database/mongo";
 import { getVerificationConfig } from "../../services/verificationService";
@@ -44,7 +44,7 @@ export const command: Command = {
       ]);
 
       const automodActive = automod
-        ? [automod.words.enabled, automod.links.enabled, automod.mentions.enabled, automod.spam.enabled].filter(Boolean).length
+        ? enabledAutomodRules(automod).length
         : 0;
 
       // Channels Discord has hidden from Aegis (obfuscated) are left out of the counts.
@@ -62,7 +62,7 @@ export const command: Command = {
         .setDescription(`Server management overview • Boost Level **${guild.premiumTier}** • ${guild.premiumSubscriptionCount ?? 0} boost(s)`)
         .addFields(
           { name: "👥 Members", value: `**${guild.memberCount.toLocaleString()}**`, inline: true },
-          { name: "🛡️ AutoMod Filters", value: `**${automodActive} / 4** Active`, inline: true },
+          { name: "🛡️ AutoMod Filters", value: `**${automodActive} / ${AUTOMOD_RULE_KEYS.length}** Active`, inline: true },
           { name: "🤖 Bot Latency", value: `**${Math.round(interaction.client.ws.ping)}ms**`, inline: true },
           { name: "🎫 Open Tickets", value: `**${openTickets}**`, inline: true },
           { name: "💡 Pending Suggestions", value: `**${pendingSuggestions}**`, inline: true },

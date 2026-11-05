@@ -6,7 +6,7 @@
 import { EmbedBuilder, MessageFlags, type ChatInputCommandInteraction } from "discord.js";
 import type { GuildConfig } from "../../services/configuration";
 import type { AutomodConfig } from "../../services/automod";
-import { getAutomodConfig } from "../../services/automod";
+import { AUTOMOD_RULE_KEYS, enabledAutomodRules, getAutomodConfig } from "../../services/automod";
 import { getStarboardConfig } from "../../services/starboard";
 import { getVerificationConfig } from "../../services/verificationService";
 import { getTicketSettings } from "../../services/ticketSettings";
@@ -22,7 +22,7 @@ const ICON: Record<ModuleState, string> = { on: "✅", off: "⚪", attention: "�
 
 export interface OverviewInput {
   guild: GuildConfig;
-  automod: Pick<AutomodConfig, "words" | "links" | "mentions" | "spam" | "caps">;
+  automod: Pick<AutomodConfig, "words" | "links" | "mentions" | "spam" | "caps"> & Partial<Pick<AutomodConfig, "invites" | "duplicates" | "emoji">>;
   starboard: { enabled: boolean; channelId: string | null } | null;
   verification: { enabled: boolean; verifiedRoleId: string } | null;
   ticketLogChannelId: string | null;
@@ -32,7 +32,7 @@ export interface OverviewInput {
 export function moduleLines(o: OverviewInput): ModuleLine[] {
   const g = o.guild;
   const switches = normalizeModuleSwitches(g.modules);
-  const rules = (["words", "links", "mentions", "spam", "caps"] as const).filter(k => o.automod[k].enabled);
+  const rules = enabledAutomodRules(o.automod);
   const trust = normalizeTrustConfig(g.trust);
   const channelModule = (name: string, enabled: boolean, channelId: string | null | undefined, fix: string): ModuleLine =>
     !enabled ? { name, state: "off", detail: "Off", fix }
@@ -40,7 +40,7 @@ export function moduleLines(o: OverviewInput): ModuleLine[] {
         : { name, state: "attention", detail: "On, but no channel is set", fix };
   return [
     channelModule("Logging", g.loggingEnabled, g.loggingChannelId, "`/logging channel`"),
-    { name: "Automod", state: rules.length ? "on" : "off", detail: rules.length ? `${rules.length} of 5 rules on` : "All rules off", fix: rules.length ? undefined : "`/automod`" },
+    { name: "Automod", state: rules.length ? "on" : "off", detail: rules.length ? `${rules.length} of ${AUTOMOD_RULE_KEYS.length} rules on` : "All rules off", fix: rules.length ? undefined : "`/automod`" },
     { name: "Escalation", state: g.escalation.enabled ? (g.escalation.thresholds.length ? "on" : "attention") : "off",
       detail: g.escalation.enabled ? `${g.escalation.thresholds.length} step${g.escalation.thresholds.length === 1 ? "" : "s"}` : "Off", fix: g.escalation.enabled && g.escalation.thresholds.length ? undefined : "`/escalation add`" },
     channelModule("ModMail", g.modmail?.enabled === true, g.modmail?.channelId, "`/modmail setup`"),

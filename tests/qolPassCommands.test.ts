@@ -83,7 +83,7 @@ test("/config overview: each module is on, off, or flagged when it is on but mis
   assert.equal(byName.get("Logging")!.detail, "<#700000000000000001>");
   assert.equal(byName.get("Welcome")!.state, "attention", "on with no channel");
   assert.equal(byName.get("Escalation")!.state, "attention", "on with no steps");
-  assert.equal(byName.get("Automod")!.detail, "1 of 5 rules on");
+  assert.equal(byName.get("Automod")!.detail, "1 of 8 rules on");
   assert.equal(byName.get("Giveaways")!.state, "off");
   assert.equal(byName.get("Verification")!.state, "off");
   const text = renderModuleLines(lines);
@@ -126,4 +126,19 @@ test("cases CSV: header, every field quoted, quotes doubled, formulas neutralise
   assert.equal(csvCell("@here"), `"'@here"`);
   assert.equal(csvCell("plain"), '"plain"');
   assert.ok(csv.endsWith("\r\n"));
+});
+
+test("/config overview counts the invite, duplicate and emoji rules too", () => {
+  const rule = { enabled: false, action: "delete" as const };
+  const base = overviewInput();
+  const automod = { ...base.automod, words: { ...base.automod.words, enabled: false }, invites: { ...rule, enabled: true, allowedCodes: [] } };
+  const line = moduleLines({ ...base, automod }).find(l => l.name === "Automod")!;
+  assert.equal(line.state, "on");
+  assert.equal(line.detail, "1 of 8 rules on");
+});
+
+test("enabled automod rules cover every rule, with short labels", async () => {
+  const { enabledAutomodRules, AUTOMOD_RULE_SHORT_LABELS } = await import("../src/services/automod");
+  assert.deepEqual(enabledAutomodRules({ words: { enabled: false }, emoji: { enabled: true }, duplicates: { enabled: true } }), ["duplicates", "emoji"]);
+  assert.equal(AUTOMOD_RULE_SHORT_LABELS.invites, "Invites");
 });

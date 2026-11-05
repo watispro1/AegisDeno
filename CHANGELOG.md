@@ -59,6 +59,9 @@ environment variables or permissions. Requires Node 22 or newer.
 - `/welcome test` said a text-only welcome or goodbye would fail when Aegis
   lacked Embed Links in its channel. Embed Links is now only required when the
   message has an embed.
+- `/config overview`, `/diagnostics` and `/dashboard` ignored the invite,
+  duplicate-message and emoji rules, so a server using only those was told
+  automod was off. They now count all eight rules.
 
 ## [3.7.2] - 2026-11-04
 
