@@ -62,6 +62,9 @@ environment variables or permissions. Requires Node 22 or newer.
 - `/config overview`, `/diagnostics` and `/dashboard` ignored the invite,
   duplicate-message and emoji rules, so a server using only those was told
   automod was off. They now count all eight rules.
+- `/giveaway list` failed with ten running giveaways once their prizes and
+  bonus roles pushed the reply past Discord's 2000-character limit. It now
+  lists what fits and says how many more there are.
 
 ## [3.7.2] - 2026-11-04
 

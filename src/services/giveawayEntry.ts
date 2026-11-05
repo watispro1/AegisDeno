@@ -2,6 +2,7 @@
  * Giveaway entry, done in one atomic update so a double-click (or two
  * gateway deliveries) cannot both report "you are entered".
  */
+import { DISCORD_LIMITS, fitLines } from "../utils/safeText";
 
 export type EntryOutcome = "entered" | "already" | "closed";
 
@@ -108,4 +109,10 @@ export function bonusLines(o: { boosterMultiplier?: number | null; bonusRoleId?:
   if ((o.boosterMultiplier ?? 1) > 1) lines.push(`> 💎 **Server boosters:** ${o.boosterMultiplier}× entries`);
   if (o.bonusRoleId && (o.bonusEntries ?? 1) > 1) lines.push(`> 🎟️ **<@&${o.bonusRoleId}>:** ${o.bonusEntries}× entries`);
   return lines;
+}
+
+/** The `/giveaway list` message: as many lines as fit in Discord's 2000 characters, then a count of the rest. */
+export function activeGiveawayListContent(lines: readonly string[]): string {
+  const header = `🎉 **Active Giveaways (${lines.length}):**\n\n`;
+  return `${header}${fitLines([...lines], lines.length, DISCORD_LIMITS.content - header.length)}`;
 }

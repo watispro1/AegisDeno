@@ -23,7 +23,7 @@ import { MAX_TIMEOUT_MS } from "../../services/timedActions";
 import { formatDurationLong, parseFriendlyDuration } from "../../utils/duration";
 import { DISCORD_LIMITS, truncate } from "../../utils/safeText";
 import { pickWeightedWinners } from "../../services/communityLogic";
-import { bonusLines, requirementLines } from "../../services/giveawayEntry";
+import { activeGiveawayListContent, bonusLines, requirementLines } from "../../services/giveawayEntry";
 
 import {
   fmtDuration,
@@ -331,7 +331,7 @@ export const command: Command = {
         const bonusNote = g.bonusRoleId && (g.bonusEntries ?? 1) > 1 ? ` — <@&${g.bonusRoleId}> ${g.bonusEntries}×` : "";
         return `**${i + 1}.** 🏆 **${truncate(String(g.prize), 80)}** — ${g.winnerCount} winner(s) — ${g.entrants?.length ?? 0} entr${(g.entrants?.length ?? 0) === 1 ? "y" : "ies"}${bonusNote} — ends <t:${ts}:R> — [Jump](https://discord.com/channels/${guildId}/${g.channelId}/${g.messageId})`;
       });
-      await interaction.editReply({ content: `🎉 **Active Giveaways (${active.length}):**\n\n${lines.join("\n")}`, allowedMentions: { parse: [] } });
+      await interaction.editReply({ content: activeGiveawayListContent(lines), allowedMentions: { parse: [] } });
       return;
     }
   },
