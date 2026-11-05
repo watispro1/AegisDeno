@@ -16,7 +16,7 @@ before(async () => {
 
 test("economy commands load in their own category, guild-only", () => {
   assert.ok((COMMAND_CATEGORIES as readonly string[]).includes("economy"));
-  for (const name of ["balance", "daily", "work", "pay", "leaderboard", "shop", "inventory", "economy"]) {
+  for (const name of ["balance", "daily", "work", "pay", "leaderboard", "shop", "inventory", "economy", "weekly", "deposit", "withdraw", "crime", "gamble", "use"]) {
     const cmd = commands.get(name);
     assert.ok(cmd, name);
     assert.equal(cmd!.category, "economy", name);
@@ -24,18 +24,18 @@ test("economy commands load in their own category, guild-only", () => {
     assert.deepEqual(json(name).contexts, [0], `${name} is offered in servers only`);
   }
   const group = groupByCategory(buildCatalog()).find(g => g.category === "economy");
-  assert.ok(group && group.label === "Economy" && group.commands.length === 8);
+  assert.ok(group && group.label === "Economy" && group.commands.length === 14);
 });
 
 test("/economy is Manage Server; /shop staff subcommands are checked inside; shop items autocomplete", () => {
   const eco = json("economy");
   assert.equal(eco.default_member_permissions, String(PermissionFlagsBits.ManageGuild));
   assert.deepEqual(commands.get("economy")!.userPermissions, [PermissionFlagsBits.ManageGuild]);
-  assert.deepEqual(eco.options!.map(o => o.name), ["toggle", "config", "give", "take", "reset"]);
+  assert.deepEqual(eco.options!.map(o => o.name), ["toggle", "config", "risk", "give", "take", "reset"]);
   const shop = json("shop");
   assert.equal(shop.default_member_permissions ?? null, null, "members can view and buy");
-  assert.deepEqual(shop.options!.map(o => o.name), ["view", "buy", "add", "remove", "edit"]);
-  for (const sub of ["buy", "remove", "edit"]) {
+  assert.deepEqual(shop.options!.map(o => o.name), ["view", "buy", "add", "remove", "edit", "sell"]);
+  for (const sub of ["buy", "remove", "edit", "sell"]) {
     assert.equal(shop.options!.find(o => o.name === sub)!.options!.find(o => o.name === "item")!.autocomplete, true, sub);
   }
   assert.equal(typeof commands.get("shop")!.autocomplete, "function");
@@ -45,8 +45,27 @@ test("/economy is Manage Server; /shop staff subcommands are checked inside; sho
 });
 
 test("leaderboard lines show mentions (rendered, never pinged) with ranks and medals", () => {
-  const lines = leaderboardLines([{ userId: "1", balance: 5000 }, { userId: "2", balance: 10 }], 0, DEFAULT_ECONOMY_CONFIG, "2");
-  assert.equal(lines[0], "🥇 <@1> · 🪙 5,000 coins");
+  const row = (userId: string, balance: number, bank = 0) => ({ userId, balance, bank, total: balance + bank });
+  const lines = leaderboardLines([row("1", 4000, 1000), row("2", 10)], 0, DEFAULT_ECONOMY_CONFIG, "2");
+  assert.equal(lines[0], "🥇 <@1> · 🪙 5,000 coins", "ranked by wallet + bank by default");
   assert.equal(lines[1], "🥈 <@2> · 🪙 10 coins ← you");
-  assert.equal(leaderboardLines([{ userId: "9", balance: 1 }], 10, DEFAULT_ECONOMY_CONFIG, "x")[0], "**11.** <@9> · 🪙 1 coins");
+  assert.equal(leaderboardLines([row("1", 4000, 1000)], 0, DEFAULT_ECONOMY_CONFIG, "x", "wallet")[0], "🥇 <@1> · 🪙 4,000 coins");
+  assert.equal(leaderboardLines([row("9", 1)], 10, DEFAULT_ECONOMY_CONFIG, "x")[0], "**11.** <@9> · 🪙 1 coins");
+});
+
+test("new economy commands: subcommand groups stay small and every option fits Discord's limits", () => {
+  assert.deepEqual(json("gamble").options!.map(o => o.name), ["coinflip", "slots", "info"]);
+  assert.equal(json("use").options![0].autocomplete, true);
+  for (const name of ["deposit", "withdraw"]) assert.equal(json(name).options![0].name, "amount");
+  for (const sub of json("economy").options!) assert.ok((sub.options ?? []).length <= 25, `/economy ${sub.name} has at most 25 options`);
+  // Discord counts names, descriptions and choice values toward a 4,000-character limit per command.
+  type Node = { name: string; description?: string; options?: Node[]; choices?: Array<{ name: string; value: unknown }> };
+  const chars = (o: Node): number => o.name.length + (o.description?.length ?? 0)
+    + (o.choices ?? []).reduce((t, c) => t + c.name.length + String(c.value).length, 0)
+    + (o.options ?? []).reduce((t, c) => t + chars(c), 0);
+  for (const name of ["economy", "shop", "gamble", "leaderboard"]) {
+    const size = chars(commands.get(name)!.data.toJSON() as Node);
+    assert.ok(size < 4000, `/${name} uses ${size} characters`);
+  }
+  assert.ok(commands.size <= 100, `${commands.size} global commands (Discord allows 100)`);
 });

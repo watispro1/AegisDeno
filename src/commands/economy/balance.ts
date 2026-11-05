@@ -3,6 +3,7 @@ import type { Command } from "../../types/discord";
 import { economy } from "../../services/economyService";
 import { economyGate, NO_PINGS } from "../../services/economyDiscord";
 import { formatCoins, relativeTimestamp, dailyClaim, workClaim } from "../../services/economyLogic";
+import { WEEKLY_COOLDOWN_MS, cooldownLeft } from "../../services/economyRules";
 import { COLORS, footer } from "../../utils/embedStyle";
 
 export const command: Command = {
@@ -23,17 +24,24 @@ export const command: Command = {
     const embed = new EmbedBuilder()
       .setColor(COLORS.brand)
       .setAuthor({ name: user.displayName ?? user.username, iconURL: user.displayAvatarURL() })
-      .setDescription(`**Balance:** ${formatCoins(cfg, acct.balance)}`)
-      .setFooter(footer(self ? "Earn more with /daily and /work" : null));
+      .setDescription([
+        `**Wallet:** ${formatCoins(cfg, acct.balance)}`,
+        `**Bank:** ${formatCoins(cfg, acct.bank)}${cfg.bankCap > 0 ? ` / ${formatCoins(cfg, cfg.bankCap)}` : ""}`,
+        `**Total:** ${formatCoins(cfg, acct.balance + acct.bank)}`,
+        `**Streak:** ${acct.dailyStreak > 0 ? `🔥 ${acct.dailyStreak} day${acct.dailyStreak === 1 ? "" : "s"}` : "—"}`,
+      ].join("\n"))
+      .setFooter(footer(self ? "Coins in the bank are safe from /crime fines. Move them with /deposit and /withdraw." : null));
     if (self) {
       const now = Date.now();
       const d = dailyClaim(acct.lastDaily, acct.dailyStreak, now, cfg);
       const w = workClaim(acct.lastWork, now, cfg, () => 0);
+      const ready = (cmd: string, at: number | null) => (at === null ? `✅ Ready, run \`/${cmd}\`` : `⏳ ${relativeTimestamp(at)}`);
       embed.addFields(
-        { name: "Daily", value: d.ok ? "✅ Ready, run `/daily`" : `⏳ ${relativeTimestamp(d.retryAt)}`, inline: true },
-        { name: "Work", value: w.ok ? "✅ Ready, run `/work`" : `⏳ ${relativeTimestamp(w.retryAt)}`, inline: true },
-        { name: "Streak", value: acct.dailyStreak > 0 ? `🔥 ${acct.dailyStreak} day${acct.dailyStreak === 1 ? "" : "s"}` : "—", inline: true },
+        { name: "Daily", value: ready("daily", d.ok ? null : d.retryAt), inline: true },
+        { name: "Work", value: ready("work", w.ok ? null : w.retryAt), inline: true },
       );
+      if (cfg.weeklyAmount > 0) embed.addFields({ name: "Weekly", value: ready("weekly", cooldownLeft(acct.lastWeekly, WEEKLY_COOLDOWN_MS, now)), inline: true });
+      if (cfg.crimeEnabled) embed.addFields({ name: "Crime", value: ready("crime", cooldownLeft(acct.lastCrime, cfg.crimeCooldownMinutes * 60_000, now)), inline: true });
     }
     await interaction.reply({ embeds: [embed], allowedMentions: NO_PINGS });
   },
