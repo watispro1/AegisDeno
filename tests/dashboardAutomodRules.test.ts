@@ -164,3 +164,20 @@ test("per-rule exemptions cover every automod rule", () => {
     assert.ok(r.ok && r.value.rule === rule && r.value.exemptChannelIds[0] === CH, rule);
   }
 });
+
+test("overview and setup checklist count the invite, duplicate and emoji rules", async () => {
+  const { moduleStates, setupChecklist } = await import("../src/web/dashboard/views/overview");
+  const automod = normalizeAutomodConfig("100000000000000001", { emoji: { enabled: true, action: "delete", maxEmoji: 10, zalgo: true } });
+  const snapshot = {
+    automod,
+    guild: { escalation: { enabled: false, thresholds: [] }, loggingEnabled: true, loggingChannelId: "100000000000000002", welcomeEnabled: false, modules: {} },
+    starboard: { enabled: false, channelId: null, threshold: 3, emoji: "⭐" },
+    tickets: { logChannelId: null },
+    verification: null,
+  } as unknown as SettingsSnapshot;
+  const states = moduleStates("100000000000000001", { openTicketCount: 0, pendingAppeals: 0 } as never, { snapshot });
+  const line = states.find(st => st.key === "automod")!;
+  assert.equal(line.on, true);
+  assert.equal(line.detail, `1 of ${AUTOMOD_RULE_KEYS.length} rules on`);
+  assert.ok(!setupChecklist("100000000000000001", { snapshot }).some(i => i.text === "No automod rules are on."));
+});

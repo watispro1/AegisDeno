@@ -43,6 +43,11 @@ version 3.7.3. No new environment variables or OAuth scopes.
   fixed. The activity log lists allowed domains and invites that were added or
   removed.
 
+### Fixed
+- The Overview's Automod card and setup checklist only counted five rules, so
+  a server using just the invite, duplicate-message or emoji filter was shown
+  as having automod off. They now count all eight rules.
+
 ## [1.2.4] - 2026-11-02
 
 Dashboard 1.2.4. A new Economy page, a balance card on member pages and small
