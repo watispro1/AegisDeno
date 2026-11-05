@@ -23,7 +23,7 @@ import { MAX_TIMEOUT_MS } from "../../services/timedActions";
 import { formatDurationLong, parseFriendlyDuration } from "../../utils/duration";
 import { DISCORD_LIMITS, truncate } from "../../utils/safeText";
 import { pickWeightedWinners } from "../../services/communityLogic";
-import { activeGiveawayListContent, bonusLines, requirementLines } from "../../services/giveawayEntry";
+import { activeGiveawayListContent, bonusLines, giveawayPickerFilter, requirementLines } from "../../services/giveawayEntry";
 
 import {
   fmtDuration,
@@ -128,13 +128,14 @@ export const command: Command = {
   userPermissions: [PermissionFlagsBits.ManageGuild],
   botPermissions: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks],
 
-  /** `message_id` on end/reroll: the server's running (end) or finished (reroll) giveaways. */
+  /** `message_id` on end/cancel/reroll: the server's running (end, cancel) or finished, not cancelled (reroll) giveaways. */
   autocomplete: async (interaction: AutocompleteInteraction) => {
     const focused = interaction.options.getFocused(true);
     if (focused.name !== "message_id" || !interaction.guildId) return interaction.respond([]);
-    const ended = interaction.options.getSubcommand(false) === "reroll";
+    const subcommand = interaction.options.getSubcommand(false);
+    const ended = subcommand === "reroll";
     const typed = String(focused.value ?? "").trim().toLowerCase().slice(0, 100);
-    const rows = await GiveawayModel.find({ guildId: interaction.guildId, ended })
+    const rows = await GiveawayModel.find(giveawayPickerFilter(interaction.guildId, subcommand))
       .sort(ended ? { endedAt: -1 } : { endsAt: 1 })
       .limit(50)
       .select("messageId prize endsAt")

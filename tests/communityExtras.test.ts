@@ -87,3 +87,10 @@ test("/giveaway list stays under Discord's 2000-character message limit", async 
   assert.match(text, /…and \d+ more/);
   assert.equal(activeGiveawayListContent(["a", "b"]), "🎉 **Active Giveaways (2):**\n\na\nb");
 });
+
+test("giveaway autocomplete offers running giveaways for end and cancel, and only rerollable ones for reroll", async () => {
+  const { giveawayPickerFilter } = await import("../src/services/giveawayEntry");
+  assert.deepEqual(giveawayPickerFilter("g1", "end"), { guildId: "g1", ended: false });
+  assert.deepEqual(giveawayPickerFilter("g1", "cancel"), { guildId: "g1", ended: false });
+  assert.deepEqual(giveawayPickerFilter("g1", "reroll"), { guildId: "g1", ended: true, cancelled: { $ne: true } });
+});

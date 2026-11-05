@@ -65,6 +65,8 @@ environment variables or permissions. Requires Node 22 or newer.
 - `/giveaway list` failed with ten running giveaways once their prizes and
   bonus roles pushed the reply past Discord's 2000-character limit. It now
   lists what fits and says how many more there are.
+- The `/giveaway reroll` picker offered cancelled giveaways, which can't be
+  rerolled. It now lists only giveaways that ended with a draw.
 
 ## [3.7.2] - 2026-11-04
 

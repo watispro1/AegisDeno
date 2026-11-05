@@ -116,3 +116,10 @@ export function activeGiveawayListContent(lines: readonly string[]): string {
   const header = `🎉 **Active Giveaways (${lines.length}):**\n\n`;
   return `${header}${fitLines([...lines], lines.length, DISCORD_LIMITS.content - header.length)}`;
 }
+
+/** Which giveaways the `message_id` picker offers: running ones, or for reroll the ended ones that were not cancelled. */
+export function giveawayPickerFilter(guildId: string, subcommand: string | null): Record<string, unknown> {
+  return subcommand === "reroll"
+    ? { guildId, ended: true, cancelled: { $ne: true } }
+    : { guildId, ended: false };
+}
