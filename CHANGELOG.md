@@ -47,6 +47,10 @@ environment variables or permissions. Requires Node 22 or newer.
 - The link filter's allowed-domains list could be bypassed with a backslash:
   `https://evil.example\.youtube.com` opens evil.example in a browser but
   passed as a youtube.com subdomain. A backslash now ends the hostname.
+- Pinning a message Aegis no longer had cached, starting a thread on it, or a
+  late link preview was logged as a "Message Edited" entry (and re-ran automod
+  on it). Without the old text, an update now counts as an edit only when the
+  message was edited in the last few minutes.
 
 ## [3.7.2] - 2026-11-04
 

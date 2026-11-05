@@ -1,16 +1,26 @@
 /** Pure checks used by the gateway event handlers in client.ts. */
 
+/** An update this long after the message's edit time is not that edit arriving. */
+export const RECENT_EDIT_MS = 5 * 60 * 1000;
+
 /**
  * Whether a MessageUpdate is a real edit of the text. When the old message was
- * not cached we cannot compare, so it counts as an edit (the safe side for
- * automod).
+ * not cached we cannot compare the text, so the edit time decides: a message
+ * never edited (or edited long ago) is being pinned, given a thread or a link
+ * preview, not edited now. With no edit time to go on it counts as an edit
+ * (the safe side for automod).
  */
 export function isContentEdit(
   oldMessage: { partial?: boolean; content?: string | null },
   newMessage: { partial?: boolean; content?: string | null; editedTimestamp?: number | null },
+  nowMs: number = Date.now(),
 ): boolean {
-  if (oldMessage.partial || typeof oldMessage.content !== "string") return true;
   if (newMessage.partial || typeof newMessage.content !== "string") return true;
+  if (oldMessage.partial || typeof oldMessage.content !== "string") {
+    const edited = newMessage.editedTimestamp;
+    if (edited === undefined) return true;
+    return edited !== null && nowMs - edited <= RECENT_EDIT_MS;
+  }
   return oldMessage.content !== newMessage.content;
 }
 

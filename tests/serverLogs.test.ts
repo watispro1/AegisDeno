@@ -77,3 +77,15 @@ test("log categories default on, voice activity is opt-in", () => {
   assert.equal(isLogCategoryOn({ voiceEvents: true }, "voiceEvents"), true);
   assert.equal(isLogCategoryOn({ messageEdits: false }, "messageEdits"), false);
 });
+
+test("an update to an uncached message only counts as an edit when it was just edited", async () => {
+  const { isContentEdit } = await import("../src/bot/eventFilters");
+  const now = 1_800_000_000_000;
+  const uncached = { partial: true, content: null };
+  assert.equal(isContentEdit(uncached, { content: "hi", editedTimestamp: now - 2_000 }, now), true, "a real edit");
+  assert.equal(isContentEdit(uncached, { content: "hi", editedTimestamp: null }, now), false, "never edited: a pin, thread or link preview");
+  assert.equal(isContentEdit(uncached, { content: "hi", editedTimestamp: now - 3 * 86_400_000 }, now), false, "edited days ago, now pinned");
+  assert.equal(isContentEdit(uncached, { content: "hi" }, now), true, "edit time unknown: still checked");
+  assert.equal(isContentEdit(uncached, { partial: true, content: null, editedTimestamp: null }, now), true, "partial new message: still checked");
+  assert.equal(isContentEdit({ content: "a" }, { content: "a", editedTimestamp: now }, now), false, "cached and unchanged");
+});

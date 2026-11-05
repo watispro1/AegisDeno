@@ -51,6 +51,7 @@ export function registerServerLogs(client: Client): void {
     if (!newMessage.guildId || !isContentEdit(oldMessage, newMessage)) return;
     const msg = newMessage.partial ? await newMessage.fetch().catch(() => null) : newMessage;
     if (!msg || msg.author?.bot || !msg.author) return;
+    if (newMessage.partial && !isContentEdit(oldMessage, msg)) return;
     if (msg.channel && isObfuscatedChannel(msg.channel)) return;
     await sendGuildLog(client, msg.guildId!, editLogEmbed({
       authorTag: msg.author.tag,
