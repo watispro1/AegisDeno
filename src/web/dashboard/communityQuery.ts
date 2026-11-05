@@ -173,6 +173,20 @@ export function toPollRow(d: Record<string, unknown>): PollRow {
   };
 }
 
+/**
+ * Channels whose polls the viewer may see: ones Aegis can see and, when the
+ * viewer's own access is known, ones the viewer can open too.
+ */
+export function pollChannelIds(aegisChannelIds: Iterable<string>, hidden: ReadonlySet<string>, viewerChannelIds: ReadonlySet<string> | null): string[] {
+  return [...new Set(aegisChannelIds)].filter(id => !hidden.has(id) && (viewerChannelIds === null || viewerChannelIds.has(id)));
+}
+
+/** Drops polls posted outside the allowed channels. */
+export function visiblePolls(rows: readonly PollRow[], allowedChannelIds: readonly string[]): PollRow[] {
+  const allowed = new Set(allowedChannelIds);
+  return rows.filter(p => allowed.has(p.channelId));
+}
+
 /** Link to a message in Discord, or null when any ID is not a snowflake. */
 export function messageJumpUrl(guildId: string, channelId: string, messageId: string): string | null {
   const ok = (id: string) => /^\d{17,20}$/.test(id);

@@ -10,7 +10,7 @@ import { submittedValues, type GuildContext } from "../views";
 import type { FormState } from "../views/form";
 import { renderGeneralSettings, renderGiveaways, renderSuggestions, renderWatchlist } from "../views/community";
 import { renderPolls } from "../views/polls";
-import { POLLS_SHOWN, cancelConfirmed, parseSuggestionQuery } from "../communityQuery";
+import { POLLS_SHOWN, cancelConfirmed, parseSuggestionQuery, pollChannelIds, visiblePolls } from "../communityQuery";
 import { moduleStates } from "../views/overview";
 import { type RouteKit, type GuildLocals } from "./context";
 
@@ -73,7 +73,14 @@ export function registerCommunityRoutes(router: Router, k: RouteKit): void {
   router.get("/:guildId/polls", ...guildGet, async (_req, res, next) => {
     try {
       const ctx = locals(res);
-      send(res, renderPolls(deps.site, ctx, { rows: await modules.listPolls(ctx.guild.id, POLLS_SHOWN), channels: deps.bot.textChannels(ctx.guild.id), hidden: deps.bot.hiddenChannelIds(ctx.guild.id) }));
+      const id = ctx.guild.id;
+      const channels = deps.bot.textChannels(id);
+      const hidden = deps.bot.hiddenChannelIds(id);
+      // Without a live access check, fall back to the channels Aegis can see.
+      const viewerIds = deps.bot.viewerChannelIds ? await deps.bot.viewerChannelIds(id, ctx.viewer.userId) : null;
+      const allowed = pollChannelIds(viewerIds ?? channels.map(c => c.id), hidden, viewerIds);
+      const rows = visiblePolls(await modules.listPolls(id, POLLS_SHOWN, allowed), allowed);
+      send(res, renderPolls(deps.site, ctx, { rows, channels, hidden }));
     } catch (err) { next(err); }
   });
 
