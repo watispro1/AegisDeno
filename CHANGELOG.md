@@ -51,6 +51,8 @@ environment variables or permissions. Requires Node 22 or newer.
   late link preview was logged as a "Message Edited" entry (and re-ran automod
   on it). Without the old text, an update now counts as an edit only when the
   message was edited in the last few minutes.
+- The voice activity log named voice channels Aegis can't see. Moving into
+  or out of one now reads as a plain leave or join of the visible channel.
 
 ## [3.7.2] - 2026-11-04
 

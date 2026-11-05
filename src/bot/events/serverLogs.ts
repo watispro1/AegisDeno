@@ -107,7 +107,8 @@ export function registerServerLogs(client: Client): void {
   client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     const member = newState.member ?? oldState.member;
     if (!member || member.user.bot) return;
-    const move = voiceMove(oldState.channelId, newState.channelId);
+    const hidden = (id: string) => isObfuscatedChannel(id === oldState.channelId ? oldState.channel : newState.channel);
+    const move = voiceMove(oldState.channelId, newState.channelId, hidden);
     if (!move) return;
     await sendGuildLog(client, newState.guild.id, voiceEmbed(member.user.tag, member.id, move), "voiceEvents").catch(warn("voice"));
   });

@@ -137,7 +137,13 @@ export function nicknameChangeEmbed(userTag: string, userId: string, change: Mem
 
 export type VoiceMove = { kind: "join"; to: string } | { kind: "leave"; from: string } | { kind: "move"; from: string; to: string };
 
-export function voiceMove(fromId: string | null, toId: string | null): VoiceMove | null {
+/**
+ * The voice change to log. A channel `isHidden` says Aegis can't see is left
+ * out, so moving into one reads as leaving and nothing names it.
+ */
+export function voiceMove(rawFrom: string | null, rawTo: string | null, isHidden: (id: string) => boolean = () => false): VoiceMove | null {
+  const fromId = rawFrom && !isHidden(rawFrom) ? rawFrom : null;
+  const toId = rawTo && !isHidden(rawTo) ? rawTo : null;
   if (!fromId && toId) return { kind: "join", to: toId };
   if (fromId && !toId) return { kind: "leave", from: fromId };
   if (fromId && toId && fromId !== toId) return { kind: "move", from: fromId, to: toId };

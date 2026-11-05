@@ -89,3 +89,12 @@ test("an update to an uncached message only counts as an edit when it was just e
   assert.equal(isContentEdit(uncached, { partial: true, content: null, editedTimestamp: null }, now), true, "partial new message: still checked");
   assert.equal(isContentEdit({ content: "a" }, { content: "a", editedTimestamp: now }, now), false, "cached and unchanged");
 });
+
+test("voice moves leave out channels Aegis can't see", () => {
+  const hidden = (id: string) => id === "secret";
+  assert.deepEqual(voiceMove("lobby", "secret", hidden), { kind: "leave", from: "lobby" });
+  assert.deepEqual(voiceMove("secret", "lobby", hidden), { kind: "join", to: "lobby" });
+  assert.equal(voiceMove(null, "secret", hidden), null);
+  assert.equal(voiceMove("secret", null, hidden), null);
+  assert.deepEqual(voiceMove("lobby", "games"), { kind: "move", from: "lobby", to: "games" });
+});
