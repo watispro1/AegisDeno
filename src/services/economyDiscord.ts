@@ -15,6 +15,8 @@ import { sendGuildLog } from "./logging";
 import { economy, type AdjustAction, type AdjustEvent } from "./economyService";
 import { formatCoins, roleItemRefusal, type EconomyConfig } from "./economyLogic";
 import { rankChoices } from "../utils/autocomplete";
+import { logger } from "../utils/logger";
+import { scheduleTempRoleRemoval } from "./tempRole";
 
 /** Replies to economy commands never ping anyone unless a command opts in. */
 export const NO_PINGS = { parse: [] as never[] };
@@ -78,10 +80,13 @@ export async function shopRoleRefusal(guild: Guild, roleId: string, actorId: str
 }
 
 /**
- * Give a purchased role. Re-checks that Aegis can still assign it at the
- * moment of purchase (the role may have moved since it was listed).
+ * Give a role from the shop (on purchase or /use). Re-checks that Aegis can
+ * still assign it right now (the role may have moved since it was listed).
+ * A timed role gets a temprole_remove task, so it shows in /temprole list
+ * and comes off like any temporary role; if that task can't be saved the
+ * role is taken back and the caller refunds.
  */
-export async function grantShopRole(guild: Guild, userId: string, roleId: string): Promise<string | null> {
+export async function grantShopRole(guild: Guild, userId: string, roleId: string, timed?: { hours: number | null; channelId: string; itemName: string }): Promise<string | null> {
   const role = guild.roles.cache.get(roleId) ?? (await guild.roles.fetch(roleId).catch(() => null));
   if (!role) return "The role for this item was deleted. Ask staff to fix the shop.";
   const me = guild.members.me;
@@ -92,10 +97,36 @@ export async function grantShopRole(guild: Guild, userId: string, roleId: string
   if (!member) return "Couldn't find you in this server.";
   try {
     await member.roles.add(role, "Bought in the Aegis economy shop");
-    return null;
   } catch {
     return "Discord refused to add the role. Ask staff to check Aegis's permissions.";
   }
+  if (!timed?.hours) return null;
+  const now = Date.now();
+  try {
+    await scheduleTempRoleRemoval(guild.client, {
+      guildId: guild.id, channelId: timed.channelId, userId, executeAt: new Date(now + timed.hours * 3_600_000),
+      payload: {
+        roleId, moderatorId: guild.client.user?.id ?? "", moderatorTag: "Aegis shop", reason: `Shop item: ${timed.itemName}`.slice(0, 200),
+        durationSeconds: timed.hours * 3600, caseId: null, setAt: now,
+      },
+    });
+    return null;
+  } catch (err) {
+    logger.warn(`Economy: could not schedule removal of shop role ${roleId} for ${userId} in ${guild.id}`, err);
+    await member.roles.remove(role, "Shop role timer could not be saved").catch(() => undefined);
+    return "Couldn't start the timer for that role, so it wasn't given.";
+  }
+}
+
+/** Autocomplete for items in the member's own inventory (/use, /shop sell); value is the item ID. */
+export async function inventoryAutocomplete(interaction: AutocompleteInteraction): Promise<void> {
+  if (!interaction.guildId) return interaction.respond([]);
+  const rows = await economy().inventory(interaction.guildId, interaction.user.id).catch(() => []);
+  const choices = rankChoices(rows.map(r => ({
+    name: `${r.name}${r.quantity > 1 ? ` ×${r.quantity}` : ""}${r.roleId ? " · role" : ""}`,
+    value: r.itemId,
+  })), String(interaction.options.getFocused() ?? ""));
+  await interaction.respond(choices).catch(() => undefined);
 }
 
 /** Autocomplete for shop item options: name, price and stock; value is the item ID. */

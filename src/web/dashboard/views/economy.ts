@@ -26,7 +26,8 @@ export function itemValues(i: ShopItem | null): Values {
 }
 
 const TX_LABELS: Record<TransactionType, string> = {
-  daily: "Daily", work: "Work", pay_in: "Received", pay_out: "Sent", buy: "Bought", refund: "Refund",
+  daily: "Daily", weekly: "Weekly", work: "Work", crime: "Crime", crime_fine: "Crime fine", deposit: "Deposit", withdraw: "Withdrawal",
+  gamble: "Gamble", pay_in: "Received", pay_out: "Sent", buy: "Bought", sell: "Sold", use: "Used", refund: "Refund",
   admin_give: "Staff gave", admin_take: "Staff took", admin_reset: "Staff reset",
 };
 
