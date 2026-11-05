@@ -75,15 +75,18 @@ interface AllowListSpec {
   /** What a bad line is called in the error, e.g. "domain". */
   noun: string;
   example: string;
+  /** Invite codes are case-sensitive; domains are not. */
+  caseSensitive?: boolean;
 }
 
 const DOMAIN_LIST: AllowListSpec = { clean: cleanDomain, lineMax: ALLOWED_DOMAIN_LINE_MAX, textMax: ALLOWED_DOMAINS_TEXT_MAX, noun: "domain", example: "youtube.com" };
-const INVITE_LIST: AllowListSpec = { clean: cleanInviteCode, lineMax: ALLOWED_INVITE_LINE_MAX, textMax: ALLOWED_INVITES_TEXT_MAX, noun: "invite", example: "discord.gg/partner" };
+const INVITE_LIST: AllowListSpec = { clean: cleanInviteCode, lineMax: ALLOWED_INVITE_LINE_MAX, textMax: ALLOWED_INVITES_TEXT_MAX, noun: "invite", example: "discord.gg/partner", caseSensitive: true };
 
 /**
  * An allowed list as typed: one entry per line, each cleaned the same way as
  * /automod links allow and /automod invites allow (so pasted URLs work).
- * Duplicates are dropped, ignoring case like the slash commands do.
+ * Duplicates are dropped the way the slash commands compare them: domains
+ * ignoring case, invite codes exactly.
  */
 function parseAllowList(raw: string, spec: AllowListSpec): { list: string[]; error: string | null } {
   if (raw.length > spec.textMax) return { list: [], error: `The allowed ${spec.noun} list is too long. Keep it to ${ALLOWED_LIST_MAX_COUNT} entries.` };
@@ -92,7 +95,8 @@ function parseAllowList(raw: string, spec: AllowListSpec): { list: string[]; err
   for (const line of entries) {
     const cleaned = line.length <= spec.lineMax ? spec.clean(line) : null;
     if (!cleaned) return { list, error: `"${line.slice(0, 40)}" doesn't look like ${spec.noun === "invite" ? "an invite" : "a domain"}. Use one per line, like ${spec.example}.` };
-    if (!list.some(v => v.toLowerCase() === cleaned.toLowerCase())) list.push(cleaned);
+    const same = (v: string) => (spec.caseSensitive ? v === cleaned : v.toLowerCase() === cleaned.toLowerCase());
+    if (!list.some(same)) list.push(cleaned);
   }
   if (list.length > ALLOWED_LIST_MAX_COUNT) return { list, error: `Keep the list to ${ALLOWED_LIST_MAX_COUNT} ${spec.noun}s or fewer (it has ${list.length}).` };
   return { list, error: null };

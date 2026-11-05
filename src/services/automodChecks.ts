@@ -62,11 +62,16 @@ export function inviteCodes(content: string): string[] {
   return [...content.replace(ZERO_WIDTH, "").matchAll(INVITE_REGEX)].map(m => m[1]);
 }
 
-/** The first invite code that is neither allow-listed nor the server's own vanity code, or null. */
+/**
+ * The first invite code that is neither allow-listed nor the server's own
+ * vanity code, or null. Invite codes are case-sensitive ("abc" and "ABC" are
+ * different invites), so the allowlist matches exactly; vanity URLs are not,
+ * so the vanity code matches in any case.
+ */
 export function blockedInvite(content: string, allowedCodes: readonly string[] = [], vanityCode: string | null = null): string | null {
-  const allowed = new Set(allowedCodes.map(c => c.toLowerCase()));
-  if (vanityCode) allowed.add(vanityCode.toLowerCase());
-  return inviteCodes(content).find(code => !allowed.has(code.toLowerCase())) ?? null;
+  const allowed = new Set(allowedCodes);
+  const vanity = vanityCode?.toLowerCase() ?? null;
+  return inviteCodes(content).find(code => !allowed.has(code) && code.toLowerCase() !== vanity) ?? null;
 }
 
 const CUSTOM_EMOJI = /<a?:\w{2,32}:\d{17,20}>/g;
