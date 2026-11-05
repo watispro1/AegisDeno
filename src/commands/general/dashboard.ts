@@ -18,6 +18,7 @@ import { SuggestionModel, TicketModel, WarningModel, ModerationCaseModel, Watchl
 import { getVerificationConfig } from "../../services/verificationService";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { dashboardUrl } from "../../config/links";
+import { automodSummaryText } from "./dashboard/automodSummary";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -163,17 +164,7 @@ export const command: Command = {
         case "dash_automod": {
           const automod = await getAutomodConfig(guild.id).catch(() => null);
           const text = automod
-            ? [
-                `🛡️ **AutoMod Configuration for ${guild.name}:**`,
-                ``,
-                `**Word Filter:** ${automod.words.enabled ? "✅ Enabled" : "❌ Disabled"} — Action: \`${automod.words.action}\` — Words: \`${automod.words.list.length}\``,
-                `**Link Filter:** ${automod.links.enabled ? "✅ Enabled" : "❌ Disabled"} — Action: \`${automod.links.action}\``,
-                `**Mention Spam:** ${automod.mentions.enabled ? "✅ Enabled" : "❌ Disabled"} — Threshold: \`${automod.mentions.threshold}\``,
-                `**Chat Spam:** ${automod.spam.enabled ? "✅ Enabled" : "❌ Disabled"} — Limit: \`${automod.spam.maxMessages}\` msgs / \`${automod.spam.windowSeconds}s\``,
-                ``,
-                `**Exempt Roles:** ${automod.exemptRoleIds.length > 0 ? automod.exemptRoleIds.map((id: string) => `<@&${id}>`).join(", ") : "None"}`,
-                `**Exempt Channels:** ${automod.exemptChannelIds.length > 0 ? automod.exemptChannelIds.map((id: string) => `<#${id}>`).join(", ") : "None"}`,
-              ].join("\n")
+            ? automodSummaryText(guild.name, automod)
             : "❌ AutoMod is not yet configured. Run `/automod` to set it up.";
           await i.reply({ content: text, flags: MessageFlags.Ephemeral });
           break;
