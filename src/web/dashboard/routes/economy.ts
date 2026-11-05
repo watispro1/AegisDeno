@@ -8,12 +8,27 @@ import type { Request, Response, Router } from "express";
 import { parseAdjustForm, parseEconomySettings, parseShopItemForm } from "../economyValidation";
 import { submittedValues } from "../views/form";
 import { ECONOMY_LEADERBOARD_PAGE, ECONOMY_TX_LIMIT, economyValues, itemValues, renderEconomy, type EconomyPageState } from "../views/economy";
-import { formatCoins } from "../../../services/economyLogic";
+import { ECONOMY_BOOLEAN_KEYS, ECONOMY_NUMBER_KEYS, formatCoins, type EconomyConfig, type ShopItemInput } from "../../../services/economyLogic";
 import type { FormBody } from "../validation";
 import type { GuildContext } from "../views";
 import { type GuildLocals, type RouteKit } from "./context";
 
 const OBJECT_ID = /^[0-9a-f]{24}$/i;
+
+/** "gamblingEnabled false→true, payTaxPercent 0→5" for the audit log; "no changes" when nothing moved. */
+export function economySettingsSummary(before: EconomyConfig, after: EconomyConfig): string {
+  const keys = [...ECONOMY_BOOLEAN_KEYS, "currencyName", "currencyEmoji", ...ECONOMY_NUMBER_KEYS] as const;
+  const changed = keys.filter(k => before[k] !== after[k]).map(k => `${k} ${String(before[k])}→${String(after[k])}`);
+  return (changed.length ? changed.join(", ") : "no changes").slice(0, 500);
+}
+
+function itemAuditDetail(i: ShopItemInput): string {
+  return [
+    i.roleId ? `, role ${i.roleId}${i.roleDurationHours ? ` for ${i.roleDurationHours}h` : ""}${i.useToGrant ? " on /use" : ""}` : "",
+    i.stock === null ? "" : `, stock ${i.stock}`,
+    i.perUserLimit === null ? "" : `, ${i.perUserLimit} per member`,
+  ].join("");
+}
 
 export function registerEconomyRoutes(router: Router, k: RouteKit): void {
   const { deps, extras, send, fail, logAudit, noticeParam, validationContext, rolesFor, guildGet, guildPost, adjustLimit } = k;
@@ -62,7 +77,7 @@ export function registerEconomyRoutes(router: Router, k: RouteKit): void {
       const r = await svc().updateConfig(ctx.guild.id, parsed.value);
       if (!r.ok) return page(req, res, ctx, { form: "settings", state: { values: { ...economyValues(saved), ...submittedValues(body) }, errors: r.errors as Record<string, string> } }, 400);
       const c = r.value;
-      await logAudit(ctx, "economy.settings", null, `${c.enabled ? "on" : "off"}, ${c.currencyName}, daily ${c.dailyAmount}/${c.dailyCooldownHours}h +${c.dailyStreakBonus}, work ${c.workMin}-${c.workMax}/${c.workCooldownMinutes}m, confirm ≥${c.payConfirmThreshold}`);
+      await logAudit(ctx, "economy.settings", null, economySettingsSummary(saved, c));
       back(res, ctx, "economy-saved");
     } catch (err) { next(err); }
   });
@@ -76,7 +91,7 @@ export function registerEconomyRoutes(router: Router, k: RouteKit): void {
       if (!parsed.ok) return again(parsed.errors);
       const r = await svc().addItem(ctx.guild.id, parsed.value);
       if (!r.ok) return again(r.errors as Record<string, string>);
-      await logAudit(ctx, "economy.shop.add", r.value.id, `added "${r.value.name}" for ${r.value.price}${r.value.roleId ? `, role ${r.value.roleId}` : ""}${r.value.stock === null ? "" : `, stock ${r.value.stock}`}`);
+      await logAudit(ctx, "economy.shop.add", r.value.id, `added "${r.value.name}" for ${r.value.price}${itemAuditDetail(r.value)}`);
       back(res, ctx, "economy-item-added", "#eco-shop-h");
     } catch (err) { next(err); }
   });
@@ -93,7 +108,7 @@ export function registerEconomyRoutes(router: Router, k: RouteKit): void {
       if (!parsed.ok) return again(parsed.errors);
       const r = await svc().editItem(ctx.guild.id, item.id, parsed.value);
       if (!r.ok) return again(r.errors as Record<string, string>);
-      await logAudit(ctx, "economy.shop.edit", item.id, `edited "${item.name}" → "${r.value.name}", ${r.value.price}${r.value.roleId ? `, role ${r.value.roleId}` : ""}`);
+      await logAudit(ctx, "economy.shop.edit", item.id, `edited "${item.name}" → "${r.value.name}", ${r.value.price}${itemAuditDetail(r.value)}`);
       back(res, ctx, "economy-item-saved", "#eco-shop-h");
     } catch (err) { next(err); }
   });
