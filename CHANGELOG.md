@@ -53,6 +53,9 @@ environment variables or permissions. Requires Node 22 or newer.
   message was edited in the last few minutes.
 - The voice activity log named voice channels Aegis can't see. Moving into
   or out of one now reads as a plain leave or join of the visible channel.
+- A bulk-delete log entry was lost entirely when Aegis lacked Attach Files in
+  the log channel, because Discord refused the transcript. The entry is now
+  posted without the file and says why.
 
 ## [3.7.2] - 2026-11-04
 

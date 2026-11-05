@@ -189,3 +189,17 @@ export function channelEmbed(kind: "create" | "delete" | "update", channel: Chan
     footer: { text: `Channel ID: ${channel.id}` },
   };
 }
+
+const NO_ATTACH_NOTE = "*Aegis can't attach files in this log channel (Attach Files is off), so the file was left out.*";
+
+/**
+ * Whether a log entry's files can go out, and its description to match. A
+ * channel without Attach Files would refuse the whole message, so the entry
+ * is sent without the file and says why.
+ */
+export function logAttachmentPlan(description: string, fileCount: number, canAttach: boolean): { description: string; attach: boolean } {
+  if (fileCount === 0) return { description, attach: false };
+  if (canAttach) return { description, attach: true };
+  const kept = description.split("\n").filter(line => !/attached file/i.test(line)).join("\n");
+  return { description: `${truncate(kept, 4096 - NO_ATTACH_NOTE.length - 1)}\n${NO_ATTACH_NOTE}`, attach: false };
+}

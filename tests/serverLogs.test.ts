@@ -98,3 +98,13 @@ test("voice moves leave out channels Aegis can't see", () => {
   assert.equal(voiceMove("secret", null, hidden), null);
   assert.deepEqual(voiceMove("lobby", "games"), { kind: "move", from: "lobby", to: "games" });
 });
+
+test("a log entry without Attach Files drops the file and says so instead of failing", async () => {
+  const { logAttachmentPlan } = await import("../src/services/logFormat");
+  assert.deepEqual(logAttachmentPlan("**Channel:** <#1>", 1, true), { description: "**Channel:** <#1>", attach: true });
+  const blocked = logAttachmentPlan("**Channel:** <#1>", 1, false);
+  assert.equal(blocked.attach, false);
+  assert.match(blocked.description, /Attach Files/);
+  assert.deepEqual(logAttachmentPlan("x", 0, false), { description: "x", attach: false });
+  assert.ok(logAttachmentPlan("y".repeat(4096), 1, false).description.length <= 4096);
+});
