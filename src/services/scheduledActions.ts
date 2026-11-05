@@ -10,6 +10,7 @@ import {
   shouldLiftTimedBan,
   decodeChannelUnlock,
   decodePersonalReminder,
+  reminderChannelContent,
   reminderPostsInChannel,
   nextTimerDelay,
   reminderSnoozeCustomId,
@@ -71,7 +72,7 @@ export async function deliverPersonalReminder(client: Client, task: ScheduledTas
       const channel = await client.channels.fetch(task.channelId).catch(() => null);
       if (isSendableChannel(channel)) {
         await channel.send({
-          content: `<@${task.creatorId}> ⏰ **Reminder:** ${payload.text}`,
+          content: reminderChannelContent(task.creatorId, payload.text, payload.inChannel),
           allowedMentions: { users: [task.creatorId] },
         }).catch(softFail(`Reminder ping in channel ${task.channelId}`));
       }

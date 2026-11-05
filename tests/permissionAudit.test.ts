@@ -55,6 +55,7 @@ const AUDIT: Record<string, Audit> = {
   verify: { bot: [], feature: ["ManageRoles", "KickMembers"] },
   rolepanel: { bot: [], feature: ["ManageRoles"] },
   shop: { bot: [], feature: ["ManageRoles"] },
+  use: { bot: [], feature: ["ManageRoles"] },
 };
 
 const names = (list: readonly PermissionResolvable[] | undefined) =>

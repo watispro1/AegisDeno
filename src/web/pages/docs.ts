@@ -1,6 +1,7 @@
 import { REPO_URL } from "../layout";
 import { faqs } from "../content";
 import { type SiteConfig, breadcrumb, cmdBlock, escapeHtml, faqBlock, page, safeUrl } from "./shared";
+import { economyDocsSection } from "./docsEconomy";
 import { SUBCOMMAND_CHECKS, botPermissionTable, docHeading, docToc, linkCommandsInHtml, permissionTable } from "./docsData";
 
 export function renderDocs(cfg: SiteConfig): string {
@@ -224,20 +225,7 @@ export function renderDocs(cfg: SiteConfig): string {
 /autoresponder remove id:ar-…`)}
       <p>Aegis replies in the channel when a member's message contains, starts with or exactly matches the trigger, ignoring case. Bots are ignored. Adding and removing needs Manage Server; the <code>id</code> option on remove suggests your triggers as you type, and a trigger that already exists with the same match type is refused. Triggers can be up to 100 characters and responses up to 2,000. Placeholders: <code>{user}</code>, <code>{username}</code>, <code>{tag}</code>, <code>{user_id}</code>, <code>{server}</code>, <code>{server_id}</code>, <code>{channel}</code>, <code>{channel_id}</code>, <code>{member_count}</code>.</p>
 
-      ${docHeading("economy", "Economy", 3)}
-      ${cmdBlock(`/economy toggle enabled:true
-/economy config currency_name:gems currency_emoji:💎 daily_amount:150
-/balance
-/daily
-/work
-/pay user:@Member amount:250
-/leaderboard
-/shop add name:VIP price:5000 role:@VIP stock:10
-/shop view
-/shop buy item:(pick from the list)
-/inventory
-/economy give user:@Member amount:500 reason:Event winner`)}
-      <p>The economy is per server and <strong>off until a server manager turns it on</strong> with <code>/economy toggle</code> or on the dashboard's Economy page. <code>/daily</code> pays once per cooldown (24 hours by default) with a streak bonus for up to 7 days in a row; <code>/work</code> pays a random amount once an hour. Cooldowns are stored in the database, so a restart never resets them, and Aegis shows when you can try again. <code>/pay</code> refuses yourself and bots, and asks you to confirm large amounts. Balances are whole coins, never negative, and capped at one trillion; every change is a single atomic database update, so two commands at once cannot spend the same coins twice. Shop items can hand out a role: the role must be below Aegis's highest role and below your own (the server owner is exempt), and Aegis checks again at the moment of purchase, refunding the buyer if the role can't be given. <code>/economy give</code>, <code>take</code> and <code>reset</code> are posted to the mod log. The leaderboard never pings anyone. Transactions are kept for 90 days.</p>
+      ${economyDocsSection()}
 
       ${docHeading("automation", "Reminders and schedules")}
       ${cmdBlock(`/remindme set reminder:Review appeals duration:2h

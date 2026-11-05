@@ -301,7 +301,7 @@ const CATEGORY_META: Record<string, { label: string; icon: string; blurb: string
   verification: { label: "Verification", icon: "🛡️", blurb: "Anti-raid member verification workflows." },
   autoresponder: { label: "Auto-Responder", icon: "🤖", blurb: "Custom keyword triggers and automated replies." },
   roles: { label: "Role Panels", icon: "🎭", blurb: "Self-assignable button role panels." },
-  economy: { label: "Economy", icon: "💰", blurb: "Opt-in coins, daily rewards, a shop and a leaderboard." },
+  economy: { label: "Economy", icon: "💰", blurb: "Opt-in coins: daily and weekly rewards, a bank, crime and optional gambling, a shop and a leaderboard." },
   developer: { label: "Developer", icon: "🔧", blurb: "Diagnostics for bot operators." },
 };
 

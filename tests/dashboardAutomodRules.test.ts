@@ -39,7 +39,7 @@ test("new rules parse with their toggles, actions and limits", () => {
   }, ctx);
   assert.ok(r.ok);
   assert.deepEqual(r.value.links.allowedDomains, ["youtube.com", "github.io"], "cleaned like /automod links allow, duplicates dropped");
-  assert.deepEqual(r.value.invites, { enabled: true, action: "warn", allowedCodes: ["Partner", "abc-123"] }, "case kept, duplicates ignore case");
+  assert.deepEqual(r.value.invites, { enabled: true, action: "warn", allowedCodes: ["Partner", "abc-123", "partner"] }, "invite codes are case-sensitive: case kept, only exact duplicates dropped");
   assert.deepEqual(r.value.duplicates, { enabled: true, action: "delete", maxRepeats: 10, windowSeconds: 600 });
   assert.deepEqual(r.value.emoji, { enabled: true, action: "timeout", maxEmoji: 3, zalgo: true });
   assert.equal(r.value.timeoutMinutes, 10_080);

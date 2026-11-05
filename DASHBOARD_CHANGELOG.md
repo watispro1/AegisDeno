@@ -8,6 +8,34 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.3.0] - 2026-11-05
+
+Dashboard 1.3.0. Every new economy setting, shop item limits and a wallet,
+bank and total leaderboard, plus privacy fixes for polls and settings import.
+Released alongside bot version 3.8.0. No new environment variables or OAuth
+scopes.
+
+### Added
+- The Economy page has every new setting with the same limits as the bot:
+  weekly rewards, bank limit, pay rules, sell-back rate, crime and gambling.
+- Shop items can have a per-member limit and give a role for a set number of
+  hours or on `/use`.
+
+### Changed
+- The economy leaderboard shows wallet, bank and total, and member cards show
+  the bank.
+- Economy settings changes are listed in the activity log as old and new
+  values.
+- The allowed invites list keeps codes that differ only by case as separate
+  entries.
+
+### Fixed
+- The Polls page only shows polls from channels both Aegis and you can see,
+  and its open and closed counts follow the same rule.
+- Settings import drops per-rule automod exemptions for channels and roles
+  that don't exist in this server, like the server-wide lists, and warns about
+  them.
+
 ## [1.2.5] - 2026-11-04
 
 Dashboard 1.2.5. A Polls page, giveaway cancelling, starboard top posts,

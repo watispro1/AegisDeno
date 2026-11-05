@@ -13,11 +13,46 @@ import { MAX_BALANCE, MAX_SHOP_ITEMS, itemNameKey, normalizeEconomyConfig, type 
 export interface Account {
   guildId: string;
   userId: string;
+  /** Wallet. */
   balance: number;
+  bank: number;
   lastDaily: Date | null;
   dailyStreak: number;
   lastWork: Date | null;
+  lastWeekly: Date | null;
+  lastCrime: Date | null;
+  lastGamble: Date | null;
+  /** UTC day (YYYY-MM-DD) that gambleLoss counts, and the net loss that day (negative when up). */
+  gambleDay: string | null;
+  gambleLoss: number;
+  /** UTC day that payTotal counts, and the coins sent that day. */
+  payDay: string | null;
+  payTotal: number;
 }
+
+export type AccountNumberField = "balance" | "bank" | "gambleLoss" | "payTotal";
+export type AccountDateField = "lastDaily" | "lastWork" | "lastWeekly" | "lastCrime" | "lastGamble";
+export type AccountDayField = "gambleDay" | "payDay";
+
+/**
+ * One guarded, atomic change to an account. Every guard must hold or nothing
+ * changes. A missing number field counts as 0; a missing date passes
+ * `notAfter`; `dayIs`/`dayIsNot` compare the stored UTC day.
+ */
+export interface AccountUpdate {
+  inc?: Partial<Record<AccountNumberField, number>>;
+  set?: Partial<Pick<Account, AccountNumberField | AccountDateField | AccountDayField | "dailyStreak">>;
+  guard?: {
+    atLeast?: Partial<Record<AccountNumberField, number>>;
+    atMost?: Partial<Record<AccountNumberField, number>>;
+    notAfter?: Partial<Record<AccountDateField, Date>>;
+    dayIs?: Partial<Record<AccountDayField, string>>;
+    dayIsNot?: Partial<Record<AccountDayField, string>>;
+  };
+}
+
+export type LeaderboardSort = "total" | "wallet" | "bank";
+export interface LeaderboardRow { userId: string; balance: number; bank: number; total: number }
 
 export type CooldownField = "lastDaily" | "lastWork";
 
@@ -28,7 +63,9 @@ export interface CooldownSwap {
   set: { lastDaily?: Date; dailyStreak?: number; lastWork?: Date };
 }
 
-export type TransactionType = "daily" | "work" | "pay_in" | "pay_out" | "buy" | "refund" | "admin_give" | "admin_take" | "admin_reset";
+export type TransactionType =
+  | "daily" | "weekly" | "work" | "crime" | "crime_fine" | "deposit" | "withdraw" | "gamble"
+  | "pay_in" | "pay_out" | "buy" | "sell" | "use" | "refund" | "admin_give" | "admin_take" | "admin_reset";
 
 export interface Transaction {
   guildId: string;
@@ -56,9 +93,12 @@ export interface EconomyStore {
   credit(guildId: string, userId: string, amount: number, swap?: CooldownSwap): Promise<Account | null>;
   /** Remove coins while the balance is ≥ amount. null when they can't afford it. */
   debit(guildId: string, userId: string, amount: number): Promise<Account | null>;
-  setBalance(guildId: string, userId: string, balance: number): Promise<Account>;
-  /** Accounts with a positive balance, richest first (ties by user ID). */
-  leaderboard(guildId: string, offset: number, limit: number): Promise<{ rows: Array<{ userId: string; balance: number }>; total: number }>;
+  /** Apply a guarded update to an existing account. null when a guard failed or there is no account. */
+  apply(guildId: string, userId: string, update: AccountUpdate): Promise<Account | null>;
+  /** Set the wallet (and the bank, when given), creating the account if needed. */
+  setBalance(guildId: string, userId: string, balance: number, bank?: number): Promise<Account>;
+  /** Accounts with coins, richest first by the chosen sort (ties by user ID); zero rows hidden. */
+  leaderboard(guildId: string, offset: number, limit: number, sort?: LeaderboardSort): Promise<{ rows: LeaderboardRow[]; total: number }>;
   logTransaction(tx: Transaction): Promise<void>;
   recentTransactions(guildId: string, limit: number, userId?: string): Promise<Transaction[]>;
   listItems(guildId: string): Promise<ShopItem[]>;
@@ -71,10 +111,46 @@ export interface EconomyStore {
   /** Give back a unit reserved by takeStock (no-op for unlimited items). */
   returnStock(guildId: string, id: string): Promise<void>;
   addInventory(guildId: string, userId: string, item: Pick<ShopItem, "id" | "name" | "roleId">): Promise<void>;
+  /** Remove one unit while quantity ≥ 1. false when they have none. */
+  takeInventory(guildId: string, userId: string, itemId: string): Promise<boolean>;
+  /** Count one purchase toward a per-member limit, only while bought < limit. */
+  reservePurchase(guildId: string, userId: string, item: Pick<ShopItem, "id" | "name" | "roleId">, limit: number): Promise<boolean>;
+  /** Undo a reservePurchase after a later step failed. */
+  releasePurchase(guildId: string, userId: string, itemId: string): Promise<void>;
   inventory(guildId: string, userId: string): Promise<InventoryRow[]>;
 }
 
-const zero = (guildId: string, userId: string): Account => ({ guildId, userId, balance: 0, lastDaily: null, dailyStreak: 0, lastWork: null });
+const NUMBER_FIELDS: AccountNumberField[] = ["balance", "bank", "gambleLoss", "payTotal"];
+
+/** Whether an update's guards hold for an account (memory store; the Mongo filter is built from the same spec). */
+export function guardsHold(a: Account, guard: AccountUpdate["guard"] = {}): boolean {
+  for (const [f, v] of Object.entries(guard.atLeast ?? {}) as Array<[AccountNumberField, number]>) if ((a[f] ?? 0) < v) return false;
+  for (const [f, v] of Object.entries(guard.atMost ?? {}) as Array<[AccountNumberField, number]>) if ((a[f] ?? 0) > v) return false;
+  for (const [f, v] of Object.entries(guard.notAfter ?? {}) as Array<[AccountDateField, Date]>) {
+    const at = a[f];
+    if (at && at.getTime() > v.getTime()) return false;
+  }
+  for (const [f, v] of Object.entries(guard.dayIs ?? {}) as Array<[AccountDayField, string]>) if (a[f] !== v) return false;
+  for (const [f, v] of Object.entries(guard.dayIsNot ?? {}) as Array<[AccountDayField, string]>) if (a[f] === v) return false;
+  return true;
+}
+
+/** An update can never leave a number field negative or above MAX_BALANCE. */
+export function withBounds(update: AccountUpdate): AccountUpdate {
+  const guard = { ...update.guard, atLeast: { ...update.guard?.atLeast }, atMost: { ...update.guard?.atMost } };
+  for (const [f, by] of Object.entries(update.inc ?? {}) as Array<[AccountNumberField, number]>) {
+    if (f !== "balance" && f !== "bank") continue;
+    if (by < 0) guard.atLeast[f] = Math.max(guard.atLeast[f] ?? 0, -by);
+    if (by > 0) guard.atMost[f] = Math.min(guard.atMost[f] ?? MAX_BALANCE, MAX_BALANCE - by);
+  }
+  return { ...update, guard };
+}
+
+export const zeroAccount = (guildId: string, userId: string): Account => ({
+  guildId, userId, balance: 0, bank: 0, lastDaily: null, dailyStreak: 0, lastWork: null,
+  lastWeekly: null, lastCrime: null, lastGamble: null, gambleDay: null, gambleLoss: 0, payDay: null, payTotal: 0,
+});
+const zero = zeroAccount;
 const sameTime = (a: Date | null, b: Date | null) => (a === null || b === null ? a === b : a.getTime() === b.getTime());
 
 export function memoryEconomyStore(seed: { config?: Partial<EconomyConfig>; now?: () => number } = {}): EconomyStore & {
@@ -85,7 +161,7 @@ export function memoryEconomyStore(seed: { config?: Partial<EconomyConfig>; now?
   const accounts = new Map<string, Account>();
   const transactions: Transaction[] = [];
   const items: ShopItem[] = [];
-  const inv = new Map<string, InventoryRow[]>();
+  const inv = new Map<string, Array<InventoryRow & { bought: number }>>();
   let seq = 0;
   const key = (g: string, u: string) => `${g}:${u}`;
   const copy = (a: Account): Account => ({ ...a });
@@ -112,17 +188,27 @@ export function memoryEconomyStore(seed: { config?: Partial<EconomyConfig>; now?
       a.balance -= amount;
       return copy(a);
     },
-    async setBalance(guildId, userId, balance) {
+    async apply(guildId, userId, raw) {
+      const a = accounts.get(key(guildId, userId));
+      const update = withBounds(raw);
+      if (!a || !guardsHold(a, update.guard)) return null;
+      for (const [f, by] of Object.entries(update.inc ?? {}) as Array<[AccountNumberField, number]>) a[f] = (a[f] ?? 0) + by;
+      Object.assign(a, update.set ?? {});
+      return copy(a);
+    },
+    async setBalance(guildId, userId, balance, bank) {
       const k = key(guildId, userId);
       const a = accounts.get(k) ?? zero(guildId, userId);
       a.balance = balance;
+      if (bank !== undefined) a.bank = bank;
       accounts.set(k, a);
       return copy(a);
     },
-    async leaderboard(guildId, offset, limit) {
-      const all = [...accounts.values()].filter(a => a.guildId === guildId && a.balance > 0)
-        .sort((x, y) => y.balance - x.balance || (x.userId < y.userId ? -1 : 1));
-      return { rows: all.slice(offset, offset + limit).map(a => ({ userId: a.userId, balance: a.balance })), total: all.length };
+    async leaderboard(guildId, offset, limit, sort = "total") {
+      const score = (a: Account) => (sort === "wallet" ? a.balance : sort === "bank" ? a.bank : a.balance + a.bank);
+      const all = [...accounts.values()].filter(a => a.guildId === guildId && score(a) > 0)
+        .sort((x, y) => score(y) - score(x) || (x.userId < y.userId ? -1 : 1));
+      return { rows: all.slice(offset, offset + limit).map(a => ({ userId: a.userId, balance: a.balance, bank: a.bank, total: a.balance + a.bank })), total: all.length };
     },
     async logTransaction(tx) { transactions.push({ ...tx }); },
     async recentTransactions(guildId, limit, userId) {
@@ -163,10 +249,30 @@ export function memoryEconomyStore(seed: { config?: Partial<EconomyConfig>; now?
     async addInventory(guildId, userId, item) {
       const rows = inv.get(key(guildId, userId)) ?? [];
       const row = rows.find(r => r.itemId === item.id);
-      if (row) row.quantity += 1;
-      else rows.push({ itemId: item.id, name: item.name, quantity: 1, roleId: item.roleId });
+      if (row) Object.assign(row, { quantity: row.quantity + 1, name: item.name, roleId: item.roleId });
+      else rows.push({ itemId: item.id, name: item.name, quantity: 1, roleId: item.roleId, bought: 0 });
       inv.set(key(guildId, userId), rows);
     },
-    async inventory(guildId, userId) { return (inv.get(key(guildId, userId)) ?? []).map(r => ({ ...r })); },
+    async takeInventory(guildId, userId, itemId) {
+      const row = (inv.get(key(guildId, userId)) ?? []).find(r => r.itemId === itemId);
+      if (!row || row.quantity < 1) return false;
+      row.quantity -= 1;
+      return true;
+    },
+    async reservePurchase(guildId, userId, item, limit) {
+      const rows = inv.get(key(guildId, userId)) ?? [];
+      let row = rows.find(r => r.itemId === item.id);
+      if (!row) { row = { itemId: item.id, name: item.name, quantity: 0, roleId: item.roleId, bought: 0 }; rows.push(row); inv.set(key(guildId, userId), rows); }
+      if (row.bought >= limit) return false;
+      row.bought += 1;
+      return true;
+    },
+    async releasePurchase(guildId, userId, itemId) {
+      const row = (inv.get(key(guildId, userId)) ?? []).find(r => r.itemId === itemId);
+      if (row && row.bought > 0) row.bought -= 1;
+    },
+    async inventory(guildId, userId) {
+      return (inv.get(key(guildId, userId)) ?? []).filter(r => r.quantity > 0).map(({ bought: _bought, ...r }) => ({ ...r }));
+    },
   };
 }

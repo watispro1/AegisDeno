@@ -48,12 +48,13 @@ function isRuleKey(value: string | null): value is AutomodRuleKey {
   return value !== null && value in RULE_LABELS;
 }
 
-function listEdit(current: readonly string[], value: string, add: boolean, noun: string, label: string): { next: string[] } | { error: string } {
-  const exists = current.some(v => v.toLowerCase() === value.toLowerCase());
+function listEdit(current: readonly string[], value: string, add: boolean, noun: string, label: string, caseSensitive = false): { next: string[] } | { error: string } {
+  const same = (v: string) => (caseSensitive ? v === value : v.toLowerCase() === value.toLowerCase());
+  const exists = current.some(same);
   if (add && exists) return { error: `\`${value}\` is already on the ${label} allowed list.` };
   if (!add && !exists) return { error: `\`${value}\` isn't on the ${label} allowed list.` };
   if (add && current.length >= MAX_ALLOWLIST) return { error: `The ${label} allows at most ${MAX_ALLOWLIST} ${noun}s. Remove one first.` };
-  return { next: add ? [...current, value] : current.filter(v => v.toLowerCase() !== value.toLowerCase()) };
+  return { next: add ? [...current, value] : current.filter(v => !same(v)) };
 }
 
 /** Work out the change for `/automod <group> <sub>` (or a top-level sub when group is null). */
@@ -102,7 +103,7 @@ export function automodEdit(config: AutomodConfig, group: string | null, sub: st
   if (group === "invites" && (sub === "allow" || sub === "unallow")) {
     const code = cleanInviteCode(input.code);
     if (!code) return fail("That doesn't look like an invite. Paste the code or a discord.gg link.");
-    const r = listEdit(config.invites.allowedCodes, code, sub === "allow", "invite", "invite filter");
+    const r = listEdit(config.invites.allowedCodes, code, sub === "allow", "invite", "invite filter", true);
     if ("error" in r) return fail(r.error);
     return done({ invites: { allowedCodes: r.next } }, sub === "allow"
       ? `Invite \`${code}\` now passes the invite filter.`

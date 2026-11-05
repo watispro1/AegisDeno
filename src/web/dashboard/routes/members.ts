@@ -35,7 +35,7 @@ export function registerMemberRoutes(router: Router, k: RouteKit): void {
       ]);
       if (!member) return fail(res, 404, "Member not found", "Discord has no user with that ID.", ctx.viewer);
       // The balance card shows when the economy is on, or when they still hold coins from when it was.
-      const economy = ecoConfig && account && (ecoConfig.enabled || account.balance > 0) ? { config: ecoConfig, balance: account.balance, streak: account.dailyStreak } : undefined;
+      const economy = ecoConfig && account && (ecoConfig.enabled || account.balance > 0 || account.bank > 0) ? { config: ecoConfig, balance: account.balance, streak: account.dailyStreak, bank: account.bank } : undefined;
       send(res, renderMember(deps.site, ctx, { member, records, noticeCode: noticeParam(req), trust: overview ? { result: trust, config: overview.config } : undefined, economy }));
     } catch (err) { next(err); }
   });

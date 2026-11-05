@@ -14,7 +14,7 @@ import {
   type TempRolePayload,
 } from "../src/services/tempRoleLogic";
 import { planRestore } from "../src/services/scheduler";
-import { softbanBanReason, softbanBlock, softbanDeleteSeconds } from "../src/commands/moderation/softban/logic";
+import { lookupBanStatus, softbanBanReason, softbanBlock, softbanDeleteSeconds, softbanRecheckBlock } from "../src/commands/moderation/softban/logic";
 import { CASE_SEARCH_ACTIONS } from "../src/commands/shared/caseSearch";
 import { CASE_TYPES } from "../src/web/dashboard/caseValidation";
 
@@ -102,12 +102,13 @@ test("softban deletes 1 to 7 days of messages, defaulting to 1", () => {
 });
 
 test("softbanBlock refuses self, the bot, the owner and anyone already banned", () => {
-  const base = { targetId: "5", actorId: "1", botId: "2", ownerId: "3", alreadyBanned: false };
+  const base = { targetId: "5", actorId: "1", botId: "2", ownerId: "3", banStatus: "not_banned" as const };
   assert.equal(softbanBlock(base), null);
   assert.match(softbanBlock({ ...base, targetId: "1" }) ?? "", /yourself/);
   assert.match(softbanBlock({ ...base, targetId: "2" }) ?? "", /me/);
   assert.match(softbanBlock({ ...base, targetId: "3" }) ?? "", /owner/);
-  assert.match(softbanBlock({ ...base, alreadyBanned: true }) ?? "", /already banned/);
+  assert.match(softbanBlock({ ...base, banStatus: "banned" }) ?? "", /already banned/);
+  assert.match(softbanBlock({ ...base, banStatus: "unknown" }) ?? "", /couldn't check/);
   assert.ok(encodeURIComponent(softbanBanReason("x".repeat(900), "mod")).length <= 512);
 });
 
@@ -130,4 +131,18 @@ test("softban and temprole logs go to the modActions category", () => {
     assert.ok(calls.length > 0, f);
     for (const c of calls) assert.match(c, /"modActions"/, f);
   }
+});
+
+test("lookupBanStatus treats only Unknown Ban (10026) as not banned", async () => {
+  assert.equal(await lookupBanStatus(async () => ({ user: { id: "5" } })), "banned");
+  assert.equal(await lookupBanStatus(async () => { throw Object.assign(new Error("Unknown Ban"), { code: 10026 }); }), "not_banned");
+  assert.equal(await lookupBanStatus(async () => { throw Object.assign(new Error("Missing Access"), { code: 50001 }); }), "unknown");
+  assert.equal(await lookupBanStatus(async () => { throw new Error("socket hang up"); }), "unknown");
+  assert.equal(await lookupBanStatus(async () => null), "unknown");
+});
+
+test("softban re-check after confirming aborts unless the user is confirmed not banned", () => {
+  assert.equal(softbanRecheckBlock("not_banned"), null);
+  assert.match(softbanRecheckBlock("banned") ?? "", /banned while you were confirming/);
+  assert.match(softbanRecheckBlock("unknown") ?? "", /couldn't check/);
 });
