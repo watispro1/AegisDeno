@@ -67,6 +67,9 @@ environment variables or permissions. Requires Node 22 or newer.
   lists what fits and says how many more there are.
 - The `/giveaway reroll` picker offered cancelled giveaways, which can't be
   rerolled. It now lists only giveaways that ended with a draw.
+- In servers with membership screening, a member held back by Incident Mode's
+  join gate still got the welcome auto-role once they passed screening. A
+  member under a timeout no longer gets it.
 
 ## [3.7.2] - 2026-11-04
 

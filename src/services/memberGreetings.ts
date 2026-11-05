@@ -37,6 +37,7 @@ export async function assignWelcomeRoleAfterScreening(oldMember: GuildMember | P
     pending: newMember.pending,
     joinedTimestamp: newMember.joinedTimestamp,
     hasRole: newMember.roles.cache.has(roleId),
+    timeoutUntil: newMember.communicationDisabledUntilTimestamp,
   });
   if (passed) await assignWelcomeRole(newMember, roleId);
 }

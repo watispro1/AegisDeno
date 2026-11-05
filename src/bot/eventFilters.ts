@@ -32,14 +32,16 @@ export const WELCOME_ROLE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
  * screening and should get the welcome role. With the GuildMember partial on,
  * an uncached old member arrives with `pending` null, so a recent joiner who
  * is no longer pending and still lacks the role is treated as having just
- * passed screening.
+ * passed screening. A member under a timeout is skipped: Incident Mode's join
+ * gate times members out and withholds the auto-role from them.
  */
 export function shouldAssignWelcomeRole(
   oldMember: { partial?: boolean; pending?: boolean | null },
-  newMember: { pending: boolean; joinedTimestamp: number | null; hasRole: boolean },
+  newMember: { pending: boolean; joinedTimestamp: number | null; hasRole: boolean; timeoutUntil?: number | null },
   nowMs: number = Date.now(),
 ): boolean {
   if (newMember.pending || newMember.hasRole) return false;
+  if (newMember.timeoutUntil && newMember.timeoutUntil > nowMs) return false;
   if (oldMember.pending === true) return true;
   if (!oldMember.partial) return false;
   return newMember.joinedTimestamp !== null && nowMs - newMember.joinedTimestamp <= WELCOME_ROLE_WINDOW_MS;

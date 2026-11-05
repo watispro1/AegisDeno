@@ -28,3 +28,9 @@ test("welcome role: never while still pending or when the role is already there"
 test("welcome role: an ordinary update of a cached, non-pending member does nothing", () => {
   assert.equal(shouldAssignWelcomeRole({ partial: false, pending: false }, fresh, NOW), false);
 });
+
+test("welcome role: a member under a timeout (such as an Incident Mode join gate) does not get it after screening", () => {
+  assert.equal(shouldAssignWelcomeRole({ pending: true }, { ...fresh, timeoutUntil: NOW + HOUR }, NOW), false);
+  assert.equal(shouldAssignWelcomeRole({ partial: true, pending: null }, { ...fresh, timeoutUntil: NOW + HOUR }, NOW), false);
+  assert.equal(shouldAssignWelcomeRole({ pending: true }, { ...fresh, timeoutUntil: NOW - HOUR }, NOW), true, "an expired timeout does not count");
+});
