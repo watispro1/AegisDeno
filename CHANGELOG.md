@@ -70,6 +70,9 @@ environment variables or permissions. Requires Node 22 or newer.
 - In servers with membership screening, a member held back by Incident Mode's
   join gate still got the welcome auto-role once they passed screening. A
   member under a timeout no longer gets it.
+- A temporary role that ran out right after a restart could be reported as
+  "not removed" and dropped, because Aegis had not loaded its own member yet.
+  It now loads itself first, and a failed lookup is retried.
 
 ## [3.7.2] - 2026-11-04
 

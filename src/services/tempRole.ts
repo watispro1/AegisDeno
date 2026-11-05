@@ -78,7 +78,9 @@ export async function performTempRoleRemoval(client: Client, task: ScheduledTask
       if (!isUnknownMemberError(err)) throw err;
     }
   }
-  const botTop = guild?.members.me?.roles.highest.position ?? 0;
+  // A cold cache can leave members.me empty; fetch it so the hierarchy check isn't read as 0.
+  const me = guild ? guild.members.me ?? await guild.members.fetchMe() : null;
+  const botTop = me?.roles.highest.position ?? 0;
 
   const decision = decideTempRoleExpiry({
     guildAvailable: Boolean(guild),
