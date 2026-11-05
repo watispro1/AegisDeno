@@ -11,7 +11,7 @@
 import { hasOperatorKeys } from "../../utils/mongoSafe";
 import { normalizeGuildConfig, type GuildConfig, type GuildConfigUpdate } from "../../services/guildConfigNormalize";
 import { normalizeEconomyConfig, type EconomyConfig } from "../../services/economyLogic";
-import type { AutomodConfig } from "../../services/automod";
+import type { AutomodConfig, AutomodRuleKey } from "../../services/automod";
 import type { ValidationContext } from "./validation";
 
 export const SETTINGS_FORMAT = "aegis-settings";
@@ -39,6 +39,9 @@ export function exportSettings(guildId: string, guildName: string, config: Guild
 export type ImportResult =
   | { ok: true; update: GuildConfigUpdate; automod: Partial<Omit<AutomodConfig, "guildId">> | null; economy: EconomyConfig | null; warnings: string[] }
   | { ok: false; error: string };
+
+/** Automod rule keys in an export (the AUTOMOD_RULE_KEYS list, repeated so this file stays free of Mongo imports). */
+const IMPORT_RULE_KEYS = ["words", "links", "mentions", "spam", "caps", "invites", "duplicates", "emoji"] as const satisfies readonly AutomodRuleKey[];
 
 function rec(v: unknown): Record<string, unknown> {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -111,14 +114,32 @@ export function parseSettingsImport(text: string, ctx: ValidationContext): Impor
   let automod: Partial<Omit<AutomodConfig, "guildId">> | null = null;
   if (doc.automod !== undefined) {
     const a = rec(doc.automod);
-    const exemptChannelIds = (Array.isArray(a.exemptChannelIds) ? a.exemptChannelIds : []).filter((id): id is string => typeof id === "string" && ctx.textChannelIds.has(id) && !ctx.hiddenChannelIds?.has(id));
-    const exemptRoleIds = (Array.isArray(a.exemptRoleIds) ? a.exemptRoleIds : []).filter((id): id is string => typeof id === "string" && ctx.roles.has(id));
-    const dropped = (Array.isArray(a.exemptChannelIds) ? a.exemptChannelIds.length : 0) - exemptChannelIds.length + (Array.isArray(a.exemptRoleIds) ? a.exemptRoleIds.length : 0) - exemptRoleIds.length;
+    const channelHere = (id: unknown): id is string => typeof id === "string" && ctx.textChannelIds.has(id) && !ctx.hiddenChannelIds?.has(id);
+    const roleHere = (id: unknown): id is string => typeof id === "string" && ctx.roles.has(id);
+    let dropped = 0;
+    const keep = (list: unknown, ok: (id: unknown) => id is string): string[] => {
+      const all = Array.isArray(list) ? list : [];
+      const kept = all.filter(ok);
+      dropped += all.length - kept.length;
+      return kept;
+    };
+    const exemptChannelIds = keep(a.exemptChannelIds, channelHere);
+    const exemptRoleIds = keep(a.exemptRoleIds, roleHere);
+    // Each rule can carry its own exemptions; they get the same check.
+    const rules = Object.fromEntries(IMPORT_RULE_KEYS.map(key => {
+      const rule = a[key];
+      if (!rule || typeof rule !== "object" || Array.isArray(rule)) return [key, rule];
+      const r = rule as Record<string, unknown>;
+      return [key, {
+        ...r,
+        ...(r.exemptChannelIds !== undefined ? { exemptChannelIds: keep(r.exemptChannelIds, channelHere) } : {}),
+        ...(r.exemptRoleIds !== undefined ? { exemptRoleIds: keep(r.exemptRoleIds, roleHere) } : {}),
+      }];
+    }));
     if (dropped > 0) warnings.push(`Automod: ${dropped} exempt channel(s) or role(s) don't exist in this server and were skipped.`);
     // updateAutomodConfig re-normalises every rule (actions, thresholds, word list caps).
     automod = {
-      words: a.words, links: a.links, mentions: a.mentions, spam: a.spam, caps: a.caps,
-      invites: a.invites, duplicates: a.duplicates, emoji: a.emoji,
+      ...rules,
       ...(a.timeoutMinutes !== undefined ? { timeoutMinutes: a.timeoutMinutes } : {}),
       exemptChannelIds, exemptRoleIds,
     } as Partial<Omit<AutomodConfig, "guildId">>;
