@@ -56,6 +56,9 @@ environment variables or permissions. Requires Node 22 or newer.
 - A bulk-delete log entry was lost entirely when Aegis lacked Attach Files in
   the log channel, because Discord refused the transcript. The entry is now
   posted without the file and says why.
+- `/welcome test` said a text-only welcome or goodbye would fail when Aegis
+  lacked Embed Links in its channel. Embed Links is now only required when the
+  message has an embed.
 
 ## [3.7.2] - 2026-11-04
 

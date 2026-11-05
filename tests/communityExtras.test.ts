@@ -70,3 +70,9 @@ test("winner DMs go out whatever happened to the channel, and closed DMs are cou
   assert.equal(delivered, 2);
   assert.deepEqual(sent, ["1", "2"]);
 });
+
+test("welcome test asks for Embed Links only when the message has an embed", async () => {
+  const { greetingTestPermissions } = await import("../src/services/welcomeTest");
+  assert.deepEqual(greetingTestPermissions(false).map(([, name]) => name), ["View Channel", "Send Messages"]);
+  assert.deepEqual(greetingTestPermissions(true).map(([, name]) => name), ["View Channel", "Send Messages", "Embed Links"]);
+});
