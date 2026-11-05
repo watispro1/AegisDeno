@@ -44,6 +44,9 @@ environment variables or permissions. Requires Node 22 or newer.
 - An allowed link followed by punctuation, such as `(https://youtube.com)` or
   `https://youtube.com.`, is no longer treated as a blocked domain by the link
   filter.
+- The link filter's allowed-domains list could be bypassed with a backslash:
+  `https://evil.example\.youtube.com` opens evil.example in a browser but
+  passed as a youtube.com subdomain. A backslash now ends the hostname.
 
 ## [3.7.2] - 2026-11-04
 

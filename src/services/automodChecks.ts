@@ -28,9 +28,13 @@ const HOST_END = /[()[\]{}'",;!*|`].*$/;
 /** Sentence punctuation left at the end of a link. */
 const TRAILING_PUNCTUATION = /[.:_~]+$/;
 
-/** Hostnames of every http(s) link in the text, lowercased, without "www.". */
+/**
+ * Hostnames of every http(s) link in the text, lowercased, without "www.".
+ * A backslash ends the host the way a slash does, because browsers open
+ * `https://evil.example\.youtube.com` as a link to evil.example.
+ */
 export function linkHosts(content: string): string[] {
-  return [...content.replace(ZERO_WIDTH, "").matchAll(/https?:\/\/([^\s/?#<>]+)/gi)]
+  return [...content.replace(ZERO_WIDTH, "").matchAll(/https?:\/\/([^\s/\\?#<>]+)/gi)]
     .map(m => m[1].toLowerCase()
       .replace(/^[^@]*@/, "")
       .replace(HOST_END, "")

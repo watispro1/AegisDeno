@@ -180,3 +180,10 @@ test("allowed links followed by punctuation stay allowed", () => {
   assert.equal(blockedLinkHost("(https://evil.example)", allowed), "evil.example");
   assert.equal(blockedLinkHost("https://youtube.com.evil.example)", allowed), "youtube.com.evil.example");
 });
+
+test("a backslash ends the hostname, as it does in browsers", () => {
+  const allowed = ["youtube.com"];
+  assert.equal(blockedLinkHost("https://evil.example\\.youtube.com", allowed), "evil.example");
+  assert.equal(blockedLinkHost("https://evil.example\\@youtube.com/x", allowed), "evil.example");
+  assert.equal(blockedLinkHost("https://youtube.com\\watch", allowed), null);
+});
