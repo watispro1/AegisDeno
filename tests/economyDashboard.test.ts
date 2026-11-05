@@ -14,7 +14,8 @@ import { memoryDashboardExtras, type MemberProfile } from "../src/web/dashboard/
 import { memoryEconomy } from "../src/services/economyService";
 import { shopRoleOptions } from "../src/web/dashboard/views/economy";
 import { parseAdjustForm, parseEconomySettings, parseShopItemForm } from "../src/web/dashboard/economyValidation";
-import { DEFAULT_ECONOMY_CONFIG } from "../src/services/economyLogic";
+import { DEFAULT_ECONOMY_CONFIG, ECONOMY_LIMITS, ECONOMY_NUMBER_KEYS } from "../src/services/economyLogic";
+import { economySettingsSummary } from "../src/web/dashboard/routes/economy";
 import type { SiteConfig } from "../src/web/pages";
 
 const USER = "900000000000000001";
@@ -81,7 +82,9 @@ const post = (p: string, form: Record<string, string>, withCsrf = true, base = u
   return fetch(base + p, { method: "POST", redirect: "manual", headers: { Cookie: cookie, "Content-Type": "application/x-www-form-urlencoded" }, body: body.toString() });
 };
 const auditActions = async () => (await audit.list(GUILD, { page: 1, perPage: 100 })).items.map(e => e.action);
+const defaultsForm = () => Object.fromEntries(ECONOMY_NUMBER_KEYS.map(k => [k, String(DEFAULT_ECONOMY_CONFIG[k])]));
 const settingsForm = (over: Record<string, string> = {}) => ({
+  ...defaultsForm(), crimeEnabled: "on",
   currencyName: "gems", currencyEmoji: "💎", dailyAmount: "150", dailyStreakBonus: "5", dailyCooldownHours: "24",
   workMin: "10", workMax: "40", workCooldownMinutes: "60", payConfirmThreshold: "1000", ...over,
 });
@@ -206,4 +209,39 @@ test("form parsers: settings need every field, shop roles need assignable-and-be
   assert.ok(!parseAdjustForm({ userId: MEMBER, action: "give", amount: "1", reason: "r".repeat(201) }).ok);
   const opts = shopRoleOptions([{ id: "1", name: "A", position: 1, assignable: true }, { id: "2", name: "B", position: 9, assignable: false }], "2");
   assert.deepEqual(opts.map(o => [o.value, Boolean(o.disabled)]), [["", false], ["1", false], ["2", true]], "a saved role that can't be sold stays listed but disabled");
+});
+
+test("settings: new knobs render with the bot's bounds, save, and the audit names what changed", async () => {
+  const page = await (await get(`/dashboard/${GUILD}/economy`)).text();
+  for (const key of ECONOMY_NUMBER_KEYS) {
+    const [min, max] = ECONOMY_LIMITS[key];
+    assert.match(page, new RegExp(`name="${key}" min="${min}" max="${max}"`), `${key} uses the bot's bounds`);
+  }
+  assert.match(page, /name="gamblingEnabled"(?![^>]*checked)/, "gambling is off by default");
+  assert.doesNotMatch(page, /<script>|style="/);
+  const bad = await post(`/dashboard/${GUILD}/economy/settings`, settingsForm({ enabled: "on", gamblingEnabled: "on", gambleMinBet: "500", gambleMaxBet: "100", payTaxPercent: "60" }));
+  assert.equal(bad.status, 400);
+  const html = await bad.text();
+  assert.match(html, /Maximum bet must be at least the minimum bet/);
+  assert.match(html, /Pay tax \(%\) must be a whole number from 0 to 50/);
+  assert.equal((await eco.service.config(GUILD)).gamblingEnabled, false);
+  const ok = await post(`/dashboard/${GUILD}/economy/settings`, settingsForm({ enabled: "on", gamblingEnabled: "on", payTaxPercent: "5", bankCap: "25000" }));
+  assert.equal(ok.status, 303);
+  const c = await eco.service.config(GUILD);
+  assert.ok(c.gamblingEnabled && c.payTaxPercent === 5 && c.bankCap === 25000 && c.crimeEnabled);
+  const entries = (await audit.list(GUILD, { page: 1, perPage: 100 })).items.filter(e => e.action === "economy.settings");
+  assert.ok(entries.some(e => /gamblingEnabled false→true/.test(e.summary) && /payTaxPercent 0→5/.test(e.summary)));
+  assert.equal(economySettingsSummary(c, c), "no changes");
+});
+
+test("shop form: per-member limit, role duration and /use are validated and saved", async () => {
+  const bad = await post(`/dashboard/${GUILD}/economy/shop/add`, { name: "Trophy", price: "50", roleDurationHours: "5" });
+  assert.equal(bad.status, 400);
+  assert.match(await bad.text(), /only applies to items that give a role/);
+  const ok = await post(`/dashboard/${GUILD}/economy/shop/add`, { name: "Day pass", price: "50", roleId: LOW_ROLE, roleDurationHours: "24", useToGrant: "on", perUserLimit: "3" });
+  assert.equal(ok.status, 303);
+  const item = (await eco.service.items(GUILD)).find(i => i.name === "Day pass")!;
+  assert.deepEqual([item.roleDurationHours, item.useToGrant, item.perUserLimit], [24, true, 3]);
+  const entries = (await audit.list(GUILD, { page: 1, perPage: 100 })).items.filter(e => e.action === "economy.shop.add");
+  assert.ok(entries.some(e => /for 24h on \/use, 3 per member/.test(e.summary)));
 });

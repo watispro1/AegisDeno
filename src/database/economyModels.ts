@@ -1,4 +1,4 @@
-/** Economy models: per-server settings, balances (with persisted cooldowns), transactions (90-day TTL), shop items and inventories. */
+/** Economy models: per-server settings, wallets and banks (with persisted cooldowns and daily limits), transactions (90-day TTL), shop items and inventories. */
 import mongoose from "mongoose";
 import { TRANSACTION_TTL_DAYS } from "../services/economyLogic";
 
@@ -9,11 +9,29 @@ const EconomyConfigSchema = new mongoose.Schema({
   currencyEmoji: { type: String, maxlength: 64 },
   dailyAmount: Number,
   dailyStreakBonus: Number,
+  dailyStreakCapDays: Number,
   dailyCooldownHours: Number,
+  weeklyAmount: Number,
   workMin: Number,
   workMax: Number,
   workCooldownMinutes: Number,
+  bankCap: Number,
   payConfirmThreshold: Number,
+  payMinMemberHours: Number,
+  payDailyLimit: Number,
+  payTaxPercent: Number,
+  shopSellPercent: Number,
+  crimeEnabled: Boolean,
+  crimeSuccessPercent: Number,
+  crimeMin: Number,
+  crimeMax: Number,
+  crimeFine: Number,
+  crimeCooldownMinutes: Number,
+  gamblingEnabled: Boolean,
+  gambleMinBet: Number,
+  gambleMaxBet: Number,
+  gambleDailyLossCap: Number,
+  gambleCooldownSeconds: Number,
   updatedAt: { type: Date, default: Date.now },
 });
 export const EconomyConfigModel = mongoose.model("EconomyConfig", EconomyConfigSchema);
@@ -25,9 +43,18 @@ const EconomyAccountSchema = new mongoose.Schema({
   lastDaily: { type: Date, default: null },
   dailyStreak: { type: Number, default: 0 },
   lastWork: { type: Date, default: null },
+  bank: { type: Number, default: 0, min: 0 },
+  lastWeekly: { type: Date, default: null },
+  lastCrime: { type: Date, default: null },
+  lastGamble: { type: Date, default: null },
+  gambleDay: { type: String, default: null },
+  gambleLoss: { type: Number, default: 0 },
+  payDay: { type: String, default: null },
+  payTotal: { type: Number, default: 0 },
 });
 EconomyAccountSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 EconomyAccountSchema.index({ guildId: 1, balance: -1, userId: 1 });
+EconomyAccountSchema.index({ guildId: 1, bank: -1, userId: 1 });
 export const EconomyAccountModel = mongoose.model("EconomyAccount", EconomyAccountSchema);
 
 const EconomyTransactionSchema = new mongoose.Schema({
@@ -54,6 +81,9 @@ const ShopItemSchema = new mongoose.Schema({
   price: { type: Number, required: true, min: 1 },
   roleId: { type: String, default: null },
   stock: { type: Number, default: null },
+  perUserLimit: { type: Number, default: null },
+  roleDurationHours: { type: Number, default: null },
+  useToGrant: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 });
 ShopItemSchema.index({ guildId: 1, nameKey: 1 }, { unique: true });
@@ -66,6 +96,8 @@ const InventorySchema = new mongoose.Schema({
   name: { type: String, required: true },
   roleId: { type: String, default: null },
   quantity: { type: Number, default: 0 },
+  /** Units ever bought, for per-member purchase limits (use and sale don't lower it). */
+  bought: { type: Number, default: 0 },
 });
 InventorySchema.index({ guildId: 1, userId: 1, itemId: 1 }, { unique: true });
 export const InventoryModel = mongoose.model("EconomyInventory", InventorySchema);

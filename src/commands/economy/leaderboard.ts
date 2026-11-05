@@ -7,6 +7,7 @@ import { economy } from "../../services/economyService";
 import { economyGate, NO_PINGS } from "../../services/economyDiscord";
 import { formatCoins, type EconomyConfig } from "../../services/economyLogic";
 import { pageInfo } from "../../services/casePaging";
+import type { LeaderboardRow, LeaderboardSort } from "../../services/economyStore";
 import { guardCollect } from "../../utils/collectorGuard";
 import { COLORS, footer } from "../../utils/embedStyle";
 
@@ -14,20 +15,25 @@ export const LEADERBOARD_PAGE_SIZE = 10;
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 /** Leaderboard lines. Mentions render as names but never ping (allowedMentions is empty). */
-export function leaderboardLines(rows: Array<{ userId: string; balance: number }>, offset: number, cfg: EconomyConfig, viewerId: string): string[] {
+export function leaderboardLines(rows: LeaderboardRow[], offset: number, cfg: EconomyConfig, viewerId: string, sort: LeaderboardSort = "total"): string[] {
   return rows.map((r, i) => {
     const rank = offset + i + 1;
     const badge = MEDALS[rank - 1] ?? `**${rank}.**`;
-    return `${badge} <@${r.userId}> · ${formatCoins(cfg, r.balance)}${r.userId === viewerId ? " ← you" : ""}`;
+    const value = sort === "wallet" ? r.balance : sort === "bank" ? r.bank : r.total;
+    return `${badge} <@${r.userId}> · ${formatCoins(cfg, value)}${r.userId === viewerId ? " ← you" : ""}`;
   });
 }
+
+const SORT_LABEL: Record<LeaderboardSort, string> = { total: "wallet + bank", wallet: "wallet", bank: "bank" };
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("leaderboard")
     .setDescription("The richest members in this server's economy.")
     .setContexts(InteractionContextType.Guild)
-    .addIntegerOption(o => o.setName("page").setDescription("Page to open (default 1)").setMinValue(1).setMaxValue(1000)),
+    .addIntegerOption(o => o.setName("page").setDescription("Page to open (default 1)").setMinValue(1).setMaxValue(1000))
+    .addStringOption(o => o.setName("sort").setDescription("Rank by (default: wallet + bank)")
+      .addChoices({ name: "Wallet + bank", value: "total" }, { name: "Wallet", value: "wallet" }, { name: "Bank", value: "bank" })),
   category: "economy",
   guildOnly: true,
   async execute(interaction: ChatInputCommandInteraction) {
@@ -37,18 +43,20 @@ export const command: Command = {
     const prevId = `lb_prev_${interaction.id}`;
     const nextId = `lb_next_${interaction.id}`;
     let page = (interaction.options.getInteger("page") ?? 1) - 1;
+    const sortRaw = interaction.options.getString("sort");
+    const sort: LeaderboardSort = sortRaw === "wallet" || sortRaw === "bank" ? sortRaw : "total";
 
     const render = async (requested: number) => {
-      let result = await economy().leaderboard(guildId, Math.max(0, requested) + 1, LEADERBOARD_PAGE_SIZE);
+      let result = await economy().leaderboard(guildId, Math.max(0, requested) + 1, LEADERBOARD_PAGE_SIZE, sort);
       const info = pageInfo(result.total, requested, LEADERBOARD_PAGE_SIZE);
-      if (info.page !== Math.max(0, requested)) result = await economy().leaderboard(guildId, info.page + 1, LEADERBOARD_PAGE_SIZE);
+      if (info.page !== Math.max(0, requested)) result = await economy().leaderboard(guildId, info.page + 1, LEADERBOARD_PAGE_SIZE, sort);
       const { rows, total } = result;
       page = info.page;
       const embed = new EmbedBuilder()
         .setColor(COLORS.brand)
         .setTitle(`🏆 ${interaction.guild?.name ?? "Server"} leaderboard`)
-        .setDescription(rows.length ? leaderboardLines(rows, info.start, cfg, interaction.user.id).join("\n") : "Nobody has any coins yet. Start with `/daily`.")
-        .setFooter(footer(`Page ${info.page + 1} of ${info.totalPages} · ${total.toLocaleString("en-US")} member${total === 1 ? "" : "s"}`));
+        .setDescription(rows.length ? leaderboardLines(rows, info.start, cfg, interaction.user.id, sort).join("\n") : "Nobody has any coins yet. Start with `/daily`.")
+        .setFooter(footer(`By ${SORT_LABEL[sort]} · Page ${info.page + 1} of ${info.totalPages} · ${total.toLocaleString("en-US")} member${total === 1 ? "" : "s"}`));
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId(prevId).setLabel("Prev").setEmoji("◀️").setStyle(ButtonStyle.Secondary).setDisabled(!info.hasPrev),
         new ButtonBuilder().setCustomId(nextId).setLabel("Next").setEmoji("▶️").setStyle(ButtonStyle.Secondary).setDisabled(!info.hasNext),
