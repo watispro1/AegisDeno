@@ -91,7 +91,9 @@ dropdown (`/rolepanel`), auto-responders, a starboard, giveaways with booster
 bonus entries, button polls that close on a timer, suggestions with
 Approve/Deny/Consider, welcome messages, personal reminders that can repeat
 (`/remindme`) and scheduled channel posts (`/automation`). Timed actions are
-stored in MongoDB and restored after a restart.
+stored in MongoDB and restored after a restart. Starboard posts, ModMail relays
+and ticket transcripts leave out media Discord flags as explicit, gore or
+self-harm unless the channel is age-restricted (`/config media-safety`).
 
 **Web dashboard.** At [`/dashboard`](https://aegisdeno.fly.dev/dashboard),
 people with Manage Server or Administrator log in with Discord (`identify` and

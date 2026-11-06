@@ -36,6 +36,13 @@ Gambling stays off until a manager turns it on.
   have a per-member limit. `/shop sell` buys items back at 50% by default.
 - `/economy risk` holds the crime and gambling settings. `/economy config`
   gains weekly, bank, pay and sell-back settings.
+- Flagged media guard, on by default: media Discord flags as explicit, gore or
+  self-harm is left out of starboard posts, ModMail relays and ticket
+  transcripts in channels that are not age-restricted, with a note saying why.
+  `/config media-safety` turns it off or switches to spoilered links.
+- When Discord flags a starred message's media after it reached the
+  starboard, the starboard post is edited to remove it (or deleted if the edit
+  fails). A starboard post Discord flags itself loses its image too.
 
 ### Changed
 - `/pay` needs 24 hours in the server by default, has a daily sending limit
@@ -47,6 +54,8 @@ Gambling stays off until a manager turns it on.
   are case-sensitive. The server's vanity link still passes in any case.
 - The AutoMod button on `/dashboard` shortens long exempt role and channel
   lists ("and N more") so it always fits in one message.
+- `/config view`, `/config overview` and `/diagnostics` show the flagged media
+  setting.
 
 ### Fixed
 - `/softban` stops with a clear message when Discord can't confirm whether the

@@ -197,6 +197,7 @@ export function renderDocs(cfg: SiteConfig): string {
 /starboard selfstar allowed:false
 /starboard ignore action:add channel:#staff
 /starboard top period:Past 7 days`)}
+      <p>Images Discord flags as explicit, gore or self-harm are left off starboard posts, ModMail relays and ticket transcripts unless the channel is age-restricted; a note says what was hidden. If Discord flags an image after it reached the starboard, Aegis edits the post to remove it. <code>/config media-safety</code> (or the dashboard's Starboard page) turns this off or shows a spoilered link instead. Spoiler mode treats all three kinds the same. Files sent with a slash command option, and deleted messages Aegis had not cached, carry no flags, so they are not checked.</p>
       ${docHeading("polls-giveaways", "Polls and giveaways", 3)}
       ${cmdBlock(`/giveaway start prize:Nitro duration:24h winners:1 booster_multiplier:2
 /giveaway reroll message_id:123456789012345678
