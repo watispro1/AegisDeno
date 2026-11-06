@@ -101,7 +101,7 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
     "/automod timeout minutes:30",
   ],
   logging: ["/logging channel channel:#mod-log", "/logging test"],
-  config: ["/config overview", "/config view", "/config logging channel:#mod-log enabled:true"],
+  config: ["/config overview", "/config view", "/config logging channel:#mod-log enabled:true", "/config media-safety enabled:true mode:Placeholder"],
   preset: ["/preset view type:Gaming Hub", "/preset apply type:Standard Community"],
   ticket: [
     "/ticket setup channel:#support staff_role:@Staff",

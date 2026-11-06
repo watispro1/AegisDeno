@@ -159,3 +159,12 @@ export function channelIsNsfw(channel: unknown): boolean {
 export function mediaUrlKey(url: string | null | undefined): string {
   return (url ?? "").split(/[?#]/)[0];
 }
+
+/** One line describing the setting, for /config, /diagnostics and the overview. */
+export function mediaSafetySummary(config: MediaSafetyConfig | null | undefined): string {
+  const c = normalizeMediaSafety(config);
+  if (!c.enabled) return "Off: media Discord flagged is reposted as is";
+  return c.mode === "spoiler"
+    ? "On: flagged media is reposted only as a spoilered link outside age-restricted channels"
+    : "On: flagged media is replaced with a note outside age-restricted channels";
+}

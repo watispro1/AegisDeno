@@ -13,6 +13,7 @@ import { getTicketSettings } from "../../services/ticketSettings";
 import { normalizeTrustConfig } from "../../services/trustEngine";
 import { normalizeModuleSwitches } from "../../services/guildConfigNormalize";
 import { invitePermissionReport } from "../config/diagnostics";
+import { mediaSafetySummary, normalizeMediaSafety } from "../../services/mediaSafety";
 import { permissionName } from "../../utils/embedStyle";
 
 export type ModuleState = "on" | "off" | "attention";
@@ -56,6 +57,7 @@ export function moduleLines(o: OverviewInput): ModuleLine[] {
     { name: "Giveaways", state: switches.giveaways ? "on" : "off", detail: switches.giveaways ? "On" : "Switched off" },
     { name: "Scheduled messages", state: switches.scheduled ? "on" : "off", detail: switches.scheduled ? "On" : "Switched off" },
     { name: "Ban appeals", state: switches.appeals ? "on" : "off", detail: switches.appeals ? "On" : "Switched off" },
+    { name: "Flagged media", state: normalizeMediaSafety(g.mediaSafety).enabled ? "on" : "off", detail: mediaSafetySummary(g.mediaSafety), fix: "`/config media-safety`" },
   ];
 }
 
