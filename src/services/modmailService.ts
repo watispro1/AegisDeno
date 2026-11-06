@@ -22,6 +22,7 @@ import { firstDmFrom, sendDmHelp } from "./entryPoint";
 import { shouldDmHelp } from "./entryPointLogic";
 import { logger } from "../utils/logger";
 import { softFail } from "../utils/softFail";
+import { attachmentFlagReasons, channelIsNsfw, guardModeFor } from "./mediaSafety";
 
 /** 5 DMs per 10 s per member, and 3 new tickets per hour. */
 const dmLimiter = new SlidingLimiter(5, 10_000);
@@ -34,7 +35,10 @@ const threadOwners = new TtlCache<{ guildId: string; userId: string } | null>(60
 export interface TicketDoc { _id: unknown; guildId: string; userId: string; threadId: string; status: string; createdAt: Date; lines?: TranscriptLine[] }
 
 function attachmentsOf(message: Pick<Message, "attachments">): RelayAttachment[] {
-  return [...message.attachments.values()].map(a => ({ name: a.name ?? "file", url: a.url, size: a.size }));
+  return [...message.attachments.values()].map(a => {
+    const reasons = attachmentFlagReasons(a);
+    return { name: a.name ?? "file", url: a.url, size: a.size, ...(reasons.length ? { reasons } : {}) };
+  });
 }
 
 async function pushLine(ticketId: unknown, line: TranscriptLine): Promise<void> {
@@ -149,14 +153,17 @@ async function relayFromMember(client: Client, ticket: TicketDoc, user: User, co
   if (!threadId) return false;
   const thread = await client.channels.fetch(threadId).catch(() => null);
   if (!thread?.isThread()) return false;
+  // Flagged attachments stay out of the staff thread unless its channel is age-restricted.
+  const guard = guardModeFor((await getGuildConfig(ticket.guildId)).mediaSafety, channelIsNsfw(thread));
+  const body = relayBody(content, atts, guard);
   const embed = new EmbedBuilder()
     .setColor(0x57f287)
     .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
-    .setDescription(relayBody(content, atts))
+    .setDescription(body)
     .setFooter({ text: "Member" })
     .setTimestamp();
   await thread.send({ embeds: [embed], allowedMentions: RELAY_MENTIONS });
-  await pushLine(ticket._id, { authorId: user.id, authorTag: user.tag.slice(0, 64), fromStaff: false, anonymous: false, content: relayBody(content, atts), at: new Date() });
+  await pushLine(ticket._id, { authorId: user.id, authorTag: user.tag.slice(0, 64), fromStaff: false, anonymous: false, content: body, at: new Date() });
   return true;
 }
 
@@ -245,7 +252,8 @@ export async function staffReply(client: Client, o: {
   if (!ticket || ticket.guildId !== o.guild.id) return { ok: false, error: "This isn't an open ModMail thread. Run it inside the ticket's thread." };
   const user = await client.users.fetch(ticket.userId).catch(() => null);
   if (!user) return { ok: false, error: "Discord couldn't find that member any more." };
-  const body = relayBody(o.content, o.attachments ?? []);
+  // A DM is never age-restricted, so flagged attachments are always guarded on the way to the member.
+  const body = relayBody(o.content, o.attachments ?? [], guardModeFor((await getGuildConfig(o.guild.id)).mediaSafety, false));
   const signature = staffSignature({ anonymous: o.anonymous, staffTag: o.staff.tag, guildName: o.guild.name });
   const dm = new EmbedBuilder().setColor(0x5865f2).setAuthor({ name: signature.slice(0, 256) }).setDescription(body).setTimestamp();
   const sent = await user.send({ embeds: [dm], allowedMentions: RELAY_MENTIONS }).catch(softFail(`Modmail reply DM to ${user.id}`, "debug"));

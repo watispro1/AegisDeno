@@ -9,6 +9,7 @@ import { normalizeIncidentConfig, type IncidentConfig } from "./incidentLogic";
 import { normalizeTrustConfig, type TrustConfig } from "./trustEngine";
 import { normalizeModmailConfig, type ModmailConfig } from "./modmailLogic";
 import { normalizeDigestConfig, type DigestConfig } from "./digestLogic";
+import { normalizeMediaSafety, type MediaSafetyConfig } from "./mediaSafety";
 /** Per-guild ticket settings (set with /ticket settings or the dashboard). */
 export interface TicketSettings {
   /** Channel that receives HTML transcripts when a ticket closes. */
@@ -71,6 +72,8 @@ export interface GuildConfig {
   modmail?: ModmailConfig;
   /** Weekly staff digest. Off by default. */
   digest?: DigestConfig;
+  /** What reposts do with media Discord flagged as explicit, gore or self-harm. On by default. */
+  mediaSafety?: MediaSafetyConfig;
 }
 
 /** Modules a server can switch off as a whole. The bot refuses new use of an off module. */
@@ -131,6 +134,7 @@ const DEFAULT_CONFIG: Omit<GuildConfig, "guildId"> = {
   trust: normalizeTrustConfig(undefined),
   modmail: normalizeModmailConfig(undefined),
   digest: normalizeDigestConfig(undefined),
+  mediaSafety: normalizeMediaSafety(undefined),
 };
 
 export const GOODBYE_MESSAGE_MAX = 1000;
@@ -250,6 +254,7 @@ export function normalizeGuildConfig(guildId: string, source?: StoredGuildConfig
     trust: normalizeTrustConfig(config.trust),
     modmail: normalizeModmailConfig(config.modmail),
     digest: normalizeDigestConfig(config.digest),
+    mediaSafety: normalizeMediaSafety(config.mediaSafety),
   };
 }
 
@@ -271,6 +276,7 @@ export function guildConfigSetPaths(update: GuildConfigUpdate): Record<string, u
     trust: normalizeTrustConfig,
     modmail: normalizeModmailConfig,
     digest: normalizeDigestConfig,
+    mediaSafety: normalizeMediaSafety,
   };
   // Nested settings are normalised on the way in: their schema paths are typed.
   const nested: Record<string, Record<string, (value: unknown) => unknown>> = {

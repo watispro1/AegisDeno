@@ -4,6 +4,8 @@
  * The Discord side lives in modmailService.ts.
  */
 import { normalizeEmbedSpec, type EmbedSpec } from "./embedSpec";
+import type { MediaFlagReason, MediaSafetyMode } from "./mediaSafety";
+import { guardedRelayLine } from "./mediaSafetyRepost";
 
 const SNOWFLAKE = /^\d{17,20}$/;
 
@@ -114,22 +116,27 @@ export class SlidingLimiter {
 
 /* Relaying */
 
-export interface RelayAttachment { name: string; url: string; size: number }
+/** `reasons` lists Discord's content-scanning flags on the attachment, when it has any. */
+export interface RelayAttachment { name: string; url: string; size: number; reasons?: MediaFlagReason[] }
 
-/** Attachment lines for a relay: links up to the size cap, a note for anything larger. */
-export function attachmentLines(atts: readonly RelayAttachment[], maxBytes = MODMAIL_ATTACHMENT_MAX_BYTES): string[] {
+/**
+ * Attachment lines for a relay: links up to the size cap, a note for anything
+ * larger. With a media-safety mode, a flagged attachment gets a placeholder
+ * (or a spoilered link in spoiler mode) instead of its link.
+ */
+export function attachmentLines(atts: readonly RelayAttachment[], maxBytes = MODMAIL_ATTACHMENT_MAX_BYTES, guard: MediaSafetyMode | null = null): string[] {
   return atts.slice(0, 10).map(a => {
     const name = a.name.replace(/[\[\]()\n`]/g, "_").slice(0, 80) || "file";
     if (a.size > maxBytes) return `📎 ${name} (${(a.size / 1048576).toFixed(1)} MB, too large to relay)`;
     if (!/^https:\/\/(cdn|media)\.discordapp\.(com|net)\//.test(a.url)) return `📎 ${name} (not relayed: unexpected link)`;
-    return `📎 [${name}](${a.url})`;
+    return guardedRelayLine({ ...a, name }, guard) ?? `📎 [${name}](${a.url})`;
   });
 }
 
 /** The relayed text: trimmed, capped, with attachment links underneath. */
-export function relayBody(content: string, atts: readonly RelayAttachment[]): string {
+export function relayBody(content: string, atts: readonly RelayAttachment[], guard: MediaSafetyMode | null = null): string {
   const text = content.trim().slice(0, MODMAIL_REPLY_MAX);
-  const lines = attachmentLines(atts);
+  const lines = attachmentLines(atts, MODMAIL_ATTACHMENT_MAX_BYTES, guard);
   return [text, ...lines].filter(Boolean).join("\n").slice(0, 4000) || "*(empty message)*";
 }
 

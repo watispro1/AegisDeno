@@ -9,6 +9,7 @@ import {
 import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 import { runConfigOverview } from "../shared/configOverview";
+import { mediaSafetySummary, normalizeMediaSafety } from "../../services/mediaSafety";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -77,6 +78,24 @@ export const command: Command = {
             )
         )
     )
+    .addSubcommand(sub =>
+      sub
+        .setName("media-safety")
+        .setDescription("What reposts (starboard, ModMail, transcripts) do with media Discord flags as unsafe.")
+        .addBooleanOption(opt =>
+          opt.setName("enabled").setDescription("Keep flagged media out of reposts in channels that are not age-restricted").setRequired(false)
+        )
+        .addStringOption(opt =>
+          opt
+            .setName("mode")
+            .setDescription("Replace flagged media with a note, or keep a link behind a spoiler")
+            .setRequired(false)
+            .addChoices(
+              { name: "Placeholder — a note, no link", value: "placeholder" },
+              { name: "Spoiler — a spoilered link", value: "spoiler" },
+            )
+        )
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   guildOnly: true,
@@ -134,6 +153,11 @@ export const command: Command = {
               value: `\`${config.language || "en"}\``,
               inline: true,
             },
+            {
+              name: "🛡️ Flagged media",
+              value: mediaSafetySummary(config.mediaSafety),
+              inline: false,
+            },
           )
           .setFooter({ text: "Use /config <subcommand> to update individual settings." })
           .setTimestamp();
@@ -183,6 +207,20 @@ export const command: Command = {
         const channel = interaction.options.getChannel("channel", true);
         await updateGuildConfig(guildId, { suggestionsChannelId: channel.id });
         await interaction.editReply(`✅ **Suggestions** will now be posted to <#${channel.id}>.`);
+        return;
+      }
+
+      if (sub === "media-safety") {
+        const enabled = interaction.options.getBoolean("enabled");
+        const mode = interaction.options.getString("mode");
+        const current = normalizeMediaSafety(config.mediaSafety);
+        if (enabled === null && mode === null) {
+          await interaction.editReply(`🛡️ **Flagged media:** ${mediaSafetySummary(current)}.\nChange it with the \`enabled\` or \`mode\` option.`);
+          return;
+        }
+        const next = normalizeMediaSafety({ enabled: enabled ?? current.enabled, mode: mode ?? current.mode });
+        await updateGuildConfig(guildId, { mediaSafety: next });
+        await interaction.editReply(`✅ **Flagged media:** ${mediaSafetySummary(next)}.`);
         return;
       }
 
