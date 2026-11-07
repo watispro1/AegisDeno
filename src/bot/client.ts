@@ -41,6 +41,7 @@ import { isObfuscatedChannel } from "../utils/channels";
 import { DEFAULT_ALLOWED_MENTIONS } from "./mentions";
 import { isContentEdit } from "./eventFilters";
 import { codeBlock } from "../utils/safeText";
+import { shouldLogMessageDelete, isDuplicateEvent } from "../services/deletedMessages";
 import { incidentService, joinActionable } from "../services/incidentDiscord";
 import { recordMemberFlow } from "../services/memberFlow";
 import { handleModmailDM, relayPrefixedStaffMessage } from "../services/modmailService";
@@ -187,7 +188,7 @@ export function setupEvents(client: Client): void {
 
   // Automod & Autoresponder (new messages)
   client.on(Events.MessageCreate, async (message) => {
-    if (message.author.bot) return;
+    if (message.author.bot || isDuplicateEvent("msg_create", message.id)) return;
     if (!message.guildId) {
       // ModMail: a DM to Aegis. Errors never reach the member as a crash.
       await handleModmailDM(client, message).catch(err => logger.warn("ModMail DM error:", err));
@@ -234,6 +235,8 @@ export function setupEvents(client: Client): void {
     // message is pinned. Only a real content change counts as an edit; before
     // this, a link preview re-ran automod and sent a Ghost Watch "edited" alert.
     if (!isContentEdit(oldMessage, newMessage)) return;
+    const editKey = `${newMessage.id}:${newMessage.editedTimestamp ?? ""}:${newMessage.content ?? ""}`;
+    if (isDuplicateEvent("msg_edit_automod", editKey)) return;
     // Fetch partial to get full content
     const msg = newMessage.partial ? await newMessage.fetch().catch(() => null) : newMessage;
     if (!msg || msg.author?.bot) return;
@@ -250,6 +253,7 @@ export function setupEvents(client: Client): void {
   // Message Delete Logging
   client.on(Events.MessageDelete, async (message) => {
     if (!message.guildId || message.author?.bot) return;
+    if (!shouldLogMessageDelete(message.id)) return;
 
     if (message.author) {
       watchlistOnMessageDelete(client, message as Message).catch(err =>
@@ -270,6 +274,7 @@ export function setupEvents(client: Client): void {
 
   // Member Join
   client.on(Events.GuildMemberAdd, async (member: GuildMember) => {
+    if (isDuplicateEvent("member_join", `${member.guild.id}:${member.id}`, 30_000)) return;
     recordMemberFlow(member.guild.id, "join").catch(() => undefined);
     // Incident Mode first: a gated join gets no welcome or auto-role, and the
     // join counts toward the optional join-burst auto-trigger.
@@ -350,6 +355,7 @@ export function setupEvents(client: Client): void {
 
   // Member Leave
   client.on(Events.GuildMemberRemove, async (member) => {
+    if (isDuplicateEvent("member_leave", `${member.guild.id}:${member.id}`, 30_000)) return;
     recordMemberFlow(member.guild.id, "leave").catch(() => undefined);
     const user = member.user;
     const tag = user?.tag ?? "Unknown User";

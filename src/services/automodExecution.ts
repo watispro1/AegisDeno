@@ -1,6 +1,7 @@
 import { getMemberTrust, getTrustConfig, subjectFromMember } from "./trustService";
 import { linkFilterApplies, type TrustConfig } from "./trustEngine";
 import { noteIncidentDeletes } from "./incidentHooks";
+import { markMessageDeletedByBot } from "./deletedMessages";
 import { Client, Message, GuildMember, PermissionFlagsBits } from "discord.js";
 import { codeBlock } from "../utils/safeText";
 import { getAutomodConfig, type AutomodRule } from "./automod";
@@ -239,6 +240,7 @@ async function enforceAutomod(
 
   // Delete the message for all enforcement actions
   if (action === "delete" || action === "warn" || action === "timeout") {
+    markMessageDeletedByBot(message.id);
     const deleted = await message.delete().then(() => true).catch(err => {
       logger.warn(`Automod: failed to delete message ${message.id} in guild ${message.guildId}`, err);
       return false;
