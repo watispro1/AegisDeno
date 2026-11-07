@@ -14,8 +14,11 @@ export function commandRegistrationData(): RESTPostAPIChatInputApplicationComman
     // The CommandData union also covers subcommand builders, which are never
     // registered on their own; every loaded command is a top-level chat input.
     const data = command.data.toJSON() as RESTPostAPIChatInputApplicationCommandsJSONBody;
-    if (command.guildOnly && !data.contexts) {
-      data.contexts = [InteractionContextType.Guild];
+    if (command.guildOnly) {
+      if (!data.contexts) {
+        data.contexts = [InteractionContextType.Guild];
+      }
+      data.dm_permission = false;
     }
     return data;
   });

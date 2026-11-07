@@ -1,5 +1,6 @@
 import { guardCollect } from "../../utils/collectorGuard";
 import { noteIncidentDeletes } from "../../services/incidentHooks";
+import { markMessageDeletedByBot } from "../../services/deletedMessages";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -230,7 +231,7 @@ export const command: Command = {
 
         await i.deferUpdate();
         const outcome = await runPurge(toDelete, {
-          deleteOne: (m) => m.delete(),
+          deleteOne: (m) => { markMessageDeletedByBot(m.id); return m.delete(); },
           bulkDelete: async (batch) => (await channel.bulkDelete(batch, true)).keys(),
           onBatchError: (err, size) => logger.warn(`Purge batch of ${size} failed in channel ${channel.id} guild ${guildId}`, err),
         });

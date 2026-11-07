@@ -28,9 +28,13 @@ export const cssChrome = String.raw`/* ── Header ─────────
 .nav-actions { display: flex; align-items: center; gap: .25rem; margin-left: auto; }
 .nav-actions .btn { margin-left: .5rem; }
 .nav-toggle { display: none; }
-.theme-toggle .icon-moon { display: none; }
-[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
-[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+.theme-toggle .icon-moon, .theme-toggle .icon-sun, .theme-toggle .icon-system { display: none; }
+[data-theme-setting="system"] .theme-toggle .icon-system { display: block; }
+[data-theme-setting="light"] .theme-toggle .icon-sun { display: block; }
+[data-theme-setting="dark"] .theme-toggle .icon-moon { display: block; }
+:not([data-theme-setting]) .theme-toggle .icon-sun { display: block; }
+:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
 
 @media (max-width: 860px) {
   .nav-toggle { display: inline-flex; }

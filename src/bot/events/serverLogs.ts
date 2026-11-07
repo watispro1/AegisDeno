@@ -30,6 +30,7 @@ import {
 import { isContentEdit } from "../eventFilters";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { logger } from "../../utils/logger";
+import { isDuplicateEvent } from "../../services/deletedMessages";
 
 function snapshot(channel: GuildChannel | GuildBasedChannel): ChannelSnapshot {
   const c = channel as GuildChannel & { topic?: string | null; nsfw?: boolean; rateLimitPerUser?: number };
@@ -53,6 +54,8 @@ export function registerServerLogs(client: Client): void {
     if (!msg || msg.author?.bot || !msg.author) return;
     if (newMessage.partial && !isContentEdit(oldMessage, msg)) return;
     if (msg.channel && isObfuscatedChannel(msg.channel)) return;
+    const editKey = `${msg.id}:${msg.editedTimestamp ?? ""}:${msg.content ?? ""}`;
+    if (isDuplicateEvent("log_edit", editKey)) return;
     await sendGuildLog(client, msg.guildId!, editLogEmbed({
       authorTag: msg.author.tag,
       authorId: msg.author.id,

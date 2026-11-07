@@ -10,12 +10,25 @@ page.
 
 ## [1.3.0] - 2026-11-05
 
-Dashboard 1.3.0. Every new economy setting, shop item limits and a wallet,
-bank and total leaderboard, plus privacy fixes for polls and settings import.
-Released alongside bot version 3.8.0. No new environment variables or OAuth
-scopes.
+Dashboard 1.3.0. Grouped folding sidebar, header server switcher, System/Light/Dark
+theme selector, bot latency card, caching and database indexes, every new economy
+setting, shop item limits and a wallet, bank and total leaderboard, plus privacy fixes
+for polls and settings import. Released alongside bot version 3.8.0. No new environment
+variables or OAuth scopes.
 
 ### Added
+- Grouped folding sidebar navigation: sections collapse and expand, with the active
+  group kept open and preferences remembered across visits.
+- Server switcher in the top bar to hop between manageable servers without
+  returning to the server list.
+- System, Light, and Dark theme picker: syncs automatically with OS appearance or
+  remembers a chosen mode.
+- Bot websocket latency card on the server overview page when connected.
+- Short-lived caching layer for channels, roles, and member permissions to speed up
+  navigation and reduce Discord API requests.
+- Compound database indexes on dashboard audit logs for fast filtering by action and user.
+- Human-readable activity log labels for incident mode, modmail, trust score, staff notes,
+  and module changes.
 - The Economy page has every new setting with the same limits as the bot:
   weekly rewards, bank limit, pay rules, sell-back rate, crime and gambling.
 - Shop items can have a per-member limit and give a role for a set number of
@@ -25,6 +38,7 @@ scopes.
   changes go to the activity log.
 
 ### Changed
+- Mobile navigation drawer features a backdrop overlay and close button.
 - The economy leaderboard shows wallet, bank and total, and member cards show
   the bank.
 - Economy settings changes are listed in the activity log as old and new

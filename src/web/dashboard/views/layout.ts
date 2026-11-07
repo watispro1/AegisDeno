@@ -1,4 +1,4 @@
-import { layout } from "../../layout";
+import { layout, sunIcon, moonIcon, systemIcon } from "../../layout";
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
@@ -99,11 +99,10 @@ function iconOrInitial(url: string | null | undefined, name: string, cls: string
     : `<span class="${cls}" aria-hidden="true">${initial(name)}</span>`;
 }
 
-function sidebar(ctx: GuildContext, active: GuildSection): string {
+export function serverSwitcher(ctx: GuildContext, cls = "switcher"): string {
   const g = ctx.guild;
-  const base = `/dashboard/${esc(g.id)}`;
   const others = (ctx.servers ?? []).filter(s => s.id !== g.id).slice(0, 50);
-  const switcher = `<details class="switcher" data-menu>
+  return `<details class="${cls}" data-menu>
       <summary class="switcher-current" aria-label="Switch server, current: ${esc(g.name)}">
         ${iconOrInitial(g.iconUrl, g.name, "g-icon")}
         <span class="g-name">${esc(g.name)}</span>
@@ -114,13 +113,29 @@ function sidebar(ctx: GuildContext, active: GuildSection): string {
         <li class="switcher-all"><a href="/dashboard">All servers</a></li>
       </ul>
     </details>`;
-  const groups = MODULE_NAV.map(grp => `<li class="nav-group"><span class="nav-group-title">${esc(grp.group)}</span><ul>
-      ${grp.items.map(i => `<li><a class="side-link" href="${base}${i.href}"${i.key === active ? ' aria-current="page"' : ""}><span class="side-icon" aria-hidden="true">${i.icon}</span>${esc(i.label)}</a></li>`).join("")}
-    </ul></li>`).join("");
+}
+
+function sidebar(ctx: GuildContext, active: GuildSection): string {
+  const g = ctx.guild;
+  const base = `/dashboard/${esc(g.id)}`;
+  const groups = MODULE_NAV.map(grp => {
+    const hasActive = grp.items.some(i => i.key === active);
+    return `<li class="nav-group"><details class="nav-group-details" open data-nav-group="${esc(grp.group)}"${hasActive ? ' data-active-group=""' : ""}>
+      <summary class="nav-group-title"><span>${esc(grp.group)}</span><span class="nav-caret" aria-hidden="true">▾</span></summary>
+      <ul class="nav-group-items">
+        ${grp.items.map(i => `<li><a class="side-link" href="${base}${i.href}"${i.key === active ? ' aria-current="page"' : ""}><span class="side-icon" aria-hidden="true">${i.icon}</span>${esc(i.label)}</a></li>`).join("")}
+      </ul>
+    </details></li>`;
+  }).join("");
+
   return `<aside class="app-side" id="dash-sidebar" data-drawer aria-label="Server menu">
-    ${switcher}
+    <div class="side-head">
+      <div class="side-brand">${iconOrInitial(g.iconUrl, g.name, "g-icon")}<span class="side-brand-name">${esc(g.name)}</span></div>
+      <button class="drawer-close" type="button" data-drawer-close aria-label="Close menu">✕</button>
+    </div>
     <nav aria-label="Modules"><ul class="side-nav">${groups}</ul></nav>
-  </aside>`;
+  </aside>
+  <div class="drawer-backdrop" data-drawer-close aria-hidden="true"></div>`;
 }
 
 function userMenu(viewer: Viewer): string {
@@ -130,6 +145,12 @@ function userMenu(viewer: Viewer): string {
       <div class="user-panel">
         <p>Signed in as <strong>${esc(shown)}</strong> <span class="faint">(${esc(viewer.username)})</span></p>
         <p><a href="/dashboard">Your servers</a> · <a href="/dashboard/changelog">What's new</a></p>
+        <div class="user-theme-picker">
+          <span class="faint">Theme:</span>
+          <button class="btn ghost xs" type="button" data-set-theme="system">System</button>
+          <button class="btn ghost xs" type="button" data-set-theme="light">Light</button>
+          <button class="btn ghost xs" type="button" data-set-theme="dark">Dark</button>
+        </div>
         <form method="post" action="/dashboard/logout">
           ${csrfField(viewer)}
           <button class="btn ghost sm" type="submit">Log out</button>
@@ -181,13 +202,16 @@ export function shell(cfg: SiteConfig, o: { title: string; path: string; body: s
     <div class="app-main">
       <div class="app-top">
         <button class="btn ghost sm drawer-toggle" type="button" aria-controls="dash-sidebar" aria-expanded="false" data-drawer-toggle>☰ <span>Menu</span></button>
-        <span class="app-top-title">${esc(o.guild.guild.name)}</span>
+        <div class="app-top-switcher">${serverSwitcher(o.guild, "top-switcher")}</div>
         <form class="top-search" method="get" action="/dashboard/${esc(o.guild.guild.id)}/search" role="search">
           <label class="visually-hidden" for="top-q">Search cases and members</label>
           <input type="search" id="top-q" name="q" maxlength="64" placeholder="Search cases, members…" autocomplete="off">
         </form>
         <button class="btn ghost sm palette-btn" type="button" data-palette-open aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" title="Jump to (Ctrl+K)">⌘K</button>
         <button class="btn ghost sm" type="button" data-shortcuts-open aria-haspopup="dialog" aria-keyshortcuts="Shift+Slash" title="Keyboard shortcuts (?)">?</button>
+        <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme" title="Switch theme (System / Light / Dark)">
+          ${sunIcon}${moonIcon}${systemIcon}
+        </button>
         ${userMenu(o.viewer)}
       </div>
       <div class="app-content">${o.body}</div>

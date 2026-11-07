@@ -34,6 +34,9 @@ const PERMISSION_NAMES: Partial<Record<string, string>> = {
   [String(PermissionFlagsBits.EmbedLinks)]:         "Embed Links",
   [String(PermissionFlagsBits.AttachFiles)]:        "Attach Files",
   [String(PermissionFlagsBits.ReadMessageHistory)]: "Read Message History",
+  [String(PermissionFlagsBits.SendMessagesInThreads)]: "Send Messages in Threads",
+  [String(PermissionFlagsBits.CreatePrivateThreads)]:  "Create Private Threads",
+  [String(PermissionFlagsBits.ManageThreads)]:        "Manage Threads",
 };
 
 /** Human names for permissions, e.g. "Ban Members, Manage Nicknames" (never a raw bit number). */

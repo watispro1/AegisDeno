@@ -83,6 +83,20 @@ async function main(): Promise<void> {
   }
 
   client.once("ready", async (c) => {
+    // Clear any leftover guild commands so they never duplicate with global commands
+    try {
+      const rest = new REST({ version: "10" }).setToken(TOKEN);
+      for (const [guildId, guild] of c.guilds.cache) {
+        const existing = (await rest.get(Routes.applicationGuildCommands(APPLICATION_ID, guildId)).catch(() => null)) as unknown[];
+        if (Array.isArray(existing) && existing.length > 0) {
+          logger.info(`clearing ${existing.length} duplicate guild command(s) in ${guild.name} (${guildId})`);
+          await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, guildId), { body: [] }).catch(() => null);
+        }
+      }
+    } catch (err) {
+      logger.debug("Automatic guild commands cleanup failed:", err);
+    }
+
     await initScheduler(c).catch(err => logger.error("Scheduler init error:", err));
     const { initGiveawayScheduler } = await import("./commands/community/giveaway");
     await initGiveawayScheduler(c).catch(err => logger.error("Giveaway scheduler init error:", err));

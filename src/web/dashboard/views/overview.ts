@@ -35,6 +35,8 @@ export interface OverviewModel {
   hidden?: ReadonlySet<string>;
   /** Permissions Aegis's role is missing server-wide (labels). */
   missingBotPermissions?: string[];
+  /** Bot websocket ping in ms, or null if unavailable. */
+  pingMs?: number | null;
 }
 
 export interface ModuleState {
@@ -171,6 +173,7 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
     ${card("Warnings, 7 days", data.warnings7)}
     ${card("Warnings, 30 days", data.warnings30)}
     ${card("Open tickets", data.openTicketCount)}
+    ${model.pingMs !== undefined && model.pingMs !== null && model.pingMs >= 0 ? card("Bot latency", model.pingMs, "ms") : ""}
     ${card("Pending appeals", data.pendingAppeals, data.pendingAppeals > 0 ? "see Appeals" : "", `${base}/appeals`)}
     ${x ? card("Active giveaways", x.activeGiveaways, "", `${base}/giveaways`) : ""}
     ${x ? card("Automod hits, 7 days", x.automodHits7, "", `${base}/settings/automod`) : ""}

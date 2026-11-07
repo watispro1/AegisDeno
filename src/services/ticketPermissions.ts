@@ -22,6 +22,8 @@ export const TICKET_BOT_PERMISSIONS = [
   PermissionFlagsBits.SendMessages,
   PermissionFlagsBits.ManageChannels,
   PermissionFlagsBits.ManageMessages,
+  PermissionFlagsBits.EmbedLinks,
+  PermissionFlagsBits.AttachFiles,
 ] as const;
 
 /** What the configured staff role may do in a ticket. */
@@ -29,6 +31,8 @@ export const TICKET_STAFF_PERMISSIONS = [
   PermissionFlagsBits.ViewChannel,
   PermissionFlagsBits.SendMessages,
   PermissionFlagsBits.ReadMessageHistory,
+  PermissionFlagsBits.AttachFiles,
+  PermissionFlagsBits.EmbedLinks,
 ] as const;
 
 /** The part of a guild member this module needs (kept structural for tests). */

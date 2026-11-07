@@ -29,9 +29,34 @@ export const cssDashboardApp = String.raw`/* ── Dashboard app shell ──�
 .switcher-list a:hover, .switcher-list a:focus-visible { background: var(--bg-sunk); }
 .switcher-all { border-top: 1px solid var(--border); margin-top: .25rem !important; padding-top: .25rem; }
 
+.side-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin: 0 0 .75rem; padding: 0 .25rem .75rem; border-bottom: 1px solid var(--border); }
+.side-brand { display: flex; align-items: center; gap: .5rem; min-width: 0; font-weight: 600; font-size: .95rem; }
+.side-brand-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-close { display: none; background: transparent; border: 0; font-size: 1.1rem; color: var(--muted); cursor: pointer; padding: .2rem .4rem; border-radius: var(--r); }
+.drawer-close:hover { color: var(--text); background: var(--bg-sunk); }
+.drawer-backdrop { display: none; position: fixed; inset: 0; z-index: 48; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+
+.app-top-switcher { flex: 0 1 auto; min-width: 0; max-width: 18rem; }
+.top-switcher { position: relative; margin: 0; }
+.top-switcher summary { list-style: none; display: flex; align-items: center; gap: .5rem; min-height: 38px; padding: .2rem .5rem; border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; background: var(--bg); font-size: .88rem; }
+.top-switcher summary::-webkit-details-marker { display: none; }
+.top-switcher summary:hover { border-color: var(--border-strong); }
+.top-switcher summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.top-switcher .g-name { max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.top-switcher .switcher-list { position: absolute; z-index: 40; left: 0; top: calc(100% + .25rem); min-width: 14rem; max-width: 20rem; margin: 0; padding: .35rem; list-style: none; border: 1px solid var(--border-strong); border-radius: var(--r); background: var(--surface); max-height: 60vh; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.top-switcher .switcher-list li { margin: 0; }
+.top-switcher .switcher-list a { display: flex; align-items: center; min-height: 38px; padding: .3rem .5rem; border-radius: var(--r); color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+.top-switcher .switcher-list a:hover, .top-switcher .switcher-list a:focus-visible { background: var(--bg-sunk); }
+
 .side-nav, .side-nav ul { list-style: none; margin: 0; padding: 0; }
-.nav-group { margin: 0 0 .9rem; }
-.nav-group-title { display: block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding: 0 .6rem .3rem; }
+.nav-group { margin: 0 0 .5rem; }
+.nav-group-details summary { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; padding: .35rem .6rem; border-radius: var(--r); transition: background .15s ease; }
+.nav-group-details summary::-webkit-details-marker { display: none; }
+.nav-group-details summary:hover { background: var(--bg-sunk); }
+.nav-group-title { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.nav-caret { font-size: .65rem; color: var(--faint); transition: transform .15s ease; }
+.nav-group-details:not([open]) .nav-caret { transform: rotate(-90deg); }
+.nav-group-items { list-style: none; margin: .15rem 0 0; padding: 0; }
 .side-nav li { margin: 0; }
 .side-link { display: flex; align-items: center; gap: .6rem; min-height: 40px; padding: .3rem .6rem; border-radius: var(--r); color: var(--text-2); text-decoration: none; font-size: .93rem; }
 .side-link:hover { background: var(--bg-sunk); color: var(--text); }
@@ -48,6 +73,9 @@ export const cssDashboardApp = String.raw`/* ── Dashboard app shell ──�
 .user-panel { position: absolute; right: 0; top: calc(100% + .25rem); z-index: 30; width: 17rem; padding: .9rem 1rem; border: 1px solid var(--border-strong); border-radius: var(--r); background: var(--surface); box-shadow: 0 8px 24px rgba(0,0,0,.18); font-size: .9rem; }
 .user-panel p { margin: 0 0 .6rem; overflow-wrap: anywhere; }
 .user-panel form { margin: 0; }
+.user-theme-picker { display: flex; align-items: center; gap: .35rem; padding-top: .6rem; margin-top: .6rem; border-top: 1px solid var(--border); font-size: .85rem; }
+.user-theme-picker span { margin-right: .25rem; }
+.btn.xs { min-height: 26px; padding: .1rem .45rem; font-size: .78rem; }
 
 /* Module furniture */
 .module-head { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 0 0 1.5rem; }
@@ -165,6 +193,10 @@ form[aria-busy="true"] [data-save-button]::after { content: " …"; }
 @media (max-width: 820px) {
   .app { display: block; }
   .app-main { padding: 0 1rem 2rem; }
+  .app-top-switcher { max-width: 10rem; }
+  .drawer-close { display: inline-flex; }
+  .drawer-backdrop { display: block; }
+  .app[data-drawer-open] .drawer-backdrop { opacity: 1; pointer-events: auto; }
   .js .app-side { position: fixed; z-index: 50; inset: 0 auto 0 0; width: min(18rem, 85vw); max-height: none; transform: translateX(-105%); transition: transform .2s ease; box-shadow: 0 0 40px rgba(0,0,0,.35); }
   .js .app[data-drawer-open] .app-side { transform: none; }
   .js .drawer-toggle { display: inline-flex; }
