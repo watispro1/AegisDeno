@@ -47,5 +47,5 @@ export const manifest = JSON.stringify(
   2
 );
 
-export const themeInitScript = `(function(){var r=document.documentElement;r.classList.add("js");var t=null;try{t=localStorage.getItem("aegis-theme");}catch(e){}r.setAttribute("data-theme",t==="dark"?"dark":"light");})();`;
+export const themeInitScript = `(function(){var r=document.documentElement;r.classList.add("js");var t=null;try{t=localStorage.getItem("aegis-theme");}catch(e){}if(!t||t==="system"){var d=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;r.setAttribute("data-theme",d?"dark":"light");r.setAttribute("data-theme-setting","system");}else{r.setAttribute("data-theme",t==="dark"?"dark":"light");r.setAttribute("data-theme-setting",t);}})();`;
 

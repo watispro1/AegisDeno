@@ -24,9 +24,38 @@ export const dashboardAppScript = String.raw`
     if (open && side) { var first = side.querySelector('summary, a'); if (first && first.focus) first.focus(); }
   }
   if (toggle) toggle.addEventListener('click', function (e) { e.stopPropagation(); setDrawer(!app.hasAttribute('data-drawer-open')); });
+  all('[data-drawer-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () { setDrawer(false); });
+  });
   doc.addEventListener('click', function (e) {
-    if (app && app.hasAttribute('data-drawer-open') && side && !side.contains(e.target)) setDrawer(false);
+    if (app && app.hasAttribute('data-drawer-open') && side && !side.contains(e.target) && !e.target.closest('[data-drawer-toggle]')) setDrawer(false);
     all('details[data-menu][open]').forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute('open'); });
+  });
+
+  /* Sidebar folded groups */
+  var FOLDED_KEY = 'aegis-folded-nav';
+  function getFolded() {
+    try { return JSON.parse(localStorage.getItem(FOLDED_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function setFolded(list) {
+    try { localStorage.setItem(FOLDED_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  var folded = getFolded();
+  all('details.nav-group-details').forEach(function (d) {
+    var name = d.getAttribute('data-nav-group');
+    if (!name) return;
+    if (!d.hasAttribute('data-active-group') && folded.indexOf(name) !== -1) {
+      d.removeAttribute('open');
+    }
+    d.addEventListener('toggle', function () {
+      var cur = getFolded();
+      if (!d.open) {
+        if (cur.indexOf(name) === -1) cur.push(name);
+      } else {
+        cur = cur.filter(function (x) { return x !== name; });
+      }
+      setFolded(cur);
+    });
   });
   doc.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;

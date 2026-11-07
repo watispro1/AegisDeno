@@ -31,7 +31,7 @@ import { commands } from "../commands/loader";
 import { VERSION } from "../version";
 import { createDashboardRouter } from "./dashboard/router";
 import { readDashboardConfig, missingDashboardSettings } from "./dashboard/config";
-import { discordBotView } from "./dashboard/botView";
+import { discordBotView, cachedBotView } from "./dashboard/botView";
 import { mongoDashboardData } from "./dashboard/data";
 import { mongoModuleData } from "./dashboard/moduleData";
 import { mongoSessionStore } from "./dashboard/sessions";
@@ -229,7 +229,7 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   app.use("/dashboard", createDashboardRouter({
     site: cfg,
     config: dashboardConfig,
-    bot: discordBotView(client),
+    bot: cachedBotView(discordBotView(client)),
     data: mongoDashboardData(client),
     modules: mongoModuleData(client),
     sessions: mongoSessionStore(),

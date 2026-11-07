@@ -28,6 +28,7 @@ export function registerCaseRoutes(router: Router, k: RouteKit): void {
         extras, snapshot, rolePanels: panels?.length ?? 0,
         hidden: deps.bot.hiddenChannelIds(id),
         missingBotPermissions: deps.bot.botMissingPermissions?.(id) ?? [],
+        pingMs: deps.bot.pingMs?.() ?? null,
       }));
     } catch (err) {
       next(err);

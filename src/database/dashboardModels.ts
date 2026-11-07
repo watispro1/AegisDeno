@@ -54,5 +54,7 @@ const DashboardAuditSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 }, { versionKey: false });
 DashboardAuditSchema.index({ guildId: 1, createdAt: -1 });
+DashboardAuditSchema.index({ guildId: 1, action: 1, createdAt: -1 });
+DashboardAuditSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 DashboardAuditSchema.index({ createdAt: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
 export const DashboardAuditModel = mongoose.model("DashboardAudit", DashboardAuditSchema);

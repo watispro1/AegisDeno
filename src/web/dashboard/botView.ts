@@ -10,6 +10,7 @@ import { canManageGuild } from "./permissions";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { memberTopRolePosition, roleAboveActor } from "../../permissions/hierarchy";
 import { guildIconUrl } from "./cdn";
+import { TtlCache } from "../../utils/ttlCache";
 
 export interface GuildSummary {
   id: string;
@@ -109,6 +110,8 @@ export interface BotView {
    * /diagnostics checks). Optional so test fakes need not implement it.
    */
   botMissingPermissions?(guildId: string): string[];
+  /** Bot websocket ping in ms, or null if uninitialized / unavailable. */
+  pingMs?(): number | null;
 }
 
 /**
@@ -240,6 +243,11 @@ export function discordBotView(client: Client): BotView {
       if (me.permissions.has(PermissionFlagsBits.Administrator)) return [];
       return botPermissionChecks().filter(([flag]) => !me.permissions.has(flag as PermissionsString)).map(([, label]) => label);
     },
+
+    pingMs() {
+      const p = client?.ws?.ping;
+      return typeof p === "number" && !isNaN(p) && p >= 0 ? Math.round(p) : null;
+    },
   };
 }
 
@@ -264,4 +272,55 @@ export function markRolesForViewer(roles: readonly RoleOption[], viewerId: strin
 /** Whether the viewer can hand out this role through the dashboard: Aegis can assign it and it is below the viewer. */
 export function rolePickable(role: RoleOption): boolean {
   return role.assignable && !role.aboveViewer;
+}
+
+/**
+ * Wraps a BotView with short-lived TTL caches for channel lists, role lists,
+ * viewer role limits, and member management/permission checks. Prevents
+ * repeated expensive guild lookups and API fetches across fast tab switches.
+ */
+export function cachedBotView(inner: BotView, ttlMs = 15_000): BotView {
+  const manageCache = new TtlCache<boolean>(ttlMs);
+  const permCache = new TtlCache<boolean>(ttlMs);
+  const channelCache = new TtlCache<ChannelOption[]>(ttlMs);
+  const roleCache = new TtlCache<RoleOption[]>(ttlMs);
+  const viewerRolesCache = new TtlCache<ViewerRoleLimit>(ttlMs);
+  const viewerChannelsCache = new TtlCache<ReadonlySet<string>>(ttlMs);
+
+  return {
+    ...inner,
+
+    async memberCanManage(guildId, userId) {
+      return manageCache.getOrLoad(`${guildId}:${userId}`, () => inner.memberCanManage(guildId, userId));
+    },
+
+    async memberHasPermission(guildId, userId, permission) {
+      return permCache.getOrLoad(`${guildId}:${userId}:${permission}`, () => inner.memberHasPermission(guildId, userId, permission));
+    },
+
+    textChannels(guildId) {
+      const cached = channelCache.get(guildId);
+      if (cached) return cached;
+      const res = inner.textChannels(guildId);
+      channelCache.set(guildId, res);
+      return res;
+    },
+
+    roles(guildId) {
+      const cached = roleCache.get(guildId);
+      if (cached) return cached;
+      const res = inner.roles(guildId);
+      roleCache.set(guildId, res);
+      return res;
+    },
+
+    async viewerRoleLimit(guildId, userId) {
+      return viewerRolesCache.getOrLoad(`${guildId}:${userId}`, () => inner.viewerRoleLimit(guildId, userId));
+    },
+
+    async viewerChannelIds(guildId, userId) {
+      if (!inner.viewerChannelIds) return new Set<string>();
+      return viewerChannelsCache.getOrLoad(`${guildId}:${userId}`, () => inner.viewerChannelIds!(guildId, userId));
+    },
+  };
 }

@@ -14,33 +14,59 @@ export const jsCore = String.raw`
       .replace(/'/g, '&#39;');
   }
 
-  /* Theme: light by default, dark when chosen */
+  /* Theme: System (default), Light, Dark */
   var STORAGE_KEY = 'aegis-theme';
 
-  function currentTheme() {
-    return root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  function getSavedTheme() {
+    try { return localStorage.getItem(STORAGE_KEY) || 'system'; } catch (e) { return 'system'; }
+  }
+
+  function resolveSystemDark() {
+    return Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   }
 
   function syncToggle() {
-    var btn = document.querySelector('.theme-toggle');
-    if (!btn) return;
-    var label = currentTheme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
-    btn.setAttribute('aria-label', label);
-    btn.setAttribute('title', label);
-    btn.setAttribute('aria-pressed', currentTheme() === 'dark' ? 'true' : 'false');
+    var setting = getSavedTheme();
+    var active = setting === 'system' ? (resolveSystemDark() ? 'dark' : 'light') : setting;
+    root.setAttribute('data-theme', active);
+    root.setAttribute('data-theme-setting', setting);
+    var btns = document.querySelectorAll('.theme-toggle');
+    var label = setting === 'system' ? 'Theme: System (click for Light)' : (setting === 'light' ? 'Theme: Light (click for Dark)' : 'Theme: Dark (click for System)');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute('aria-label', label);
+      btns[i].setAttribute('title', label);
+      btns[i].setAttribute('aria-pressed', active === 'dark' ? 'true' : 'false');
+    }
   }
 
   function applyTheme(theme) {
-    root.setAttribute('data-theme', theme);
     try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) {}
     syncToggle();
   }
 
+  function cycleTheme() {
+    var cur = getSavedTheme();
+    var next = cur === 'system' ? 'light' : (cur === 'light' ? 'dark' : 'system');
+    applyTheme(next);
+  }
+
   document.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('.theme-toggle')) {
-      applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+      cycleTheme();
+    }
+    if (e.target.closest && e.target.closest('[data-set-theme]')) {
+      var val = e.target.closest('[data-set-theme]').getAttribute('data-set-theme');
+      if (val === 'system' || val === 'light' || val === 'dark') applyTheme(val);
     }
   });
+
+  if (window.matchMedia) {
+    try {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+        if (getSavedTheme() === 'system') syncToggle();
+      });
+    } catch (e) {}
+  }
   syncToggle();
 
   /* Site search (Ctrl/Cmd+K) */
