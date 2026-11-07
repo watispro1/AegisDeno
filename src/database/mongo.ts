@@ -55,6 +55,7 @@ const GuildConfigSchema = new mongoose.Schema({
   // ModMail and the weekly staff digest. Normalised in modmailLogic.ts / digestLogic.ts.
   modmail: { type: mongoose.Schema.Types.Mixed, default: null },
   digest: { type: mongoose.Schema.Types.Mixed, default: null },
+  mediaSafety: { type: mongoose.Schema.Types.Mixed, default: null },
   logChannels: { type: mongoose.Schema.Types.Mixed, default: null },
   // Escalation: auto-actions when a user hits X warnings
   escalation: {

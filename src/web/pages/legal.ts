@@ -225,7 +225,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
       <table>
         <thead><tr><th>Data</th><th>What is in it</th><th>How long it is kept</th></tr></thead>
         <tbody>
-          ${row("Server settings", "Logging, welcome, escalation, ticket, verification, starboard and automod settings, including blocked word lists and exempt roles and channels; auto-responders; role panels.", "Until staff change or remove them, or deletion is requested. Not removed automatically when Aegis leaves a server.")}
+          ${row("Server settings", "Logging, welcome, escalation, ticket, verification, starboard, flagged media and automod settings, including blocked word lists and exempt roles and channels; auto-responders; role panels.", "Until staff change or remove them, or deletion is requested. Not removed automatically when Aegis leaves a server.")}
           ${row("Warnings", "Member's user ID, moderator's user ID, reason, optional proof link, and whether it was revoked.", "Deleted automatically one year after it was issued, or earlier with <code class=\"inline\">/clearwarnings</code>.")}
           ${row("Moderation cases", "Timeouts, kicks, bans, unbans and similar: member and moderator IDs, action, reason, details, optional proof link, revoked state.", "Deleted automatically after one year. Revoking a case keeps it, marked revoked.")}
           ${row("Staff notes", "Member and moderator IDs and the note text.", "Deleted automatically after one year, or earlier with <code class=\"inline\">/note delete</code> or <code class=\"inline\">/note clear</code>.")}

@@ -10,6 +10,7 @@ import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../services/ticketTranscript";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../services/verificationLogic";
 import { renderWelcomeTemplate } from "../../services/communityLogic";
 import type { EmbedSpec } from "../../services/embedSpec";
+import { MEDIA_SAFETY_MODES, type MediaSafetyConfig, type MediaSafetyMode } from "../../services/mediaSafety";
 import { Errors, channel, checkbox, field, finish, integer, pickedIds, role, type FormBody, type Parsed, type ValidationContext } from "./formFields";
 
 export const SETTINGS_SECTIONS = ["logging", "escalation", "automod", "welcome", "tickets", "verification", "starboard", "goodbye"] as const;
@@ -178,6 +179,8 @@ export interface StarboardSettingsInput {
   emoji: string;
   ignoredChannels: string[];
   ignoredRoles: string[];
+  /** The server-wide flagged-media setting, shown on this page. Absent when the form did not carry it. */
+  mediaSafety?: MediaSafetyConfig;
 }
 
 /** A custom emoji (<:name:id> or <a:name:id>) or one Unicode emoji, as `/starboard emoji` takes. */
@@ -214,5 +217,11 @@ export function parseStarboard(
   if (!isStarboardEmoji(emoji)) errors.add("emoji", "Use one emoji, such as ⭐ or 🌟, or a custom emoji written as <:name:id>.");
   const ignoredChannels = pickedIds(body, "ignoredChannels", id => ctx.textChannelIds.has(id), previous.ignoredChannels, "ignored channels", errors);
   const ignoredRoles = pickedIds(body, "ignoredRoles", id => ctx.roles.has(id), previous.ignoredRoles, "ignored roles", errors);
-  return finish(errors, { enabled, channelId, threshold, selfStar, emoji, ignoredChannels, ignoredRoles });
+  let mediaSafety: MediaSafetyConfig | undefined;
+  if (body.mediaSafetyMode !== undefined) {
+    const mode = field(body, "mediaSafetyMode");
+    if (!(MEDIA_SAFETY_MODES as readonly string[]).includes(mode)) errors.add("mediaSafetyMode", "Pick placeholder or spoiler.");
+    else mediaSafety = { enabled: checkbox(body, "mediaSafetyEnabled"), mode: mode as MediaSafetyMode };
+  }
+  return finish(errors, { enabled, channelId, threshold, selfStar, emoji, ignoredChannels, ignoredRoles, ...(mediaSafety ? { mediaSafety } : {}) });
 }

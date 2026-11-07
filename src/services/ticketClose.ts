@@ -11,6 +11,9 @@ import { createTask, deleteTask, getTasksForChannel, type ScheduledTask } from "
 import { autoCloseDecision, decodeTicketTask, encodeTicketTask, renderTranscriptHtml, type TranscriptMessage } from "./ticketTranscript";
 import { getTicketSettings } from "./ticketSettings";
 import { isObfuscatedChannel } from "../utils/channels";
+import { getGuildConfig } from "./configuration";
+import { attachmentFlagReasons, guardModeFor } from "./mediaSafety";
+import { guardTranscriptAttachment } from "./mediaSafetyRepost";
 
 /** Most messages fetched into a transcript (Discord pages are 100 each). */
 const TRANSCRIPT_MESSAGE_LIMIT = 1000;
@@ -144,13 +147,16 @@ export async function buildTicketTranscript(
   meta: { ticketId: string; openerId: string; closedById?: string | null; reason?: string | null },
 ): Promise<{ file: AttachmentBuilder; messageCount: number }> {
   const history = await fetchChannelHistory(channel);
+  // The same file goes to the opener by DM, which is never age-restricted, so the guard always applies.
+  const guard = guardModeFor((await getGuildConfig(channel.guild.id)).mediaSafety, false);
   const messages: TranscriptMessage[] = history.map(m => ({
     authorTag: m.author.tag ?? m.author.username,
     authorId: m.author.id,
     bot: m.author.bot,
     timestamp: m.createdTimestamp,
     content: m.content ?? "",
-    attachments: [...m.attachments.values()].map(a => ({ name: a.name ?? "attachment", url: a.url })),
+    attachments: [...m.attachments.values()].map(a =>
+      guardTranscriptAttachment({ name: a.name ?? "attachment", url: a.url, reasons: attachmentFlagReasons(a) }, guard)),
     embedCount: m.embeds.length,
   }));
   const html = renderTranscriptHtml(

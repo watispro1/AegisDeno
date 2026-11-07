@@ -4,6 +4,7 @@ import type { SettingsSnapshot } from "../data";
 import { embedValues } from "./embedBuilder";
 import { isLogCategoryOn } from "../../../services/logCategories";
 import { normalizeAutomodConfig } from "../../../services/automod";
+import { normalizeMediaSafety } from "../../../services/mediaSafety";
 import { AUTOMOD_ACTIONS, ESCALATION_ROWS, LOG_CATEGORY_LABELS, type FormBody, type SettingsSection } from "../validation";
 
 /* Settings */
@@ -98,6 +99,8 @@ export function settingsValues(section: SettingsSection, s: SettingsSnapshot): V
         emoji: s.starboard.emoji,
         ignoredChannels: (s.starboard.ignoredChannels ?? []).join(","),
         ignoredRoles: (s.starboard.ignoredRoles ?? []).join(","),
+        mediaSafetyEnabled: normalizeMediaSafety(s.guild.mediaSafety).enabled,
+        mediaSafetyMode: normalizeMediaSafety(s.guild.mediaSafety).mode,
       };
   }
 }

@@ -499,6 +499,26 @@ test("starboard POST saves emoji and ignore lists; rejects a non-emoji", async (
   const unicode = await post(path, { _csrf: csrf, threshold: "3", emoji: "🌟" });
   assert.equal(unicode.status, 303);
   assert.equal(lastSaved("starboard").emoji, "🌟");
+  assert.equal(lastSaved("starboard").mediaSafety, undefined, "a post without the flagged-media fields leaves that setting alone");
+});
+
+test("starboard page carries the flagged-media setting: shown, validated, saved and audited", async () => {
+  await login();
+  const path = `/dashboard/${GUILD_OK}/settings/starboard`;
+  const csrf = await csrfFrom(path);
+  const page = await (await get(path)).text();
+  assert.match(page, /name="mediaSafetyEnabled"[^>]*checked/, "on by default");
+  assert.match(page, /<option value="placeholder" selected>/);
+  assert.ok(!/<script>|style="/.test(page), "no inline script or style");
+  const bad = await post(path, { _csrf: csrf, threshold: "3", emoji: "⭐", mediaSafetyMode: "blur" });
+  assert.equal(bad.status, 400);
+  assert.match(await bad.text(), /Pick placeholder or spoiler/);
+  assert.equal((await post(path, { threshold: "3", emoji: "⭐", mediaSafetyMode: "spoiler" })).status, 403, "CSRF required");
+  const before = audit.all().length;
+  const ok = await post(path, { _csrf: csrf, threshold: "3", emoji: "⭐", mediaSafetyMode: "spoiler" });
+  assert.equal(ok.status, 303);
+  assert.deepEqual(lastSaved("starboard").mediaSafety, { enabled: false, mode: "spoiler" }, "unticked box turns it off");
+  assert.ok(audit.all().slice(before).some(e => e.action === "settings.starboard"));
 });
 
 test("verification page without setup links to the Panels page", async () => {

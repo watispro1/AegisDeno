@@ -136,7 +136,16 @@ function sectionForm(
       <h2 class="section-title">Ignored</h2>
       <p class="muted">Messages in ignored channels, or from members with an ignored role, are never posted to the starboard.</p>
       ${f.multi("ignoredChannels", "Ignored channels", channelPicks(channels, hidden, f.str("ignoredChannels")))}
-      ${f.multi("ignoredRoles", "Ignored roles", rolePicks(roles))}`;
+      ${f.multi("ignoredRoles", "Ignored roles", rolePicks(roles))}
+      <h2 class="section-title">Flagged media</h2>
+      <p class="muted">Discord marks some images as explicit, gore or self-harm. This setting covers every repost Aegis makes: the starboard, ModMail relays and ticket transcripts. Age-restricted channels get the media as usual.</p>
+      <fieldset><legend>Flagged media</legend>
+        ${f.checkbox("mediaSafetyEnabled", "Keep flagged media out of reposts", "Applies to the whole server. Same as <code class=\"inline\">/config media-safety</code>.")}
+        ${f.select("mediaSafetyMode", "Instead of the media, show", [
+          { value: "placeholder", label: "A note saying it was hidden, with no link" },
+          { value: "spoiler", label: "A link behind a spoiler, marked as flagged" },
+        ], "Spoiler mode treats explicit, gore and self-harm the same way.")}
+      </fieldset>`;
   }
 }
 

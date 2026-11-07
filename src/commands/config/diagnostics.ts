@@ -8,6 +8,7 @@ import { BOT_PERMISSION_WHY } from "../../permissions/botPermissionGuide";
 import { permissionName } from "../../utils/embedStyle";
 import { inviteUrl } from "../../config/links";
 import { getStarboardConfig } from "../../services/starboard";
+import { mediaSafetySummary } from "../../services/mediaSafety";
 import { getTicketSettings } from "../../services/ticketSettings";
 import { getVerificationConfig } from "../../services/verificationService";
 import { checkConfiguredChannels, checkModmailChannel, configuredChannels, fitField } from "../../services/channelAccess";
@@ -124,6 +125,7 @@ export const command: Command = {
           inline: false,
         },
         ...(modmailStatus ? [{ name: "ModMail staff channel", value: modmailStatus, inline: false }] : []),
+        { name: "Flagged media", value: mediaSafetySummary(guildConfig.mediaSafety), inline: false },
       );
 
     const recommendations: string[] = [];

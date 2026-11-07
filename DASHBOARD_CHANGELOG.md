@@ -20,6 +20,9 @@ scopes.
   weekly rewards, bank limit, pay rules, sell-back rate, crime and gambling.
 - Shop items can have a per-member limit and give a role for a set number of
   hours or on `/use`.
+- The Starboard settings page has a Flagged media section: keep media Discord
+  flagged out of reposts, and show a note or a spoilered link instead. Saved
+  changes go to the activity log.
 
 ### Changed
 - The economy leaderboard shows wallet, bank and total, and member cards show
@@ -28,6 +31,8 @@ scopes.
   values.
 - The allowed invites list keeps codes that differ only by case as separate
   entries.
+- Settings export includes the flagged media setting, and import checks it.
+  An export made before this version leaves the setting unchanged.
 
 ### Fixed
 - The Polls page only shows polls from channels both Aegis and you can see,

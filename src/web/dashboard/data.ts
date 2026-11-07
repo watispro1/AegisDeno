@@ -355,9 +355,13 @@ export function mongoDashboardData(client: Client): DashboardData {
         case "verification":
           if (!(await updateVerificationSettings(guildId, input.value))) return false;
           break;
-        case "starboard":
-          await updateStarboardConfig(guildId, input.value);
+        case "starboard": {
+          // The flagged-media setting is shown on this page but saved in the guild config.
+          const { mediaSafety, ...starboard } = input.value;
+          await updateStarboardConfig(guildId, starboard);
+          if (mediaSafety) await updateGuildConfig(guildId, { mediaSafety });
           break;
+        }
       }
       logger.info(`Dashboard: ${input.section} settings saved for guild ${guildId} by user ${actor.userId}`);
       await log(guildId, "⚙️ Settings Changed", `**Section:** ${input.section === "automodRule" ? `Automod exemptions (${input.value.rule})` : SECTION_TITLES[input.section]}\n**Changed by:** <@${actor.userId}> on the web dashboard`);

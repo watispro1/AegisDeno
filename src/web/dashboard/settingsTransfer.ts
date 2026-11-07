@@ -106,6 +106,8 @@ export function parseSettingsImport(text: string, ctx: ValidationContext): Impor
       },
     },
     modules: cfg.modules,
+    // Older exports have no flagged-media setting; leave this server's as it is then.
+    ...(rec(doc.config).mediaSafety !== undefined ? { mediaSafety: cfg.mediaSafety } : {}),
   };
   // Turning logging or welcome on without a channel would do nothing; say so.
   if (update.loggingEnabled && !update.loggingChannelId) warnings.push("Logging stays on but has no channel yet; pick one on the Logging page.");
