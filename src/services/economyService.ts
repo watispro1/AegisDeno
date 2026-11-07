@@ -4,26 +4,27 @@
  * transaction log. Results are plain objects; the slash commands and the
  * dashboard turn them into replies.
  */
+import { randomInt as cryptoRandomInt } from "node:crypto";
 import { logger } from "../utils/logger";
 import {
   MAX_BALANCE, dailyClaim, workClaim, applyEconomySettings, validateShopItem,
   type EconomyConfig, type EconomySettingsInput, type ShopItem, type ShopItemInput,
 } from "./economyLogic";
-import { memoryEconomyStore, type Account, type EconomyStore, type Transaction, type TransactionType } from "./economyStore";
+import { memoryEconomyStore, type Account, type EconomyStore, type LeaderboardSort, type Transaction, type TransactionType } from "./economyStore";
+import * as flows from "./economyFlows";
+import type { RandomInt } from "./economyRules";
+
+export type { PayOutcome } from "./economyFlows";
 
 export type ClaimOutcome =
   | { ok: true; amount: number; streak: number; balance: number }
   | { ok: false; reason: "cooldown"; retryAt: number }
   | { ok: false; reason: "cap" };
 
-export type PayOutcome =
-  | { ok: true; from: Account; to: Account }
-  | { ok: false; reason: "insufficient"; balance: number }
-  | { ok: false; reason: "recipient_full" };
-
 export type BuyOutcome =
   | { ok: true; item: ShopItem; balance: number }
   | { ok: false; reason: "not_found" | "sold_out" | "already_owned" }
+  | { ok: false; reason: "limit"; limit: number }
   | { ok: false; reason: "insufficient"; balance: number; price: number }
   | { ok: false; reason: "role_failed"; detail: string };
 
@@ -38,6 +39,8 @@ export interface AdjustEvent { guildId: string; userId: string; actorId: string;
 export interface EconomyServiceOptions {
   now?: () => number;
   rng?: () => number;
+  /** Integer in [0, max) for /crime and /gamble; crypto.randomInt by default. */
+  randomInt?: RandomInt;
   /** Called after a staff adjustment is applied (the dashboard posts it to the mod log). */
   onAdjust?: (event: AdjustEvent) => Promise<void> | void;
 }
@@ -47,10 +50,15 @@ const SWAP_RETRIES = 3;
 export class EconomyService {
   private readonly now: () => number;
   private readonly rng: () => number;
+  private readonly flow: flows.FlowContext;
 
   constructor(readonly store: EconomyStore, private readonly options: EconomyServiceOptions = {}) {
     this.now = options.now ?? Date.now;
     this.rng = options.rng ?? Math.random;
+    this.flow = {
+      store, now: () => this.now(), randomInt: options.randomInt ?? (max => cryptoRandomInt(max)),
+      log: (...args) => this.log(...args),
+    };
   }
 
   config(guildId: string): Promise<EconomyConfig> { return this.store.getConfig(guildId); }
@@ -104,42 +112,46 @@ export class EconomyService {
   daily(guildId: string, userId: string) { return this.claim(guildId, userId, "daily"); }
   work(guildId: string, userId: string) { return this.claim(guildId, userId, "work"); }
 
-  /** Move coins: debit the sender (guarded), then credit the recipient; refund the sender if the recipient is full. */
-  async pay(guildId: string, fromId: string, toId: string, amount: number): Promise<PayOutcome> {
-    const from = await this.store.debit(guildId, fromId, amount);
-    if (!from) return { ok: false, reason: "insufficient", balance: (await this.store.account(guildId, fromId)).balance };
-    await this.store.ensureAccount(guildId, toId);
-    const to = await this.store.credit(guildId, toId, amount);
-    if (!to) {
-      const refunded = await this.store.credit(guildId, fromId, amount);
-      if (!refunded) logger.error(`Economy: could not refund ${amount} to ${fromId} in ${guildId} after a failed pay`);
-      return { ok: false, reason: "recipient_full" };
-    }
-    await this.log(guildId, fromId, "pay_out", -amount, from.balance, { otherUserId: toId });
-    await this.log(guildId, toId, "pay_in", amount, to.balance, { otherUserId: fromId });
-    return { ok: true, from, to };
-  }
+  async weekly(guildId: string, userId: string) { return flows.weekly(this.flow, await this.config(guildId), guildId, userId); }
+  async crime(guildId: string, userId: string) { return flows.crime(this.flow, await this.config(guildId), guildId, userId); }
+  async deposit(guildId: string, userId: string, request: number | "all" | "half" | null) { return flows.moveBank(this.flow, await this.config(guildId), guildId, userId, "deposit", request); }
+  async withdraw(guildId: string, userId: string, request: number | "all" | "half" | null) { return flows.moveBank(this.flow, await this.config(guildId), guildId, userId, "withdraw", request); }
+  async gamble(guildId: string, userId: string, bet: number, game: flows.GambleGame) { return flows.gamble(this.flow, await this.config(guildId), guildId, userId, bet, game); }
+  /** Transfer with the server's daily limit and tax. Membership age and self/bot rules are checked by the caller. */
+  async pay(guildId: string, fromId: string, toId: string, amount: number) { return flows.pay(this.flow, await this.config(guildId), guildId, fromId, toId, amount); }
+  useItem(guildId: string, userId: string, itemId: string, hooks: flows.RoleGrantHooks) { return flows.useItem(this.flow, guildId, userId, itemId, hooks); }
+  async sellItem(guildId: string, userId: string, itemId: string) { return flows.sellItem(this.flow, await this.config(guildId), guildId, userId, itemId); }
 
   /**
-   * Buy one unit. Order: reserve stock, take the coins, grant the role; each
-   * later failure gives back what the earlier steps took.
+   * Buy one unit. Order: count it toward the per-member limit, reserve stock,
+   * take the coins, grant the role (unless it is given by /use); each later
+   * failure gives back what the earlier steps took.
    * `grantRole` returns null on success or a reason it failed.
    */
-  async buy(guildId: string, userId: string, itemId: string, opts: { ownsRole?: (roleId: string) => boolean; grantRole?: (roleId: string) => Promise<string | null> } = {}): Promise<BuyOutcome> {
+  async buy(guildId: string, userId: string, itemId: string, opts: flows.RoleGrantHooks = {}): Promise<BuyOutcome> {
     const item = await this.store.getItem(guildId, itemId);
     if (!item) return { ok: false, reason: "not_found" };
-    if (item.roleId && opts.ownsRole?.(item.roleId)) return { ok: false, reason: "already_owned" };
-    if (!(await this.store.takeStock(guildId, item.id))) return { ok: false, reason: "sold_out" };
+    const grantNow = Boolean(item.roleId) && !item.useToGrant;
+    if (grantNow && opts.ownsRole?.(item.roleId!)) return { ok: false, reason: "already_owned" };
+    const limited = item.perUserLimit !== null;
+    if (limited && !(await this.store.reservePurchase(guildId, userId, item, item.perUserLimit!))) return { ok: false, reason: "limit", limit: item.perUserLimit! };
+    const release = async () => { if (limited) await this.store.releasePurchase(guildId, userId, item.id); };
+    if (!(await this.store.takeStock(guildId, item.id))) {
+      await release();
+      return { ok: false, reason: "sold_out" };
+    }
     const after = await this.store.debit(guildId, userId, item.price);
     if (!after) {
       await this.store.returnStock(guildId, item.id);
+      await release();
       return { ok: false, reason: "insufficient", balance: (await this.store.account(guildId, userId)).balance, price: item.price };
     }
-    if (item.roleId) {
-      const failed = opts.grantRole ? await opts.grantRole(item.roleId).catch((err: unknown) => (err instanceof Error ? err.message : "Discord refused the role.")) : "Roles can't be granted here.";
+    if (grantNow) {
+      const failed = opts.grantRole ? await opts.grantRole(item.roleId!, item.roleDurationHours).catch((err: unknown) => (err instanceof Error ? err.message : "Discord refused the role.")) : "Roles can't be granted here.";
       if (failed) {
         await this.store.credit(guildId, userId, item.price);
         await this.store.returnStock(guildId, item.id);
+        await release();
         return { ok: false, reason: "role_failed", detail: failed };
       }
     }
@@ -148,12 +160,14 @@ export class EconomyService {
     return { ok: true, item: { ...item, stock: item.stock === null ? null : item.stock - 1 }, balance: after.balance };
   }
 
-  /** Staff give/take/reset. Recorded in the transaction log with who did it and why. */
+  /** Staff give/take (wallet) and reset (wallet and bank). Recorded in the transaction log with who did it and why. */
   async adjust(guildId: string, userId: string, action: AdjustAction, amount: number, actorId: string, reason: string | null): Promise<AdjustOutcome> {
-    const previous = (await this.store.account(guildId, userId)).balance;
+    const before = await this.store.account(guildId, userId);
+    let previous = before.balance;
     let balance: number;
     if (action === "reset") {
-      balance = (await this.store.setBalance(guildId, userId, 0)).balance;
+      previous = before.balance + before.bank;
+      balance = (await this.store.setBalance(guildId, userId, 0, 0)).balance;
       amount = previous;
       // An account that was already empty has no balance change to record.
       if (previous > 0) await this.log(guildId, userId, "admin_reset", -previous, balance, { actorId, note: reason });
@@ -173,9 +187,9 @@ export class EconomyService {
     return { ok: true, balance, previous };
   }
 
-  leaderboard(guildId: string, page: number, perPage: number) {
+  leaderboard(guildId: string, page: number, perPage: number, sort: LeaderboardSort = "total") {
     const safePage = Math.max(1, Math.floor(page));
-    return this.store.leaderboard(guildId, (safePage - 1) * perPage, perPage);
+    return this.store.leaderboard(guildId, (safePage - 1) * perPage, perPage, sort);
   }
 
   recentTransactions(guildId: string, limit: number, userId?: string) { return this.store.recentTransactions(guildId, limit, userId); }

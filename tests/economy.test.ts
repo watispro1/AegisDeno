@@ -253,8 +253,8 @@ test("leaderboard: richest first, ties by ID, zero balances hidden, paged", asyn
   await store.setBalance(G, "4", 0);
   await store.setBalance("other", "5", 1e6);
   const p1 = await service.leaderboard(G, 1, 2);
-  assert.deepEqual(p1, { rows: [{ userId: "2", balance: 900 }, { userId: "1", balance: 50 }], total: 3 });
-  assert.deepEqual((await service.leaderboard(G, 2, 2)).rows, [{ userId: "3", balance: 50 }]);
+  assert.deepEqual(p1, { rows: [{ userId: "2", balance: 900, bank: 0, total: 900 }, { userId: "1", balance: 50, bank: 0, total: 50 }], total: 3 });
+  assert.deepEqual((await service.leaderboard(G, 2, 2)).rows.map(r => r.userId), ["3"]);
   assert.deepEqual((await service.leaderboard(G, 0, 2)).rows.length, 2, "page < 1 is page 1");
 });
 

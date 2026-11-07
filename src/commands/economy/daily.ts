@@ -2,7 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder, InteractionContextType, MessageFlags
 import type { Command } from "../../types/discord";
 import { economy } from "../../services/economyService";
 import { economyGate, NO_PINGS } from "../../services/economyDiscord";
-import { STREAK_BONUS_CAP, formatCoins, relativeTimestamp } from "../../services/economyLogic";
+import { formatCoins, relativeTimestamp } from "../../services/economyLogic";
 import { COLORS, footer } from "../../utils/embedStyle";
 
 export const command: Command = {
@@ -32,7 +32,9 @@ export const command: Command = {
         { name: "Streak", value: `🔥 ${r.streak} day${r.streak === 1 ? "" : "s"}`, inline: true },
         { name: "Next claim", value: relativeTimestamp(Date.now() + cfg.dailyCooldownHours * 3_600_000), inline: true },
       )
-      .setFooter(footer(cfg.dailyStreakBonus > 0 ? `Streak bonus grows for ${STREAK_BONUS_CAP} days. Miss a day and it starts over.` : null));
+      .setFooter(footer(cfg.dailyStreakBonus > 0 && cfg.dailyStreakCapDays > 0
+        ? `Streak bonus grows for ${cfg.dailyStreakCapDays} day${cfg.dailyStreakCapDays === 1 ? "" : "s"}. Miss a day and it starts over.`
+        : null));
     await interaction.reply({ embeds: [embed], allowedMentions: NO_PINGS });
   },
 };

@@ -17,7 +17,8 @@ import {
   topTitle,
   type StarboardTopEntry,
 } from "../src/services/starboardTop";
-import { topFilter } from "../src/services/starboardTopQuery";
+import { excerptToStore, fillMissingExcerpts, topFilter, type ExcerptLookup } from "../src/services/starboardTopQuery";
+import { isGoneError } from "../src/services/starboardExcerpt";
 import { starboardTopPanel } from "../src/web/dashboard/views/starboardTop";
 
 const GUILD = "800000000000000001";
@@ -154,4 +155,33 @@ test("dashboard Top posts panel escapes text and links both messages", () => {
   assert.ok(!/style=|<script/.test(html), "no inline styles or scripts");
   const empty = starboardTopPanel(ctx, { entries: [], starboardChannelId: null, emoji: "⭐" }, []);
   assert.match(empty, /No starred posts yet/);
+});
+
+test("excerptToStore saves text, records a deleted message as empty and skips unknown look-ups", () => {
+  assert.equal(excerptToStore({ kind: "text", text: "  hello\n world " }), "hello world");
+  assert.equal(excerptToStore({ kind: "gone" }), "");
+  assert.equal(excerptToStore({ kind: "unknown" }), null);
+  assert.equal(isGoneError({ code: 10008 }), true);
+  assert.equal(isGoneError({ code: 10003 }), true);
+  assert.equal(isGoneError({ code: 50001 }), false);
+  assert.equal(isGoneError(new Error("timeout")), false);
+});
+
+test("fillMissingExcerpts stops refetching deleted messages once recorded", async () => {
+  const entry = (id: string, excerpt: string | null) => ({
+    sourceChannelId: "c", sourceMessageId: id, authorId: "a", starboardMessageId: `s${id}`, starCount: 3, excerpt, createdAt: new Date(0),
+  });
+  const results: Record<string, ExcerptLookup> = { deleted: { kind: "gone" }, hidden: { kind: "unknown" }, live: { kind: "text", text: "hi" } };
+  const fetched: string[] = [];
+  const saved: Array<[string, string]> = [];
+  const fetchText = async (_c: string, id: string) => { fetched.push(id); return results[id]; };
+  const save = async (_g: string, id: string, excerpt: string) => { saved.push([id, excerpt]); };
+  const entries = [entry("deleted", null), entry("hidden", null), entry("live", null), entry("kept", "already")];
+  await fillMissingExcerpts("g", entries, fetchText, save);
+  assert.deepEqual(fetched.sort(), ["deleted", "hidden", "live"]);
+  assert.deepEqual(saved.sort(), [["deleted", ""], ["live", "hi"]]);
+  assert.deepEqual(entries.map(e => e.excerpt), ["", null, "hi", "already"]);
+  fetched.length = 0;
+  await fillMissingExcerpts("g", entries, fetchText, save);
+  assert.deepEqual(fetched, ["hidden"]);
 });

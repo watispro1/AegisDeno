@@ -15,7 +15,7 @@ import { memoryAuditStore } from "../src/web/dashboard/audit";
 import { memoryModuleData } from "../src/web/dashboard/moduleDataMemory";
 import {
   cancelConfirmed, filterAndSortSuggestions, formatPollPercent, messageJumpUrl, parseSuggestionQuery, pollOptionViews, pollPercent,
-  suggestionMatch, suggestionPipeline, suggestionQueryString, suggestionSearchText, toPollRow,
+  pollChannelIds, suggestionMatch, suggestionPipeline, suggestionQueryString, suggestionSearchText, toPollRow, visiblePolls,
 } from "../src/web/dashboard/communityQuery";
 import { giveawayBonus } from "../src/web/dashboard/views/community";
 import type { SuggestionRow } from "../src/web/dashboard/moduleData";
@@ -204,6 +204,7 @@ function seed() {
     ],
     polls: [
       toPollRow({ messageId: "100000000000000010", channelId: CHANNEL, creatorId: USER, question: "Best <b>day</b>?", options: ["Sat", "Sun"], votes: { a: [0], b: [0], c: [1] }, ended: false, createdAt: new Date(2000) }),
+      toPollRow({ messageId: "100000000000000012", channelId: CHANNEL_2, creatorId: USER, question: "Staff vote", options: ["A", "B"], votes: {}, ended: true, createdAt: new Date(1500) }),
       toPollRow({ messageId: "100000000000000011", channelId: HIDDEN, creatorId: USER, question: "Old poll", options: ["X"], votes: {}, ended: true, createdAt: new Date(1000) }),
     ],
   });
@@ -270,8 +271,34 @@ test("polls page lists results, escapes questions and skips jump links for hidde
   assert.match(html, /<strong>67%<\/strong> <span class="muted">\(2 votes\)/);
   assert.match(html, new RegExp(`https://discord.com/channels/${GUILD}/${CHANNEL}/100000000000000010`));
   assert.doesNotMatch(html, new RegExp(`channels/${GUILD}/${HIDDEN}/`));
+  // A poll from a channel hidden from Aegis is left out entirely, counts included.
+  assert.doesNotMatch(html, /Old poll/);
+  assert.match(html, /Staff vote/);
+  assert.match(html, /1 open, 1 closed/);
   assert.match(html, /href="\/dashboard\/\d+\/polls"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/dashboard\/\d+\/polls"/);
   assert.equal((await get(`/dashboard/${GUILD}/polls`, false)).status, 302);
+});
+
+test("polls page leaves out polls from channels the viewer cannot open", async () => {
+  bot.viewerChannelIds = async () => new Set([CHANNEL, HIDDEN]);
+  try {
+    const html = await (await get(`/dashboard/${GUILD}/polls`)).text();
+    assert.match(html, /Best &lt;b&gt;day&lt;\/b&gt;\?/);
+    assert.doesNotMatch(html, /Staff vote|Old poll/);
+    assert.match(html, /1 open, 0 closed/);
+    bot.viewerChannelIds = async () => new Set();
+    assert.match(await (await get(`/dashboard/${GUILD}/polls`)).text(), /No polls yet/);
+  } finally {
+    delete bot.viewerChannelIds;
+  }
+});
+
+test("pollChannelIds drops Aegis-hidden channels and ones the viewer cannot open", () => {
+  assert.deepEqual(pollChannelIds([CHANNEL, CHANNEL_2, HIDDEN], new Set([HIDDEN]), null), [CHANNEL, CHANNEL_2]);
+  assert.deepEqual(pollChannelIds([CHANNEL, CHANNEL_2, HIDDEN], new Set([HIDDEN]), new Set([CHANNEL_2, HIDDEN])), [CHANNEL_2]);
+  assert.deepEqual(pollChannelIds([CHANNEL], new Set(), new Set()), []);
+  const rows = [toPollRow({ channelId: CHANNEL, question: "a" }), toPollRow({ channelId: HIDDEN, question: "b" })];
+  assert.deepEqual(visiblePolls(rows, [CHANNEL]).map(r => r.question), ["a"]);
 });
 
 test("suggestions page: search, sort and status from the query string", async () => {

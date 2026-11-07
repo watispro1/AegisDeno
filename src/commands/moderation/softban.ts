@@ -19,7 +19,7 @@ import { sendGuildLog } from "../../services/logging";
 import { addModerationCase } from "../../services/moderationCases";
 import { caseActionsRow, modLogRow } from "../../services/modLogLinks";
 import { dmOutcome, dmSentLabel, dmSentText } from "../../services/dmNotice";
-import { SOFTBAN_DEFAULT_DAYS, SOFTBAN_MAX_DAYS, SOFTBAN_MIN_DAYS, softbanBanReason, softbanBlock, softbanDeleteSeconds, softbanUnbanReason } from "./softban/logic";
+import { SOFTBAN_DEFAULT_DAYS, SOFTBAN_MAX_DAYS, SOFTBAN_MIN_DAYS, softbanBanReason, softbanBlock, softbanDeleteSeconds, softbanRecheckBlock, softbanUnbanReason, lookupBanStatus } from "./softban/logic";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -51,13 +51,13 @@ export const command: Command = {
     const deleteSeconds = softbanDeleteSeconds(interaction.options.getInteger("delete_messages"));
     const deleteDays = deleteSeconds / 86_400;
 
-    const existingBan = await guild.bans.fetch(target.id).catch(() => null);
+    const banStatus = await lookupBanStatus(() => guild.bans.fetch({ user: target.id, force: true }));
     const blocked = softbanBlock({
       targetId: target.id,
       actorId: interaction.user.id,
       botId: interaction.client.user?.id ?? null,
       ownerId: guild.ownerId,
-      alreadyBanned: existingBan !== null,
+      banStatus,
     });
     if (blocked) return interaction.reply({ content: blocked, flags: MessageFlags.Ephemeral });
 
@@ -110,9 +110,8 @@ export const command: Command = {
       await i.deferUpdate().catch(() => null);
 
       // Roles or bans can change during the confirmation: check again.
-      const stillBlocked = (await guild.bans.fetch({ user: target.id, force: true }).catch(() => null))
-        ? "ℹ️ That user was banned while you were confirming. Nothing was done."
-        : await checkHierarchy();
+      const recheck = softbanRecheckBlock(await lookupBanStatus(() => guild.bans.fetch({ user: target.id, force: true })));
+      const stillBlocked = recheck ?? await checkHierarchy();
       if (stillBlocked) {
         await i.editReply({ content: stillBlocked, embeds: [], components: [] }).catch(() => null);
         return;

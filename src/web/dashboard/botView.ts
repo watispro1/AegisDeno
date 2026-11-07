@@ -89,6 +89,12 @@ export interface BotView {
    * so a saved channel that became hidden can be told apart from a deleted one.
    */
   hiddenChannelIds(guildId: string): ReadonlySet<string>;
+  /**
+   * IDs of the channels (and cached threads) the viewer can open in Discord
+   * right now, leaving out ones hidden from Aegis. Fails closed: an empty set
+   * on any error. Optional so test fakes need not implement it.
+   */
+  viewerChannelIds?(guildId: string, userId: string): Promise<ReadonlySet<string>>;
   /** Roles from highest to lowest, without @everyone. */
   roles(guildId: string): RoleOption[];
   /**
@@ -179,6 +185,21 @@ export function discordBotView(client: Client): BotView {
       const g = get(guildId);
       if (!g) return new Set<string>();
       return new Set([...g.channels.cache.values()].filter(c => isObfuscatedChannel(c)).map(c => c.id));
+    },
+
+    async viewerChannelIds(guildId, userId) {
+      const g = get(guildId);
+      if (!g) return new Set<string>();
+      try {
+        const member = await g.members.fetch(userId);
+        const ids = [...g.channels.cache.values()]
+          .filter(c => !isObfuscatedChannel(c) && c.permissionsFor(member)?.has(PermissionFlagsBits.ViewChannel) === true)
+          .map(c => c.id);
+        return new Set(ids);
+      } catch (err) {
+        logger.debug(`Dashboard channel access check failed in guild ${guildId}: ${(err as Error)?.message ?? err}`);
+        return new Set<string>();
+      }
     },
 
     roles(guildId) {

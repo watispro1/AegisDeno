@@ -68,22 +68,42 @@ export async function findTopStarboardAuthors(guildId: string, q: StarboardTopQu
   return rows.map(r => ({ authorId: String(r._id), stars: Number(r.stars) || 0, posts: Number(r.posts) || 0 })).sort(compareAuthors);
 }
 
+/** What a look-up of a starred message's text found. */
+export type ExcerptLookup = { kind: "text"; text: string } | { kind: "gone" } | { kind: "unknown" };
+
+/**
+ * The excerpt to save for a look-up, or null to leave the entry alone. A
+ * deleted message is saved as "" so later loads stop asking Discord for it.
+ */
+export function excerptToStore(found: ExcerptLookup): string | null {
+  if (found.kind === "text") return storedExcerpt(found.text);
+  if (found.kind === "gone") return "";
+  return null;
+}
+
+type ExcerptSaver = (guildId: string, sourceMessageId: string, excerpt: string) => Promise<unknown>;
+
+const saveExcerpt: ExcerptSaver = (guildId, sourceMessageId, excerpt) =>
+  StarboardEntryModel.updateOne({ guildId: String(guildId), sourceMessageId }, { excerpt });
+
 /**
  * Fills in excerpts for entries saved before excerpts were stored, using
- * `fetchText` (which returns null for a channel Aegis cannot see or a deleted
- * message). Found text is saved so the next look-up skips Discord.
+ * `fetchText`. Found text, or "" for a deleted message, is saved so the next
+ * look-up skips Discord; a hidden channel or failed request is left for later.
  */
 export async function fillMissingExcerpts(
   guildId: string,
   entries: StarboardTopEntry[],
-  fetchText: (channelId: string, messageId: string) => Promise<string | null>,
+  fetchText: (channelId: string, messageId: string) => Promise<ExcerptLookup>,
+  save: ExcerptSaver = saveExcerpt,
 ): Promise<StarboardTopEntry[]> {
   await Promise.all(entries.map(async (e) => {
     if (e.excerpt !== null && e.excerpt !== undefined) return;
-    const text = await fetchText(e.sourceChannelId, e.sourceMessageId).catch(() => null);
-    if (text === null) return;
-    e.excerpt = storedExcerpt(text);
-    await StarboardEntryModel.updateOne({ guildId: String(guildId), sourceMessageId: e.sourceMessageId }, { excerpt: e.excerpt }).catch(() => null);
+    const found = await fetchText(e.sourceChannelId, e.sourceMessageId).catch((): ExcerptLookup => ({ kind: "unknown" }));
+    const excerpt = excerptToStore(found);
+    if (excerpt === null) return;
+    e.excerpt = excerpt;
+    await save(guildId, e.sourceMessageId, excerpt).catch(() => null);
   }));
   return entries;
 }

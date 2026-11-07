@@ -9,27 +9,68 @@ import { ECONOMY_LIMITS, MAX_BALANCE, formatCoins, type EconomyConfig, type Econ
 import { requestConfirmation } from "../../utils/confirmation";
 import { COLORS, footer } from "../../utils/embedStyle";
 
-const CONFIG_OPTIONS: Array<[option: string, key: keyof typeof ECONOMY_LIMITS, description: string]> = [
+type OptionRow = [option: string, key: keyof typeof ECONOMY_LIMITS, description: string];
+
+const CONFIG_OPTIONS: OptionRow[] = [
   ["daily_amount", "dailyAmount", "Coins from /daily"],
-  ["streak_bonus", "dailyStreakBonus", "Extra coins per streak day (up to 7 days)"],
+  ["streak_bonus", "dailyStreakBonus", "Extra coins per streak day"],
+  ["streak_days", "dailyStreakCapDays", "Streak days that add a bonus (0 = no streak bonus)"],
   ["daily_cooldown_hours", "dailyCooldownHours", "Hours between /daily claims"],
+  ["weekly_amount", "weeklyAmount", "Coins from /weekly (0 = off)"],
   ["work_min", "workMin", "Least coins from /work"],
   ["work_max", "workMax", "Most coins from /work"],
   ["work_cooldown_minutes", "workCooldownMinutes", "Minutes between /work uses"],
+  ["bank_cap", "bankCap", "Most coins a member can keep in the bank (0 = no limit)"],
   ["pay_confirm_threshold", "payConfirmThreshold", "/pay asks to confirm at or above this (0 = never)"],
+  ["pay_min_member_hours", "payMinMemberHours", "Hours in the server before a member can /pay"],
+  ["pay_daily_limit", "payDailyLimit", "Most coins a member can send per day, UTC (0 = no limit)"],
+  ["pay_tax_percent", "payTaxPercent", "Percent of each payment removed as tax"],
+  ["sell_percent", "shopSellPercent", "Percent of the price /shop sell pays back (0 = off)"],
 ];
 
+const RISK_OPTIONS: OptionRow[] = [
+  ["crime_success_percent", "crimeSuccessPercent", "Chance /crime succeeds"],
+  ["crime_min", "crimeMin", "Least coins from a successful /crime"],
+  ["crime_max", "crimeMax", "Most coins from a successful /crime"],
+  ["crime_fine", "crimeFine", "Fine when caught (never more than the wallet)"],
+  ["crime_cooldown_minutes", "crimeCooldownMinutes", "Minutes between /crime attempts"],
+  ["min_bet", "gambleMinBet", "Smallest /gamble bet"],
+  ["max_bet", "gambleMaxBet", "Largest /gamble bet"],
+  ["daily_loss_cap", "gambleDailyLossCap", "Most a member can lose gambling per day, UTC (0 = no limit)"],
+  ["gamble_cooldown_seconds", "gambleCooldownSeconds", "Seconds between bets"],
+];
+
+const n = (v: number) => v.toLocaleString("en-US");
+
 export function configEmbed(cfg: EconomyConfig): EmbedBuilder {
+  const streak = cfg.dailyStreakBonus > 0 && cfg.dailyStreakCapDays > 0 ? `, +${n(cfg.dailyStreakBonus)}/streak day up to ${cfg.dailyStreakCapDays} days` : "";
   return new EmbedBuilder()
     .setColor(cfg.enabled ? COLORS.ok : COLORS.muted)
     .setTitle(`💰 Economy: ${cfg.enabled ? "on" : "off"}`)
     .addFields(
       { name: "Currency", value: `${cfg.currencyEmoji} ${cfg.currencyName}`, inline: true },
-      { name: "Daily", value: `${formatCoins(cfg, cfg.dailyAmount)} every ${cfg.dailyCooldownHours}h, +${cfg.dailyStreakBonus}/streak day`, inline: true },
-      { name: "Work", value: `${cfg.workMin.toLocaleString("en-US")}–${cfg.workMax.toLocaleString("en-US")} every ${cfg.workCooldownMinutes} min`, inline: true },
-      { name: "Pay confirmation", value: cfg.payConfirmThreshold > 0 ? `at ${formatCoins(cfg, cfg.payConfirmThreshold)} or more` : "off", inline: true },
+      { name: "Daily", value: `${formatCoins(cfg, cfg.dailyAmount)} every ${cfg.dailyCooldownHours}h${streak}`, inline: true },
+      { name: "Weekly", value: cfg.weeklyAmount > 0 ? formatCoins(cfg, cfg.weeklyAmount) : "off", inline: true },
+      { name: "Work", value: `${n(cfg.workMin)}–${n(cfg.workMax)} every ${cfg.workCooldownMinutes} min`, inline: true },
+      { name: "Bank", value: cfg.bankCap > 0 ? `up to ${formatCoins(cfg, cfg.bankCap)}` : "no limit", inline: true },
+      { name: "Pay", value: [
+        cfg.payConfirmThreshold > 0 ? `confirm at ${n(cfg.payConfirmThreshold)}+` : "no confirmation",
+        `${cfg.payMinMemberHours}h in server`,
+        cfg.payDailyLimit > 0 ? `${n(cfg.payDailyLimit)}/day` : "no daily limit",
+        `${cfg.payTaxPercent}% tax`,
+      ].join(" · "), inline: true },
+      { name: "Shop", value: cfg.shopSellPercent > 0 ? `sell back at ${cfg.shopSellPercent}%` : "selling off", inline: true },
+      { name: "Crime", value: cfg.crimeEnabled ? `${cfg.crimeSuccessPercent}% · ${n(cfg.crimeMin)}–${n(cfg.crimeMax)} · fine ${n(cfg.crimeFine)} · every ${cfg.crimeCooldownMinutes} min` : "off", inline: true },
+      { name: "Gambling", value: cfg.gamblingEnabled ? `bets ${n(cfg.gambleMinBet)}–${n(cfg.gambleMaxBet)} · loss cap ${cfg.gambleDailyLossCap > 0 ? `${n(cfg.gambleDailyLossCap)}/day` : "none"} · ${cfg.gambleCooldownSeconds}s apart` : "off", inline: true },
     )
-    .setFooter(footer("Change with /economy config or on the dashboard's Economy page"));
+    .setFooter(footer("Change with /economy config and /economy risk, or on the dashboard's Economy page"));
+}
+
+function readOptions(interaction: ChatInputCommandInteraction, rows: OptionRow[], input: EconomySettingsInput): void {
+  for (const [name, key] of rows) {
+    const v = interaction.options.getInteger(name);
+    if (v !== null) input[key] = v;
+  }
 }
 
 export const command: Command = {
@@ -49,6 +90,15 @@ export const command: Command = {
       }
       return s;
     })
+    .addSubcommand(s => {
+      s.setName("risk").setDescription("Show or change /crime and /gamble settings. Gambling is off until you turn it on.")
+        .addBooleanOption(o => o.setName("crime").setDescription("Allow /crime"))
+        .addBooleanOption(o => o.setName("gambling").setDescription("Allow /gamble (off by default)"));
+      for (const [name, key, description] of RISK_OPTIONS) {
+        s.addIntegerOption(o => o.setName(name).setDescription(description).setMinValue(ECONOMY_LIMITS[key][0]).setMaxValue(ECONOMY_LIMITS[key][1]));
+      }
+      return s;
+    })
     .addSubcommand(s => s.setName("give").setDescription("Give coins to a member (logged to the mod log).")
       .addUserOption(o => o.setName("user").setDescription("Member").setRequired(true))
       .addIntegerOption(o => o.setName("amount").setDescription("Coins").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE))
@@ -57,7 +107,7 @@ export const command: Command = {
       .addUserOption(o => o.setName("user").setDescription("Member").setRequired(true))
       .addIntegerOption(o => o.setName("amount").setDescription("Coins").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE))
       .addStringOption(o => o.setName("reason").setDescription("Why (shown in the mod log)").setMaxLength(200)))
-    .addSubcommand(s => s.setName("reset").setDescription("Set a member's balance to 0 (logged to the mod log).")
+    .addSubcommand(s => s.setName("reset").setDescription("Set a member's wallet and bank to 0 (logged to the mod log).")
       .addUserOption(o => o.setName("user").setDescription("Member").setRequired(true))
       .addStringOption(o => o.setName("reason").setDescription("Why (shown in the mod log)").setMaxLength(200))),
   category: "economy",
@@ -75,21 +125,17 @@ export const command: Command = {
       if (!r.ok) return interaction.reply({ content: "❌ Couldn't save that.", flags: MessageFlags.Ephemeral });
       return interaction.reply({
         content: enabled
-          ? "✅ The economy is **on**. Members can use `/daily`, `/work`, `/pay`, `/shop` and `/leaderboard`. Tune it with `/economy config`."
+          ? "✅ The economy is **on**. Members can use `/daily`, `/weekly`, `/work`, `/crime`, `/pay`, the bank, `/shop` and `/leaderboard`. Tune it with `/economy config`; gambling stays off until you turn it on with `/economy risk`."
           : "💤 The economy is **off**. Balances and the shop are kept; members just can't use the commands until you turn it back on.",
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    if (sub === "config") {
-      const input: EconomySettingsInput = {
-        currencyName: interaction.options.getString("currency_name") ?? undefined,
-        currencyEmoji: interaction.options.getString("currency_emoji") ?? undefined,
-      };
-      for (const [name, key] of CONFIG_OPTIONS) {
-        const v = interaction.options.getInteger(name);
-        if (v !== null) input[key] = v;
-      }
+    if (sub === "config" || sub === "risk") {
+      const input: EconomySettingsInput = sub === "config"
+        ? { currencyName: interaction.options.getString("currency_name") ?? undefined, currencyEmoji: interaction.options.getString("currency_emoji") ?? undefined }
+        : { crimeEnabled: interaction.options.getBoolean("crime") ?? undefined, gamblingEnabled: interaction.options.getBoolean("gambling") ?? undefined };
+      readOptions(interaction, sub === "config" ? CONFIG_OPTIONS : RISK_OPTIONS, input);
       const changed = Object.values(input).some(v => v !== undefined);
       if (!changed) return interaction.reply({ embeds: [configEmbed(await svc.config(guildId))], flags: MessageFlags.Ephemeral });
       const r = await svc.updateConfig(guildId, input);
@@ -107,7 +153,7 @@ export const command: Command = {
 
     if (action === "reset") {
       const before = await svc.balance(guildId, user.id);
-      const answer = await requestConfirmation(interaction, { content: `Reset ${user}'s balance (${formatCoins(cfg, before.balance)}) to 0?`, confirmLabel: "Reset balance" });
+      const answer = await requestConfirmation(interaction, { content: `Reset ${user}'s wallet (${formatCoins(cfg, before.balance)}) and bank (${formatCoins(cfg, before.bank)}) to 0?`, confirmLabel: "Reset balance" });
       if (answer !== "confirmed") return;
     }
     const r = await svc.adjust(guildId, user.id, action, amount, interaction.user.id, reason);

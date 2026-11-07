@@ -1,6 +1,6 @@
 /** Form parsing for the dashboard's Economy page. Same rules as the slash commands (economyLogic.ts). */
 import {
-  MAX_BALANCE, applyEconomySettings, parseAmount, validateShopItem,
+  ECONOMY_BOOLEAN_KEYS, ECONOMY_NUMBER_KEYS, MAX_BALANCE, applyEconomySettings, parseAmount, validateShopItem,
   type EconomyConfig, type ShopItemInput,
 } from "../../services/economyLogic";
 import type { AdjustAction } from "../../services/economyService";
@@ -9,10 +9,12 @@ import { ROLE_ABOVE_VIEWER_ERROR, checkbox, field, type FormBody, type Parsed, t
 const SNOWFLAKE = /^\d{17,20}$/;
 export const ECONOMY_REASON_MAX = 200;
 
-const SETTING_KEYS = ["currencyName", "currencyEmoji", "dailyAmount", "dailyStreakBonus", "dailyCooldownHours", "workMin", "workMax", "workCooldownMinutes", "payConfirmThreshold"] as const;
+const SETTING_KEYS = ["currencyName", "currencyEmoji", ...ECONOMY_NUMBER_KEYS] as const;
 
+/** Every setting on the form. Checkboxes read as off when not ticked; text and number fields can't be blank. */
 export function parseEconomySettings(body: FormBody, saved: EconomyConfig): Parsed<EconomyConfig> {
-  const input: Record<string, string | boolean> = { enabled: checkbox(body, "enabled") };
+  const input: Record<string, string | boolean> = {};
+  for (const key of ECONOMY_BOOLEAN_KEYS) input[key] = checkbox(body, key);
   for (const key of SETTING_KEYS) input[key] = field(body, key);
   // Blank number fields are an error here (the form always shows the saved value).
   const errors: Record<string, string> = {};
@@ -38,7 +40,10 @@ export function parseShopItemForm(body: FormBody, ctx: ValidationContext, guildI
     else if (!found.assignable) errors.roleId = "Aegis can't hand out that role: it is at or above Aegis's highest role, or managed by an integration.";
     else if (found.aboveViewer) errors.roleId = ROLE_ABOVE_VIEWER_ERROR;
   }
-  const v = validateShopItem({ name: field(body, "name"), description: field(body, "description"), price: field(body, "price"), roleId: roleRaw || null, stock: field(body, "stock") });
+  const v = validateShopItem({
+    name: field(body, "name"), description: field(body, "description"), price: field(body, "price"), roleId: roleRaw || null, stock: field(body, "stock"),
+    perUserLimit: field(body, "perUserLimit"), roleDurationHours: field(body, "roleDurationHours"), useToGrant: checkbox(body, "useToGrant"),
+  });
   if (!v.ok) Object.assign(errors, v.errors);
   if (Object.keys(errors).length || !v.ok) return { ok: false, errors };
   return { ok: true, value: v.value };

@@ -9,6 +9,54 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.8.0] - 2026-11-05
+
+A bigger economy with a bank, weekly rewards, crime, optional gambling and
+usable shop items, plus moderation and privacy fixes. Released alongside
+dashboard 1.3.0 (see `DASHBOARD_CHANGELOG.md`).
+
+Upgrade notes: six new slash commands (`/weekly`, `/deposit`, `/withdraw`,
+`/crime`, `/gamble`, `/use`), so commands are re-registered on deploy. No
+migration, new permissions or environment variables. Existing accounts start
+with an empty bank. In servers that already have the economy on, `/pay` now
+needs 24 hours in the server and is limited to 10,000 coins a day by default.
+Gambling stays off until a manager turns it on.
+
+### Added
+- Economy bank: `/deposit` and `/withdraw` take a number, `all` or `half`. An
+  optional bank limit, and `/leaderboard` ranks by wallet plus bank, or by
+  wallet or bank alone with `sort:`.
+- `/weekly` pays 500 coins every 7 days by default. `/crime` has a 50% success
+  chance, a 50 to 250 coin reward and a fine on failure that is never more
+  than your wallet, with a 2-hour cooldown.
+- Optional gambling with `/gamble coinflip`, `/gamble slots` and
+  `/gamble info`, off by default, with minimum and maximum bets, a cooldown, a
+  daily loss limit and a 2 to 3.6% house edge.
+- Shop items can give a role for a set number of hours, give it on `/use`, and
+  have a per-member limit. `/shop sell` buys items back at 50% by default.
+- `/economy risk` holds the crime and gambling settings. `/economy config`
+  gains weekly, bank, pay and sell-back settings.
+
+### Changed
+- `/pay` needs 24 hours in the server by default, has a daily sending limit
+  and an optional tax, and records the tax in transactions.
+- `/balance` shows wallet, bank, total, streak and when weekly and crime are
+  ready. `/inventory` shows quantities. `/economy reset` clears the bank too.
+- The daily streak bonus length is now a setting (7 days by default).
+- The invite filter matches allowed invite codes exactly, since Discord codes
+  are case-sensitive. The server's vanity link still passes in any case.
+- The AutoMod button on `/dashboard` shortens long exempt role and channel
+  lists ("and N more") so it always fits in one message.
+
+### Fixed
+- `/softban` stops with a clear message when Discord can't confirm whether the
+  user is already banned, so it can no longer lift an existing ban.
+- When a reminder's DM can't be delivered, the channel message only pings you
+  and asks you to allow DMs. A private reminder's text stays private.
+- `/starboard top` no longer looks up deleted messages again on every load.
+- The `scripts` folder is typechecked again, and the dashboard fixture script
+  compiles with the newer automod settings.
+
 ## [3.7.3] - 2026-11-04
 
 Temporary roles, softbans and a starboard leaderboard, with dashboard

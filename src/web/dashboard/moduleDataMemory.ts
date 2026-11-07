@@ -109,8 +109,9 @@ export function memoryModuleData(seed: Partial<Pick<MemoryModuleData, "responder
       m.calls.push(`gw.cancel:${messageId}`);
       return { ok: true };
     },
-    async listPolls(_g, limit) {
-      return [...m.polls].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
+    async listPolls(_g, limit, channelIds) {
+      const allowed = new Set(channelIds);
+      return m.polls.filter(p => allowed.has(p.channelId)).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
     },
     async listSuggestions(_g, filter, page, perPage, opts = {}) {
       const match = filterAndSortSuggestions(m.suggestions, { filter, q: opts.q ?? "", sort: opts.sort ?? "newest" });

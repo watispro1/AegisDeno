@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { describeError, softFail } from "../src/utils/softFail";
-import { reminderPostsInChannel } from "../src/services/timedActions";
+import { reminderChannelContent, reminderPostsInChannel } from "../src/services/timedActions";
 
 function captureConsole<T>(fn: () => T): { result: T; warns: string[]; debugs: string[] } {
   const warns: string[] = [];
@@ -45,4 +45,12 @@ test("reminder falls back to a channel ping when the DM fails", () => {
   assert.equal(reminderPostsInChannel(false, true), false);
   assert.equal(reminderPostsInChannel(false, false), true);
   assert.equal(reminderPostsInChannel(true, true), true);
+});
+
+test("a DM-only reminder's channel fallback pings without the private text", () => {
+  const fallback = reminderChannelContent("123", "call the doctor about results", false);
+  assert.match(fallback, /^<@123> /);
+  assert.doesNotMatch(fallback, /doctor/);
+  assert.match(fallback, /couldn't DM/);
+  assert.equal(reminderChannelContent("123", "stand-up", true), "<@123> ⏰ **Reminder:** stand-up");
 });

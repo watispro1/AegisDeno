@@ -71,6 +71,16 @@ export function reminderPostsInChannel(inChannel: boolean, dmDelivered: boolean)
   return inChannel || !dmDelivered;
 }
 
+/**
+ * The channel message for a due reminder. The text is shown only when the
+ * user asked for a channel ping; a DM-only reminder was set privately, so the
+ * fallback after a failed DM pings them without saying what it was about.
+ */
+export function reminderChannelContent(creatorId: string, text: string, inChannel: boolean): string {
+  if (inChannel) return `<@${creatorId}> ⏰ **Reminder:** ${text}`;
+  return `<@${creatorId}> ⏰ A reminder you set is due, but I couldn't DM it to you. Allow direct messages from this server's members so I can deliver reminders privately.`;
+}
+
 export function encodePersonalReminder(payload: PersonalReminderPayload): string {
   return JSON.stringify(payload);
 }

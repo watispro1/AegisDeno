@@ -109,7 +109,8 @@ export interface ModuleData {
   rerollGiveaway(guildId: string, messageId: string, actor: Actor): Promise<ActionResult>;
   /** End a running giveaway with no winners, through the same service as /giveaway cancel. */
   cancelGiveaway(guildId: string, messageId: string, actor: Actor): Promise<ActionResult>;
-  listPolls(guildId: string, limit: number): Promise<PollRow[]>;
+  /** Newest polls posted in one of `channelIds`; other channels are never read. */
+  listPolls(guildId: string, limit: number, channelIds: readonly string[]): Promise<PollRow[]>;
   listSuggestions(guildId: string, filter: SuggestionFilter, page: number, perPage: number, opts?: { q?: string; sort?: SuggestionSort }): Promise<{ items: SuggestionRow[]; total: number }>;
   reviewSuggestion(guildId: string, id: string, action: "approve" | "deny" | "consider", note: string | null, actor: Actor): Promise<ActionResult>;
   /** Only the viewer's own watches: Ghost Watch lists are personal, as in /watchlist list. */
@@ -252,8 +253,9 @@ export function mongoModuleData(client: Client): ModuleData {
       return result.ok ? { ok: true } : { ok: false, error: result.error ?? "That giveaway could not be cancelled." };
     },
 
-    async listPolls(guildId, limit) {
-      const docs = await PollModel.find({ guildId }).sort({ createdAt: -1 }).limit(limit).lean();
+    async listPolls(guildId, limit, channelIds) {
+      if (!channelIds.length) return [];
+      const docs = await PollModel.find({ guildId, channelId: { $in: [...channelIds] } }).sort({ createdAt: -1 }).limit(limit).lean();
       return docs.map(d => toPollRow(d as unknown as Record<string, unknown>));
     },
 

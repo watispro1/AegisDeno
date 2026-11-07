@@ -71,8 +71,10 @@ test("link allowlist covers subdomains, not lookalikes", () => {
 
 test("invite detection: forms, zero-width tricks, allowlist and vanity", () => {
   assert.deepEqual(inviteCodes("join discord.gg/abc123 or https://discord.com/invite/XyZ or disc\u200Bord.gg/zw1"), ["abc123", "XyZ", "zw1"]);
-  assert.equal(blockedInvite("discord.gg/partner", ["Partner"]), null, "codes compare without case");
-  assert.equal(blockedInvite("discord.gg/myserver", [], "MyServer"), null, "the server's vanity passes");
+  assert.equal(blockedInvite("discord.gg/Partner", ["Partner"]), null, "an allowed code passes");
+  assert.equal(blockedInvite("discord.gg/partner", ["Partner"]), "partner", "invite codes are case-sensitive, so a different case is a different invite");
+  assert.equal(blockedInvite("discord.gg/myserver", [], "MyServer"), null, "the server's vanity passes in any case");
+  assert.equal(blockedInvite("discord.gg/MYSERVER", [], "myserver"), null);
   assert.equal(blockedInvite("discord.gg/other discord.gg/partner", ["partner"]), "other");
   assert.equal(blockedInvite("discord is great", []), null);
 });
@@ -135,6 +137,11 @@ test("/automod edits: toggles, allowlists, limits and the timeout length", () =>
 
   const inv = automodEdit(cfg, "invites", "allow", { code: "discord.gg/Partner" });
   assert.deepEqual(inv.ok && inv.patch, { invites: { allowedCodes: ["Partner"] } });
+  const withCode = normalizeAutomodConfig(G, { invites: { enabled: true, action: "delete", allowedCodes: ["Partner"] } } as never);
+  const otherCase = automodEdit(withCode, "invites", "allow", { code: "partner" });
+  assert.deepEqual(otherCase.ok && otherCase.patch, { invites: { allowedCodes: ["Partner", "partner"] } }, "a different case is a different invite");
+  assert.equal(automodEdit(withCode, "invites", "unallow", { code: "partner" }).ok, false);
+  assert.equal(automodEdit(withCode, "invites", "allow", { code: "Partner" }).ok, false);
 
   const dup = automodEdit(cfg, "duplicates", "limit", { repeats: 4, window: 120 });
   assert.deepEqual(dup.ok && dup.patch, { duplicates: { maxRepeats: 4, windowSeconds: 120 } });
