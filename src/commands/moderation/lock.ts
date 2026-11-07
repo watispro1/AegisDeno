@@ -244,7 +244,7 @@ export const command: Command = {
             title: "🚨 Server Lockdown Activated",
             color: 0xED4245,
             description: `**Channels Locked:** ${locked}\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
-          });
+          }, "modActions");
         } catch (err) {
           logger.error(`Failed to lockdown server in guild ${guildId}`, err);
           await i.editReply({ content: "❌ Failed to activate lockdown.", embeds: [], components: [] });
@@ -326,7 +326,7 @@ export const command: Command = {
         title: isLocking ? "🔒 Category Locked" : "🔓 Category Unlocked",
         color: isLocking ? 0xED4245 : 0x57F287,
         description: `**Category:** <#${category.id}> (${done}/${children.length} channels)\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}${isLocking && durationMinutes > 0 ? `\n**Auto-Unlock:** ${autoUnlockText}` : ""}`,
-      });
+      }, "modActions");
       return;
     }
 
@@ -369,7 +369,7 @@ export const command: Command = {
         title: isLocking ? "🔒 Channel Locked" : "🔓 Channel Unlocked",
         color: isLocking ? 0xED4245 : 0x57F287,
         description: `**Channel:** <#${targetChannel.id}>\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}${isLocking && durationMinutes > 0 ? `\n**Auto-Unlock:** ${autoUnlockText}` : ""}`,
-      });
+      }, "modActions");
 
       if (isLocking && targetChannel.isTextBased() && shouldPostLockNotice(targetChannel.id, interaction.channelId, Boolean(customMessage?.trim()))) {
         await postLockNotice(

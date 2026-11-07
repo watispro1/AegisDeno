@@ -183,7 +183,7 @@ export async function setupVerification(
       title: "🛡️ Verification System Configured",
       color: 0x2ECC71,
       description: `Verification panel posted in <#${channel.id}>.\n**Verified Role:** <@&${verifiedRoleId}>\n**Type:** ${type}`,
-    });
+    }, "modActions");
 
     return {
       guildId: config.guildId,
@@ -226,7 +226,7 @@ export async function processVerification(
       title: "✅ Member Verified",
       color: 0x2ECC71,
       description: `${member.user.tag} (<@${member.user.id}>) completed server verification.`,
-    });
+    }, "modActions");
 
     return { success: true, message: `Verification successful! You have been granted the **${role.name}** role.` };
   } catch (err) {

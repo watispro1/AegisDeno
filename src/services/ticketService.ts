@@ -246,7 +246,7 @@ export async function createTicketChannel(
       title: "🎫 Ticket Created",
       color: 0x3498DB,
       description: `Ticket **${channel.name}** (\`${ticketId}\`) opened by <@${userId}>.`,
-    });
+    }, "modActions");
 
     return { ok: true, channel, ticketId, reused: false };
   } catch (err) {

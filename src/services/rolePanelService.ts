@@ -129,7 +129,7 @@ export async function createRolePanel(
       title: "🎭 Role Panel Created",
       color: 0x9B59B6,
       description: `Role panel **${title}** created in <#${channel.id}>.`,
-    });
+    }, "modActions");
 
     return doc.toObject() as RolePanel;
   } catch (err) {

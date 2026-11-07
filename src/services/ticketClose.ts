@@ -118,7 +118,7 @@ export async function closeTicket(
       title: "🔒 Ticket Closed",
       color: 0xE74C3C,
       description: `Ticket \`${ticket.id}\` closed by <@${closedByUserId}>.\n**Reason:** ${reason}`,
-    });
+    }, "modActions");
 
     return true;
   } catch (err) {

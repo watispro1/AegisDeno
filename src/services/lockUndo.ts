@@ -31,7 +31,7 @@ export function offerLockUndo(interaction: ChatInputCommandInteraction, channel:
             title: `↩️ Channel ${verb} Undone`,
             color: 0x99aab5,
             description: `**Channel:** <#${channel.id}>\n**By:** ${i.user.tag}`,
-          });
+          }, "modActions");
           const note = isLocking ? "" : " It stays locked until someone runs `/lock unlock`.";
           return { ok: true, message: `↩️ ${verb} undone: <#${channel.id}> is back the way it was.${note}` };
         },

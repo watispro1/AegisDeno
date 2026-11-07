@@ -110,7 +110,7 @@ export async function performChannelUnlock(client: Client, task: ScheduledTask):
     title: "🔓 Auto-Unlock",
     color: 0x57F287,
     description: `**Channel:** <#${channel.id}> was automatically unlocked after ${durationMinutes} minute(s).\n**Original Moderator:** ${moderatorTag}`,
-  }).catch(err => logger.warn(`Task ${task.id}: auto-unlock log failed`, err));
+  }, "modActions").catch(err => logger.warn(`Task ${task.id}: auto-unlock log failed`, err));
 
   if (isSendableChannel(channel)) {
     await channel.send({

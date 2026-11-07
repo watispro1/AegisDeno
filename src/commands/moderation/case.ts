@@ -273,7 +273,7 @@ export const command: Command = {
         title: "✏️ Case Reason Edited",
         color: 0x3498DB,
         description: `**${warning ? "Warning" : "Case"}:** \`${caseId}\`${targetId ? `\n**User:** <@${targetId}>` : ""}\n**Old reason:** ${previous?.reason ?? "Unknown"}\n**New reason:** ${newReason}\n**Edited by:** ${interaction.user.tag}`,
-      }).catch(() => null);
+      }, "modActions").catch(() => null);
       return;
     }
 
@@ -323,7 +323,7 @@ export const command: Command = {
         title: "🗑️ Case Deleted",
         color: 0xED4245,
         description: `**Case:** \`${caseId}\`\n**Action:** ${record.action.toUpperCase()} on <@${record.userId}>\n**Reason was:** ${(record.reason || "None").slice(0, 500)}\n**Deleted by:** ${interaction.user.tag}`,
-      }).catch(() => null);
+      }, "modActions").catch(() => null);
       return;
     }
 

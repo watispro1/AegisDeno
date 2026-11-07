@@ -218,7 +218,7 @@ export const command: Command = {
           await (targetChan as TextChannel).setRateLimitPerUser(previousRate, auditReason(`Undo by ${i.user.tag}`));
           currentRate = previousRate;
           undoState = "done";
-          await sendGuildLog(interaction.client, guildId, { title: "↩️ Slowmode Change Undone", color: 0x99aab5, description: `**Channel:** <#${targetChan.id}>\n**Restored:** ${formatDuration(previousRate)}\n**By:** ${i.user.tag}` });
+          await sendGuildLog(interaction.client, guildId, { title: "↩️ Slowmode Change Undone", color: 0x99aab5, description: `**Channel:** <#${targetChan.id}>\n**Restored:** ${formatDuration(previousRate)}\n**By:** ${i.user.tag}` }, "modActions");
           return { ok: true, message: `↩️ Slowmode in <#${targetChan.id}> is back to ${formatDuration(previousRate)}.` };
         },
       });
@@ -227,7 +227,7 @@ export const command: Command = {
         title: action,
         color,
         description: `**Channel:** <#${targetChan.id}>\n**Duration:** ${formatDuration(seconds)}\n**Reason:** ${reason}\n**Set By:** ${interaction.user.tag}`,
-      });
+      }, "modActions");
 
       const quickPresets: Record<string, number> = { off: 0, "5s": 5, "30s": 30, "5m": 300, "1h": 3600 };
       const collector = sent.createMessageComponentCollector({
