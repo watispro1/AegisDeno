@@ -1,3 +1,4 @@
+import { markMessageDeletedByBot } from "./deletedMessages";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -144,6 +145,7 @@ export async function setupVerification(
           m.components.some((row) => "components" in row && row.components.some((c) => "customId" in c && c.customId === "verify_start"))
       );
       for (const [, msg] of oldPanels) {
+        markMessageDeletedByBot(msg.id);
         await msg.delete().catch(() => null);
       }
     }

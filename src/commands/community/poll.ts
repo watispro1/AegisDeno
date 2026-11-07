@@ -1,3 +1,4 @@
+import { markMessageDeletedByBot } from "../../services/deletedMessages";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -114,6 +115,7 @@ export const command: Command = {
     } catch (err) {
       logger.error(`Failed to create poll in guild ${interaction.guildId}`, err);
       // Don't leave a poll with dead buttons behind if it couldn't be saved.
+      if (message) markMessageDeletedByBot(message.id);
       await message?.delete().catch(() => null);
       await interaction.editReply("❌ Failed to post the poll. Check that I can send messages and embeds here.");
     }

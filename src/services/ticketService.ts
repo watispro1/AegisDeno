@@ -1,3 +1,4 @@
+import { markMessageDeletedByBot } from "./deletedMessages";
 import {
   ChannelType,
   Guild,
@@ -48,6 +49,7 @@ export async function postTicketPanel(
         m.components.some((row) => "components" in row && row.components.some((c) => "customId" in c && c.customId?.startsWith("ticket_create_"))),
     );
     for (const [, msg] of oldPanels) {
+      markMessageDeletedByBot(msg.id);
       await msg.delete().catch(() => null);
     }
   }

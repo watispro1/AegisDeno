@@ -1,6 +1,6 @@
 # Aegis Support & Community Server Setup
 
-> Comprehensive operational guide and configuration manual for the official **Aegis Support & Community** Discord server: roles, categories, channels, permission overrides, forum tag systems, automations, and bot integrations.
+> Comprehensive operational manual, architecture guide, and configuration blueprint for the official **Aegis Support & Community** Discord server: roles, categories, channels, permission overrides, forum tag workflows, Discord Community Onboarding, automations, and bot integrations.
 
 ---
 
@@ -21,7 +21,8 @@
    - [5.8 🔊 Voice Lounges](#58--voice-lounges)
    - [5.9 Channel Conventions](#59-channel-conventions)
    - [5.10 What Aegis Posts Where](#510-what-aegis-posts-where)
-   - [5.11 Forum Architecture & Tag Specifications](#511-forum-architecture--tag-specifications)
+   - [5.11 Forum Architecture & Tag Workflows](#511-forum-architecture--tag-workflows)
+   - [5.12 Discord Community Onboarding & Server Guide](#512-discord-community-onboarding--server-guide)
 6. [Channel Permissions Breakdown](#6-channel-permissions-breakdown)
 7. [Official Aegis Bot Setup & Integration](#7-official-aegis-bot-setup--integration)
    - [7.1 Setup Order](#71-setup-order)
@@ -46,16 +47,17 @@
 
 ### Server Metadata
 - **Server Name:** `Aegis Support & Community`
-- **Community Enabled:** Yes *(Required for Announcement channels, Forum channels, Welcome screen, Server Insights, and AutoMod)*
-- **Description:** *Official support, development updates, documentation, and community server for the Aegis Discord moderation and management bot.*
+- **Community Enabled:** Yes *(Enables Announcement channels, Forums, Welcome Screens, Server Insights, and Native AutoMod)*
+- **Description:** *Official technical support, development updates, documentation, and community hub for the Aegis Discord moderation and management platform.*
 - **Server Region / Preferred Locale:** `English (US)`
-- **Server Banner & Icon:** Official shield insignia with blurple and ruby accenting.
+- **Server Icon & Banner:** High-contrast Aegis shield insignia in blurple (`#5865F2`) and deep dark slate (`#1E1F1E`).
 
-### Safety & Moderation Setup
-- **Verification Level:** `High` *(Must be a member of the server for longer than 10 minutes)*
+### Safety & Moderation Settings
+- **Verification Level:** `High` *(Must be a member of the server for longer than 10 minutes to post in public channels)*
 - **Explicit Media Content Filter:** `Scan media content from all members`
 - **Default Notification Settings:** `Only @mentions`
-- **2FA Requirement for Moderation:** `Enabled` *(All staff roles with administrative, kick, ban, or role management powers must have 2FA enabled)*
+- **2FA Requirement for Moderation:** `Enabled` *(All staff with administrative, kick, ban, timeout, or role management powers must have 2FA enabled)*
+- **Safety Setup:** Native Discord AutoMod rules enabled in tandem with Aegis's real-time filter engine.
 
 ---
 
@@ -66,7 +68,7 @@ Roles must be arranged in the exact order shown below (highest position first) t
 | Position | Role Name | Color Hex | Hoist | Mentionable | Purpose & Qualifications |
 |:---:|---|---|:---:|:---:|---|
 | **1** | `Founder / Owner` | `#E74C3C` (Ruby Red) | Yes | No | Server owner & core creator. Unrestricted administrative control. |
-| **2** | `Lead Developer` | `#9B59B6` (Purple) | Yes | Yes | Core bot software engineers & infrastructure managers. |
+| **2** | `Lead Developer` | `#9B59B6` (Purple) | Yes | Yes | Core software engineers, release managers & infrastructure administrators. |
 | **3** | `Head Moderator` | `#E67E22` (Orange) | Yes | Yes | Leads moderation team, handles escalations, oversees staff actions. |
 | **4** | `Moderator` | `#3498DB` (Cyan Blue) | Yes | Yes | Daily community moderation, chat management, purge/mute/warn enforcement. |
 | **5** | `Support Specialist` | `#2ECC71` (Emerald) | Yes | Yes | Technical support staff answering tickets and community questions. |
@@ -107,53 +109,53 @@ Roles must be arranged in the exact order shown below (highest position first) t
 
 ```
 📂 ─── 📌 INFORMATION & WELCOME ───
-  ├─ 📜・rules-and-info        [Text | Read-only]
+  ├─ 📜・rules-and-info        [Text | Read-only | Server guide & guidelines]
   ├─ 👋・welcome               [Text | Read-only | Aegis welcome target]
-  ├─ 📢・announcements         [Announcement | Read-only]
-  ├─ 🚀・bot-updates           [Announcement | Read-only]
-  ├─ 🚨・status-and-incidents  [Announcement | Read-only]
-  └─ 🔗・official-links        [Text | Read-only]
+  ├─ 📢・announcements         [Announcement | Read-only | Major news & events]
+  ├─ 🚀・bot-updates           [Announcement | Read-only | Version changelogs]
+  ├─ 🚨・status-and-incidents  [Announcement | Read-only | Maintenance & uptime]
+  └─ 🔗・official-links        [Text | Read-only | Trusted repository & web links]
 
 📂 ─── 🛡️ VERIFICATION & ROLES ───
-  ├─ 🛡️・verify                [Text | Verification panel]
-  └─ 🎭・get-roles             [Text | Role panel]
+  ├─ 🛡️・verify                [Text | Interactive verification gate panel]
+  └─ 🎭・get-roles             [Text | Interactive role panel for notification pings]
 
 📂 ─── 💬 COMMUNITY CHAT ───
-  ├─ 💬・general-discussion    [Text | Slowmode 3s]
-  ├─ 🤖・bot-discussion        [Text | Slowmode 5s]
-  ├─ 🎨・showcase-setups       [Text | Slowmode 15s]
-  ├─ ⭐・highlights            [Text | Starboard feed]
-  └─ 📷・media-and-memes       [Text | Slowmode 10s]
+  ├─ 💬・general-discussion    [Text | Slowmode 3s | Main community discussion]
+  ├─ 🤖・bot-discussion        [Text | Slowmode 5s | Aegis bot setup & Q&A]
+  ├─ 🎨・showcase-setups       [Text | Slowmode 15s | Server configs & layouts]
+  ├─ ⭐・highlights            [Text | Starboard feed for community stars]
+  └─ 📷・media-and-memes       [Text | Slowmode 10s | Safe images, media & clips]
 
 📂 ─── 🧪 TESTING & PLAYGROUND ───
-  ├─ 🧪・bot-playground-1      [Text | Public command testing]
-  ├─ 🧪・bot-playground-2      [Text | Public command testing]
-  └─ 🛡️・mod-commands-testing  [Text | Staff-only command testing]
+  ├─ 🧪・bot-playground-1      [Text | Slowmode 3s | Public command sandbox]
+  ├─ 🧪・bot-playground-2      [Text | Slowmode 3s | Sandbox overflow & economy testing]
+  └─ 🛡️・mod-commands-testing  [Text | Staff only | Moderation drills & test cases]
 
 📂 ─── 🎫 SUPPORT & TICKETS ───
-  ├─ 🎫・create-ticket         [Text | Ticket panel]
-  ├─ ❓・faq-quick-help        [Text | Read-only FAQ]
-  ├─ 🔧・self-hosting          [Forum | Docker, Fly.io, MongoDB]
-  └─ 💻・api-and-dev-help      [Forum | Integrations and contributing]
+  ├─ 🎫・create-ticket         [Text | Support ticket launcher panel]
+  ├─ ❓・faq-quick-help        [Text | Read-only common questions & answers]
+  ├─ 🔧・self-hosting          [Forum | Node.js, Docker, Fly.io & MongoDB support]
+  └─ 💻・api-and-dev-help      [Forum | Integrations, Webhooks & API support]
 
 📂 ─── 💡 FEEDBACK & BUGS ───
-  ├─ 💡・suggestions           [Text | /suggest feed]
-  └─ 🐛・bug-reports           [Forum | Status tags]
+  ├─ 💡・suggestions           [Text | /suggest voting feed & decision updates]
+  └─ 🐛・bug-reports           [Forum | Structured bug tracking with status tags]
 
 📂 ─── 🔐 STAFF COMMAND & AUDIT ───
-  ├─ 💬・staff-chat            [Text | Private staff discussion]
-  ├─ 📬・modmail               [Forum | ModMail conversations]
-  ├─ 📜・mod-logs              [Text | Aegis audit log]
-  ├─ 📊・staff-digest          [Text | Weekly staff digest]
-  ├─ 🕵️・watchlist-alerts      [Text | Ghost Watch alerts]
-  ├─ 📁・ticket-transcripts    [Text | Ticket transcripts]
-  └─ 🪵・bot-debug-logs        [Text | Deploys and runtime errors]
+  ├─ 💬・staff-chat            [Text | Private staff coordination hub]
+  ├─ 📬・modmail               [Forum | Inbound member DM ModMail threads]
+  ├─ 📜・mod-logs              [Text | Automated Aegis audit logging target]
+  ├─ 📊・staff-digest          [Text | Weekly scheduled operations digest]
+  ├─ 🕵️・watchlist-alerts      [Text | Real-time Ghost Watch alerts]
+  ├─ 📁・ticket-transcripts    [Text | Automated HTML ticket transcripts]
+  └─ 🪵・bot-debug-logs        [Text | Production deployment notices & logs]
 
 📂 ─── 🔊 VOICE LOUNGES ───
-  ├─ 🔊・Community Lounge      [Voice | 64kbps | limit 25]
-  ├─ 🎮・Gaming & Screen Share [Voice | 96kbps | limit 10]
-  ├─ 🛡️・Staff Meeting Room    [Voice | 96kbps | Staff-only]
-  └─ 💤・AFK                   [Voice | 15 min idle]
+  ├─ 🔊・Community Lounge      [Voice | 64kbps | User limit: 25]
+  ├─ 🎮・Gaming & Screen Share [Voice | 96kbps | User limit: 10]
+  ├─ 🛡️・Staff Meeting Room    [Voice | 96kbps | Staff roles only]
+  └─ 💤・AFK                   [Voice | 64kbps | Inactive timeout: 15 min]
 ```
 
 ---
@@ -443,15 +445,15 @@ Voice channels have no topic. Set the channel **status** instead.
 
 ---
 
-### 5.11 Forum Architecture & Tag Specifications
+### 5.11 Forum Architecture & Tag Workflows
 
-Discord Forum channels require structured tags to ensure clear categorization, efficient support triaging, and issue resolution workflows. Configure each forum with the following tag definitions:
+Discord Forum channels organize technical discussions, self-hosting inquiries, bug reports, and inbound member communications. Configure each forum with the following tag definitions and workflows:
 
 #### 1. 🔧 #self-hosting Forum Tags
 - **Tag Requirement:** `Require members to select at least one tag` -> **Enabled**
 - **Default Reaction:** 💡
 - **Default Sort Order:** `Recent Activity`
-- **Post Guidelines:** *Specify your deployment environment (Docker, Fly.io, Bare Metal), Node/MongoDB versions, and error logs with secrets removed.*
+- **Post Guidelines:** *Specify your deployment host (Docker, Fly.io, Bare Metal VPS), Node.js and MongoDB versions, and the exact error output with all secrets redacted.*
 
 | Tag Name | Emoji | Moderator Only | Purpose & Usage Guidelines |
 |---|:---:|:---:|---|
@@ -472,7 +474,7 @@ Discord Forum channels require structured tags to ensure clear categorization, e
 
 | Tag Name | Emoji | Moderator Only | Purpose & Usage Guidelines |
 |---|:---:|:---:|---|
-| REST API | 📡 | No | Questions regarding JSON endpoints (/api/status, /api/commands, /api/stats) or custom routes. |
+| `REST API` | 📡 | No | Questions regarding JSON endpoints (/api/status, /api/commands, /api/stats) or custom routes. |
 | `Webhooks` | 🪝 | No | Inbound/outbound webhook integrations, GitHub deploy notifications, or logging hooks. |
 | `Architecture` | 🏗️ | No | Questions about Aegis codebase structure, event dispatchers, or service boundaries. |
 | `Slash Commands` | ⌨️ | No | Adding, modifying, or registering custom Discord slash commands and option builders. |
@@ -480,11 +482,29 @@ Discord Forum channels require structured tags to ensure clear categorization, e
 | `Contributing` | 🤝 | No | PR discussion, code reviews, local testing harnesses, or contribution guidelines. |
 | `Solved` | ✅ | **Yes** | Applied by staff when the architectural or API question has been satisfactorily answered. |
 
-#### 3. 🐛 #bug-reports Forum Tags
+#### 3. 🐛 #bug-reports Forum Tags & Lifecycle Workflow
 - **Tag Requirement:** `Require members to select at least one tag` -> **Enabled**
 - **Default Reaction:** 🔍
 - **Default Sort Order:** `Creation Date` (Newest First)
 - **Post Guidelines:** *Provide your /about version, steps to reproduce, expected vs. actual behavior, and screenshots or non-sensitive log traces. One bug per thread.*
+
+```
+[ Member Submits Bug ] ──> Tag: 🆕 New
+                                │
+        ┌───────────────────────┴───────────────────────┐
+        ▼                                               ▼
+[ Staff Diagnosing ] ──> 🔍 Investigating        [ Invalid/Expected ] ──> ❌ Not a Bug
+        │                                               ▼
+        ├──> [ Missing Reproduction Info ] ────> ❓ Needs Info
+        │                                               ▼
+        ├──> [ Tracked in Existing Issue ] ───> 🚫 Duplicate
+        │
+        ▼
+[ Verified by Team ] ──> ⚠️ Confirmed
+        │
+        ▼
+[ PR Merged / Deployed ] ──> ✅ Fixed
+```
 
 | Tag Name | Emoji | Moderator Only | Purpose & Usage Guidelines |
 |---|:---:|:---:|---|
@@ -510,6 +530,41 @@ Discord Forum channels require structured tags to ensure clear categorization, e
 | `Urgent` | 🚨 | **Yes** | High-priority safety issue, active raid, or harassment report requiring immediate attention. |
 | `General` | ❓ | **Yes** | General inquiry or administrative question not requiring an engineering ticket. |
 | `Closed` | 🔒 | **Yes** | Applied automatically or manually when the conversation has been finalized and archived. |
+
+---
+
+### 5.12 Discord Community Onboarding & Server Guide
+
+Discord Community Onboarding streamlines arrival and grants immediate access to relevant content while maintaining server security:
+
+#### 1. Default Channels (Visible to All Pre-Verification)
+New members automatically view these landing channels upon joining:
+- `#rules-and-info`
+- `#welcome`
+- `#announcements`
+- `#bot-updates`
+- `#status-and-incidents`
+- `#official-links`
+- `#verify`
+
+#### 2. Pre-Join Customization Questions
+Discord prompts joining members with two onboarding questions:
+- **Question 1:** *"What brings you to the Aegis community?"*
+  - Option A: `💬 Community & Chat` -> Unlocks `#general-discussion`, `#showcase-setups`, `#media-and-memes`
+  - Option B: `🔧 Self-Hosting & Deployment` -> Unlocks `#self-hosting` forum
+  - Option C: `🤖 Bot Setup & Moderation` -> Unlocks `#bot-discussion` & `#faq-quick-help`
+  - Option D: `💻 Developer & API Integrations` -> Unlocks `#api-and-dev-help`
+- **Question 2:** *"Which updates would you like to receive?"*
+  - Option A: `📢 Major Announcements` -> Assigns `@Announcement Ping`
+  - Option B: `🔄 Bot Patch Notes` -> Assigns `@Bot Updates Ping`
+  - Option C: `🚨 Outages & Incidents` -> Assigns `@Outage / Status Ping`
+
+#### 3. Server Guide (To-Do List & Resources)
+Discord's Server Guide tab presents three onboarding steps for new arrivals:
+- **Step 1:** Complete Verification in `#verify` to unlock full server participation.
+- **Step 2:** Review notifications in `#get-roles` to customize optional ping roles.
+- **Step 3:** Test your first command in `#bot-playground-1` with `/help`.
+- **Resource Page:** *"Official Documentation"* -> Highlights `#official-links` and https://aegisdeno.fly.dev/docs.
 
 ---
 
