@@ -1,3 +1,4 @@
+import { markMessageDeletedByBot } from "./deletedMessages";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -129,7 +130,7 @@ export async function createRolePanel(
       title: "🎭 Role Panel Created",
       color: 0x9B59B6,
       description: `Role panel **${title}** created in <#${channel.id}>.`,
-    });
+    }, "modActions");
 
     return doc.toObject() as RolePanel;
   } catch (err) {
@@ -225,7 +226,7 @@ export async function deleteRolePanel(guild: Guild, id: string): Promise<boolean
       const channel = (guild.channels.cache.get(doc.channelId) || (await guild.channels.fetch(doc.channelId).catch(() => null))) as TextChannel | null;
       if (channel && !isObfuscatedChannel(channel)) {
         const msg = await channel.messages.fetch(doc.messageId).catch(() => null);
-        if (msg) await msg.delete().catch(() => null);
+        if (msg) { markMessageDeletedByBot(msg.id); await msg.delete().catch(() => null); }
       }
     }
 

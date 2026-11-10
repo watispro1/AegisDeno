@@ -293,7 +293,7 @@ async function enforceAutomod(
         { name: "User ID", value: message.author.id, inline: true },
         ...(outcome ? [{ name: "Result", value: outcome, inline: true }] : []),
       ],
-    });
+    }, "modActions");
   } catch (err) {
     logger.error(`Automod: failed to send guild log for guild ${message.guildId}`, err);
   }

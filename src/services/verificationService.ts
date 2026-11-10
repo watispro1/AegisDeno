@@ -1,3 +1,4 @@
+import { markMessageDeletedByBot } from "./deletedMessages";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -144,6 +145,7 @@ export async function setupVerification(
           m.components.some((row) => "components" in row && row.components.some((c) => "customId" in c && c.customId === "verify_start"))
       );
       for (const [, msg] of oldPanels) {
+        markMessageDeletedByBot(msg.id);
         await msg.delete().catch(() => null);
       }
     }
@@ -183,7 +185,7 @@ export async function setupVerification(
       title: "🛡️ Verification System Configured",
       color: 0x2ECC71,
       description: `Verification panel posted in <#${channel.id}>.\n**Verified Role:** <@&${verifiedRoleId}>\n**Type:** ${type}`,
-    });
+    }, "modActions");
 
     return {
       guildId: config.guildId,
@@ -226,7 +228,7 @@ export async function processVerification(
       title: "✅ Member Verified",
       color: 0x2ECC71,
       description: `${member.user.tag} (<@${member.user.id}>) completed server verification.`,
-    });
+    }, "modActions");
 
     return { success: true, message: `Verification successful! You have been granted the **${role.name}** role.` };
   } catch (err) {

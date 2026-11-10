@@ -15,7 +15,9 @@ export const cssPages = String.raw`/* ── Home ──────────
 .ref-row {
   display: grid; grid-template-columns: 11rem minmax(0, 1fr) minmax(0, 17rem);
   gap: 1.25rem; padding: 1rem 0; border-bottom: 1px solid var(--border); align-items: baseline;
+  transition: background .12s ease;
 }
+.ref-row:hover { background: var(--bg-sunk); }
 .ref-row h3 { font-size: 1rem; margin: 0; }
 .ref-row h3 a { color: var(--text); text-decoration: none; }
 .ref-row h3 a:hover { color: var(--accent); text-decoration: underline; }
@@ -152,9 +154,11 @@ export const cssPages = String.raw`/* ── Home ──────────
 .cmd-card > summary {
   list-style: none; cursor: pointer;
   display: grid; grid-template-columns: 1.25rem minmax(9rem, max-content) minmax(0, 1fr) auto auto 1rem;
-  gap: .75rem; align-items: baseline; padding: .7rem 0; min-height: 44px;
+  gap: .75rem; align-items: baseline; padding: .7rem .5rem; min-height: 44px;
+  border-radius: var(--r); transition: background .12s ease;
 }
 .cmd-card > summary::-webkit-details-marker { display: none; }
+.cmd-card > summary:hover { background: var(--bg-sunk); }
 .cmd-card > summary:hover .cmd-slash { color: var(--accent); }
 .cmd-pin {
   align-self: center; min-width: 32px; min-height: 32px;
@@ -192,8 +196,8 @@ export const cssPages = String.raw`/* ── Home ──────────
 }
 .synopsis .opt { color: var(--faint); }
 .opt-table td:first-child code { font-family: var(--mono); font-size: .84rem; }
-.opt-req { font: 500 .78rem var(--mono); color: var(--warn); }
-.opt-opt { font: 400 .78rem var(--mono); color: var(--faint); }
+.opt-req { display: inline-block; padding: .1rem .4rem; border-radius: 999px; background: var(--warn); color: #fff; font: 600 .72rem var(--mono); text-transform: uppercase; }
+.opt-opt { display: inline-block; padding: .1rem .4rem; border-radius: 999px; background: var(--bg-sunk); color: var(--faint); font: 400 .72rem var(--mono); text-transform: uppercase; }
 .cmd-jump { margin: 0 0 1.25rem; }
 .cmd-jump ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .25rem 1.1rem; font-size: .9rem; }
 .cmd-jump li { margin: 0; }
