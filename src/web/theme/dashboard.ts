@@ -26,7 +26,8 @@ a.guild-item:hover { border-color: var(--accent); color: var(--text); }
 .guild-actions { display: inline-flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: flex-end; }
 .invite-help { margin-top: .75rem; font-size: .875rem; }
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr)); gap: .75rem; margin: 0 0 2rem; padding: 0; }
-.stat { border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); padding: .8rem 1rem; margin: 0; }
+.stat { border: 1px solid var(--border); border-radius: var(--r-lg, var(--r)); background: var(--surface); padding: .8rem 1rem; margin: 0; transition: border-color .15s ease, box-shadow .15s ease; }
+.stat:hover { border-color: var(--border-strong); box-shadow: 0 2px 8px rgba(0,0,0,.04); }
 .stat dt { font-size: .82rem; color: var(--muted); }
 .stat dd { margin: .15rem 0 0; font: 600 1.5rem/1.2 var(--mono); color: var(--text); }
 .stat dd small { font: 400 .8rem var(--sans); color: var(--faint); }
@@ -60,6 +61,8 @@ a.guild-item:hover { border-color: var(--accent); color: var(--text); }
 .pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin: 0 0 2rem; font-size: .9rem; color: var(--muted); }
 .case-table td { overflow-wrap: anywhere; }
 .case-table td:first-child { white-space: nowrap; }
+.case-table tbody tr { transition: background-color .15s ease; }
+.case-table tbody tr:hover { background-color: var(--bg-sunk); }
 .preview { border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-sunk); padding: .75rem 1rem; margin: 0 0 1rem; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .93rem; }
 .detail-list { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: .5rem 1rem; margin: 0 0 2rem; }
 .detail-list dt { color: var(--muted); font-size: .9rem; }
@@ -72,6 +75,11 @@ form[aria-busy="true"] .btn:disabled { cursor: progress; }
 .dash-form input:disabled, .dash-form select:disabled, .dash-form textarea:disabled,
 .panel-repost select:disabled { opacity: .6; cursor: not-allowed; }
 .tag.ok { color: var(--ok); border-color: currentColor; }
+.tag.danger { color: var(--danger); border-color: currentColor; }
+.tag.ban { color: var(--danger); border-color: currentColor; }
+.tag.kick { color: var(--warn); border-color: currentColor; }
+.tag.timeout { color: var(--warn); border-color: currentColor; }
+.tag.warning { color: var(--muted); border-color: currentColor; }
 .prewrap { white-space: pre-wrap; }
 .pick-list .pick-scroll { max-height: 18rem; overflow-y: auto; margin: 0 -.35rem .75rem; padding: 0 .35rem; }
 .pick-group { margin: 0 0 .5rem; }

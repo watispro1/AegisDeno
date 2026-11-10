@@ -6,12 +6,21 @@ import { AUTOMOD_RULE_KEYS, enabledAutomodRules } from "../../../services/automo
 
 /* Overview */
 
+function actionBadgeClass(action: string): string {
+  const act = action.toLowerCase();
+  if (act.includes("ban")) return "tag ban";
+  if (act.includes("kick")) return "tag kick";
+  if (act.includes("timeout")) return "tag timeout";
+  if (act.includes("warn")) return "tag warning";
+  return "tag";
+}
+
 function caseRows(ctx: GuildContext, cases: CaseRecord[]): string {
   const g = esc(ctx.guild.id);
   return cases
     .map(c => `<tr>
       <td data-label="When">${relTime(c.createdAt)}</td>
-      <td data-label="Action"><a class="case-link" href="/dashboard/${g}/cases/${esc(c.id)}">${esc(c.action)}</a>${c.revoked ? ' <span class="tag warn">revoked</span>' : ""} ${copyId(c.id, "Copy case ID")}</td>
+      <td data-label="Action"><a class="case-link" href="/dashboard/${g}/cases/${esc(c.id)}"><span class="${actionBadgeClass(c.action)}">${esc(c.action)}</span></a>${c.revoked ? ' <span class="tag warn">revoked</span>' : ""} ${copyId(c.id, "Copy case ID")}</td>
       <td data-label="Member">${personId(ctx, c.userId)}</td>
       <td data-label="Moderator">${person(ctx, c.moderatorId)}</td>
       <td data-label="Reason">${esc(c.reason.length > 120 ? c.reason.slice(0, 117) + "…" : c.reason)}</td>
