@@ -15,6 +15,17 @@ import { starboardTopPanel, type StarboardTopView } from "./starboardTop";
 import { GOODBYE_MESSAGE_MAX } from "../../../services/configuration";
 import { Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
 
+const LOG_CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  modActions: "Warnings, timeouts, kicks, bans, unbans, and automod enforcement actions.",
+  memberJoins: "New member joins, account age flags, and invite tracking.",
+  memberLeaves: "Member leaves, kicks, and role retention on departure.",
+  messageEdits: "Message edit history showing before and after content.",
+  messageDeletes: "Deleted messages with author, channel, and content.",
+  roleChanges: "Role additions, removals, and permission changes on members.",
+  channelEvents: "Channel creation, deletion, rename, and permission override updates.",
+  voiceEvents: "Voice channel joins, leaves, moves, and server mute/deafen events.",
+};
+
 function sectionForm(
   section: SettingsSection,
   f: Form,
@@ -34,7 +45,11 @@ function sectionForm(
       <fieldset><legend>What to log, and where</legend>
         <p class="field-help">Each event type can go to its own channel. Leave a channel on "Main log channel" to use the one above.</p>
         <div class="log-grid">
-        ${LOG_CATEGORY_LABELS.map(([key, label]) => `<div class="log-row">${f.checkbox(`cat_${key}`, label)}${f.select(`chan_${key}`, `Channel for ${label.toLowerCase()}`, channelOptions(channels, "Main log channel"))}</div>`).join("")}
+        ${LOG_CATEGORY_LABELS.map(([key, label]) => `<div class="log-row">
+          ${f.checkbox(`cat_${key}`, label)}
+          ${LOG_CATEGORY_DESCRIPTIONS[key] ? `<p class="field-help faint">${esc(LOG_CATEGORY_DESCRIPTIONS[key])}</p>` : ""}
+          ${f.select(`chan_${key}`, `Channel for ${label.toLowerCase()}`, channelOptions(channels, "Main log channel"))}
+        </div>`).join("")}
         </div>
       </fieldset>`;
 

@@ -120,6 +120,26 @@ export const command: Command = {
       const totalWarnings = warnings.length;
       const sev = SEVERITY_CONFIG[severity] ?? SEVERITY_CONFIG.low;
 
+      let dmNotice = silent ? "Disabled (silent)" : "Pending...";
+      if (!silent) {
+        const dmEmbed = new EmbedBuilder()
+          .setColor(sev.color)
+          .setTitle(`${sev.emoji} You received a warning in **${interaction.guild!.name}**`)
+          .addFields(
+            { name: "📝 Reason",   value: reason, inline: false },
+            { name: "⚖️ Severity", value: `${sev.emoji} ${sev.label}`, inline: true },
+            { name: "📊 Total Warnings", value: `${totalWarnings}`, inline: true },
+          )
+          .setFooter({ text: "Please review the server rules to avoid further action." })
+          .setTimestamp();
+        try {
+          await target.send({ embeds: [dmEmbed] });
+          dmNotice = "✅ Delivered";
+        } catch {
+          dmNotice = "⚠️ Failed (DMs closed)";
+        }
+      }
+
       const embed = new EmbedBuilder()
         .setColor(sev.color)
         .setTitle(`${sev.emoji} Warning Issued — ${sev.label} Severity`)
@@ -130,6 +150,7 @@ export const command: Command = {
           { name: "⚖️ Severity",       value: `${sev.emoji} ${sev.label}`, inline: true },
           { name: "🛡️ Moderator",     value: `${interaction.user.tag}`, inline: true },
           { name: "📊 Total Warnings", value: `**${totalWarnings}** warning(s) on record`, inline: true },
+          { name: "📬 Member Notice",  value: dmNotice, inline: true },
           ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
         )
         .setFooter({ text: `Warning ID: ${warnId}` })
@@ -151,21 +172,6 @@ export const command: Command = {
       );
 
       const sent = await interaction.editReply({ embeds: [embed], components: [buttons] });
-
-      // DM the user unless silent
-      if (!silent) {
-        const dmEmbed = new EmbedBuilder()
-          .setColor(sev.color)
-          .setTitle(`${sev.emoji} You received a warning in **${interaction.guild!.name}**`)
-          .addFields(
-            { name: "📝 Reason",   value: reason, inline: false },
-            { name: "⚖️ Severity", value: `${sev.emoji} ${sev.label}`, inline: true },
-            { name: "📊 Total Warnings", value: `${totalWarnings}`, inline: true },
-          )
-          .setFooter({ text: "Please review the server rules to avoid further action." })
-          .setTimestamp();
-        target.send({ embeds: [dmEmbed] }).catch(softFail(`Warning notice DM to ${target.id}`, "debug"));
-      }
 
       const collector = sent.createMessageComponentCollector({
         componentType: ComponentType.Button,
