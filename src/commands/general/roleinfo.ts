@@ -24,6 +24,9 @@ export const command: Command = {
     const isEveryone = role.id === guild.id;
     const perms = notablePermissions(role.permissions.bitfield);
     const highest = guild.roles.highest;
+    const botMember = guild.members.me;
+    const canManageRole = botMember ? botMember.roles.highest.position > role.position && botMember.permissions.has("ManageRoles") : false;
+
     const embed = new EmbedBuilder()
       .setColor(role.color || 0x99AAB5)
       .setTitle(`Role: ${truncate(role.name, 200)}`)
@@ -35,6 +38,7 @@ export const command: Command = {
         { name: "Shown separately", value: yesNo(role.hoist), inline: true },
         { name: "Mentionable", value: yesNo(role.mentionable), inline: true },
         { name: "Managed", value: role.managed ? "Yes (by an integration or bot)" : "No", inline: true },
+        { name: "Bot can assign", value: isEveryone ? "No (@everyone)" : yesNo(canManageRole), inline: true },
         { name: "Created", value: dateAndAgo(role.createdTimestamp), inline: true },
         { name: "Notable permissions", value: perms.length ? truncate(perms.join(", "), 1024) : "None", inline: false },
       );

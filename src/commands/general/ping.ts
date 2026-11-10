@@ -10,7 +10,7 @@ import {
   Colors,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { siteUrl } from "../../config/links";
+import { dashboardUrl, siteUrl } from "../../config/links";
 import mongoose from "mongoose";
 import { databaseLatency, statusMonitor, uptimeRatio } from "../../services/statusMonitor";
 
@@ -101,6 +101,11 @@ export const command: Command = {
           .setStyle(ButtonStyle.Link)
           .setURL(siteUrl("/status"))
           .setEmoji("📊"),
+        new ButtonBuilder()
+          .setLabel("Dashboard")
+          .setStyle(ButtonStyle.Link)
+          .setURL(dashboardUrl(interaction.guildId ?? undefined))
+          .setEmoji("⚙️"),
       );
     };
 
