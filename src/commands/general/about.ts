@@ -13,7 +13,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { VERSION } from "../../version";
-import { dashboardUrl, docsUrl, siteUrl } from "../../config/links";
+import { dashboardUrl, docsUrl, inviteUrl, siteUrl } from "../../config/links";
 import mongoose from "mongoose";
 import { isObfuscatedChannel } from "../../utils/channels";
 
@@ -216,6 +216,9 @@ export const command: Command = {
         new ButtonBuilder()
           .setLabel("Dashboard").setStyle(ButtonStyle.Link)
           .setURL(dashboardUrl()),
+        new ButtonBuilder()
+          .setLabel("Invite").setStyle(ButtonStyle.Link)
+          .setURL(inviteUrl()),
       );
 
     let view = "overview";

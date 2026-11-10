@@ -188,6 +188,15 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
       ${checklistHtml(checks)}
     </section>
   </div>
+  <section class="panel-card" aria-labelledby="quick-actions-h">
+    <h2 id="quick-actions-h">Quick Actions</h2>
+    <div class="btn-row">
+      <a class="btn ghost sm" href="${base}/cases">View Recent Cases</a>
+      <a class="btn ghost sm" href="${base}/settings/automod">Automod Rules</a>
+      <a class="btn ghost sm" href="${base}/settings/logging">Configure Logging</a>
+      <a class="btn ghost sm" href="${base}/incident">Incident Mode</a>
+    </div>
+  </section>
   ${states.length ? `<h2>Modules</h2>${moduleGrid(states)}` : ""}
   <h2>Recent cases</h2>
   ${data.recentCases.length ? caseTable(ctx, data.recentCases, "The 10 most recent cases and warnings") : `<div class="empty-state"><strong>No cases yet.</strong> Cases and warnings appear here as moderators use /warn, /timeout, /kick and /ban.</div>`}

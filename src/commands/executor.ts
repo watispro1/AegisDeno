@@ -156,7 +156,8 @@ export async function executeCommand(command: Command, interaction: ChatInputCom
   if (cooldownMs > 0) {
     const wait = cooldowns.reserve(cooldownKey, cooldownMs);
     if (wait !== null) {
-      await replyError(interaction, `⏳ Please wait **${wait}s** before using \`/${interaction.commandName}\` again.`);
+      const readyAt = Math.floor(Date.now() / 1000) + wait;
+      await replyError(interaction, `⌛ Please wait **${wait}s** before using \`/${interaction.commandName}\` again (<t:${readyAt}:R>).`);
       return;
     }
   }

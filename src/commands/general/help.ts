@@ -195,6 +195,7 @@ export const command: Command = {
         : "None";
 
       const categoryIcon = CATEGORY_ICONS[foundCmd.category ?? "general"] ?? "🌐";
+      const cooldownSec = foundCmd.cooldownMs ? Math.round(foundCmd.cooldownMs / 1000) : 1.5;
 
       const detailEmbed = new EmbedBuilder()
         .setColor(0x5865F2)
@@ -204,6 +205,7 @@ export const command: Command = {
           { name: "📁 Category", value: foundCmd.category ? foundCmd.category.toUpperCase() : "GENERAL", inline: true },
           { name: "👤 Required User Permissions", value: userPerms, inline: true },
           { name: "🤖 Required Bot Permissions", value: botPerms, inline: true },
+          { name: "⏱️ Cooldown", value: `\`${cooldownSec}s\``, inline: true },
           { name: "⚙️ Options", value: optionsList, inline: false },
           { name: "🔀 Subcommands", value: subcommandsList, inline: false },
           { name: "💡 Usage Example", value: `\`/${shownName}${subcommands.length > 0 ? ` ${subcommands[0].name}` : ""}\``, inline: false }
@@ -250,6 +252,7 @@ export const command: Command = {
           )
           .addFields(
             { name: "📊 Your Commands", value: `**${allCmds.length}** of ${commands.size} commands are available to you, across ${categories.length} categories`, inline: false },
+            { name: "⚡ Quick Start", value: "• `/help` — Browse available commands & permission requirements\n• `/diagnostics` — Audit server configuration and bot permissions\n• `/warn` — Issue warnings with automatic auto-escalation\n• `/logging channel` — Configure audit logging\n• `/dashboard` — Manage your server from the web", inline: false },
             { name: "🚀 New here?", value: newHereLine(interaction.inGuild(), visibleNames), inline: false },
           )
           .setFooter(footer("Pick a category below · /help command:<name> for details"))

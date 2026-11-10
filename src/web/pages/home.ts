@@ -31,6 +31,7 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
       <div class="hero-meta">
         <span><span class="dot${st.cls === "ok" ? "" : " danger"}" data-status-dot aria-hidden="true"></span><span data-status-state>${escapeHtml(st.label)}</span></span>
         <span>gateway <span data-live="ping" data-suffix=" ms">${stats.ping} ms</span></span>
+        <span><span data-live="guilds">${stats.guilds.toLocaleString("en-US")}</span> servers</span>
         <span>v${escapeHtml(cfg.version)}</span>
       </div>
       <h1 id="hero-title">A moderation bot for Discord, run from slash commands.</h1>

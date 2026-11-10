@@ -24,6 +24,7 @@ export function renderNotFound(cfg: SiteConfig, suggestions: { href: string; lab
     <input id="notfound-q" name="q" type="search" placeholder="Search commands, e.g. ban" autocomplete="off" spellcheck="false" maxlength="100">
     <button class="btn" type="submit">Search commands</button>
   </form>
+  <p class="muted">Looking for setup or permissions? <a class="text-link" href="/docs">Search documentation at /docs &rarr;</a></p>
   <ul class="notes">
     <li><a href="/commands">Commands</a>: every slash command with its options, searchable.</li>
     <li><a href="/docs">Docs</a>: setup, configuration and permissions.</li>

@@ -5,8 +5,9 @@ import { AUTOMOD_RULE_SHORT_LABELS, enabledAutomodRules, getAutomodConfig } from
 import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 import { botPermissionBitfield } from "../../web/catalogPermissions";
 import { BOT_PERMISSION_WHY } from "../../permissions/botPermissionGuide";
-import { permissionName } from "../../utils/embedStyle";
+import { COLORS, permissionName } from "../../utils/embedStyle";
 import { inviteUrl } from "../../config/links";
+import { commands } from "../loader";
 import { getStarboardConfig } from "../../services/starboard";
 import { mediaSafetySummary } from "../../services/mediaSafety";
 import { getTicketSettings } from "../../services/ticketSettings";
@@ -107,12 +108,18 @@ export const command: Command = {
       ? `✅ Active (Rules enabled: ${automodRules.map(k => AUTOMOD_RULE_SHORT_LABELS[k]).join(", ")})`
       : "❌ All rules disabled";
 
+    const ping = Math.round(interaction.client.ws.ping);
+    const commandsSynced = commands.size;
+    const embedColor = missingPermissions ? COLORS.danger : (channelProblems.length || !guildConfig.loggingEnabled ? COLORS.warn : COLORS.ok);
+
     const embed = new EmbedBuilder()
-      .setColor(0x5865F2)
+      .setColor(embedColor)
       .setTitle("🛠️ Server Diagnostics & Setup")
       .setDescription("Here is the current status of the bot's configuration in this server.")
       .addFields(
         { name: "Bot Permissions", value: permissionsCheck, inline: false },
+        { name: "📡 Gateway Ping", value: `\`${ping}ms\``, inline: true },
+        { name: "📚 Commands Loaded", value: `**${commandsSynced}** slash commands`, inline: true },
         { name: "Logging Channel", value: loggingStatus, inline: true },
         { name: "Welcome Channel", value: welcomeStatus, inline: true },
         { name: "Welcome Role", value: welcomeRoleStatus, inline: true },
