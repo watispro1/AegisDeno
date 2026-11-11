@@ -106,12 +106,14 @@ interface RenderContext {
   online: boolean;
   startedAt: number;
   status: () => Promise<StatusPayload>;
+  /** Parsed query string (flat: strings or lists of strings). */
+  query: Record<string, unknown>;
 }
 
 const ROUTES: RouteDef[] = [
   { path: "/", render: (c, x) => renderHome(c, x.stats, x.online), priority: "1.0", live: true },
   { path: "/features", render: c => renderFeatures(c), priority: "0.9" },
-  { path: "/commands", render: c => renderCommands(c), priority: "0.9" },
+  { path: "/commands", render: (c, x) => renderCommands(c, x.query), priority: "0.9" },
   { path: "/docs", render: c => renderDocs(c), priority: "0.8" },
   { path: "/troubleshooting", render: c => renderTroubleshooting(c), priority: "0.7" },
   { path: "/changelog", render: c => renderChangelog(c), priority: "0.6" },
@@ -205,13 +207,14 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   };
 
   for (const route of ROUTES) {
-    app.get(route.path, async (_req, res, next) => {
+    app.get(route.path, async (req, res, next) => {
       try {
         const ctx: RenderContext = {
           stats: collectStats(client),
           online: online(),
           startedAt: STARTED_AT,
           status: statusPayload,
+          query: (req.query ?? {}) as Record<string, unknown>,
         };
         send(res, await route.render(cfg, ctx), 200, route.live ? "no-cache" : undefined);
       } catch (err) {
@@ -240,7 +243,7 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
 
   app.use((req: Request, res: Response) => {
     const suggestions = suggestPages(req.path, SUGGESTABLE, Array.from(commands.keys()));
-    send(res, renderNotFound(cfg, suggestions), 404, "no-store");
+    send(res, renderNotFound(cfg, suggestions, req.path), 404, "no-store");
   });
 
   // Last resort: never send a stack trace or error message to the client.

@@ -123,7 +123,32 @@ export function slashInput(name: string, opts: [string, string][]): string {
     </div>`;
 }
 
-/** A shell-style block of commands. */
+/**
+ * A block of commands you would type into Discord. The Copy button only shows
+ * when the client script runs (it needs the clipboard API).
+ */
 export function cmdBlock(lines: string): string {
-  return `<pre class="block"><code>${escapeHtml(lines)}</code></pre>`;
+  const n = lines.split("\n").filter(l => l.trim()).length;
+  const what = n === 1 ? "command" : `${n} commands`;
+  return `<div class="code-block"><pre class="block"><code>${escapeHtml(lines)}</code></pre><button class="copy-btn code-copy" type="button" data-js-only data-copy="${escapeHtml(lines)}" data-copy-label="Copied ${what}" aria-label="Copy ${what}">Copy</button></div>`;
+}
+
+export interface StatItem {
+  label: string;
+  /** Already-escaped HTML for the number (may hold a link or a live span). */
+  value: string;
+  /** Optional escaped note after the number. */
+  note?: string;
+}
+
+/** A row of headline numbers, in the same strip the changelog uses. */
+export function statStrip(items: StatItem[], label: string): string {
+  return `<dl class="cl-stats stat-strip stat-n${items.length}" aria-label="${escapeHtml(label)}">
+    ${items.map(i => `<div class="cl-stat"><dt>${escapeHtml(i.label)}</dt><dd><strong>${i.value}</strong>${i.note ? `<span>${i.note}</span>` : ""}</dd></div>`).join("\n    ")}
+  </dl>`;
+}
+
+/** 1234 -> "1,234". */
+export function fmtNum(n: number): string {
+  return Number.isFinite(n) ? Math.round(n).toLocaleString("en-US") : "0";
 }

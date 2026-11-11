@@ -45,7 +45,7 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
       copyText(btn, url, 'Link copied');
       return;
     }
-    copyText(btn, btn.getAttribute('data-copy') || '');
+    copyText(btn, btn.getAttribute('data-copy') || '', btn.getAttribute('data-copy-label') || undefined);
   });
 
   function debounce(fn, ms) {
@@ -173,15 +173,19 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
       } catch (e) {}
     };
 
+    /* Filter chips are links (so they work without JavaScript); the active one carries aria-current. */
+    var setCurrent = function (el, on) {
+      if (on) el.setAttribute('aria-current', 'true'); else el.removeAttribute('aria-current');
+    };
     var syncControls = function () {
       chips.forEach(function (c) {
-        c.setAttribute('aria-pressed', String((c.getAttribute('data-cat') || 'all') === activeCat));
+        setCurrent(c, (c.getAttribute('data-cat') || 'all') === activeCat);
       });
       accessChips.forEach(function (c) {
-        c.setAttribute('aria-pressed', String((c.getAttribute('data-access') || 'all') === activeAccess));
+        setCurrent(c, (c.getAttribute('data-access') || 'all') === activeAccess);
       });
       flagChips.forEach(function (c) {
-        c.setAttribute('aria-pressed', String(Boolean(flags[c.getAttribute('data-flag')])));
+        setCurrent(c, Boolean(flags[c.getAttribute('data-flag')]));
       });
     };
 
@@ -248,6 +252,12 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
       if (summary) summary.focus();
     };
 
+    /* The toolbar is a GET form for browsers without JavaScript; here it filters in place. */
+    var cmdForm = document.getElementById('cmd-form');
+    if (cmdForm) {
+      cmdForm.addEventListener('submit', function (e) { e.preventDefault(); });
+    }
+
     search.addEventListener('input', debounce(function () {
       apply();
       syncUrl();
@@ -299,7 +309,9 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
     if (filterBar) {
       filterBar.addEventListener('click', function (e) {
         var chip = e.target.closest('.tab');
-        if (chip) selectChip(chip);
+        if (!chip) return;
+        e.preventDefault();
+        selectChip(chip);
       });
       filterBar.addEventListener('keydown', function (e) {
         if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
@@ -317,6 +329,7 @@ export const jsCommands = String.raw`  /* ── Copy buttons ([data-copy] text,
     if (accessBar) {
       accessBar.addEventListener('click', function (e) {
         var accessChip = e.target.closest('[data-access]');
+        if (accessChip || e.target.closest('[data-flag]')) e.preventDefault();
         if (accessChip) {
           activeAccess = accessChip.getAttribute('data-access') || 'all';
           syncControls();
