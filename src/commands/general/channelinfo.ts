@@ -11,6 +11,7 @@ import { channelTypeLabel, slowmodeLabel, yesNo } from "../../services/lookupFor
 import { dateAndAgo } from "../../services/infoFormat";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { truncate } from "../../utils/safeText";
+import { postAccessLabel } from "../../services/infoAccess";
 
 /** Type-specific lines: topic and slowmode for text, bitrate and limit for voice. */
 function detailFields(channel: GuildBasedChannel): Array<{ name: string; value: string; inline: boolean }> {
@@ -59,6 +60,16 @@ export const command: Command = {
     }
 
     const overwrites = "permissionOverwrites" in channel ? channel.permissionOverwrites.cache.size : 0;
+    const botMember = guild.members.me;
+    const botPerms = botMember && "permissionsFor" in channel ? channel.permissionsFor(botMember) : null;
+    const postLabel = postAccessLabel({
+      isThread: channel.isThread(),
+      isPrivateThread: channel.type === ChannelType.PrivateThread,
+      botInThread: channel.isThread() && botMember ? channel.members.cache.has(botMember.id) : false,
+      locked: channel.isThread() ? Boolean(channel.locked) : false,
+      has: permission => Boolean(botPerms?.has(permission)),
+    });
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle(`#${truncate(channel.name, 200)}`)
@@ -68,6 +79,7 @@ export const command: Command = {
         { name: "Category", value: channel.parent ? truncate(channel.parent.name, 100) : "None", inline: true },
         ...detailFields(channel),
         { name: "Permission overwrites", value: String(overwrites), inline: true },
+        { name: "Aegis can send", value: postLabel, inline: true },
         { name: "Created", value: dateAndAgo(channel.createdTimestamp ?? Date.now()), inline: true },
       );
     if (isObfuscatedChannel(channel)) embed.setFooter({ text: "Aegis can't view this channel, so some details may be missing." });

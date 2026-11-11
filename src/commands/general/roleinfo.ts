@@ -3,6 +3,7 @@ import type { Command } from "../../types/discord";
 import { colorHex, notablePermissions, roleMemberCount, yesNo } from "../../services/lookupFormat";
 import { dateAndAgo } from "../../services/infoFormat";
 import { truncate } from "../../utils/safeText";
+import { roleAssignLabel } from "../../services/infoAccess";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -24,6 +25,15 @@ export const command: Command = {
     const isEveryone = role.id === guild.id;
     const perms = notablePermissions(role.permissions.bitfield);
     const highest = guild.roles.highest;
+    const botMember = guild.members.me;
+    const assignLabel = roleAssignLabel({
+      isEveryone,
+      managed: role.managed,
+      rolePosition: role.position,
+      botHighestPosition: botMember ? botMember.roles.highest.position : null,
+      botHasManageRoles: botMember ? botMember.permissions.has("ManageRoles") : false,
+    });
+
     const embed = new EmbedBuilder()
       .setColor(role.color || 0x99AAB5)
       .setTitle(`Role: ${truncate(role.name, 200)}`)
@@ -35,6 +45,7 @@ export const command: Command = {
         { name: "Shown separately", value: yesNo(role.hoist), inline: true },
         { name: "Mentionable", value: yesNo(role.mentionable), inline: true },
         { name: "Managed", value: role.managed ? "Yes (by an integration or bot)" : "No", inline: true },
+        { name: "Bot can assign", value: assignLabel, inline: true },
         { name: "Created", value: dateAndAgo(role.createdTimestamp), inline: true },
         { name: "Notable permissions", value: perms.length ? truncate(perms.join(", "), 1024) : "None", inline: false },
       );
