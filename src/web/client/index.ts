@@ -4,6 +4,7 @@
  */
 import { jsCore } from "./core";
 import { jsCommands } from "./commands";
+import { jsChangelog } from "./changelog";
 import { jsWidgets } from "./widgets";
 
 /* The parts are fragments of ONE IIFE (opened in core, closed in widgets) and
@@ -11,4 +12,5 @@ import { jsWidgets } from "./widgets";
 export const clientScript =
   jsCore +
   jsCommands +
+  jsChangelog +
   jsWidgets;

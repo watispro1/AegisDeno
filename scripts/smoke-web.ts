@@ -55,6 +55,7 @@ const ROUTES: [string, number][] = [
   ["/robots.txt", 200],
   ["/sitemap.xml", 200],
   ["/changelog.xml", 200],
+  ["/changelog.json", 200],
   ["/this-page-does-not-exist", 404],
 ];
 
@@ -275,6 +276,11 @@ async function main() {
   const feed = await (await fetch(origin + "/changelog.xml")).text();
   check("atom feed is xml", feed.startsWith("<?xml") && feed.includes("<feed"));
   check("atom has entries", feed.includes("<entry>"));
+  const clJsonRes = await fetch(origin + "/changelog.json");
+  const clJson = await clJsonRes.json() as { bot?: Array<{ version: string }>; dashboard?: unknown[] };
+  check("changelog.json lists bot and dashboard releases", clJson.bot?.[0]?.version === (await import("../src/version")).VERSION && Array.isArray(clJson.dashboard) && clJson.dashboard.length > 0);
+  const statusHtml = await (await fetch(origin + "/status")).text();
+  check("status page has components, latency chart and countdown", statusHtml.includes('data-component="gateway"') && statusHtml.includes("data-status-latency") && statusHtml.includes("data-status-countdown"));
   check("layout links feed", commandsHtml.includes('type="application/atom+xml"'));
   const sitemap = await (await fetch(origin + "/sitemap.xml")).text();
   check("sitemap has lastmod", sitemap.includes("<lastmod>"));
