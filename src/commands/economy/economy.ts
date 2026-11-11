@@ -8,6 +8,8 @@ import { postAdjustLog, NO_PINGS } from "../../services/economyDiscord";
 import { ECONOMY_LIMITS, MAX_BALANCE, formatCoins, type EconomyConfig, type EconomySettingsInput } from "../../services/economyLogic";
 import { requestConfirmation } from "../../utils/confirmation";
 import { COLORS, footer } from "../../utils/embedStyle";
+import type { EconomyStats, TransactionType } from "../../services/economyStore";
+import { TX_NAMES } from "./transactions";
 
 type OptionRow = [option: string, key: keyof typeof ECONOMY_LIMITS, description: string];
 
@@ -26,6 +28,9 @@ const CONFIG_OPTIONS: OptionRow[] = [
   ["pay_daily_limit", "payDailyLimit", "Most coins a member can send per day, UTC (0 = no limit)"],
   ["pay_tax_percent", "payTaxPercent", "Percent of each payment removed as tax"],
   ["sell_percent", "shopSellPercent", "Percent of the price /shop sell pays back (0 = off)"],
+  ["work_level_bonus", "workLevelBonusPercent", "Extra /work pay per work level, in percent (0 = off)"],
+  ["interest_bps", "bankInterestBps", "Daily bank interest in basis points, 100 = 1% (0 = off)"],
+  ["interest_max", "bankInterestMaxDaily", "Most interest per /interest claim (0 = no cap)"],
 ];
 
 const RISK_OPTIONS: OptionRow[] = [
@@ -38,6 +43,14 @@ const RISK_OPTIONS: OptionRow[] = [
   ["max_bet", "gambleMaxBet", "Largest /gamble bet"],
   ["daily_loss_cap", "gambleDailyLossCap", "Most a member can lose gambling per day, UTC (0 = no limit)"],
   ["gamble_cooldown_seconds", "gambleCooldownSeconds", "Seconds between bets"],
+  ["rob_success_percent", "robSuccessPercent", "Chance /rob succeeds"],
+  ["rob_max_percent", "robMaxStealPercent", "Most of the target's wallet one rob takes, in percent"],
+  ["rob_max_steal", "robMaxSteal", "Most coins one rob can take"],
+  ["rob_fine_percent", "robFinePercent", "Percent of the robber's wallet lost when caught"],
+  ["rob_min_wallet", "robMinWallet", "Wallet a member needs before they can rob"],
+  ["rob_min_target", "robMinTargetWallet", "Targets with less than this in their wallet can't be robbed"],
+  ["rob_cooldown_minutes", "robCooldownMinutes", "Minutes between /rob attempts"],
+  ["rob_protect_minutes", "robProtectMinutes", "Minutes a robbed member can't be robbed again (0 = off)"],
 ];
 
 const n = (v: number) => v.toLocaleString("en-US");
@@ -61,10 +74,40 @@ export function configEmbed(cfg: EconomyConfig): EmbedBuilder {
       ].join(" · "), inline: true },
       { name: "Shop", value: cfg.shopSellPercent > 0 ? `sell back at ${cfg.shopSellPercent}%` : "selling off", inline: true },
       { name: "Crime", value: cfg.crimeEnabled ? `${cfg.crimeSuccessPercent}% · ${n(cfg.crimeMin)}–${n(cfg.crimeMax)} · fine ${n(cfg.crimeFine)} · every ${cfg.crimeCooldownMinutes} min` : "off", inline: true },
+      { name: "Work levels", value: cfg.workLevelBonusPercent > 0 ? `+${cfg.workLevelBonusPercent}% pay per level` : "no level bonus", inline: true },
+      { name: "Interest", value: cfg.bankInterestBps > 0 ? `${(cfg.bankInterestBps / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}%/day${cfg.bankInterestMaxDaily > 0 ? `, max ${n(cfg.bankInterestMaxDaily)}` : ""}` : "off", inline: true },
+      { name: "Rob", value: cfg.robEnabled ? `${cfg.robSuccessPercent}% · up to ${cfg.robMaxStealPercent}% (max ${n(cfg.robMaxSteal)}) · fine ${cfg.robFinePercent}% · every ${cfg.robCooldownMinutes} min` : "off", inline: true },
       { name: "Gambling", value: cfg.gamblingEnabled ? `bets ${n(cfg.gambleMinBet)}–${n(cfg.gambleMaxBet)} · loss cap ${cfg.gambleDailyLossCap > 0 ? `${n(cfg.gambleDailyLossCap)}/day` : "none"} · ${cfg.gambleCooldownSeconds}s apart` : "off", inline: true },
     )
     .setFooter(footer("Change with /economy config and /economy risk, or on the dashboard's Economy page"));
 }
+
+/** /economy stats: totals for this server only, and what happened in the last week. */
+export function statsEmbed(cfg: EconomyConfig, s: EconomyStats): EmbedBuilder {
+  const activity = s.activity.slice(0, 12).map(a => `${TX_NAMES[a.type] ?? a.type}: ${n(a.count)}× · ${a.total >= 0 ? "+" : "−"}${n(Math.abs(a.total))}`);
+  const sum = (types: Set<TransactionType>) => s.activity.filter(a => types.has(a.type)).reduce((t, a) => t + a.total, 0);
+  // Gambling nets out per bet (house edge removes coins); pay tax is what senders paid minus what recipients got.
+  const gamble = s.activity.find(a => a.type === "gamble")?.total ?? 0;
+  const tax = -sum(new Set<TransactionType>(["pay_in", "pay_out"]));
+  const minted = sum(MINTED) + Math.max(0, gamble);
+  const burned = sum(BURNED) + Math.min(0, gamble) - Math.max(0, tax);
+  return new EmbedBuilder()
+    .setColor(COLORS.brand)
+    .setTitle("📊 Economy stats")
+    .addFields(
+      { name: "Members with coins", value: n(s.accounts), inline: true },
+      { name: "In wallets", value: formatCoins(cfg, s.wallet), inline: true },
+      { name: "In banks", value: formatCoins(cfg, s.bank), inline: true },
+      { name: "Created (7 days)", value: formatCoins(cfg, minted), inline: true },
+      { name: "Removed (7 days)", value: formatCoins(cfg, Math.abs(burned)), inline: true },
+      { name: "Activity (7 days)", value: activity.length ? activity.join("\n") : "Nothing yet." },
+    )
+    .setFooter(footer(`Since ${s.since.toISOString().slice(0, 10)} · transfers between members aren't counted as created or removed`));
+}
+
+/** Transaction types that create coins, and ones that remove them from circulation. */
+const MINTED = new Set<TransactionType>(["daily", "weekly", "work", "crime", "interest", "sell", "admin_give"]);
+const BURNED = new Set<TransactionType>(["crime_fine", "rob_fine", "buy", "admin_take", "admin_reset"]);
 
 function readOptions(interaction: ChatInputCommandInteraction, rows: OptionRow[], input: EconomySettingsInput): void {
   for (const [name, key] of rows) {
@@ -93,12 +136,14 @@ export const command: Command = {
     .addSubcommand(s => {
       s.setName("risk").setDescription("Show or change /crime and /gamble settings. Gambling is off until you turn it on.")
         .addBooleanOption(o => o.setName("crime").setDescription("Allow /crime"))
-        .addBooleanOption(o => o.setName("gambling").setDescription("Allow /gamble (off by default)"));
+        .addBooleanOption(o => o.setName("gambling").setDescription("Allow /gamble (off by default)"))
+        .addBooleanOption(o => o.setName("rob").setDescription("Allow /rob (off by default)"));
       for (const [name, key, description] of RISK_OPTIONS) {
         s.addIntegerOption(o => o.setName(name).setDescription(description).setMinValue(ECONOMY_LIMITS[key][0]).setMaxValue(ECONOMY_LIMITS[key][1]));
       }
       return s;
     })
+    .addSubcommand(s => s.setName("stats").setDescription("Coins in circulation and the last 7 days of economy activity in this server."))
     .addSubcommand(s => s.setName("give").setDescription("Give coins to a member (logged to the mod log).")
       .addUserOption(o => o.setName("user").setDescription("Member").setRequired(true))
       .addIntegerOption(o => o.setName("amount").setDescription("Coins").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE))
@@ -134,13 +179,22 @@ export const command: Command = {
     if (sub === "config" || sub === "risk") {
       const input: EconomySettingsInput = sub === "config"
         ? { currencyName: interaction.options.getString("currency_name") ?? undefined, currencyEmoji: interaction.options.getString("currency_emoji") ?? undefined }
-        : { crimeEnabled: interaction.options.getBoolean("crime") ?? undefined, gamblingEnabled: interaction.options.getBoolean("gambling") ?? undefined };
+        : {
+          crimeEnabled: interaction.options.getBoolean("crime") ?? undefined,
+          gamblingEnabled: interaction.options.getBoolean("gambling") ?? undefined,
+          robEnabled: interaction.options.getBoolean("rob") ?? undefined,
+        };
       readOptions(interaction, sub === "config" ? CONFIG_OPTIONS : RISK_OPTIONS, input);
       const changed = Object.values(input).some(v => v !== undefined);
       if (!changed) return interaction.reply({ embeds: [configEmbed(await svc.config(guildId))], flags: MessageFlags.Ephemeral });
       const r = await svc.updateConfig(guildId, input);
       if (!r.ok) return interaction.reply({ content: `❌ Nothing was changed. ${Object.values(r.errors).join(" ")}`, flags: MessageFlags.Ephemeral });
       return interaction.reply({ content: "✅ Saved.", embeds: [configEmbed(r.value)], flags: MessageFlags.Ephemeral });
+    }
+
+    if (sub === "stats") {
+      const cfg = await svc.config(guildId);
+      return interaction.reply({ embeds: [statsEmbed(cfg, await svc.stats(guildId, 7))], flags: MessageFlags.Ephemeral, allowedMentions: NO_PINGS });
     }
 
     // give / take / reset

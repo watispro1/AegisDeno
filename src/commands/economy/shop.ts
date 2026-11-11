@@ -6,11 +6,19 @@ import type { Command } from "../../types/discord";
 import { economy } from "../../services/economyService";
 import { economyGate, grantShopRole, inventoryAutocomplete, shopItemAutocomplete, shopRoleRefusal, NO_PINGS } from "../../services/economyDiscord";
 import { MAX_BALANCE, SHOP_LIMITS, formatCoins, type EconomyConfig, type ShopItem } from "../../services/economyLogic";
+import { EFFECT_LIMITS, effectSummary, isItemEffect } from "../../services/economyProgress";
 import { COLORS, footer } from "../../utils/embedStyle";
+
+const EFFECT_CHOICES = [
+  { name: "No effect", value: "none" },
+  { name: "Rob shield", value: "rob_shield" },
+  { name: "Work boost", value: "work_boost" },
+];
 import { truncate } from "../../utils/safeText";
 
 /** " · gives @Role for 24h on /use": what a role item does. */
-export function roleSummary(i: Pick<ShopItem, "roleId" | "roleDurationHours" | "useToGrant">): string {
+export function roleSummary(i: Pick<ShopItem, "roleId" | "roleDurationHours" | "useToGrant"> & Partial<Pick<ShopItem, "effect" | "effectHours" | "effectPercent">>): string {
+  if (i.effect) return ` · ${effectSummary(i.effect, i.effectHours ?? 0, i.effectPercent ?? null)} on \`/use\``;
   if (!i.roleId) return "";
   return ` · gives <@&${i.roleId}>${i.roleDurationHours ? ` for ${i.roleDurationHours}h` : ""}${i.useToGrant ? " on `/use`" : ""}`;
 }
@@ -44,7 +52,10 @@ export const command: Command = {
       .addIntegerOption(o => o.setName("stock").setDescription("How many can be sold (blank = unlimited)").setMinValue(0).setMaxValue(SHOP_LIMITS.maxStock))
       .addIntegerOption(o => o.setName("per_user_limit").setDescription("Most each member can buy (blank = no limit)").setMinValue(1).setMaxValue(SHOP_LIMITS.maxPerUser))
       .addIntegerOption(o => o.setName("role_hours").setDescription("Role items: hours until the role is taken back (blank = permanent)").setMinValue(1).setMaxValue(SHOP_LIMITS.maxRoleHours))
-      .addBooleanOption(o => o.setName("use_to_grant").setDescription("Role items: give the role on /use instead of on purchase")))
+      .addBooleanOption(o => o.setName("use_to_grant").setDescription("Role items: give the role on /use instead of on purchase"))
+      .addStringOption(o => o.setName("effect").setDescription("Consumable effect on /use (not with a role)").addChoices(...EFFECT_CHOICES))
+      .addIntegerOption(o => o.setName("effect_hours").setDescription("Effect items: how many hours it lasts").setMinValue(1).setMaxValue(EFFECT_LIMITS.maxHours))
+      .addIntegerOption(o => o.setName("boost_percent").setDescription("Work boosts: extra /work pay in percent").setMinValue(1).setMaxValue(EFFECT_LIMITS.maxPercent)))
     .addSubcommand(s => s.setName("remove").setDescription("Staff: remove an item (Manage Server).")
       .addStringOption(o => o.setName("item").setDescription("Item to remove").setRequired(true).setAutocomplete(true)))
     .addSubcommand(s => s.setName("edit").setDescription("Staff: change an item (Manage Server).")
@@ -60,7 +71,10 @@ export const command: Command = {
       .addBooleanOption(o => o.setName("no_user_limit").setDescription("Remove the per-member limit"))
       .addIntegerOption(o => o.setName("role_hours").setDescription("New role duration in hours").setMinValue(1).setMaxValue(SHOP_LIMITS.maxRoleHours))
       .addBooleanOption(o => o.setName("permanent_role").setDescription("Make the role permanent"))
-      .addBooleanOption(o => o.setName("use_to_grant").setDescription("Give the role on /use (true) or on purchase (false)")))
+      .addBooleanOption(o => o.setName("use_to_grant").setDescription("Give the role on /use (true) or on purchase (false)"))
+      .addStringOption(o => o.setName("effect").setDescription("New effect on /use (No effect clears it)").addChoices(...EFFECT_CHOICES))
+      .addIntegerOption(o => o.setName("effect_hours").setDescription("New effect length in hours").setMinValue(1).setMaxValue(EFFECT_LIMITS.maxHours))
+      .addIntegerOption(o => o.setName("boost_percent").setDescription("New work boost percent").setMinValue(1).setMaxValue(EFFECT_LIMITS.maxPercent)))
     .addSubcommand(s => s.setName("sell").setDescription("Sell an item from your inventory back to the shop at a reduced rate.")
       .addStringOption(o => o.setName("item").setDescription("Item to sell").setRequired(true).setAutocomplete(true))),
   category: "economy",
@@ -108,7 +122,7 @@ export const command: Command = {
         return ephemeral(interaction, `❌ ${msg}`);
       }
       const got = r.item.roleId && !r.item.useToGrant ? ` and got <@&${r.item.roleId}>${r.item.roleDurationHours ? ` for ${r.item.roleDurationHours}h` : ""}` : "";
-      const hint = r.item.useToGrant ? " Run `/use` when you want its role." : "";
+      const hint = r.item.useToGrant ? " Run `/use` when you want its role." : r.item.effect ? " Run `/use` when you want its effect." : "";
       return interaction.reply({
         content: `🛍️ You bought **${r.item.name}** for ${formatCoins(cfg, r.item.price)}${got}. Balance: ${formatCoins(cfg, r.balance)}.${hint}`,
         allowedMentions: NO_PINGS,
@@ -142,6 +156,9 @@ export const command: Command = {
         perUserLimit: interaction.options.getInteger("per_user_limit"),
         roleDurationHours: interaction.options.getInteger("role_hours"),
         useToGrant: interaction.options.getBoolean("use_to_grant") ?? false,
+        effect: interaction.options.getString("effect"),
+        effectHours: interaction.options.getInteger("effect_hours"),
+        effectPercent: interaction.options.getInteger("boost_percent"),
       });
       if (!r.ok) return ephemeral(interaction, `❌ ${firstError(r.errors)}`);
       return ephemeral(interaction, `✅ Added **${r.value.name}** for ${formatCoins(cfg, r.value.price)}.${cfg.enabled ? "" : " The economy is off, so members can't buy it until you run `/economy toggle`."}`);
@@ -164,7 +181,12 @@ export const command: Command = {
     }
     const description = interaction.options.getString("description");
     const roleId = interaction.options.getBoolean("clear_role") ? null : role?.id ?? item.roleId;
+    const effectRaw = interaction.options.getString("effect");
+    const effect = effectRaw === "none" ? null : isItemEffect(effectRaw) ? effectRaw : item.effect;
     const r = await svc.editItem(guild.id, item.id, {
+      effect,
+      effectHours: effect ? interaction.options.getInteger("effect_hours") ?? item.effectHours : null,
+      effectPercent: effect === "work_boost" ? interaction.options.getInteger("boost_percent") ?? item.effectPercent : null,
       name: interaction.options.getString("name") ?? item.name,
       price: interaction.options.getInteger("price") ?? item.price,
       description: description === "-" ? "" : description ?? item.description,

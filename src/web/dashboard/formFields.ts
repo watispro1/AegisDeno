@@ -15,7 +15,7 @@ export interface ValidationContext {
    * Role ID → whether the bot can assign it, and whether it is at or above the
    * viewer's own highest role (aboveViewer; never set for the server owner).
    */
-  roles: ReadonlyMap<string, { assignable: boolean; aboveViewer?: boolean }>;
+  roles: ReadonlyMap<string, { assignable: boolean; aboveViewer?: boolean; dangerous?: boolean }>;
 }
 
 

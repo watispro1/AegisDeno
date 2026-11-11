@@ -140,7 +140,7 @@ export function playSlots(bet: number, randomInt: RandomInt): GameResult {
   return { payout, win: payout > bet, detail: reels.join(" "), reels };
 }
 
-export type BetRefusal = { reason: "off" | "min" | "max" | "insufficient" | "loss_cap" | "cap"; limit?: number };
+export type BetRefusal = { reason: "off" | "min" | "max" | "insufficient" | "loss_cap" | "cap" | "invalid"; limit?: number };
 
 /**
  * Whether a bet may be placed. `lossToday` is the member's net loss so far
@@ -150,6 +150,7 @@ export type BetRefusal = { reason: "off" | "min" | "max" | "insufficient" | "los
 export function betRefusal(bet: number, ctx: { cfg: EconomyConfig; wallet: number; lossToday: number }): BetRefusal | null {
   const { cfg } = ctx;
   if (!cfg.gamblingEnabled) return { reason: "off" };
+  if (!Number.isSafeInteger(bet) || bet < 1) return { reason: "invalid" };
   if (bet < cfg.gambleMinBet) return { reason: "min", limit: cfg.gambleMinBet };
   if (bet > cfg.gambleMaxBet) return { reason: "max", limit: cfg.gambleMaxBet };
   if (bet > ctx.wallet) return { reason: "insufficient" };
@@ -183,8 +184,9 @@ export function payRoomToday(limit: number, sentDay: string | null, sentTotal: n
 /* Items */
 
 /** Why an inventory item can't be used; null when /use applies. */
-export function useRefusal(item: Pick<ShopItem, "roleId" | "useToGrant"> | null, ownsRole: boolean): string | null {
+export function useRefusal(item: Pick<ShopItem, "roleId" | "useToGrant"> & Partial<Pick<ShopItem, "effect">> | null, ownsRole: boolean): string | null {
   if (!item) return "That item is no longer in the shop, so it can't be used.";
+  if (item.effect) return null;
   if (!item.roleId) return "That's a collectible: it stays in your inventory and has nothing to use.";
   if (!item.useToGrant) return "That item's role was given when you bought it.";
   if (ownsRole) return "You already have that role.";

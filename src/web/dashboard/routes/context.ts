@@ -327,7 +327,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
     return {
       textChannelIds: new Set(deps.bot.textChannels(guildId).map(c => c.id)),
       hiddenChannelIds: deps.bot.hiddenChannelIds(guildId),
-      roles: new Map(rolesFor(ctx).map(r => [r.id, { assignable: r.assignable, aboveViewer: r.aboveViewer === true }])),
+      roles: new Map(rolesFor(ctx).map(r => [r.id, { assignable: r.assignable, aboveViewer: r.aboveViewer === true, dangerous: r.dangerous === true }])),
     };
   }
 

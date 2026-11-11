@@ -29,6 +29,17 @@ export const ECONOMY_DOC_ROWS: Array<[EconomyNumberKey, string, string]> = [
   ["gambleMaxBet", "Maximum bet", ""],
   ["gambleDailyLossCap", "Daily loss limit", "Net losses per member per UTC day (0 = no limit)."],
   ["gambleCooldownSeconds", "Seconds between bets", ""],
+  ["workLevelBonusPercent", "Work level bonus (%)", "Extra /work pay per level above 1, up to level 10 (0 = off)."],
+  ["bankInterestBps", "Bank interest (basis points)", "Daily interest on the bank, 100 = 1%, claimed with /interest (0 = off)."],
+  ["bankInterestMaxDaily", "Most interest per claim", "0 = no cap besides the bank limit."],
+  ["robSuccessPercent", "Rob success (%)", ""],
+  ["robMaxStealPercent", "Rob takes at most (%)", "A random 1% up to this of the target's wallet."],
+  ["robMaxSteal", "Rob takes at most (coins)", "Hard cap per rob."],
+  ["robFinePercent", "Rob fine (%)", "Of the robber's wallet when caught; removed from circulation."],
+  ["robMinWallet", "Wallet needed to rob", ""],
+  ["robMinTargetWallet", "Target wallet needed", "Members holding less can't be robbed."],
+  ["robCooldownMinutes", "Rob cooldown (minutes)", ""],
+  ["robProtectMinutes", "Rob protection (minutes)", "How long a robbed member is safe (0 = off)."],
 ];
 
 const n = (v: number) => v.toLocaleString("en-US");
@@ -43,6 +54,7 @@ export function economyDefaultsTable(): string {
           <tbody>
             <tr><td>Crime</td><td>on</td><td>on or off</td><td><code>/economy risk crime:</code></td></tr>
             <tr><td>Gambling</td><td>off</td><td>on or off</td><td><code>/economy risk gambling:</code></td></tr>
+            <tr><td>Rob</td><td>off</td><td>on or off</td><td><code>/economy risk rob:</code></td></tr>
             ${rows}
           </tbody>
         </table>
@@ -63,18 +75,27 @@ export function economyDocsSection(): string {
 /withdraw amount:500
 /pay user:@Member amount:250
 /gamble coinflip bet:100 call:Heads
+/gamble dice bet:50 face:4
 /gamble slots bet:50
+/interest
+/rob user:@Member
+/transactions
 /leaderboard sort:Wallet
 /shop add name:VIP pass price:5000 role:@VIP role_hours:168 use_to_grant:true per_user_limit:1
 /shop buy item:(pick from the list)
 /use item:VIP pass
 /shop sell item:(pick from your inventory)
+/shop add name:Rob shield price:1500 effect:Rob shield effect_hours:24
 /inventory
+/economy stats
 /economy give user:@Member amount:500 reason:Event winner`)}
       <p>The economy is per server and <strong>off until a server manager turns it on</strong> with <code>/economy toggle</code> or on the dashboard's Economy page. <code>/daily</code> pays once per cooldown (24 hours by default) with a streak bonus; claiming again within two cooldowns keeps the streak, and the bonus grows for 7 days by default. <code>/weekly</code> pays once every 7 days. <code>/work</code> pays a random amount once an hour, and <code>/crime</code> pays more but fails half the time by default, with a fine that is never more than your wallet holds. Cooldowns are stored in the database, so a restart never resets them, and <code>/balance</code> shows when each one is ready.</p>
       <p>Coins sit in a <strong>wallet</strong> or a <strong>bank</strong>: <code>/deposit</code> and <code>/withdraw</code> take a number, <code>all</code> or <code>half</code>, and bank coins are safe from crime fines. The leaderboard ranks by wallet plus bank, or by wallet or bank alone. <code>/pay</code> refuses yourself and bots, asks you to confirm large amounts, needs the sender to have been in the server for 24 hours by default, and has a daily sending limit and an optional tax (removed from circulation). Every transfer is in the transaction log.</p>
-      <p><strong>Gambling is off until a server manager turns it on</strong> with <code>/economy risk gambling:true</code>. Coinflip pays ${COINFLIP_RETURN_PERCENT / 100}× the bet on a right call (a 2% house edge); slots return about 96.4% of bets over time (a 3.6% house edge); <code>/gamble info</code> shows the paytable. Bets have a minimum, a maximum, a few seconds' cooldown and a daily loss limit per member, all checked in the same database update that takes the bet. Outcomes use a cryptographic random number generator.</p>
-      <p>Shop items can be collectibles or hand out a role, for good or for a set number of hours (Aegis takes timed roles back like <code>/temprole</code>). A role item can be given on purchase or kept in the inventory until the member runs <code>/use</code>. The role must be below Aegis's highest role and below your own (the server owner is exempt), and Aegis checks again when the role is given, refunding the coins or returning the item if it can't be. Items can have limited stock and a per-member purchase limit; <code>/shop sell</code> buys items back at 50% of the price by default (not roles already given on purchase).</p>
-      <p>Balances are whole coins, never negative, and capped at one trillion; every change is a single atomic database update with its checks in the query, so two commands at once cannot spend the same coins twice or pass a limit. <code>/economy give</code>, <code>take</code> and <code>reset</code> (wallet and bank) are posted to the mod log. The leaderboard never pings anyone. Transactions are kept for 90 days.</p>
+      <p><strong>Work levels.</strong> Every paid <code>/work</code> earns 1 XP. Levels run from 1 to 10 (5, 15, 30, 50 … 225 XP) and each level above 1 adds 5% to /work pay by default. <code>/balance</code> shows your level and any <strong>badges</strong> you've earned (saving milestones, daily streaks, work levels, a full bank, a collection of items); badges are computed from your stats and pay nothing, so there is nothing to farm.</p>
+      <p><strong>Bank interest.</strong> <code>/interest</code> pays 0.5% of your bank once every 24 hours by default, capped at 250 coins per claim and by the bank limit. Nothing builds up while you don't claim, so moving coins into the bank just before a claim earns no more than keeping them there.</p>
+      <p><strong>Rob is off until a server manager turns it on</strong> with <code>/economy risk rob:true</code>. <code>/rob</code> tries to take a random share (up to 20% and 1,000 coins by default) of another member's <em>wallet</em>; bank coins can never be robbed. It succeeds 40% of the time by default; a failure costs the robber 20% of their wallet, and that fine is removed from circulation rather than paid to the target, so an alt can't feed a main through deliberate failures. Robbers need a minimum wallet and a 4-hour cooldown; targets need a minimum wallet, are safe for 6 hours after being robbed, and both sides must have been in the server as long as <code>/pay</code> requires. A <strong>rob shield</strong> from the shop blocks robberies while it lasts. Everything is checked again inside the database update that moves the coins, so two robbers at once can't take the same coins.</p>
+      <p><strong>Gambling is off until a server manager turns it on</strong> with <code>/economy risk gambling:true</code>. Coinflip pays ${COINFLIP_RETURN_PERCENT / 100}× the bet on a right call (a 2% house edge); slots return about 96.4% of bets over time (a 3.6% house edge); dice pays 5.88× the bet on the right face (also a 2% house edge); <code>/gamble info</code> shows the paytable. Bets have a minimum, a maximum, a few seconds' cooldown and a daily loss limit per member, all checked in the same database update that takes the bet. Outcomes use a cryptographic random number generator.</p>
+      <p>Shop items can be collectibles or hand out a role, for good or for a set number of hours (Aegis takes timed roles back like <code>/temprole</code>). A role item can be given on purchase or kept in the inventory until the member runs <code>/use</code>. The role must be below Aegis's highest role and below your own (the server owner is exempt), and Aegis checks again when the role is given, refunding the coins or returning the item if it can't be. Items can instead carry a consumable <strong>effect</strong> used with <code>/use</code>: a rob shield (stackable up to 30 days ahead) or a work boost (extra /work pay for a set number of hours; boosts don't stack). Roles with staff permissions (Administrator, Manage Server, Manage Roles, Ban Members, Mention Everyone and the like) can never be sold, and that is checked again when the role is handed out. Items can have limited stock and a per-member purchase limit; <code>/shop sell</code> buys items back at 50% of the price by default (not roles already given on purchase).</p>
+      <p>Balances are whole coins, never negative, and capped at one trillion; every change is a single atomic database update with its checks in the query, so two commands at once cannot spend the same coins twice or pass a limit. <code>/economy give</code>, <code>take</code> and <code>reset</code> (wallet and bank) are posted to the mod log, and <code>/economy stats</code> shows coins in circulation and the last week's activity. <code>/transactions</code> shows your own recent history privately (staff can check any member). The leaderboard never pings anyone. Transactions are kept for 90 days.</p>
       ${economyDefaultsTable()}`;
 }

@@ -13,7 +13,7 @@ dashboard.
 | Command reference | https://aegisdeno.fly.dev/commands |
 | Web dashboard | https://aegisdeno.fly.dev/dashboard |
 | Status | https://aegisdeno.fly.dev/status |
-| Current version | bot 3.9.0, dashboard 1.3.0 |
+| Current version | bot 3.10.0, dashboard 1.3.0 |
 
 Despite the repository name, Aegis is a **Node.js** app (TypeScript,
 discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
@@ -83,13 +83,23 @@ overview, top offenders, moderator activity and automod hits. `/modstats` and
 `/activitysummary` give simpler counts.
 
 **Economy (opt-in).** Off until a server manager runs `/economy toggle`.
-Members earn coins with `/daily` (streak bonus) and `/work`, send them with
-`/pay`, and spend them in a `/shop` that can sell roles; `/balance`,
-`/inventory` and a `/leaderboard` that never pings round it out. Staff tune it
-with `/economy config`, adjust balances with `/economy give|take|reset`
-(posted to the mod log) and manage everything on the dashboard's Economy page.
-Cooldowns are stored in MongoDB and every balance change is a single atomic
-update, so coins can't be spent twice.
+Members earn coins with `/daily` (streak bonus), `/weekly`, `/work` (10 work
+levels, each adding pay), `/crime` and daily bank `/interest` (capped), keep
+them in a wallet or a bank (`/deposit`, `/withdraw`), send them with `/pay`
+(tenure, daily limit, optional tax) and spend them in a `/shop` that sells
+collectibles, roles (never ones with staff permissions) and consumable effects
+used with `/use`: rob shields and timed work boosts. Optional extras, each off
+until staff turn them on with `/economy risk`: `/gamble` (coinflip, dice,
+slots, with fixed house edges, bet limits and a daily loss cap) and `/rob`
+(wallet only, cooldowns, minimum wallets, protection after a robbery, fines
+removed from circulation). `/balance` shows levels and badges, `/transactions`
+shows your own history privately, and `/leaderboard` never pings. Staff tune it
+with `/economy config` and `/economy risk`, see `/economy stats`, adjust
+balances with `/economy give|take|reset` (posted to the mod log) and manage
+everything on the dashboard's Economy page. Cooldowns are stored in MongoDB and
+every balance change is a single atomic update with its checks in the query,
+so coins can't be spent twice, claimed twice or pushed past the limits. Money
+is always whole coins. New slash commands need `npm run deploy` once.
 
 **Everything else.** Logging to a channel (`/logging`), tickets with claim,
 inactivity auto-close and HTML transcripts (`/ticket`), button or math-captcha

@@ -4,6 +4,7 @@
  */
 import { ChannelType, PermissionFlagsBits, PermissionsBitField, type Client, type Guild, type PermissionsString } from "discord.js";
 import { botPermissionBitfield } from "../catalogPermissions";
+import { dangerousPermissionNames } from "../../services/economyLogic";
 import { permissionName } from "../../utils/embedStyle";
 import { logger } from "../../utils/logger";
 import { canManageGuild } from "./permissions";
@@ -40,6 +41,8 @@ export interface RoleOption {
    * view itself leaves it unset.
    */
   aboveViewer?: boolean;
+  /** True when the role carries staff permissions (Administrator, Manage Roles, Ban Members…), so the shop must never sell it. */
+  dangerous?: boolean;
 }
 
 /**
@@ -219,6 +222,8 @@ export function discordBotView(client: Client): BotView {
           name: r.name,
           position: r.position,
           assignable: canManageRoles && !r.managed && r.position < top,
+          // Fails closed: a role whose permissions can't be read is treated as unsellable.
+          dangerous: r.permissions ? dangerousPermissionNames(r.permissions.bitfield).length > 0 : true,
         }));
     },
 

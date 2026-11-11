@@ -1,4 +1,4 @@
-/** Economy models: per-server settings, wallets and banks (with persisted cooldowns and daily limits), transactions (90-day TTL), shop items and inventories. */
+/** Economy models: per-server settings, wallets and banks (with persisted cooldowns, daily limits, work XP, shields and boosts), transactions (90-day TTL), shop items and inventories. */
 import mongoose from "mongoose";
 import { TRANSACTION_TTL_DAYS } from "../services/economyLogic";
 
@@ -32,6 +32,18 @@ const EconomyConfigSchema = new mongoose.Schema({
   gambleMaxBet: Number,
   gambleDailyLossCap: Number,
   gambleCooldownSeconds: Number,
+  workLevelBonusPercent: Number,
+  bankInterestBps: Number,
+  bankInterestMaxDaily: Number,
+  robEnabled: Boolean,
+  robSuccessPercent: Number,
+  robMaxStealPercent: Number,
+  robMaxSteal: Number,
+  robFinePercent: Number,
+  robMinWallet: Number,
+  robMinTargetWallet: Number,
+  robCooldownMinutes: Number,
+  robProtectMinutes: Number,
   updatedAt: { type: Date, default: Date.now },
 });
 export const EconomyConfigModel = mongoose.model("EconomyConfig", EconomyConfigSchema);
@@ -51,6 +63,13 @@ const EconomyAccountSchema = new mongoose.Schema({
   gambleLoss: { type: Number, default: 0 },
   payDay: { type: String, default: null },
   payTotal: { type: Number, default: 0 },
+  workXp: { type: Number, default: 0 },
+  workBoostPercent: { type: Number, default: 0 },
+  workBoostUntil: { type: Date, default: null },
+  shieldUntil: { type: Date, default: null },
+  lastRob: { type: Date, default: null },
+  lastRobbed: { type: Date, default: null },
+  lastInterest: { type: Date, default: null },
 });
 EconomyAccountSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 EconomyAccountSchema.index({ guildId: 1, balance: -1, userId: 1 });
@@ -84,6 +103,9 @@ const ShopItemSchema = new mongoose.Schema({
   perUserLimit: { type: Number, default: null },
   roleDurationHours: { type: Number, default: null },
   useToGrant: { type: Boolean, default: false },
+  effect: { type: String, default: null, enum: ["rob_shield", "work_boost"] },
+  effectHours: { type: Number, default: null },
+  effectPercent: { type: Number, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 ShopItemSchema.index({ guildId: 1, nameKey: 1 }, { unique: true });

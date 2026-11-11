@@ -243,11 +243,21 @@ test("3.8.0 and dashboard 1.3.0: released 2026-11-05", () => {
   for (const needle of ["/deposit", "/weekly", "/crime", "/gamble", "/softban"]) assert.ok(text.includes(needle), `3.8.0 mentions ${needle}`);
 });
 
-test("3.9.0: newest bot release, records /massban, the automod burst fix and the deploy note", () => {
+test("3.9.0: records /massban, the automod burst fix and the deploy note", () => {
   const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
-  assert.equal(bot[0].version, "3.9.0");
-  assert.equal(bot[0].date, "2026-11-11");
-  assert.equal(VERSION, "3.9.0");
-  const text = bot[0].sections.flatMap((s) => s.items).join(" ");
+  const r = bot.find((x) => x.version === "3.9.0")!;
+  assert.ok(r, "3.9.0 is still listed");
+  assert.equal(r.date, "2026-11-11");
+  const text = r.sections.flatMap((s) => s.items).join(" ");
   for (const needle of ["/massban", "/case user", "/infractions", "60 seconds"]) assert.ok(text.includes(needle), `3.9.0 mentions ${needle}`);
+});
+
+test("3.10.0: newest bot release, records the economy expansion and the deploy note", () => {
+  const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
+  assert.equal(bot[0].version, "3.10.0");
+  assert.equal(bot[0].date, "2026-11-11");
+  assert.equal(VERSION, "3.10.0");
+  assert.ok(bot[0].notes.join(" ").includes("npm run deploy"), "deploy note");
+  const text = bot[0].sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["/rob", "/interest", "/transactions", "/gamble dice", "/economy stats"]) assert.ok(text.includes(needle), `3.10.0 mentions ${needle}`);
 });

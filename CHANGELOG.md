@@ -9,6 +9,58 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.10.0] - 2026-11-11
+
+Economy expansion and exploit hardening: work levels, daily bank interest,
+optional robbing, shop effect items, dice, personal transaction history and
+server economy stats. Upgrade notes: three new slash commands (`/rob`,
+`/interest`, `/transactions`) and new options on `/gamble`, `/economy`,
+`/shop add` and `/shop edit`, so commands are re-registered on deploy (or run
+`npm run deploy`). No migration, new permissions or environment variables.
+Robbing stays off until a manager turns it on.
+
+### Added
+- Work levels: each paid `/work` earns 1 XP, levels run 1 to 10 with job
+  titles, and each level adds a pay bonus (5% by default, 0 turns it off).
+- `/interest` claims daily bank interest (0.5% by default), capped per claim
+  and by the bank limit. Nothing builds up while it goes unclaimed.
+- `/rob`, off by default (`/economy risk rob:true`). Only wallets can be
+  robbed, never the bank, with a 4-hour cooldown, minimum wallets on both
+  sides, 6 hours of protection for the target and a cap of 20% or 1,000
+  coins. A failed rob fines the robber 20% of their wallet, and the fine is
+  removed rather than paid to the target.
+- Shop effect items used with `/use`: a rob shield (up to 30 days ahead) and a
+  work boost (+1 to 100% `/work` pay for a set number of hours; boosts do not
+  stack). An item cannot carry both a role and an effect.
+- `/gamble dice`: pick a face from 1 to 6, pays 5.88x (2% house edge).
+- `/transactions` shows your own recent history privately; staff with Manage
+  Server can view any member.
+- `/economy stats` shows members with coins, wallet and bank totals, and the
+  last 7 days of activity for this server.
+- `/balance` shows badges for savings, streaks, work level, bank and
+  collection. They pay nothing. Active shields and boosts are shown only to
+  the member.
+- The dashboard's economy settings gain work level bonus, interest and rob
+  settings, and the shop item form gains effect, duration and boost options.
+
+### Changed
+- `/work` uses a cryptographic random number generator, and its pay, XP and
+  cooldown are one guarded update, so running it twice at once pays once.
+- Refunds (a failed role grant or a failed `/pay`) and gamble winnings go to
+  the bank when the wallet is at its maximum instead of being lost.
+
+### Security
+- Shop roles with staff permissions (Administrator, Manage Server, Roles,
+  Channels, Messages or Webhooks, Kick, Ban, Timeout, Mention Everyone, View
+  Audit Log and similar) are refused in `/shop add`, `/shop edit` and on the
+  dashboard, even for the owner. The check runs again when the role is handed
+  out, so a role that gains permissions later is never granted and the buyer
+  is refunded or keeps the item.
+- `/economy reset` removes the balance in one update, so a credit landing at
+  the same moment can no longer go missing from the audit log.
+- Bets that are not whole positive numbers, and invalid dice faces, are
+  refused before any coins move.
+
 ## [3.9.0] - 2026-11-11
 
 Moderation reliability and quality-of-life. Upgrade notes: one new slash
