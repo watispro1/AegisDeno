@@ -80,7 +80,14 @@ test("shutdown: a hung step hits the deadline and exits with code 1", async () =
     exit: (c) => exits.push(c),
     steps: [{ name: "hang", run: () => new Promise(() => undefined) }],
   });
-  assert.equal(await shutdown("SIGTERM"), "timeout");
+  // The deadline timer is unref'd (it must never hold the process open), so keep
+  // the event loop alive while the test waits on it.
+  const keepAlive = setInterval(() => undefined, 1_000);
+  try {
+    assert.equal(await shutdown("SIGTERM"), "timeout");
+  } finally {
+    clearInterval(keepAlive);
+  }
   assert.deepEqual(exits, [1]);
   assert.ok(log.lines.some(l => l.startsWith("error") && l.includes("20ms")));
 });
