@@ -30,6 +30,7 @@ const AUDIT: Record<string, Audit> = {
   escalation: { bot: [], feature: ["ModerateMembers", "KickMembers", "BanMembers"] },
   incident: { bot: [], feature: ["ManageChannels", "ManageRoles", "ModerateMembers", "KickMembers"] },
   kick: { bot: ["KickMembers"], feature: [] },
+  massban: { bot: ["BanMembers"], feature: [] },
   lock: { bot: ["ManageRoles"], feature: [] },
   modmail: { bot: [], feature: ["CreatePrivateThreads", "SendMessagesInThreads", "ManageThreads"] },
   nickname: { bot: ["ManageNicknames"], feature: [] },

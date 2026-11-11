@@ -49,6 +49,8 @@ import { reconcileDigestTasks } from "../services/digestService";
 import { assignWelcomeRole, assignWelcomeRoleAfterScreening, sendGoodbye } from "../services/memberGreetings";
 import { handleGuildEntryHelp, sendJoinWelcome } from "../services/entryPoint";
 import { softFail } from "../utils/softFail";
+import { registerClientDiagnostics } from "./clientDiagnostics";
+import { logMemberJoin } from "./events/memberJoinLog";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -76,6 +78,9 @@ export function createClient(): Client {
     // but @everyone, @here and role mentions inside user-supplied text never do.
     // Features that are meant to ping a role or everyone opt in per message.
     allowedMentions: DEFAULT_ALLOWED_MENTIONS,
+    // Emit a warning every 500 invalid (401/403/429) requests: Discord bans the
+    // IP for an hour at 10,000 in ten minutes. Logged by clientDiagnostics.
+    rest: { invalidRequestWarningInterval: 500 },
   });
 
   // Attach commands collection to client for easy access
@@ -88,6 +93,7 @@ export function createClient(): Client {
 }
 
 export function setupEvents(client: Client): void {
+  registerClientDiagnostics(client);
   registerStarboardEvents(client);
   registerServerLogs(client);
 
@@ -289,19 +295,8 @@ export function setupEvents(client: Client): void {
       return { act: "none" as const, why: "error" };
     });
 
-    const userTag = member.user?.tag ?? "Unknown User";
-    const avatarUrl = member.user?.displayAvatarURL?.();
-
-    await sendGuildLog(client, member.guild.id, {
-      title: "📥 Member Joined",
-      color: 0x57F287,
-      description: `${userTag} (<@${member.user.id}>) joined the server.`,
-      thumbnail: avatarUrl ? { url: avatarUrl } : undefined,
-      fields: [
-        { name: "Account Created", value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
-        { name: "Member Count",    value: String(member.guild.memberCount), inline: true },
-      ],
-    }, "memberJoins");
+    // Join log with alt-account and returning-member hints (see services/joinRisk.ts).
+    await logMemberJoin(client, member).catch(err => logger.warn(`Join log failed in ${member.guild.id}:`, err));
 
     watchlistOnJoin(client, member).catch(err => logger.warn("Watchlist join error:", err));
     if (gate.act !== "none") return;
@@ -337,7 +332,8 @@ export function setupEvents(client: Client): void {
 
   // Member Update (role changes for Ghost Watch)
   client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-    await assignWelcomeRoleAfterScreening(oldMember, newMember);
+    await assignWelcomeRoleAfterScreening(oldMember, newMember).catch(err =>
+      logger.warn(`Welcome role after screening failed in ${newMember.guild.id}:`, err));
     watchlistOnRoleChange(client, oldMember, newMember).catch(err =>
       logger.warn("Watchlist roleChange error:", err)
     );

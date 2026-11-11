@@ -13,7 +13,7 @@ dashboard.
 | Command reference | https://aegisdeno.fly.dev/commands |
 | Web dashboard | https://aegisdeno.fly.dev/dashboard |
 | Status | https://aegisdeno.fly.dev/status |
-| Current version | bot 3.8.0, dashboard 1.3.0 |
+| Current version | bot 3.9.0, dashboard 1.3.0 |
 
 Despite the repository name, Aegis is a **Node.js** app (TypeScript,
 discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
@@ -45,13 +45,20 @@ any length up to 28 days (`90m`, `1d 12h`, `2 weeks`). Also `/purge` (filters fo
 bots, humans, links, images, embeds, a user or a keyword, with a preview),
 `/lock` (a channel, a category or the whole server, optionally timed),
 `/slowmode`, `/nickname`, `/note`, `/case`, `/infractions` and `/modhistory`.
+`/case user` filters a member's cases by action or hides revoked ones.
+`/massban` bans up to 50 pasted user IDs at once for raid clean-up, with the
+same hierarchy checks as `/ban`, a confirmation and one case per ban (no DMs
+or appeal codes). The Member Joined log flags new accounts, missing avatars and
+members returning with earlier cases, as hints for staff.
 `/escalation` turns a number of warnings into a timeout, kick or ban, and can
 ignore warnings older than a set number of days.
 
 **Automod.** Blocked words, links, mass mentions, message rate and caps, each
 with its own action (delete, delete and warn, delete and timeout), plus role and
 channel exemptions. Members with Administrator or Manage Server are never
-automodded.
+automodded. After automod warns or times out a member, their further hits in
+the next 60 seconds are deleted without another penalty or log entry, so one
+burst counts once.
 
 **Trust score.** `/trustscore` gives a 0 to 100 number from account age, time
 in the server, a long-tenure bonus, active warnings, timeouts, kicks and bans

@@ -1,39 +1,15 @@
 import { REPO_URL } from "../layout";
 import { faqs } from "../content";
-import { type SiteConfig, breadcrumb, cmdBlock, escapeHtml, faqBlock, page, safeUrl } from "./shared";
+import { type SiteConfig, breadcrumb, cmdBlock, escapeHtml, faqBlock, fmtNum, page, safeUrl, statStrip } from "./shared";
+import { icon, iconSprite, type IconId } from "./icons";
 import { economyDocsSection } from "./docsEconomy";
-import { SUBCOMMAND_CHECKS, botPermissionTable, docHeading, docToc, linkCommandsInHtml, permissionTable } from "./docsData";
+import { DOC_GROUPS, SUBCOMMAND_CHECKS, botPermissionTable, docAnchors, docHeading, docToc, linkCommandsInHtml, permissionTable } from "./docsData";
 
 export function renderDocs(cfg: SiteConfig): string {
   const toc = docToc();
 
-  const body = linkCommandsInHtml(`
-<div class="wrap">
-  ${breadcrumb("Docs")}
-  <div class="page-head">
-    <h1>Docs</h1>
-    <p class="lead">How to set Aegis up, then a guide for each feature. Commands are written the way you type them in Discord; every option is on the <a href="/commands">commands page</a>, and fixes for common problems are on the <a href="/troubleshooting">troubleshooting page</a>.</p>
-  </div>
-
-  <details class="toc-mobile">
-    <summary>On this page</summary>
-    <nav aria-label="On this page (mobile)">
-      ${toc}
-    </nav>
-  </details>
-
-  <div class="split">
-    <aside class="toc" aria-label="On this page">
-      ${toc}
-      <p class="side-title">Elsewhere</p>
-      <ul>
-        <li><a href="/commands">Commands</a></li>
-        <li><a href="/troubleshooting">Troubleshooting</a></li>
-        <li><a href="/changelog">Changelog</a></li>
-      </ul>
-    </aside>
-
-    <article class="prose">
+  const article = linkCommandsInHtml(`
+    <article class="prose docs-prose" id="docs-article">
       ${docHeading("quickstart", "Set up Aegis")}
       <p>About ten minutes from invite to a working setup. Each step links to the guide with the details.</p>
       <ol class="setup-steps">
@@ -309,9 +285,68 @@ npm run dev             # or: npm run build && npm start`)}
         <a class="doc-pager-link prev" data-doc-prev hidden><span class="doc-pager-label">Previous section</span><strong></strong></a>
         <a class="doc-pager-link next" data-doc-next hidden><span class="doc-pager-label">Next section</span><strong></strong></a>
       </nav>
-    </article>
+      <aside class="doc-feedback" aria-label="Feedback">
+        <p><strong>Something wrong or missing?</strong> These docs live in the repository next to the code. <a href="${REPO_URL}/issues/new?title=${encodeURIComponent("Docs: ")}" rel="noopener noreferrer">Open an issue</a> and say which section.</p>
+      </aside>
+    </article>`);
+
+  const words = article.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length;
+  const minutes = Math.max(1, Math.round(words / 230));
+  const guides = DOC_GROUPS.find(g => g.title === "Guides")?.sections.length ?? 0;
+  const start: { href: string; title: string; text: string; icon: IconId }[] = [
+    { href: "#quickstart", title: "Set up Aegis", text: "Invite, role order, a log channel and a preset, in about ten minutes.", icon: "check" },
+    { href: "#permissions", title: "Permissions", text: "Who can run what, and exactly what Aegis asks for.", icon: "lock" },
+    { href: "#hidden-channels", title: "Hidden channels", text: "Why a channel shows as ___hidden___ and how to fix it.", icon: "eye" },
+    { href: "/troubleshooting", title: "Troubleshooting", text: "Step-by-step fixes for the usual problems.", icon: "alert" },
+  ];
+
+  const body = `${iconSprite(start.map(x => x.icon))}
+<div class="wrap">
+  ${breadcrumb("Docs")}
+  <header class="cl-head ph-head">
+    <div class="cl-head-text">
+      <h1>Documentation</h1>
+      <p class="lead">How to set Aegis up, then a guide for each feature. Commands are written the way you type them in Discord; every option is on the <a href="/commands">commands page</a>, and fixes for common problems are on the <a href="/troubleshooting">troubleshooting page</a>.</p>
+    </div>
+  </header>
+  ${statStrip([
+    { label: "Guides", value: fmtNum(guides), note: `${fmtNum(docAnchors().length)} sections in all` },
+    { label: "Reading time", value: `${minutes} min`, note: "for the whole page" },
+    { label: "Written for", value: `v${escapeHtml(cfg.version)}`, note: `<a href="/changelog">what changed</a>` },
+  ], "Documentation in numbers")}
+
+  <ul class="doc-start" aria-label="Start here">
+    ${start.map(x => `<li><a href="${x.href}">${icon(x.icon)}<strong>${escapeHtml(x.title)}</strong><span>${escapeHtml(x.text)}</span></a></li>`).join("\n    ")}
+  </ul>
+
+  <details class="toc-mobile">
+    <summary>On this page</summary>
+    <nav aria-label="On this page (mobile)">
+      ${toc}
+    </nav>
+  </details>
+
+  <div class="split docs-split">
+    <aside class="toc docs-toc" aria-label="On this page">
+      <div class="toc-filter" data-js-only>
+        <label class="visually-hidden" for="toc-filter">Filter sections</label>
+        <input id="toc-filter" type="search" placeholder="Filter sections" autocomplete="off" spellcheck="false" maxlength="60" aria-controls="docs-toc-list">
+      </div>
+      <div id="docs-toc-list">
+      ${toc}
+      </div>
+      <p class="toc-empty" id="toc-empty" hidden>No section matches.</p>
+      <p class="side-title">Elsewhere</p>
+      <ul>
+        <li><a href="/commands">Commands</a></li>
+        <li><a href="/troubleshooting">Troubleshooting</a></li>
+        <li><a href="/changelog">Changelog</a></li>
+      </ul>
+      <a class="cl-top" href="#main">Back to top &uarr;</a>
+    </aside>
+${article}
   </div>
-</div>`);
+</div>`;
 
   return page(cfg, {
     title: "Docs | Aegis",

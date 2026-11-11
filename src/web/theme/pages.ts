@@ -3,34 +3,11 @@ export const cssPages = String.raw`/* ── Home ──────────
 .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 3rem; align-items: start; padding: 3.5rem 0 3rem; }
 .hero h1 { font-size: clamp(2rem, 1.5rem + 2.2vw, 2.9rem); max-width: 18ch; margin-bottom: 1rem; }
 .hero .lead { margin-bottom: 1.5rem; }
-.hero-meta { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font: 400 .82rem/1.4 var(--mono); color: var(--faint); margin-bottom: 1.25rem; }
-.hero-meta span { display: inline-flex; align-items: center; gap: .4rem; }
 .hero-aside { display: flex; flex-direction: column; gap: .6rem; }
 .hero-caption { font-size: .8rem; color: var(--faint); margin: 0; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
 .dot.warn { background: var(--warn); }
 .dot.danger { background: var(--danger); }
-
-.ref { border-top: 1px solid var(--border); }
-.ref-row {
-  display: grid; grid-template-columns: 11rem minmax(0, 1fr) minmax(0, 17rem);
-  gap: 1.25rem; padding: 1rem 0; border-bottom: 1px solid var(--border); align-items: baseline;
-  transition: background .12s ease;
-}
-.ref-row:hover { background: var(--bg-sunk); }
-.ref-row h3 { font-size: 1rem; margin: 0; }
-.ref-row h3 a { color: var(--text); text-decoration: none; }
-.ref-row h3 a:hover { color: var(--accent); text-decoration: underline; }
-.ref-row p { margin: 0; color: var(--text-2); font-size: .95rem; }
-.ref-cmd { font: 400 .82rem/1.5 var(--mono); color: var(--muted); }
-.ref-cmd code { color: var(--text); }
-
-.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; display: grid; gap: 0; border-top: 1px solid var(--border); }
-.steps li { counter-increment: step; display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: .5rem 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border); margin: 0; }
-.steps li::before { content: counter(step); font: 500 .9rem/1.6 var(--mono); color: var(--accent); }
-.steps h3 { font-size: 1rem; margin: 0 0 .2rem; }
-.steps p { margin: 0 0 .4rem; color: var(--text-2); font-size: .95rem; }
-.steps pre.block { margin: .35rem 0 0; }
 
 .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem; }
 .notes { list-style: none; padding: 0; margin: 0; }
@@ -248,37 +225,6 @@ export const cssPages = String.raw`/* ── Home ──────────
 .hierarchy .good { border-left: 3px solid var(--ok); }
 .hierarchy-label { display: block; font: 500 .75rem var(--mono); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 .35rem; color: var(--faint); }
 
-/* Changelog */
-.release { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 1.5rem; padding: 1.75rem 0; border-bottom: 1px solid var(--border); scroll-margin-top: 5rem; }
-.release[hidden], li[data-release][hidden] { display: none; }
-.release-search { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-bottom: 1.5rem; }
-.release-search .search { flex: 1 1 320px; }
-.release-latest {
-  display: inline-block; margin-bottom: .4rem; padding: .1rem .45rem;
-  border-radius: var(--r); background: var(--accent); color: var(--accent-ink);
-  font: 500 .68rem/1.5 var(--mono); text-transform: uppercase; letter-spacing: .05em;
-}
-.release-copy {
-  display: block; margin-top: .5rem; padding: 0;
-  background: none; border: 0; color: var(--text-2);
-  font: inherit; cursor: pointer; text-decoration: underline;
-}
-.release-copy:hover { color: var(--accent); }
-.release-meta { font-family: var(--mono); font-size: .85rem; color: var(--faint); padding-top: .2rem; }
-.release-meta time, .release-pending { display: block; }
-.release-pending { color: var(--warn); }
-.release-diff { display: inline-block; margin-top: .35rem; color: var(--text-2); }
-.release-title { font-size: 1.3rem; margin: 0 0 .5rem; font-family: var(--mono); }
-.release-title a { color: var(--text); text-decoration: none; }
-.release-title a:hover { color: var(--accent); text-decoration: underline; }
-.release h3 { font-size: .8rem; margin: 1.1rem 0 .35rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-2); }
-.release-summary { color: var(--text-2); margin-bottom: .75rem; max-width: 72ch; }
-.changes { padding-left: 1.1rem; margin: 0; max-width: 76ch; }
-.changes li { padding: .2rem 0; margin: 0; font-size: .93rem; color: var(--text-2); }
-.changes li strong { color: var(--text); font-weight: 600; }
-.changes li ul { padding-left: 1.1rem; margin: .2rem 0 0; list-style: circle; }
-.changes li li { padding: .1rem 0; }
-
 /* Status */
 .status-line {
   display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem;
@@ -333,7 +279,7 @@ footer.site { border-top: 1px solid var(--border); margin-top: 3rem; padding: 2.
 /* Touch screens: give list links a 44px target. */
 @media (pointer: coarse) {
   .toc a, .toc-mobile a { display: flex; align-items: center; min-height: 44px; padding-top: .25rem; padding-bottom: .25rem; }
-  .footer-col a, .footer-bottom a, .footer-meta a, .breadcrumbs a, .suggest a, .text-link, .ref-row h3 a, .case-link, .release-title a, .release-diff {
+  .footer-col a, .footer-bottom a, .footer-meta a, .breadcrumbs a, .suggest a, .text-link, .case-link, .release-title a, .release-diff {
     display: inline-flex; align-items: center; min-height: 44px;
   }
   .footer-col a { padding: 0; }

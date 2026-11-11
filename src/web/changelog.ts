@@ -249,6 +249,90 @@ export function getReleases(): ChangelogRelease[] {
   return getChangelog().releases.filter((r) => r.date !== null);
 }
 
+/** Change type of a Keep a Changelog section, used for the coloured chips and the type filter. */
+export type ChangeKind = "added" | "changed" | "fixed" | "security" | "removed" | "deprecated" | "known" | "other";
+
+/** Display order of change types on the site. */
+export const CHANGE_KINDS: readonly ChangeKind[] = ["added", "changed", "fixed", "security", "removed", "deprecated", "known", "other"];
+
+/** Maps a section heading ("Added", "Known limitations", ...) to its change type. */
+export function sectionKind(title: string): ChangeKind {
+  const t = title.trim().toLowerCase();
+  if (t === "added") return "added";
+  if (t === "changed") return "changed";
+  if (t === "fixed") return "fixed";
+  if (t === "security") return "security";
+  if (t === "removed") return "removed";
+  if (t === "deprecated") return "deprecated";
+  if (t.startsWith("known")) return "known";
+  return "other";
+}
+
+/** Number of top-level changes in a release, per change type, plus the total. */
+export function releaseCounts(r: ChangelogRelease): { total: number; byKind: Partial<Record<ChangeKind, number>> } {
+  const byKind: Partial<Record<ChangeKind, number>> = {};
+  let total = 0;
+  for (const s of r.sections) {
+    const k = sectionKind(s.title);
+    byKind[k] = (byKind[k] ?? 0) + s.items.length;
+    total += s.items.length;
+  }
+  return { total, byKind };
+}
+
+export type VersionBump = "major" | "minor" | "patch" | "initial";
+
+function semverParts(v: string): [number, number, number] | null {
+  const m = v.match(/^v?(\d+)\.(\d+)\.(\d+)/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+/**
+ * What kind of release `version` is compared with the release before it
+ * (`previous`, the next one down the newest-first list). The oldest release is
+ * "initial"; anything that is not x.y.z counts as a patch.
+ */
+export function versionBump(version: string, previous: string | null | undefined): VersionBump {
+  const cur = semverParts(version);
+  if (!previous) return "initial";
+  const prev = semverParts(previous);
+  if (!cur || !prev) return "patch";
+  if (cur[0] !== prev[0]) return "major";
+  if (cur[1] !== prev[1]) return "minor";
+  return "patch";
+}
+
+/** Strips tags and collapses whitespace: rendered changelog HTML to plain text. */
+export function plainText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Changelog as JSON for /changelog.json: plain text and HTML per change, released versions only. */
+export function changelogJson(base: string): { version: 1; bot: unknown[]; dashboard: unknown[] } {
+  const map = (log: Changelog, path: string) =>
+    log.releases.filter((r) => r.date !== null).map((r) => ({
+      version: r.version,
+      date: r.date,
+      url: `${base}${path}#${r.id}`,
+      compareUrl: r.compareUrl,
+      notes: r.notes.map(plainText),
+      sections: r.sections.map((s) => ({
+        title: s.title,
+        kind: sectionKind(s.title),
+        items: s.items.map((html) => ({ text: plainText(html), html })),
+      })),
+    }));
+  return { version: 1, bot: map(getChangelog(), "/changelog"), dashboard: map(getDashboardChangelog(), "/dashboard/changelog") };
+}
+
 function xml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }

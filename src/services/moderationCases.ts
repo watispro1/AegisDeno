@@ -53,6 +53,28 @@ export async function addModerationCase(input: {
 }
 
 /**
+ * Record many cases in one database round trip (bulk actions such as
+ * /massban), instead of one insert per member. Returns the new case IDs in
+ * input order, or an empty list when the write failed.
+ */
+export async function addModerationCases(inputs: ReadonlyArray<Parameters<typeof addModerationCase>[0]>): Promise<string[]> {
+  if (!inputs.length) return [];
+  try {
+    const docs = await ModerationCaseModel.insertMany(inputs.map(i => ({ ...i })), { ordered: false });
+    const ids = docs.map(d => String(d._id));
+    docs.forEach((doc, n) => {
+      const input = inputs[n];
+      noteIncidentCase(input.guildId, String(doc._id), input.action, input.userId);
+      noteTrustChange(input.guildId, input.userId);
+    });
+    return ids;
+  } catch (error) {
+    logger.error(`Failed to record ${inputs.length} bulk ${inputs[0].action} case(s):`, error);
+    return [];
+  }
+}
+
+/**
  * Mark a case revoked after its action was reversed (Undo button). The case is
  * kept for the paper trail. Returns false if missing or already revoked.
  */
