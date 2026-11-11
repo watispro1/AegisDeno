@@ -12,6 +12,7 @@ import { cssBase } from "./base";
 import { cssChrome } from "./chrome";
 import { cssPages } from "./pages";
 import { cssChangelog } from "./changelog";
+import { cssSite } from "./site";
 import { cssDashboard } from "./dashboard";
 import { cssDashboardApp } from "./dashboardApp";
 import { cssResponsive } from "./responsive";
@@ -25,6 +26,7 @@ export const styles =
   cssChrome +
   cssPages +
   cssChangelog +
+  cssSite +
   cssDashboard +
   cssDashboardApp +
   cssStatus +

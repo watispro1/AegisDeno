@@ -5,7 +5,6 @@ export const cssResponsive = String.raw`/* ── Responsive ──────�
   .split { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .toc { display: none; }
   .toc-mobile { display: block; }
-  .ref-row { grid-template-columns: minmax(0, 1fr); gap: .3rem; }
   .two-col { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
   .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .footer-brand { grid-column: 1 / -1; }
@@ -15,7 +14,9 @@ export const cssResponsive = String.raw`/* ── Responsive ──────�
   .section { padding: 2.25rem 0; }
   .page-head { padding: 1.75rem 0 1.25rem; margin-bottom: 1.5rem; }
   .cmd-card > summary { grid-template-columns: minmax(0, 1fr) 1rem; gap: .2rem .5rem; }
-  .cmd-anchor, .cmd-meta { display: none; }
+  .cmd-anchor { display: none; }
+  .cmd-meta { grid-column: 1; grid-row: 3; justify-content: flex-start; }
+  .cmd-meta .tag { display: none; }
   .cmd-slash { grid-column: 1; }
   .cmd-summary-text { grid-column: 1; grid-row: 2; }
   .cmd-chevron { grid-column: 2; grid-row: 1; }

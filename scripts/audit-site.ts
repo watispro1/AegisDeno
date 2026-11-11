@@ -62,6 +62,9 @@ async function main() {
     ["/status (degraded)", renderStatus(cfg, statusFixture(true, 400))],
     ["/status (offline)", renderStatus(cfg, statusFixture(false, 0))],
     ["/ (offline)", renderHome(cfg, { ...stats, ping: 0 }, false)],
+    ["/commands (filtered)", renderCommands(cfg, { q: "ban", cat: "moderation", access: "moderator" })],
+    ["/commands (no match)", renderCommands(cfg, { q: "zzzz-nothing" })],
+    ["/404 (with path)", renderNotFound(cfg, [], "/some/<missing>/page")],
   ];
 
   let links = 0;

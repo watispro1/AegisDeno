@@ -1,6 +1,7 @@
 import { buildCatalog, groupByCategory, catalogStats, type CommandInfo, type OptionInfo, type SubcommandInfo } from "../catalog";
 import { examplesFor, examplesForPath } from "../commandExamples";
-import { type SiteConfig, breadcrumb, endNote, escapeHtml, jsonLd, page } from "./shared";
+import { type CommandAccess, commandAccess, commandSearchText, filterHref, hasAutocomplete, matchesFilter, parseCommandFilter } from "./commandFilter";
+import { type SiteConfig, breadcrumb, endNote, escapeHtml, fmtNum, jsonLd, page, statStrip } from "./shared";
 
 /* Commands */
 
@@ -16,11 +17,18 @@ function usageLine(prefix: string, opts: OptionInfo[]): string {
   ].join(" ");
 }
 
+/** Plain text of a usage line, for the copy button: required options as `name:`. */
+function usageCopy(prefix: string, opts: OptionInfo[]): string {
+  return [prefix, ...opts.filter(o => o.required).map(o => `${o.name}:`)].join(" ");
+}
+
 function synopsis(cmd: CommandInfo): string {
   const lines = cmd.subcommands.length
-    ? cmd.subcommands.map(s => usageLine(`/${cmd.name} ${s.path}`, s.options))
-    : [usageLine(`/${cmd.name}`, cmd.options)];
-  return `<pre class="synopsis">${lines.join("\n")}</pre>`;
+    ? cmd.subcommands.map(s => ({ html: usageLine(`/${cmd.name} ${s.path}`, s.options), copy: usageCopy(`/${cmd.name} ${s.path}`, s.options) }))
+    : [{ html: usageLine(`/${cmd.name}`, cmd.options), copy: usageCopy(`/${cmd.name}`, cmd.options) }];
+  return `<ul class="usage" aria-label="Usage">
+      ${lines.map(l => `<li><pre class="synopsis">${l.html}</pre><button class="copy-btn usage-copy" type="button" data-js-only data-copy="${escapeHtml(l.copy)}" aria-label="Copy ${escapeHtml(l.copy)}">Copy</button></li>`).join("\n      ")}
+    </ul>`;
 }
 
 /** Anchor for a command or one of its subcommands: #cmd-ban, #cmd-automod-words-add. */
@@ -105,47 +113,38 @@ function subcommandBlocks(cmd: CommandInfo, examples: string[]): string {
     </div>`).join("\n    ");
 }
 
-function commandCard(cmd: CommandInfo, catalog: CommandInfo[]): string {
-  const examples = examplesFor(cmd, catalog);
-  const options = [
-    ...cmd.options,
-    ...cmd.subcommands.flatMap(s => s.options.map(o => ({ ...o, name: `${s.path} ${o.name}` }))),
-  ];
+const ACCESS_LABEL: Record<CommandAccess, string> = { everyone: "Everyone", moderator: "Moderator", admin: "Admin" };
 
-  const searchBlob = [
-    cmd.name,
-    cmd.category,
-    cmd.description,
-    ...cmd.subcommands.map(s => `${s.path} ${s.description}`),
-    ...options.map(o => `${o.name} ${o.description} ${o.choices.join(" ")}`),
-    ...cmd.declaredPermissions,
-    ...cmd.enforcedPermissions,
-  ]
-    .join(" ")
-    .toLowerCase();
+export { commandAccess, commandSearchText, matchesFilter, parseCommandFilter, type CommandAccess, type CommandFilter } from "./commandFilter";
 
+const current = (on: boolean) => (on ? ` aria-current="true"` : "");
+
+function permBadge(cmd: CommandInfo): string {
   const perms = [...new Set([...cmd.declaredPermissions, ...cmd.enforcedPermissions])];
+  const access = commandAccess(cmd);
+  const title = perms.length ? `Needs ${perms.join(", ")}` : "No permission needed";
+  return `<span class="perm-badge perm-${access}" title="${escapeHtml(title)}"><span class="perm-level">${ACCESS_LABEL[access]}</span>${perms.length ? `<span class="perm-name">${escapeHtml(perms[0])}${perms.length > 1 ? ` +${perms.length - 1}` : ""}</span>` : ""}</span>`;
+}
+
+function commandCard(cmd: CommandInfo, catalog: CommandInfo[], hidden: boolean): string {
+  const examples = examplesFor(cmd, catalog);
   const anchor = commandAnchor(cmd.name);
   const name = escapeHtml(cmd.name);
-  const hasAutocomplete = options.some(o => o.autocomplete);
+  const auto = hasAutocomplete(cmd);
   const topLevelExamples = cmd.subcommands.length ? [] : examples;
-  // Server-wide settings count as admin: no command declares Administrator itself,
-  // but Manage Server is the permission that gates configuration.
-  const access = perms.includes("Administrator") || perms.includes("Manage Server")
-    ? "admin"
-    : perms.length ? "moderator" : "everyone";
+  const access = commandAccess(cmd);
 
-  return `<details class="cmd-card" id="${anchor}" data-category="${escapeHtml(cmd.category)}" data-name="${name}" data-access="${access}" data-subs="${cmd.subcommands.length ? "1" : "0"}" data-autocomplete="${hasAutocomplete ? "1" : "0"}" data-search="${escapeHtml(searchBlob)}">
+  return `<details class="cmd-card" id="${anchor}" data-category="${escapeHtml(cmd.category)}" data-name="${name}" data-access="${access}" data-subs="${cmd.subcommands.length ? "1" : "0"}" data-autocomplete="${auto ? "1" : "0"}" data-search="${escapeHtml(commandSearchText(cmd))}"${hidden ? " hidden" : ""}>
   <summary>
     <a class="cmd-anchor" href="#${anchor}" aria-label="Link to /${name}">#</a>
     <span class="cmd-slash" data-cmd-name>/${name}</span>
     <span class="cmd-summary-text"><span class="cmd-desc">${escapeHtml(cmd.description)}</span></span>
     <span class="cmd-meta">
+      ${permBadge(cmd)}
       ${cmd.subcommands.length ? `<span class="tag">${cmd.subcommands.length} sub</span>` : ""}
-      ${hasAutocomplete ? `<span class="tag">autocomplete</span>` : ""}
-      ${perms.length ? `<span class="tag warn">${escapeHtml(perms[0])}${perms.length > 1 ? ` +${perms.length - 1}` : ""}</span>` : ""}
+      ${auto ? `<span class="tag">autocomplete</span>` : ""}
     </span>
-    <button class="cmd-pin" type="button" data-pin="${name}" aria-pressed="false" aria-label="Pin /${name}" title="Pin to the top of this page">★</button>
+    <button class="cmd-pin" type="button" data-pin="${name}" data-js-only aria-pressed="false" aria-label="Pin /${name}" title="Pin to the top of this page">★</button>
     <span class="cmd-chevron" aria-hidden="true"></span>
   </summary>
   <div class="cmd-body">
@@ -153,10 +152,11 @@ function commandCard(cmd: CommandInfo, catalog: CommandInfo[]): string {
     <div>
       <div class="cmd-section-title">Usage</div>
       ${synopsis(cmd)}
+      <p class="usage-legend faint">Options in <span class="opt">[brackets]</span> are optional.</p>
     </div>
     <div class="cmd-run">
-      <button class="copy-btn" type="button" data-copy="/${name}" aria-label="Copy /${name}">Copy /${name}</button>
-      <button class="copy-btn" type="button" data-copy-link="#${anchor}" aria-label="Copy a link to /${name}">Copy link</button>
+      <button class="copy-btn" type="button" data-js-only data-copy="/${name}" aria-label="Copy /${name}">Copy /${name}</button>
+      <button class="copy-btn" type="button" data-js-only data-copy-link="#${anchor}" aria-label="Copy a link to /${name}">Copy link</button>
       <a class="copy-btn" href="/api/commands/${encodeURIComponent(cmd.name)}">JSON</a>
     </div>
     ${cmd.subcommands.length ? `<div>
@@ -166,46 +166,79 @@ function commandCard(cmd: CommandInfo, catalog: CommandInfo[]): string {
       <div class="cmd-section-title">Options</div>
       ${optionsTable(cmd.options)}
     </div>
-    <div>
+    ${topLevelExamples.length ? `<div>
       <div class="cmd-section-title">Examples</div>
       ${exampleList(topLevelExamples)}
-    </div>`}
+    </div>` : ""}`}
   </div>
 </details>`;
 }
 
-export function renderCommands(cfg: SiteConfig): string {
+const searchIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`;
+
+export function renderCommands(cfg: SiteConfig, query?: Record<string, unknown>): string {
   const catalog = buildCatalog();
   const cat = groupByCategory(catalog);
   const s = catalogStats();
+  const f = parseCommandFilter(query, cat.map(g => g.category));
+  const filtering = f.q !== "" || f.cat !== "all" || f.access !== "all" || f.subs || f.auto;
+  const shown = new Set(catalog.filter(c => matchesFilter(c, f)).map(c => c.name));
+  const accessCount = (a: CommandAccess) => catalog.filter(c => commandAccess(c) === a).length;
 
   const filterChips = [
-    `<button class="tab" type="button" data-cat="all" aria-pressed="true">All<span class="n">${s.commands}</span></button>`,
+    `<a class="tab" href="${filterHref({ ...f, cat: "all" })}" data-cat="all"${current(f.cat === "all")}>All<span class="n">${s.commands}</span></a>`,
     ...cat.map(
-      g => `<button class="tab" type="button" data-cat="${escapeHtml(g.category)}" aria-pressed="false">${escapeHtml(g.label)}<span class="n">${g.commands.length}</span></button>`
+      g => `<a class="tab" href="${filterHref({ ...f, cat: g.category })}" data-cat="${escapeHtml(g.category)}"${current(f.cat === g.category)}>${escapeHtml(g.label)}<span class="n">${g.commands.length}</span></a>`
     ),
-  ].join("\n    ");
+  ].join("\n      ");
+
+  const accessChips = ([
+    ["all", "Any access", ""],
+    ["everyone", "Everyone", "Commands without a required permission"],
+    ["moderator", "Moderator", "Commands that need Ban Members, Kick Members, Moderate Members, Manage Messages, Manage Channels, Manage Roles or Manage Nicknames"],
+    ["admin", "Admin", "Commands that need Administrator or Manage Server"],
+  ] as const).map(([value, label, title]) =>
+    `<a class="tab${value === "all" ? "" : ` access-${value}`}" href="${filterHref({ ...f, access: value })}" data-access="${value}"${current(f.access === value)}${title ? ` title="${title}"` : ""}>${value === "all" ? "" : `<span class="perm-dot" aria-hidden="true"></span>`}${label}${value === "all" ? "" : `<span class="n">${accessCount(value)}</span>`}</a>`
+  ).join("\n      ");
+
+  const sideNav = cat.map(
+    g => `<li><a href="#${escapeHtml(g.category)}"><span>${escapeHtml(g.label)}</span><span class="toc-d">${g.commands.length}</span></a></li>`
+  ).join("\n        ");
 
   const jumpNav = cat.map(
     g => `<li><a href="#${escapeHtml(g.category)}">${escapeHtml(g.label)}</a> <span class="faint">${g.commands.length}</span></li>`
   ).join("\n      ");
 
-  const groups = cat.map(g => `<section class="cmd-group" data-cmd-group="${escapeHtml(g.category)}" id="${escapeHtml(g.category)}" aria-labelledby="${escapeHtml(g.category)}-title">
+  const groups = cat.map(g => {
+    const visible = g.commands.filter(c => shown.has(c.name)).length;
+    return `<section class="cmd-group" data-cmd-group="${escapeHtml(g.category)}" id="${escapeHtml(g.category)}" aria-labelledby="${escapeHtml(g.category)}-title"${visible ? "" : " hidden"}>
   <div class="cmd-group-head">
     <h2 id="${escapeHtml(g.category)}-title"><a class="group-anchor" href="#${escapeHtml(g.category)}">${escapeHtml(g.label)}</a></h2>
     <span class="blurb">${escapeHtml(g.blurb)}</span>
     <span class="n">${g.commands.length}</span>
   </div>
-  ${g.commands.map(c => commandCard(c, catalog)).join("\n  ")}
-</section>`).join("\n\n");
+  ${g.commands.map(c => commandCard(c, catalog, !shown.has(c.name))).join("\n  ")}
+</section>`;
+  }).join("\n\n");
+
+  const hidden = (name: string, value: string, on: boolean) => (on ? `<input type="hidden" name="${name}" value="${escapeHtml(value)}">` : "");
+  const countText = shown.size === 1 ? "1 command" : `${shown.size} commands`;
 
   const body = `
 <div class="wrap">
   ${breadcrumb("Commands")}
-  <div class="page-head">
-    <h1>Commands</h1>
-    <p class="lead">${s.commands} commands, ${s.subcommands} subcommands, ${s.options} options. This page is built from the command definitions when Aegis starts, so it always matches what the bot registers in Discord. Open a command for who can run it, every option, and examples you can copy.</p>
-  </div>
+  <header class="cl-head ph-head">
+    <div class="cl-head-text">
+      <h1>Command reference</h1>
+      <p class="lead">Every slash command Aegis registers, generated from the bot's own definitions when it starts, so it always matches Discord. Open a command for who can run it, every option and examples you can copy.</p>
+    </div>
+  </header>
+  ${statStrip([
+    { label: "Commands", value: fmtNum(s.commands), note: `in ${s.categories} categories` },
+    { label: "Subcommands", value: fmtNum(s.subcommands) },
+    { label: "Options", value: fmtNum(s.options) },
+    { label: "Open to everyone", value: fmtNum(accessCount("everyone")), note: `${accessCount("moderator")} for moderators, ${accessCount("admin")} for admins` },
+  ], "Command reference in numbers")}
 
   <nav class="cmd-jump" aria-label="Command categories">
     <p class="side-title">Jump to</p>
@@ -214,48 +247,69 @@ export function renderCommands(cfg: SiteConfig): string {
     </ul>
   </nav>
 
-  <div class="cmd-sticky">
-    <div class="cmd-toolbar">
-      <div class="search">
-        <span class="icon" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        </span>
-        <label class="visually-hidden" for="cmd-search">Search commands</label>
-        <input id="cmd-search" type="search" placeholder="Filter by name, option or permission" autocomplete="off" spellcheck="false" aria-describedby="cmd-keys" aria-controls="cmd-list">
-        <span class="hint" aria-hidden="true"><kbd>/</kbd></span>
-      </div>
-      <span class="cmd-count" id="cmd-count" role="status" aria-live="polite">${s.commands} commands</span>
-      <button class="copy-btn" type="button" id="cmd-expand" aria-pressed="false">Expand all</button>
-    </div>
-    <p class="visually-hidden" id="cmd-keys">Press Enter to open the first match, the down arrow to move through results, and Escape to clear.</p>
+  <div class="split cmd-split">
+    <aside class="toc cmd-side" aria-label="Command categories (sidebar)">
+      <p class="side-title">Categories</p>
+      <ul>
+        ${sideNav}
+      </ul>
+      <p class="side-title">Who can run it</p>
+      <ul class="perm-legend">
+        <li><span class="perm-badge perm-everyone"><span class="perm-level">Everyone</span></span> no permission needed</li>
+        <li><span class="perm-badge perm-moderator"><span class="perm-level">Moderator</span></span> a moderation permission</li>
+        <li><span class="perm-badge perm-admin"><span class="perm-level">Admin</span></span> Manage Server or Administrator</li>
+      </ul>
+      <p class="side-title">Also</p>
+      <ul>
+        <li><a href="/docs#permissions">Permissions guide</a></li>
+        <li><a href="/api/commands">All commands as JSON</a></li>
+        <li><a href="/troubleshooting#cat-commands">Commands missing?</a></li>
+      </ul>
+    </aside>
 
-    <div class="tabs" id="cmd-filter" role="group" aria-label="Filter by category">
+    <div class="cmd-main">
+      <div class="cmd-sticky">
+        <form class="cmd-toolbar" id="cmd-form" role="search" action="/commands" method="get">
+          <div class="search">
+            <span class="icon" aria-hidden="true">${searchIcon}</span>
+            <label class="visually-hidden" for="cmd-search">Search commands</label>
+            <input id="cmd-search" name="q" type="search" value="${escapeHtml(f.q)}" placeholder="Filter by name, option or permission" autocomplete="off" spellcheck="false" maxlength="100" aria-describedby="cmd-keys" aria-controls="cmd-list">
+            <span class="hint" aria-hidden="true" data-js-only><kbd>/</kbd></span>
+          </div>
+          ${hidden("cat", f.cat, f.cat !== "all")}${hidden("access", f.access, f.access !== "all")}${hidden("subs", "1", f.subs)}${hidden("auto", "1", f.auto)}
+          <button class="btn sm nojs-only" type="submit">Search</button>
+          <span class="cmd-count" id="cmd-count" role="status" aria-live="polite">${countText}</span>
+          <button class="copy-btn" type="button" id="cmd-expand" data-js-only aria-pressed="false">Expand all</button>
+        </form>
+        <p class="visually-hidden" id="cmd-keys">Press Enter to open the first match, the down arrow to move through results, and Escape to clear.</p>
+
+        <nav class="tabs" id="cmd-filter" aria-label="Filter by category">
       ${filterChips}
+        </nav>
+
+        <nav class="tabs cmd-tabs-secondary" id="cmd-access" aria-label="Filter by access and features">
+      ${accessChips}
+          <span class="tabs-sep" aria-hidden="true"></span>
+          <a class="tab" href="${filterHref(f)}" data-flag="pinned" data-js-only>★ Pinned</a>
+          <a class="tab" href="${filterHref({ ...f, subs: !f.subs })}" data-flag="subs"${current(f.subs)}>Has subcommands</a>
+          <a class="tab" href="${filterHref({ ...f, auto: !f.auto })}" data-flag="autocomplete"${current(f.auto)}>Autocomplete</a>
+        </nav>
+      </div>
+
+      <div id="cmd-empty" class="empty-state"${shown.size === 0 ? "" : " hidden"}>
+        <strong>No commands match.</strong>
+        <span id="cmd-didyoumean">Try a shorter word, or set the filter back to All.</span>
+        <div class="btn-row"><a class="copy-btn" href="/commands" data-cmd-clear>Clear search and filter</a></div>
+      </div>
+      ${filtering ? `<p class="cmd-filtered nojs-only">Showing ${countText} for this filter. <a href="/commands">Show all ${s.commands}</a>.</p>` : ""}
+
+      <div id="cmd-list">
+      ${groups}
+      </div>
+
+      <p class="faint">Each command is also available as JSON at <code class="inline">/api/commands/ban</code> (swap in any name), and the full list at <a href="/api/commands">/api/commands</a>. Setup guides are in the <a href="/docs">docs</a>. Release notes are in the <a href="/changelog.xml">Atom feed</a>.</p>
     </div>
-
-    <div class="tabs cmd-tabs-secondary" id="cmd-access" role="group" aria-label="Filter by access and features">
-      <button class="tab" type="button" data-access="all" aria-pressed="true">Any access</button>
-      <button class="tab" type="button" data-access="everyone" aria-pressed="false" title="Commands without a required permission">Everyone</button>
-      <button class="tab" type="button" data-access="moderator" aria-pressed="false" title="Commands that need Ban Members, Kick Members, Moderate Members, Manage Messages, Manage Channels, Manage Roles or Manage Nicknames">Moderator</button>
-      <button class="tab" type="button" data-access="admin" aria-pressed="false" title="Commands that need Administrator or Manage Server">Admin</button>
-      <span class="tabs-sep" aria-hidden="true"></span>
-      <button class="tab" type="button" data-flag="pinned" aria-pressed="false">★ Pinned</button>
-      <button class="tab" type="button" data-flag="subs" aria-pressed="false">Has subcommands</button>
-      <button class="tab" type="button" data-flag="autocomplete" aria-pressed="false">Autocomplete</button>
-    </div>
   </div>
-
-  <div id="cmd-empty" class="empty-state" hidden>
-    <strong>No commands match.</strong>
-    <span id="cmd-didyoumean">Try a shorter word, or set the filter back to All.</span>
-    <div class="btn-row"><button class="copy-btn" type="button" data-cmd-clear>Clear search and filter</button></div>
-  </div>
-
-  <div id="cmd-list">
-  ${groups}
-  </div>
-
-  <p class="faint">Each command is also available as JSON at <code class="inline">/api/commands/ban</code> (swap in any name), and the full list at <a href="/api/commands">/api/commands</a>. Setup guides are in the <a href="/docs">docs</a>. Release notes are in the <a href="/changelog.xml">Atom feed</a>.</p>
   ${endNote(cfg, "In Discord, type <code class=\"inline\">/</code> to see the same list with autocomplete.")}
 </div>`;
 
@@ -265,6 +319,7 @@ export function renderCommands(cfg: SiteConfig): string {
       "Searchable reference for every Aegis slash command: usage, subcommands, options, permissions, cooldowns and examples.",
     path: "/commands",
     body,
+    noindex: filtering,
     headExtra: jsonLd({
       "@context": "https://schema.org",
       "@type": "TechArticle",
