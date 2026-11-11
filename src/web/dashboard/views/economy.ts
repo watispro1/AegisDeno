@@ -4,6 +4,7 @@ import type { RoleOption } from "../botView";
 import { MAX_BALANCE, SHOP_LIMITS, formatCoins, type EconomyConfig, type ShopItem } from "../../../services/economyLogic";
 import type { LeaderboardRow, Transaction, TransactionType } from "../../../services/economyStore";
 import { economyValues, settingsSection } from "./economySettings";
+import { EFFECT_LABELS, EFFECT_LIMITS, effectSummary } from "../../../services/economyProgress";
 
 export { economyValues };
 import { type GuildContext, copyId, csrfField, emptyState, notice, person, relTime } from "./layout";
@@ -18,14 +19,16 @@ export function itemValues(i: ShopItem | null): Values {
     ? {
       name: i.name, description: i.description, price: String(i.price), roleId: i.roleId ?? "", stock: i.stock === null ? "" : String(i.stock),
       perUserLimit: i.perUserLimit === null ? "" : String(i.perUserLimit), roleDurationHours: i.roleDurationHours === null ? "" : String(i.roleDurationHours), useToGrant: i.useToGrant,
+      effect: i.effect ?? "", effectHours: i.effectHours === null ? "" : String(i.effectHours), effectPercent: i.effectPercent === null ? "" : String(i.effectPercent),
     }
-    : { name: "", description: "", price: "", roleId: "", stock: "", perUserLimit: "", roleDurationHours: "", useToGrant: false };
+    : { name: "", description: "", price: "", roleId: "", stock: "", perUserLimit: "", roleDurationHours: "", useToGrant: false, effect: "", effectHours: "", effectPercent: "" };
 }
 
 const TX_LABELS: Record<TransactionType, string> = {
   daily: "Daily", weekly: "Weekly", work: "Work", crime: "Crime", crime_fine: "Crime fine", deposit: "Deposit", withdraw: "Withdrawal",
   gamble: "Gamble", pay_in: "Received", pay_out: "Sent", buy: "Bought", sell: "Sold", use: "Used", refund: "Refund",
   admin_give: "Staff gave", admin_take: "Staff took", admin_reset: "Staff reset",
+  rob: "Robbed someone", robbed: "Was robbed", rob_fine: "Rob fine", interest: "Interest",
 };
 
 /**
@@ -36,9 +39,9 @@ const TX_LABELS: Record<TransactionType, string> = {
 export function shopRoleOptions(roles: RoleOption[], current = ""): Array<{ value: string; label: string; disabled?: boolean }> {
   const opts: Array<{ value: string; label: string; disabled?: boolean }> = [{ value: "", label: "No role" }];
   for (const r of roles) {
-    const ok = r.assignable && !r.aboveViewer;
+    const ok = r.assignable && !r.aboveViewer && !r.dangerous;
     if (ok) opts.push({ value: r.id, label: `@${r.name}` });
-    else if (r.id === current) opts.push({ value: r.id, label: `@${r.name} (can't be sold: above Aegis or you)`, disabled: true });
+    else if (r.id === current) opts.push({ value: r.id, label: `@${r.name} (can't be sold: ${r.dangerous ? "has staff permissions" : "above Aegis or you"})`, disabled: true });
   }
   return opts;
 }
@@ -69,7 +72,16 @@ function itemFields(f: Form, roles: RoleOption[]): string {
         ${f.number("perUserLimit", "Per-member limit (blank = none)", 1, SHOP_LIMITS.maxPerUser, "Counts every unit a member has bought, even ones used or sold.")}
         ${f.number("roleDurationHours", "Role lasts (hours, blank = permanent)", 1, SHOP_LIMITS.maxRoleHours, "Aegis takes the role back after this long.")}
       </div>
-      ${f.checkbox("useToGrant", "Give the role on /use", "The item goes to the inventory and the member picks when to use it. Without a role the item is a collectible.")}`;
+      ${f.checkbox("useToGrant", "Give the role on /use", "The item goes to the inventory and the member picks when to use it. Without a role or effect the item is a collectible.")}
+      <div class="field-row two">
+        ${f.select("effect", "Effect on /use (optional, not with a role)", [
+          { value: "", label: "No effect" },
+          { value: "rob_shield", label: EFFECT_LABELS.rob_shield },
+          { value: "work_boost", label: EFFECT_LABELS.work_boost },
+        ], "A rob shield stops /rob against the member; a work boost raises /work pay. Used up on /use.")}
+        ${f.number("effectHours", "Effect lasts (hours)", 1, EFFECT_LIMITS.maxHours, "Required for effect items.")}
+      </div>
+      ${f.number("effectPercent", "Work boost (%)", 1, EFFECT_LIMITS.maxPercent, "Work boosts only: extra /work pay while it runs. Boosts don't stack.")}`;
 }
 
 function shopTable(ctx: GuildContext, d: EconomyPageData, base: string): string {
@@ -84,7 +96,7 @@ function shopTable(ctx: GuildContext, d: EconomyPageData, base: string): string 
       return `<tr>
       <td data-label="Item"><strong>${esc(i.name)}</strong>${i.description ? `<br><span class="faint">${esc(i.description)}</span>` : ""}</td>
       <td data-label="Price">${esc(formatCoins(d.config, i.price))}</td>
-      <td data-label="Role">${roleName(i.roleId)}${i.roleId && i.roleDurationHours ? ` · ${i.roleDurationHours}h` : ""}${i.roleId && i.useToGrant ? " · on /use" : ""}</td>
+      <td data-label="Role">${i.effect ? esc(effectSummary(i.effect, i.effectHours ?? 0, i.effectPercent)) : `${roleName(i.roleId)}${i.roleId && i.roleDurationHours ? ` · ${i.roleDurationHours}h` : ""}${i.roleId && i.useToGrant ? " · on /use" : ""}`}</td>
       <td data-label="Stock">${i.stock === null ? "Unlimited" : i.stock === 0 ? "Sold out" : i.stock.toLocaleString("en-US")}</td>
       <td data-label="Limit">${i.perUserLimit === null ? "—" : `${i.perUserLimit} each`}</td>
       <td><details class="row-edit"${open ? " open" : ""}><summary class="btn sm ghost">Edit</summary>

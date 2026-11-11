@@ -6,6 +6,7 @@
  */
 
 import { MAX_BALANCE, intIn, type EconomyConfig } from "./economyConfig";
+import { EFFECT_LIMITS, isItemEffect, type ItemEffect } from "./economyProgress";
 
 export * from "./economyConfig";
 
@@ -84,6 +85,12 @@ export interface ShopItemInput {
   roleDurationHours: number | null;
   /** Role items only: the role is given by /use instead of on purchase. */
   useToGrant: boolean;
+  /** Consumable effect used with /use (never together with a role); null = none. */
+  effect: ItemEffect | null;
+  /** Effect items: how long the effect lasts. */
+  effectHours: number | null;
+  /** Work boosts: extra /work pay in percent. */
+  effectPercent: number | null;
 }
 
 export interface ShopItem extends ShopItemInput {
@@ -99,6 +106,7 @@ const SNOWFLAKE = /^\d{17,20}$/;
 export function validateShopItem(raw: {
   name?: unknown; description?: unknown; price?: unknown; roleId?: unknown; stock?: unknown;
   perUserLimit?: unknown; roleDurationHours?: unknown; useToGrant?: unknown;
+  effect?: unknown; effectHours?: unknown; effectPercent?: unknown;
 }):
   { ok: true; value: ShopItemInput } | { ok: false; errors: Partial<Record<keyof ShopItemInput, string>> } {
   const errors: Partial<Record<keyof ShopItemInput, string>> = {};
@@ -125,10 +133,31 @@ export function validateShopItem(raw: {
   if (roleDurationHours === undefined) errors.roleDurationHours = `Role duration must be blank (permanent) or 1 to ${SHOP_LIMITS.maxRoleHours.toLocaleString("en-US")} hours.`;
   else if (roleDurationHours !== null && !roleId && !errors.roleId) errors.roleDurationHours = "A duration only applies to items that give a role.";
   const useToGrant = roleId !== null && (raw.useToGrant === true || raw.useToGrant === "on" || raw.useToGrant === "true");
+  let effect: ItemEffect | null = null;
+  let effectHours: number | null = null;
+  let effectPercent: number | null = null;
+  if (raw.effect !== undefined && raw.effect !== null && raw.effect !== "" && raw.effect !== "none") {
+    if (!isItemEffect(raw.effect)) errors.effect = "Pick an effect from the list.";
+    else if (roleId) errors.effect = "An item can give a role or an effect, not both.";
+    else effect = raw.effect;
+  }
+  if (effect) {
+    const hours = optionalInt(raw.effectHours, [1, EFFECT_LIMITS.maxHours]);
+    if (hours === undefined || hours === null) errors.effectHours = `Effect length must be 1 to ${EFFECT_LIMITS.maxHours} hours.`;
+    else effectHours = hours;
+    if (effect === "work_boost") {
+      const pct = optionalInt(raw.effectPercent, [1, EFFECT_LIMITS.maxPercent]);
+      if (pct === undefined || pct === null) errors.effectPercent = `Work boost must be 1 to ${EFFECT_LIMITS.maxPercent} percent.`;
+      else effectPercent = pct;
+    }
+  }
   if (Object.keys(errors).length) return { ok: false, errors };
   return {
     ok: true,
-    value: { name, description, price: price as number, roleId, stock, perUserLimit: perUserLimit ?? null, roleDurationHours: roleDurationHours ?? null, useToGrant },
+    value: {
+      name, description, price: price as number, roleId, stock, perUserLimit: perUserLimit ?? null, roleDurationHours: roleDurationHours ?? null, useToGrant,
+      effect, effectHours, effectPercent,
+    },
   };
 }
 
@@ -144,16 +173,49 @@ export function itemNameKey(name: string): string {
 }
 
 /**
+ * Permissions a shop role must never carry: anything that moderates members,
+ * changes the server, or pings everyone. Selling one would let coins buy
+ * staff powers (and Administrator bypasses every other check).
+ */
+export const DANGEROUS_ROLE_PERMISSIONS: ReadonlyArray<[bit: bigint, name: string]> = [
+  [1n << 3n, "Administrator"],
+  [1n << 1n, "Kick Members"],
+  [1n << 2n, "Ban Members"],
+  [1n << 4n, "Manage Channels"],
+  [1n << 5n, "Manage Server"],
+  [1n << 7n, "View Audit Log"],
+  [1n << 13n, "Manage Messages"],
+  [1n << 17n, "Mention Everyone"],
+  [1n << 22n, "Mute Members"],
+  [1n << 23n, "Deafen Members"],
+  [1n << 24n, "Move Members"],
+  [1n << 27n, "Manage Nicknames"],
+  [1n << 28n, "Manage Roles"],
+  [1n << 29n, "Manage Webhooks"],
+  [1n << 30n, "Manage Expressions"],
+  [1n << 33n, "Manage Events"],
+  [1n << 34n, "Manage Threads"],
+  [1n << 40n, "Timeout Members"],
+];
+
+/** Names of the dangerous permissions in a role's permission bits (empty when it is safe to sell). */
+export function dangerousPermissionNames(bits: bigint): string[] {
+  return DANGEROUS_ROLE_PERMISSIONS.filter(([bit]) => (bits & bit) === bit).map(([, name]) => name);
+}
+
+/**
  * Whether a role may be sold in the shop. Aegis must be able to hand it out
- * (below Aegis's highest role, not managed, not @everyone) and the staff
+ * (below Aegis's highest role, not managed, not @everyone, no staff permissions) and the staff
  * member adding it must outrank it (server owner exempt), the same rule as
  * role panels.
  */
-export function roleItemRefusal(role: { id: string; position: number; managed: boolean }, ctx: {
+export function roleItemRefusal(role: { id: string; position: number; managed: boolean; permissions?: bigint | null }, ctx: {
   guildId: string; botTopPosition: number; actorTopPosition: number | null; actorIsOwner: boolean;
 }): string | null {
   if (role.id === ctx.guildId) return "@everyone can't be sold.";
   if (role.managed) return "That role is managed by an integration (a bot or booster role), so it can't be handed out.";
+  const risky = dangerousPermissionNames(role.permissions ?? 0n);
+  if (risky.length) return `That role has staff permissions (${risky.slice(0, 3).join(", ")}${risky.length > 3 ? ", …" : ""}), so it can't be sold. Shop roles must be cosmetic or access roles.`;
   if (role.position >= ctx.botTopPosition) return "That role is at or above Aegis's highest role, so Aegis can't hand it out. Move Aegis's role above it first.";
   if (!ctx.actorIsOwner && (ctx.actorTopPosition === null || role.position >= ctx.actorTopPosition)) return "That role is equal to or above your highest role, so you can't sell it.";
   return null;

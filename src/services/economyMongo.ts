@@ -6,7 +6,8 @@
  */
 import { TtlCache } from "../utils/ttlCache";
 import { MAX_BALANCE, MAX_SHOP_ITEMS, itemNameKey, normalizeEconomyConfig, type EconomyConfig, type ShopItem } from "./economyLogic";
-import { withBounds, type Account, type AccountUpdate, type EconomyStore, type InventoryRow, type LeaderboardRow, type Transaction } from "./economyStore";
+import { TRANSACTION_TYPES, withBounds, type Account, type AccountUpdate, type EconomyStore, type InventoryRow, type LeaderboardRow, type Transaction, type TransactionType } from "./economyStore";
+import { isItemEffect } from "./economyProgress";
 
 type Doc = Record<string, unknown>;
 type Lean<T> = { lean(): Promise<T> };
@@ -54,6 +55,8 @@ function toAccount(d: Doc, guildId: string, userId: string): Account {
     lastDaily: date(d.lastDaily), dailyStreak: Number(d.dailyStreak ?? 0), lastWork: date(d.lastWork),
     lastWeekly: date(d.lastWeekly), lastCrime: date(d.lastCrime), lastGamble: date(d.lastGamble),
     gambleDay: day(d.gambleDay), gambleLoss: Number(d.gambleLoss ?? 0), payDay: day(d.payDay), payTotal: Number(d.payTotal ?? 0),
+    workXp: Number(d.workXp ?? 0), workBoostPercent: Number(d.workBoostPercent ?? 0), workBoostUntil: date(d.workBoostUntil),
+    shieldUntil: date(d.shieldUntil), lastRob: date(d.lastRob), lastRobbed: date(d.lastRobbed), lastInterest: date(d.lastInterest),
   };
 }
 
@@ -89,6 +92,10 @@ function toItem(d: Doc): ShopItem {
     perUserLimit: typeof d.perUserLimit === "number" ? d.perUserLimit : null,
     roleDurationHours: typeof d.roleDurationHours === "number" ? d.roleDurationHours : null,
     useToGrant: d.useToGrant === true && typeof d.roleId === "string",
+    // An effect never rides along with a role (validation refuses it; old or hand-edited documents are read the same way).
+    effect: isItemEffect(d.effect) && typeof d.roleId !== "string" ? d.effect : null,
+    effectHours: typeof d.effectHours === "number" ? d.effectHours : null,
+    effectPercent: typeof d.effectPercent === "number" ? d.effectPercent : null,
   };
 }
 function toTx(d: Doc): Transaction {
@@ -150,6 +157,37 @@ export function mongoEconomyStore(models: EconomyModels = defaultModels()): Econ
       if (!change.$inc && !change.$set) return null;
       const d = await models.account.findOneAndUpdate(accountFilter(guildId, userId, update), change, AFTER).lean();
       return d ? toAccount(d, guildId, userId) : null;
+    },
+    async resetAccount(guildId, userId) {
+      // One update that returns the document as it was, so a credit racing the reset is either before it (and
+      // counted in what the log says was removed) or after it (and kept). Nothing is lost from the audit trail.
+      const d = await models.account.findOneAndUpdate({ guildId, userId }, { $set: { balance: 0, bank: 0 } }, { returnDocument: "before" }).lean();
+      return d ? toAccount(d, guildId, userId) : null;
+    },
+    async stats(guildId, since) {
+      const wealth = { guildId, $or: [{ balance: { $gt: 0 } }, { bank: { $gt: 0 } }] };
+      if (!models.account.aggregate || !models.transaction.aggregate) {
+        return { accounts: await models.account.countDocuments(wealth), wallet: 0, bank: 0, activity: [], since };
+      }
+      const [totals, activity] = await Promise.all([
+        models.account.aggregate([
+          { $match: wealth },
+          { $group: { _id: null, accounts: { $sum: 1 }, wallet: { $sum: { $ifNull: ["$balance", 0] } }, bank: { $sum: { $ifNull: ["$bank", 0] } } } },
+        ]),
+        models.transaction.aggregate([
+          { $match: { guildId, createdAt: { $gte: since } } },
+          { $group: { _id: "$type", count: { $sum: 1 }, total: { $sum: "$amount" } } },
+          { $sort: { count: -1, _id: 1 } },
+        ]),
+      ]);
+      const t = totals[0] ?? {};
+      return {
+        accounts: Number(t.accounts ?? 0), wallet: Number(t.wallet ?? 0), bank: Number(t.bank ?? 0),
+        activity: activity
+          .filter(r => (TRANSACTION_TYPES as readonly unknown[]).includes(r._id))
+          .map(r => ({ type: r._id as TransactionType, count: Number(r.count ?? 0), total: Number(r.total ?? 0) })),
+        since,
+      };
     },
     async setBalance(guildId, userId, balance, bank) {
       const set: Doc = bank === undefined ? { balance } : { balance, bank };

@@ -28,10 +28,23 @@ export interface Account {
   /** UTC day that payTotal counts, and the coins sent that day. */
   payDay: string | null;
   payTotal: number;
+  /** /work XP (one per paid /work); the level is derived from it. */
+  workXp: number;
+  /** A work boost item's extra percent and when it ends. */
+  workBoostPercent: number;
+  workBoostUntil: Date | null;
+  /** Rob shield end; robbing this member fails while it is in the future. */
+  shieldUntil: Date | null;
+  /** Last /rob this member tried, and the last time they were robbed. */
+  lastRob: Date | null;
+  lastRobbed: Date | null;
+  lastInterest: Date | null;
 }
 
-export type AccountNumberField = "balance" | "bank" | "gambleLoss" | "payTotal";
-export type AccountDateField = "lastDaily" | "lastWork" | "lastWeekly" | "lastCrime" | "lastGamble";
+export type AccountNumberField = "balance" | "bank" | "gambleLoss" | "payTotal" | "workXp" | "workBoostPercent";
+export type AccountDateField =
+  | "lastDaily" | "lastWork" | "lastWeekly" | "lastCrime" | "lastGamble"
+  | "lastRob" | "lastRobbed" | "lastInterest" | "shieldUntil" | "workBoostUntil";
 export type AccountDayField = "gambleDay" | "payDay";
 
 /**
@@ -65,7 +78,23 @@ export interface CooldownSwap {
 
 export type TransactionType =
   | "daily" | "weekly" | "work" | "crime" | "crime_fine" | "deposit" | "withdraw" | "gamble"
-  | "pay_in" | "pay_out" | "buy" | "sell" | "use" | "refund" | "admin_give" | "admin_take" | "admin_reset";
+  | "pay_in" | "pay_out" | "buy" | "sell" | "use" | "refund" | "admin_give" | "admin_take" | "admin_reset"
+  | "rob" | "robbed" | "rob_fine" | "interest";
+
+export const TRANSACTION_TYPES: readonly TransactionType[] = [
+  "daily", "weekly", "work", "crime", "crime_fine", "deposit", "withdraw", "gamble", "pay_in", "pay_out", "buy", "sell", "use", "refund",
+  "admin_give", "admin_take", "admin_reset", "rob", "robbed", "rob_fine", "interest",
+];
+
+/** Server totals for /economy stats and the dashboard. */
+export interface EconomyStats {
+  accounts: number;
+  wallet: number;
+  bank: number;
+  /** Since `since`: per transaction type, how many and the sum of their (signed) amounts. */
+  activity: Array<{ type: TransactionType; count: number; total: number }>;
+  since: Date;
+}
 
 export interface Transaction {
   guildId: string;
@@ -95,6 +124,10 @@ export interface EconomyStore {
   debit(guildId: string, userId: string, amount: number): Promise<Account | null>;
   /** Apply a guarded update to an existing account. null when a guard failed or there is no account. */
   apply(guildId: string, userId: string, update: AccountUpdate): Promise<Account | null>;
+  /** Atomically zero the wallet and bank; returns the account as it was just before (null when there was none). */
+  resetAccount(guildId: string, userId: string): Promise<Account | null>;
+  /** Totals for this server only, plus transaction activity since `since`. */
+  stats(guildId: string, since: Date): Promise<EconomyStats>;
   /** Set the wallet (and the bank, when given), creating the account if needed. */
   setBalance(guildId: string, userId: string, balance: number, bank?: number): Promise<Account>;
   /** Accounts with coins, richest first by the chosen sort (ties by user ID); zero rows hidden. */
@@ -119,8 +152,6 @@ export interface EconomyStore {
   releasePurchase(guildId: string, userId: string, itemId: string): Promise<void>;
   inventory(guildId: string, userId: string): Promise<InventoryRow[]>;
 }
-
-const NUMBER_FIELDS: AccountNumberField[] = ["balance", "bank", "gambleLoss", "payTotal"];
 
 /** Whether an update's guards hold for an account (memory store; the Mongo filter is built from the same spec). */
 export function guardsHold(a: Account, guard: AccountUpdate["guard"] = {}): boolean {
@@ -149,6 +180,7 @@ export function withBounds(update: AccountUpdate): AccountUpdate {
 export const zeroAccount = (guildId: string, userId: string): Account => ({
   guildId, userId, balance: 0, bank: 0, lastDaily: null, dailyStreak: 0, lastWork: null,
   lastWeekly: null, lastCrime: null, lastGamble: null, gambleDay: null, gambleLoss: 0, payDay: null, payTotal: 0,
+  workXp: 0, workBoostPercent: 0, workBoostUntil: null, shieldUntil: null, lastRob: null, lastRobbed: null, lastInterest: null,
 });
 const zero = zeroAccount;
 const sameTime = (a: Date | null, b: Date | null) => (a === null || b === null ? a === b : a.getTime() === b.getTime());
@@ -195,6 +227,32 @@ export function memoryEconomyStore(seed: { config?: Partial<EconomyConfig>; now?
       for (const [f, by] of Object.entries(update.inc ?? {}) as Array<[AccountNumberField, number]>) a[f] = (a[f] ?? 0) + by;
       Object.assign(a, update.set ?? {});
       return copy(a);
+    },
+    async resetAccount(guildId, userId) {
+      const a = accounts.get(key(guildId, userId));
+      if (!a) return null;
+      const before = copy(a);
+      a.balance = 0;
+      a.bank = 0;
+      return before;
+    },
+    async stats(guildId, since) {
+      const mine = [...accounts.values()].filter(a => a.guildId === guildId);
+      const byType = new Map<TransactionType, { type: TransactionType; count: number; total: number }>();
+      for (const t of transactions) {
+        if (t.guildId !== guildId || t.createdAt.getTime() < since.getTime()) continue;
+        const row = byType.get(t.type) ?? { type: t.type, count: 0, total: 0 };
+        row.count += 1;
+        row.total += t.amount;
+        byType.set(t.type, row);
+      }
+      return {
+        accounts: mine.filter(a => a.balance > 0 || a.bank > 0).length,
+        wallet: mine.reduce((n, a) => n + a.balance, 0),
+        bank: mine.reduce((n, a) => n + a.bank, 0),
+        activity: [...byType.values()].sort((x, y) => y.count - x.count || x.type.localeCompare(y.type)),
+        since,
+      };
     },
     async setBalance(guildId, userId, balance, bank) {
       const k = key(guildId, userId);

@@ -5,7 +5,7 @@ import { Form, type Values } from "./form";
 import { errorSummary } from "./parts";
 
 export function economyValues(c: EconomyConfig): Values {
-  const v: Values = { enabled: c.enabled, crimeEnabled: c.crimeEnabled, gamblingEnabled: c.gamblingEnabled, currencyName: c.currencyName, currencyEmoji: c.currencyEmoji };
+  const v: Values = { enabled: c.enabled, crimeEnabled: c.crimeEnabled, gamblingEnabled: c.gamblingEnabled, robEnabled: c.robEnabled, currencyName: c.currencyName, currencyEmoji: c.currencyEmoji };
   for (const key of ECONOMY_NUMBER_KEYS) v[key] = String(c[key]);
   return v;
 }
@@ -35,6 +35,7 @@ export function settingsSection(ctx: GuildContext, base: string, settings: Form,
       )}
       ${pair(num(f, "weeklyAmount", "Weekly amount", "Once every 7 days. 0 turns /weekly off."), num(f, "workCooldownMinutes", "Work cooldown (minutes)"))}
       ${pair(num(f, "workMin", "Work pays at least"), num(f, "workMax", "Work pays at most"))}
+      ${num(f, "workLevelBonusPercent", "Work level bonus (% per level)", "Each /work earns 1 XP; every level above 1 adds this much pay, up to level 10. 0 turns it off.")}
       <h3>Bank and payments</h3>
       ${pair(
         num(f, "bankCap", "Bank limit per member", "0 = no limit. Bank coins are safe from /crime fines."),
@@ -48,6 +49,10 @@ export function settingsSection(ctx: GuildContext, base: string, settings: Form,
         num(f, "payTaxPercent", "Pay tax (%)", "Removed from each payment; the recipient gets the rest."),
         num(f, "shopSellPercent", "Sell-back rate (%)", "What /shop sell pays, as a share of the current price. 0 turns selling off."),
       )}
+      ${pair(
+        num(f, "bankInterestBps", "Bank interest (basis points a day)", "100 = 1% of the bank, claimed with /interest once a day. Nothing builds up while unclaimed. 0 turns it off."),
+        num(f, "bankInterestMaxDaily", "Most interest per claim", "0 = no cap besides the bank limit."),
+      )}
       <h3>Crime</h3>
       ${f.checkbox("crimeEnabled", "Allow /crime", "A risky alternative to /work with a fine when caught.")}
       ${pair(num(f, "crimeSuccessPercent", "Success chance (%)"), num(f, "crimeCooldownMinutes", "Crime cooldown (minutes)"))}
@@ -59,6 +64,21 @@ export function settingsSection(ctx: GuildContext, base: string, settings: Form,
       ${pair(
         num(f, "gambleDailyLossCap", "Daily loss limit per member", "Net losses per UTC day. 0 = no limit."),
         num(f, "gambleCooldownSeconds", "Seconds between bets"),
+      )}
+      <h3>Rob</h3>
+      ${f.checkbox("robEnabled", "Allow /rob", "Off by default. Members can try to take coins from another member's wallet (never the bank). A failed rob fines the robber; fines are removed from circulation.")}
+      ${pair(num(f, "robSuccessPercent", "Success chance (%)"), num(f, "robCooldownMinutes", "Rob cooldown (minutes)"))}
+      ${pair(
+        num(f, "robMaxStealPercent", "Takes at most (% of target's wallet)", "A random 1% up to this."),
+        num(f, "robMaxSteal", "Takes at most (coins)", "Hard cap on one rob, whatever the target holds."),
+      )}
+      ${pair(
+        num(f, "robFinePercent", "Fine when caught (% of robber's wallet)"),
+        num(f, "robMinWallet", "Robber must hold at least", "So a failed rob always costs something."),
+      )}
+      ${pair(
+        num(f, "robMinTargetWallet", "Target must hold at least", "Members with less can't be robbed."),
+        num(f, "robProtectMinutes", "Protection after being robbed (minutes)", "0 turns it off. Rob shields from the shop also protect."),
       )}
       <button class="btn" type="submit" data-save-button>Save economy settings</button>
     </form>

@@ -49,6 +49,28 @@ export interface EconomyConfig {
   /** Most a member may lose (net) per UTC day; 0 = no limit. */
   gambleDailyLossCap: number;
   gambleCooldownSeconds: number;
+  /** Extra /work pay per work level above 1, in percent (level 10 = 9 × this). 0 turns level bonuses off. */
+  workLevelBonusPercent: number;
+  /** Daily bank interest in basis points (100 = 1% a day), claimed with /interest. 0 turns interest off. */
+  bankInterestBps: number;
+  /** Most interest one member can earn per claim; 0 = no cap besides the bank limit. */
+  bankInterestMaxDaily: number;
+  /** /rob is off unless a server manager turns it on. */
+  robEnabled: boolean;
+  robSuccessPercent: number;
+  /** A successful /rob takes a random 1..this percent of the target's wallet. */
+  robMaxStealPercent: number;
+  /** Most coins one /rob can take, whatever the target holds. */
+  robMaxSteal: number;
+  /** Percent of the robber's wallet lost on a failed /rob (removed from circulation). */
+  robFinePercent: number;
+  /** The robber must hold at least this in their wallet (so a failure always costs something). */
+  robMinWallet: number;
+  /** Targets with less than this in their wallet can't be robbed. */
+  robMinTargetWallet: number;
+  robCooldownMinutes: number;
+  /** After being robbed, a member can't be robbed again for this long. */
+  robProtectMinutes: number;
 }
 
 export const DEFAULT_ECONOMY_CONFIG: Readonly<EconomyConfig> = Object.freeze({
@@ -80,6 +102,18 @@ export const DEFAULT_ECONOMY_CONFIG: Readonly<EconomyConfig> = Object.freeze({
   gambleMaxBet: 1000,
   gambleDailyLossCap: 5000,
   gambleCooldownSeconds: 10,
+  workLevelBonusPercent: 5,
+  bankInterestBps: 50,
+  bankInterestMaxDaily: 250,
+  robEnabled: false,
+  robSuccessPercent: 40,
+  robMaxStealPercent: 20,
+  robMaxSteal: 1000,
+  robFinePercent: 20,
+  robMinWallet: 250,
+  robMinTargetWallet: 500,
+  robCooldownMinutes: 240,
+  robProtectMinutes: 360,
 });
 
 /** Inclusive limits for each number setting. */
@@ -107,11 +141,22 @@ export const ECONOMY_LIMITS = {
   gambleMaxBet: [1, 10_000_000],
   gambleDailyLossCap: [0, MAX_BALANCE],
   gambleCooldownSeconds: [0, 3600],
+  workLevelBonusPercent: [0, 20],
+  bankInterestBps: [0, 500],
+  bankInterestMaxDaily: [0, 1_000_000],
+  robSuccessPercent: [5, 90],
+  robMaxStealPercent: [1, 50],
+  robMaxSteal: [1, 1_000_000],
+  robFinePercent: [0, 100],
+  robMinWallet: [1, 1_000_000],
+  robMinTargetWallet: [1, 1_000_000],
+  robCooldownMinutes: [10, 10_080],
+  robProtectMinutes: [0, 10_080],
 } as const satisfies Record<string, readonly [number, number]>;
 
 export type EconomyNumberKey = keyof typeof ECONOMY_LIMITS;
 export const ECONOMY_NUMBER_KEYS = Object.keys(ECONOMY_LIMITS) as EconomyNumberKey[];
-export const ECONOMY_BOOLEAN_KEYS = ["enabled", "crimeEnabled", "gamblingEnabled"] as const;
+export const ECONOMY_BOOLEAN_KEYS = ["enabled", "crimeEnabled", "gamblingEnabled", "robEnabled"] as const;
 export type EconomyBooleanKey = typeof ECONOMY_BOOLEAN_KEYS[number];
 
 export const ECONOMY_LABELS: Record<EconomyNumberKey, string> = {
@@ -138,6 +183,17 @@ export const ECONOMY_LABELS: Record<EconomyNumberKey, string> = {
   gambleMaxBet: "Maximum bet",
   gambleDailyLossCap: "Daily loss limit",
   gambleCooldownSeconds: "Gamble cooldown (seconds)",
+  workLevelBonusPercent: "Work level bonus (%)",
+  bankInterestBps: "Bank interest (basis points a day)",
+  bankInterestMaxDaily: "Most interest per claim",
+  robSuccessPercent: "Rob success chance (%)",
+  robMaxStealPercent: "Rob takes at most (% of wallet)",
+  robMaxSteal: "Rob takes at most (coins)",
+  robFinePercent: "Rob fine (% of robber's wallet)",
+  robMinWallet: "Wallet needed to rob",
+  robMinTargetWallet: "Target wallet needed",
+  robCooldownMinutes: "Rob cooldown (minutes)",
+  robProtectMinutes: "Rob protection (minutes)",
 };
 
 /** Pairs where the second value must be at least the first. */
@@ -168,6 +224,7 @@ export function normalizeEconomyConfig(raw: unknown): EconomyConfig {
   out.enabled = r.enabled === true;
   if (typeof r.crimeEnabled === "boolean") out.crimeEnabled = r.crimeEnabled;
   out.gamblingEnabled = r.gamblingEnabled === true;
+  out.robEnabled = r.robEnabled === true;
   if (typeof r.currencyName === "string" && CURRENCY_NAME.test(r.currencyName.trim())) out.currencyName = r.currencyName.trim();
   if (typeof r.currencyEmoji === "string" && validCurrencyEmoji(r.currencyEmoji.trim())) out.currencyEmoji = r.currencyEmoji.trim();
   for (const key of ECONOMY_NUMBER_KEYS) {

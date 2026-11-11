@@ -12,9 +12,11 @@ import {
 } from "./economyLogic";
 import { memoryEconomyStore, type Account, type EconomyStore, type LeaderboardSort, type Transaction, type TransactionType } from "./economyStore";
 import * as flows from "./economyFlows";
+import * as activities from "./economyActivities";
 import type { RandomInt } from "./economyRules";
 
 export type { PayOutcome } from "./economyFlows";
+export type { WorkOutcome, InterestOutcome, RobOutcome, EffectOutcome } from "./economyActivities";
 
 export type ClaimOutcome =
   | { ok: true; amount: number; streak: number; balance: number }
@@ -110,7 +112,15 @@ export class EconomyService {
   }
 
   daily(guildId: string, userId: string) { return this.claim(guildId, userId, "daily"); }
-  work(guildId: string, userId: string) { return this.claim(guildId, userId, "work"); }
+  /** /work with levels, boosts and crypto RNG (see economyActivities.work). */
+  async work(guildId: string, userId: string) { return activities.work(this.flow, await this.config(guildId), guildId, userId); }
+  async interest(guildId: string, userId: string) { return activities.interest(this.flow, await this.config(guildId), guildId, userId); }
+  /** Rob another member. Membership, tenure and the target being a real member are checked by the caller. */
+  async rob(guildId: string, robberId: string, targetId: string, targetIsBot: boolean) { return activities.rob(this.flow, await this.config(guildId), guildId, robberId, targetId, targetIsBot); }
+  /** A member's own recent transactions (this server only). */
+  history(guildId: string, userId: string, limit = 10) { return this.store.recentTransactions(guildId, Math.max(1, Math.min(25, Math.floor(limit))), userId); }
+  /** Server totals and the last `days` days of activity (this server only). */
+  stats(guildId: string, days = 7) { return this.store.stats(guildId, new Date(this.now() - Math.max(1, Math.min(90, days)) * 86_400_000)); }
 
   async weekly(guildId: string, userId: string) { return flows.weekly(this.flow, await this.config(guildId), guildId, userId); }
   async crime(guildId: string, userId: string) { return flows.crime(this.flow, await this.config(guildId), guildId, userId); }
@@ -119,7 +129,16 @@ export class EconomyService {
   async gamble(guildId: string, userId: string, bet: number, game: flows.GambleGame) { return flows.gamble(this.flow, await this.config(guildId), guildId, userId, bet, game); }
   /** Transfer with the server's daily limit and tax. Membership age and self/bot rules are checked by the caller. */
   async pay(guildId: string, fromId: string, toId: string, amount: number) { return flows.pay(this.flow, await this.config(guildId), guildId, fromId, toId, amount); }
-  useItem(guildId: string, userId: string, itemId: string, hooks: flows.RoleGrantHooks) { return flows.useItem(this.flow, guildId, userId, itemId, hooks); }
+  /** Use an inventory item: an effect item (shield, boost) or a role pass. */
+  async useItem(guildId: string, userId: string, itemId: string, hooks: flows.RoleGrantHooks): Promise<flows.UseOutcome | activities.EffectOutcome> {
+    const item = await this.store.getItem(guildId, itemId);
+    if (item?.effect) {
+      const owned = (await this.store.inventory(guildId, userId)).some(r => r.itemId === itemId);
+      if (!owned) return { ok: false, reason: "not_owned" };
+      return activities.useEffect(this.flow, guildId, userId, item);
+    }
+    return flows.useItem(this.flow, guildId, userId, itemId, hooks);
+  }
   async sellItem(guildId: string, userId: string, itemId: string) { return flows.sellItem(this.flow, await this.config(guildId), guildId, userId, itemId); }
 
   /**
@@ -149,7 +168,8 @@ export class EconomyService {
     if (grantNow) {
       const failed = opts.grantRole ? await opts.grantRole(item.roleId!, item.roleDurationHours).catch((err: unknown) => (err instanceof Error ? err.message : "Discord refused the role.")) : "Roles can't be granted here.";
       if (failed) {
-        await this.store.credit(guildId, userId, item.price);
+        const refunded = await this.store.credit(guildId, userId, item.price) ?? await this.store.apply(guildId, userId, { inc: { bank: item.price } });
+        if (!refunded) logger.error(`Economy: could not refund ${item.price} to ${userId} in ${guildId} after a failed role grant`);
         await this.store.returnStock(guildId, item.id);
         await release();
         return { ok: false, reason: "role_failed", detail: failed };
@@ -166,8 +186,10 @@ export class EconomyService {
     let previous = before.balance;
     let balance: number;
     if (action === "reset") {
-      previous = before.balance + before.bank;
-      balance = (await this.store.setBalance(guildId, userId, 0, 0)).balance;
+      // One atomic update that reports what it removed, so the log always matches what was actually taken.
+      const was = await this.store.resetAccount(guildId, userId);
+      previous = was ? was.balance + was.bank : 0;
+      balance = 0;
       amount = previous;
       // An account that was already empty has no balance change to record.
       if (previous > 0) await this.log(guildId, userId, "admin_reset", -previous, balance, { actorId, note: reason });

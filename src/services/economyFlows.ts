@@ -13,6 +13,7 @@ import {
   type BetRefusal, type GameResult, type RandomInt,
 } from "./economyRules";
 import type { ShopItem } from "./economyLogic";
+import { playDice } from "./economyProgress";
 import type { Account, AccountUpdate, EconomyStore, Transaction, TransactionType } from "./economyStore";
 
 export interface FlowContext {
@@ -114,7 +115,7 @@ export async function crime(ctx: FlowContext, cfg: EconomyConfig, guildId: strin
   return { ok: false, reason: "busy" };
 }
 
-export type GambleGame = { game: "coinflip"; call: "heads" | "tails" } | { game: "slots" };
+export type GambleGame = { game: "coinflip"; call: "heads" | "tails" } | { game: "slots" } | { game: "dice"; guess: number };
 export type GambleOutcome =
   | { ok: true; result: GameResult; bet: number; balance: number; lossToday: number }
   | { ok: false; reason: "refused"; refusal: BetRefusal; resetsAt: number }
@@ -126,6 +127,10 @@ export type GambleOutcome =
  * day), so concurrent bets can't slip past either.
  */
 export async function gamble(ctx: FlowContext, cfg: EconomyConfig, guildId: string, userId: string, bet: number, game: GambleGame): Promise<GambleOutcome> {
+  if (game.game === "dice" && !(Number.isSafeInteger(game.guess) && game.guess >= 1 && game.guess <= 6)) {
+    return { ok: false, reason: "refused", refusal: { reason: "invalid" }, resetsAt: nextUtcMidnight(ctx.now()) };
+  }
+  if (!Number.isSafeInteger(bet) || bet < 1) return { ok: false, reason: "refused", refusal: { reason: "invalid" }, resetsAt: nextUtcMidnight(ctx.now()) };
   await ctx.store.ensureAccount(guildId, userId);
   const cooldown = cfg.gambleCooldownSeconds * 1000;
   for (let attempt = 0; attempt < RETRIES; attempt++) {
@@ -143,10 +148,14 @@ export async function gamble(ctx: FlowContext, cfg: EconomyConfig, guildId: stri
       ? await ctx.store.apply(guildId, userId, { inc: { balance: -bet, gambleLoss: bet }, set: { lastGamble: new Date(now) }, guard: { dayIs: { gambleDay: day }, atMost: capGuard, notAfter } })
       : await ctx.store.apply(guildId, userId, { inc: { balance: -bet }, set: { gambleDay: day, gambleLoss: bet, lastGamble: new Date(now) }, guard: { dayIsNot: { gambleDay: day }, notAfter } });
     if (!placed) continue;
-    const result = game.game === "coinflip" ? playCoinflip(bet, game.call, ctx.randomInt) : playSlots(bet, ctx.randomInt);
+    const result: GameResult = game.game === "coinflip" ? playCoinflip(bet, game.call, ctx.randomInt)
+      : game.game === "dice" ? playDice(bet, game.guess, ctx.randomInt)
+      : playSlots(bet, ctx.randomInt);
     let after: Account = placed;
     if (result.payout > 0) {
-      const settled = await ctx.store.apply(guildId, userId, { inc: { balance: result.payout, gambleLoss: -result.payout } });
+      // Winnings go to the wallet; if coins that arrived meanwhile filled it, they go to the bank instead of vanishing.
+      const settled = await ctx.store.apply(guildId, userId, { inc: { balance: result.payout, gambleLoss: -result.payout } })
+        ?? await ctx.store.apply(guildId, userId, { inc: { bank: result.payout, gambleLoss: -result.payout } });
       if (settled) after = settled;
       else logger.error(`Economy: could not pay out ${result.payout} to ${userId} in ${guildId} after a ${game.game} bet`);
     }
@@ -188,7 +197,8 @@ export async function pay(ctx: FlowContext, cfg: EconomyConfig, guildId: string,
     const to = net > 0 ? await ctx.store.credit(guildId, toId, net) : await ctx.store.account(guildId, toId);
     if (!to) {
       const refunded = await ctx.store.apply(guildId, fromId, { inc: { balance: amount, payTotal: -amount }, guard: { dayIs: { payDay: day } } })
-        ?? await ctx.store.credit(guildId, fromId, amount);
+        ?? await ctx.store.credit(guildId, fromId, amount)
+        ?? await ctx.store.apply(guildId, fromId, { inc: { bank: amount } });
       if (!refunded) logger.error(`Economy: could not refund ${amount} to ${fromId} in ${guildId} after a failed pay`);
       return { ok: false, reason: "recipient_full" };
     }

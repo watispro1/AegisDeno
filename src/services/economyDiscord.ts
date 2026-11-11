@@ -13,7 +13,7 @@ import {
 } from "discord.js";
 import { sendGuildLog } from "./logging";
 import { economy, type AdjustAction, type AdjustEvent } from "./economyService";
-import { formatCoins, roleItemRefusal, type EconomyConfig } from "./economyLogic";
+import { dangerousPermissionNames, formatCoins, roleItemRefusal, type EconomyConfig } from "./economyLogic";
 import { rankChoices } from "../utils/autocomplete";
 import { logger } from "../utils/logger";
 import { scheduleTempRoleRemoval } from "./tempRole";
@@ -74,7 +74,7 @@ export async function shopRoleRefusal(guild: Guild, roleId: string, actorId: str
   if (!me?.permissions.has(PermissionFlagsBits.ManageRoles)) return "Aegis needs the Manage Roles permission to sell roles.";
   const actor = await guild.members.fetch(actorId).catch(() => null);
   return roleItemRefusal(
-    { id: role.id, position: role.position, managed: role.managed },
+    { id: role.id, position: role.position, managed: role.managed, permissions: role.permissions.bitfield },
     { guildId: guild.id, botTopPosition: me.roles.highest.position, actorTopPosition: actor?.roles.highest.position ?? null, actorIsOwner: guild.ownerId === actorId },
   );
 }
@@ -92,6 +92,10 @@ export async function grantShopRole(guild: Guild, userId: string, roleId: string
   const me = guild.members.me;
   if (!me?.permissions.has(PermissionFlagsBits.ManageRoles) || role.managed || role.position >= me.roles.highest.position) {
     return "Aegis can't hand out that role any more (it is above Aegis's role, or Aegis lacks Manage Roles). Ask staff to fix the shop.";
+  }
+  // Checked again at grant time: staff may have given the role new permissions after it was listed.
+  if (dangerousPermissionNames(role.permissions.bitfield).length) {
+    return "That item's role now has staff permissions, so Aegis won't hand it out. Ask staff to fix the shop.";
   }
   const member = await guild.members.fetch(userId).catch(() => null);
   if (!member) return "Couldn't find you in this server.";

@@ -16,7 +16,7 @@ before(async () => {
 
 test("economy commands load in their own category, guild-only", () => {
   assert.ok((COMMAND_CATEGORIES as readonly string[]).includes("economy"));
-  for (const name of ["balance", "daily", "work", "pay", "leaderboard", "shop", "inventory", "economy", "weekly", "deposit", "withdraw", "crime", "gamble", "use"]) {
+  for (const name of ["balance", "daily", "work", "pay", "leaderboard", "shop", "inventory", "economy", "weekly", "deposit", "withdraw", "crime", "gamble", "use", "rob", "interest", "transactions"]) {
     const cmd = commands.get(name);
     assert.ok(cmd, name);
     assert.equal(cmd!.category, "economy", name);
@@ -24,14 +24,14 @@ test("economy commands load in their own category, guild-only", () => {
     assert.deepEqual(json(name).contexts, [0], `${name} is offered in servers only`);
   }
   const group = groupByCategory(buildCatalog()).find(g => g.category === "economy");
-  assert.ok(group && group.label === "Economy" && group.commands.length === 14);
+  assert.ok(group && group.label === "Economy" && group.commands.length === 17);
 });
 
 test("/economy is Manage Server; /shop staff subcommands are checked inside; shop items autocomplete", () => {
   const eco = json("economy");
   assert.equal(eco.default_member_permissions, String(PermissionFlagsBits.ManageGuild));
   assert.deepEqual(commands.get("economy")!.userPermissions, [PermissionFlagsBits.ManageGuild]);
-  assert.deepEqual(eco.options!.map(o => o.name), ["toggle", "config", "risk", "give", "take", "reset"]);
+  assert.deepEqual(eco.options!.map(o => o.name), ["toggle", "config", "risk", "stats", "give", "take", "reset"]);
   const shop = json("shop");
   assert.equal(shop.default_member_permissions ?? null, null, "members can view and buy");
   assert.deepEqual(shop.options!.map(o => o.name), ["view", "buy", "add", "remove", "edit", "sell"]);
@@ -54,7 +54,7 @@ test("leaderboard lines show mentions (rendered, never pinged) with ranks and me
 });
 
 test("new economy commands: subcommand groups stay small and every option fits Discord's limits", () => {
-  assert.deepEqual(json("gamble").options!.map(o => o.name), ["coinflip", "slots", "info"]);
+  assert.deepEqual(json("gamble").options!.map(o => o.name), ["coinflip", "slots", "dice", "info"]);
   assert.equal(json("use").options![0].autocomplete, true);
   for (const name of ["deposit", "withdraw"]) assert.equal(json(name).options![0].name, "amount");
   for (const sub of json("economy").options!) assert.ok((sub.options ?? []).length <= 25, `/economy ${sub.name} has at most 25 options`);
@@ -63,7 +63,7 @@ test("new economy commands: subcommand groups stay small and every option fits D
   const chars = (o: Node): number => o.name.length + (o.description?.length ?? 0)
     + (o.choices ?? []).reduce((t, c) => t + c.name.length + String(c.value).length, 0)
     + (o.options ?? []).reduce((t, c) => t + chars(c), 0);
-  for (const name of ["economy", "shop", "gamble", "leaderboard"]) {
+  for (const name of ["economy", "shop", "gamble", "leaderboard", "rob", "transactions"]) {
     const size = chars(commands.get(name)!.data.toJSON() as Node);
     assert.ok(size < 4000, `/${name} uses ${size} characters`);
   }

@@ -39,10 +39,12 @@ export function parseShopItemForm(body: FormBody, ctx: ValidationContext, guildI
     else if (!found) errors.roleId = "That role does not exist in this server. Pick one from the list.";
     else if (!found.assignable) errors.roleId = "Aegis can't hand out that role: it is at or above Aegis's highest role, or managed by an integration.";
     else if (found.aboveViewer) errors.roleId = ROLE_ABOVE_VIEWER_ERROR;
+    else if (found.dangerous) errors.roleId = "That role has staff permissions (like Administrator, Manage Roles or Ban Members), so it can't be sold.";
   }
   const v = validateShopItem({
     name: field(body, "name"), description: field(body, "description"), price: field(body, "price"), roleId: roleRaw || null, stock: field(body, "stock"),
     perUserLimit: field(body, "perUserLimit"), roleDurationHours: field(body, "roleDurationHours"), useToGrant: checkbox(body, "useToGrant"),
+    effect: field(body, "effect"), effectHours: field(body, "effectHours"), effectPercent: field(body, "effectPercent"),
   });
   if (!v.ok) Object.assign(errors, v.errors);
   if (Object.keys(errors).length || !v.ok) return { ok: false, errors };
