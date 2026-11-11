@@ -55,6 +55,7 @@ const ROUTES: [string, number][] = [
   ["/robots.txt", 200],
   ["/sitemap.xml", 200],
   ["/changelog.xml", 200],
+  ["/changelog.json", 200],
   ["/this-page-does-not-exist", 404],
 ];
 
@@ -118,6 +119,24 @@ async function main() {
   check("/features has no unlinked command refs", !/<li><code>\/[a-z]/.test(featuresHtml));
   check("/features has invite and dashboard CTAs", featuresHtml.includes('href="/invite"') && featuresHtml.includes('href="/dashboard"'));
   check("/features has no inline style or script", !/\sstyle=|<script(?![^>]*\bsrc=)(?![^>]*application\/ld\+json)/.test(featuresHtml));
+
+  console.log("\nRedesigned pages");
+  const filtered = await fetch(origin + "/commands?q=ban&access=moderator");
+  const filteredHtml = await filtered.text();
+  check("/commands?q= filters server-side", filtered.status === 200 && /<input id="cmd-search" name="q" type="search" value="ban"/.test(filteredHtml)
+    && /<details class="cmd-card" id="cmd-ban"[^>]*data-access="moderator"[^>]*>/.test(filteredHtml)
+    && /<details class="cmd-card" id="cmd-ping"[^>]*\shidden>/.test(filteredHtml));
+  check("/commands?q= escapes the query", !(await (await fetch(origin + "/commands?q=%3Cscript%3Ex")).text()).includes("<script>x"));
+  const nf = await fetch(origin + "/no/such/%3Cb%3Epage");
+  const nfHtml = await nf.text();
+  check("404 shows the escaped path", nf.status === 404 && nfHtml.includes("nf-path") && !nfHtml.includes("<b>page"));
+  const rdHomeHtml = await (await fetch(origin + "/")).text();
+  check("home has the stats strip and latest release", rdHomeHtml.includes("stat-strip") && rdHomeHtml.includes('id="new-title"'));
+  const rdDocsHtml = await (await fetch(origin + "/docs")).text();
+  check("docs has the sticky TOC filter and start cards", rdDocsHtml.includes('id="toc-filter"') && rdDocsHtml.includes('class="doc-start"'));
+  for (const [name, html] of [["/", rdHomeHtml], ["/commands?q=ban", filteredHtml], ["/docs", rdDocsHtml], ["404", nfHtml]] as const) {
+    check(`${name} has no inline style or handler`, !/\sstyle="|\son[a-z]+="/.test(html));
+  }
 
   console.log("\nInvite");
   const inviteHomeHtml = await (await fetch(origin + "/")).text();
@@ -264,8 +283,9 @@ async function main() {
 
   console.log("\nAccessibility");
   const commandsHtml = await (await fetch(origin + "/commands")).text();
-  check("filters use role=group", commandsHtml.includes('role="group"'));
-  check("filters use aria-pressed", commandsHtml.includes('aria-pressed="true"'));
+  // Filters are links (they work without JavaScript); the active one carries aria-current.
+  check("filters are labelled link navs", commandsHtml.includes('<nav class="tabs" id="cmd-filter" aria-label="Filter by category">'));
+  check("active filter uses aria-current", /<a class="tab"[^>]*data-cat="all" aria-current="true"/.test(commandsHtml));
   check("no role=tablist", !commandsHtml.includes('role="tablist"'));
   check("no aria-selected on filters", !commandsHtml.includes("aria-selected"));
   check("per-command anchors exist", commandsHtml.includes('id="cmd-ban"'));
@@ -275,6 +295,11 @@ async function main() {
   const feed = await (await fetch(origin + "/changelog.xml")).text();
   check("atom feed is xml", feed.startsWith("<?xml") && feed.includes("<feed"));
   check("atom has entries", feed.includes("<entry>"));
+  const clJsonRes = await fetch(origin + "/changelog.json");
+  const clJson = await clJsonRes.json() as { bot?: Array<{ version: string }>; dashboard?: unknown[] };
+  check("changelog.json lists bot and dashboard releases", clJson.bot?.[0]?.version === (await import("../src/version")).VERSION && Array.isArray(clJson.dashboard) && clJson.dashboard.length > 0);
+  const statusHtml = await (await fetch(origin + "/status")).text();
+  check("status page has components, latency chart and countdown", statusHtml.includes('data-component="gateway"') && statusHtml.includes("data-status-latency") && statusHtml.includes("data-status-countdown"));
   check("layout links feed", commandsHtml.includes('type="application/atom+xml"'));
   const sitemap = await (await fetch(origin + "/sitemap.xml")).text();
   check("sitemap has lastmod", sitemap.includes("<lastmod>"));

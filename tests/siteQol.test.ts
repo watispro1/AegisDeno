@@ -76,7 +76,7 @@ test("changelog: release filter, latest badge and per-release copy link", () => 
   assert.ok(html.includes('id="cl-search"'), "search box");
   assert.ok(html.includes('id="cl-count"'), "live count");
   assert.ok(html.includes('id="cl-empty"'), "empty state");
-  assert.match(html, /class="release" id="[^"]+" data-search="[^"]+"/);
+  assert.match(html, /class="release(?: is-latest)?" id="v[^"]+" aria-labelledby="v[^"]+-title"/);
   assert.ok(html.includes('class="release-latest"'), "newest release badge");
   assert.match(html, /class="release-copy" type="button" data-copy-link="#v[^"]+"/);
   assert.match(html, /<li data-release="v[^"]+">/);

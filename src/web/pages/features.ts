@@ -6,7 +6,8 @@
  */
 import { getCommand } from "../catalog";
 import { commandAnchor } from "./commands";
-import { FEATURE_CATEGORIES, FEATURE_ICONS, HEADLINE, WHY_ROWS, type IconId } from "./featuresData";
+import { FEATURE_CATEGORIES, HEADLINE, WHY_ROWS } from "./featuresData";
+import { icon, iconSprite } from "./icons";
 import { type SiteConfig, breadcrumb, escapeHtml as esc, page, safeUrl } from "./shared";
 
 /** Resolves "case view" to its catalog entry; null when the command or subcommand does not exist. */
@@ -24,13 +25,7 @@ export function featureCommandRefs(): string[] {
   return FEATURE_CATEGORIES.flatMap(c => c.cards.flatMap(card => card.commands));
 }
 
-function sprite(): string {
-  const symbols = (Object.entries(FEATURE_ICONS) as Array<[IconId, string]>)
-    .map(([id, d]) => `<symbol id="fi-${id}" viewBox="0 0 24 24">${d}</symbol>`).join("");
-  return `<svg class="visually-hidden" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">${symbols}</svg>`;
-}
-
-const icon = (id: IconId, cls = "f-icon") => `<svg class="${cls}" aria-hidden="true" focusable="false"><use href="#fi-${id}"/></svg>`;
+const sprite = () => iconSprite();
 
 function commandList(refs: string[]): string {
   const items = refs.map(ref => {

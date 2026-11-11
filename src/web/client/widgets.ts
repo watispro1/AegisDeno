@@ -157,36 +157,5 @@ export const jsWidgets = String.raw`  /* ── Troubleshooting filter ───
     }
     setInterval(refresh, 30000);
   }
-  /* Changelog: filter releases and their version list */
-  var clSearch = document.getElementById('cl-search');
-  if (clSearch) {
-    var clReleases = Array.prototype.slice.call(document.querySelectorAll('.release'));
-    var clCount = document.getElementById('cl-count');
-    var clEmpty = document.getElementById('cl-empty');
-    var clToc = Array.prototype.slice.call(document.querySelectorAll('li[data-release]'));
-    var applyChangelog = function () {
-      var q = clSearch.value.trim().toLowerCase();
-      var shown = 0;
-      clReleases.forEach(function (release) {
-        var match = !q || (release.getAttribute('data-search') || '').indexOf(q) !== -1;
-        release.hidden = !match;
-        if (match) shown++;
-        clToc.forEach(function (li) {
-          if (li.getAttribute('data-release') === release.id) li.hidden = !match;
-        });
-      });
-      if (clCount) clCount.textContent = shown === 1 ? '1 release' : shown + ' releases';
-      if (clEmpty) clEmpty.hidden = shown !== 0;
-    };
-    clSearch.addEventListener('input', debounce(applyChangelog, 80));
-    document.addEventListener('click', function (e) {
-      var clear = e.target.closest && e.target.closest('[data-cl-clear]');
-      if (!clear) return;
-      e.preventDefault();
-      clSearch.value = '';
-      applyChangelog();
-      clSearch.focus();
-    });
-  }
 })();
 `;

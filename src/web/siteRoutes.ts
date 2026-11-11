@@ -1,6 +1,6 @@
 /** robots.txt, sitemap, security.txt, the Atom feed, /invite and the old-path redirects. */
 import type { Express } from "express";
-import { atomFeed } from "./changelog";
+import { atomFeed, changelogJson } from "./changelog";
 import { guildInviteUrl } from "./invite";
 import { securityTxt } from "./wellKnown";
 
@@ -63,6 +63,13 @@ export function registerSiteRoutes(app: Express, o: SiteRouteDeps): void {
   app.get("/changelog.xml", (_req, res) => {
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.type("application/atom+xml").send(atomFeed(origin || ""));
+  });
+
+  // Both changelogs as JSON (released versions only), for bots and scripts.
+  app.get("/changelog.json", (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.json(changelogJson(origin || ""));
   });
 
   // Stable, shareable invite link: /invite or /invite?guild_id=<server id>.

@@ -1,4 +1,4 @@
-import { type SiteConfig, breadcrumb, endNote, escapeHtml, page } from "./shared";
+import { type SiteConfig, breadcrumb, endNote, escapeHtml, page, statStrip } from "./shared";
 
 /* Troubleshooting */
 
@@ -121,50 +121,113 @@ const ISSUES: { group: string; id: string; items: { q: string; a: string }[] }[]
   },
 ];
 
+/** Stable fragment for one issue: #cat-commands-1. */
+export function issueAnchor(groupId: string, index: number): string {
+  return `${groupId}-${index + 1}`;
+}
+
+export function troubleshootingIssues(): typeof ISSUES {
+  return ISSUES;
+}
+
 export function renderTroubleshooting(cfg: SiteConfig): string {
+  const total = ISSUES.reduce((n, g) => n + g.items.length, 0);
   const groups = ISSUES.map(g => `<section class="issue-group" aria-labelledby="${g.id}">
-      <h2 id="${g.id}">${escapeHtml(g.group)}</h2>
-      ${g.items.map(i => `<details class="issue">
-        <summary>${escapeHtml(i.q)}</summary>
-        <div class="issue-body">${i.a}</div>
-      </details>`).join("\n      ")}
+      <h2 id="${g.id}"><a class="group-anchor" href="#${g.id}">${escapeHtml(g.group)}</a> <span class="issue-n">${g.items.length}</span></h2>
+      ${g.items.map((i, n) => {
+        const id = issueAnchor(g.id, n);
+        return `<details class="issue" id="${id}">
+        <summary><span class="issue-q">${escapeHtml(i.q)}</span></summary>
+        <div class="issue-body">${i.a}
+          <p class="issue-link"><a class="text-link" href="#${id}">Link to this fix</a> <button class="copy-btn sm-copy" type="button" data-js-only data-copy-link="#${id}" aria-label="Copy a link to this fix">Copy link</button></p>
+        </div>
+      </details>`;
+      }).join("\n      ")}
     </section>`).join("\n\n    ");
+
+  const side = ISSUES.map(g => `<li><a href="#${g.id}"><span>${escapeHtml(g.group)}</span><span class="toc-d">${g.items.length}</span></a></li>`).join("\n        ");
 
   const body = `
 <div class="wrap">
   ${breadcrumb("Troubleshooting")}
-  <div class="page-head">
-    <h1>Troubleshooting</h1>
-    <p class="lead">Start with <code class="inline">/diagnostics</code> in your server. It checks permissions, configured channels and role order, and usually names the problem.</p>
-  </div>
-
-  <h2>Role order, the usual culprit</h2>
-  <p class="muted">Discord only lets a role act on roles below it. That applies to bots even with every permission ticked.</p>
-  <div class="hierarchy">
-    <div class="bad">
-      <span class="hierarchy-label">Does not work</span>
-      <ol><li>Owner</li><li>Moderator</li><li><strong>Aegis</strong> (cannot touch moderators)</li><li>Member</li></ol>
+  <header class="cl-head ph-head">
+    <div class="cl-head-text">
+      <h1>Troubleshooting</h1>
+      <p class="lead">Start with <code class="inline">/diagnostics</code> in your server. It checks permissions, configured channels and role order, and usually names the problem. The fixes below cover the rest.</p>
     </div>
-    <div class="good">
-      <span class="hierarchy-label">Works</span>
-      <ol><li>Owner</li><li><strong>Aegis</strong></li><li>Moderator</li><li>Member</li></ol>
-    </div>
-  </div>
+  </header>
+  ${statStrip([
+    { label: "Known problems", value: String(total), note: `in ${ISSUES.length} groups` },
+    { label: "First step", value: `<a href="/commands#cmd-diagnostics">/diagnostics</a>`, note: "names most problems" },
+    { label: "Bot status", value: `<a href="/status">Check</a>`, note: "is it us or you?" },
+  ], "Troubleshooting at a glance")}
 
-  <div class="search help-search">
-    <span class="icon" aria-hidden="true">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-    </span>
-    <label class="visually-hidden" for="help-search">Filter problems</label>
-    <input id="help-search" type="search" placeholder="Filter: permissions, automod, tickets…" autocomplete="off" spellcheck="false">
-  </div>
+  <details class="toc-mobile">
+    <summary>Problem groups</summary>
+    <nav aria-label="Problem groups (mobile)">
+      <ul>
+        ${side}
+      </ul>
+    </nav>
+  </details>
 
-  <div id="help-issue-list">
+  <div class="split help-split">
+    <aside class="toc" aria-label="Problem groups">
+      <p class="side-title">Problem groups</p>
+      <ul>
+        ${side}
+      </ul>
+      <p class="side-title">Elsewhere</p>
+      <ul>
+        <li><a href="/docs#permissions">Permissions</a></li>
+        <li><a href="/docs#hidden-channels">Hidden channels</a></li>
+        <li><a href="/commands">Commands</a></li>
+      </ul>
+    </aside>
+
+    <div class="help-main">
+      <section class="help-hierarchy" aria-labelledby="role-order">
+        <h2 id="role-order">Role order, the usual culprit</h2>
+        <p class="muted">Discord only lets a role act on roles below it. That applies to bots even with every permission ticked.</p>
+        <div class="hierarchy">
+          <div class="bad">
+            <span class="hierarchy-label">✕ Does not work</span>
+            <ol><li>Owner</li><li>Moderator</li><li><strong>Aegis</strong> (cannot touch moderators)</li><li>Member</li></ol>
+          </div>
+          <div class="good">
+            <span class="hierarchy-label">✓ Works</span>
+            <ol><li>Owner</li><li><strong>Aegis</strong></li><li>Moderator</li><li>Member</li></ol>
+          </div>
+        </div>
+      </section>
+
+      <div class="help-toolbar" data-js-only>
+        <div class="search help-search">
+          <span class="icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          </span>
+          <label class="visually-hidden" for="help-search">Filter problems</label>
+          <input id="help-search" type="search" placeholder="Filter: permissions, automod, tickets…" autocomplete="off" spellcheck="false" maxlength="100">
+        </div>
+      </div>
+
+      <div id="help-issue-list">
     ${groups}
-  </div>
-  <div id="help-empty" class="empty-state" hidden>
-    <strong>Nothing matches.</strong>
-    Ask in the support server and include the output of /diagnostics.
+      </div>
+      <div id="help-empty" class="empty-state" hidden>
+        <strong>Nothing matches.</strong>
+        Ask in the support server and include the output of /diagnostics.
+      </div>
+
+      <section class="help-ask" aria-labelledby="ask-title">
+        <h2 id="ask-title">Before you ask for help</h2>
+        <ol>
+          <li>Run <code class="inline">/diagnostics</code> and copy its output.</li>
+          <li>Note the exact command you ran and the reply you got.</li>
+          <li>Check the <a href="/status">status page</a> and the <a href="/changelog">changelog</a> for anything recent.</li>
+        </ol>
+      </section>
+    </div>
   </div>
 
   ${endNote(cfg, "Still stuck? The support server is the fastest way to reach a person.")}
