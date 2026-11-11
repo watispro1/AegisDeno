@@ -9,6 +9,54 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.9.0] - 2026-11-11
+
+Moderation reliability and quality-of-life. Upgrade notes: one new slash
+command (`/massban`) and new options on `/case user`, so commands are
+re-registered on deploy (or run `npm run deploy`). Mongo builds three new
+indexes on the case and warning collections the first time the bot starts.
+No new permissions or environment variables.
+
+### Added
+- `/massban user_ids: reason:` bans up to 50 user IDs or mentions at once for
+  raid clean-up. It uses the same hierarchy rules as `/ban`, skips you, Aegis,
+  the owner and anyone already banned, asks for confirmation, checks roles
+  again before acting, records one case per ban and posts one mod-log entry.
+  Members get no DM and no appeal code.
+- `/case user` has `action:` and `hide_revoked:` filters, First and Last
+  buttons when there are more than two pages, and shows the real total when a
+  member has more than 100 cases.
+- The Member Joined log flags likely alt or throwaway accounts: accounts under
+  a day, a week or 30 days old, no profile picture, generated-looking names,
+  and members who come back with earlier bans, kicks, timeouts or warnings in
+  the server. The entry turns orange or red. These are hints only; nothing
+  happens automatically.
+- Discord rate limits, gateway errors and shard disconnects are now logged
+  (rate-limit lines at most once a minute per route).
+
+### Changed
+- `/infractions` counts cases and warnings separately (warnings used to be
+  counted twice), marks revoked cases, and shows full case and warning IDs
+  that work with `/case view` and `/case edit`.
+- Batch verification (`/verify batch`) looks members up in one request
+  instead of one per ID, and says up front when the verified role is missing,
+  managed or above Aegis's role.
+
+### Fixed
+- An automod burst no longer stacks penalties. Ten quick messages over the
+  spam limit used to give ten warnings (enough to trigger an escalation ban),
+  ten timeout cases and ten log entries. Now the first hit punishes and logs,
+  and further hits in the next 60 seconds are only deleted; the next log entry
+  says how many were folded in. A member who is already timed out is not timed
+  out again.
+- Shutdown runs once even when Fly sends a second signal, disconnects from
+  Discord before closing the database, cancels giveaway timers, and exits
+  after 10 seconds if a step hangs.
+- `/case view` no longer fails on a reason or details longer than an embed
+  field allows.
+- The bot used the deprecated `ready` event for startup work; it now uses
+  `clientReady`.
+
 ## [3.8.0] - 2026-11-05
 
 A bigger economy with a bank, weekly rewards, crime, optional gambling and

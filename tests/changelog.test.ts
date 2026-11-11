@@ -230,15 +230,24 @@ test("3.7.3 and dashboard 1.2.5: dated 2026-11-04", () => {
   for (const needle of ["/temprole", "/softban", "/starboard top"]) assert.ok(text.includes(needle), `3.7.3 mentions ${needle}`);
 });
 
-test("3.8.0 and dashboard 1.3.0: newest releases, dated 2026-11-05", () => {
+test("3.8.0 and dashboard 1.3.0: released 2026-11-05", () => {
   const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
   const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
-  assert.equal(bot[0].version, "3.8.0");
-  assert.equal(bot[0].date, "2026-11-05");
+  const r = bot.find((x) => x.version === "3.8.0")!;
+  assert.ok(r, "3.8.0 is still listed");
+  assert.equal(r.date, "2026-11-05");
   assert.equal(dash[0].version, "1.3.0");
   assert.equal(dash[0].date, "2026-11-05");
-  assert.equal(VERSION, "3.8.0");
   assert.equal(DASHBOARD_VERSION, "1.3.0");
-  const text = bot[0].sections.flatMap((s) => s.items).join(" ");
+  const text = r.sections.flatMap((s) => s.items).join(" ");
   for (const needle of ["/deposit", "/weekly", "/crime", "/gamble", "/softban"]) assert.ok(text.includes(needle), `3.8.0 mentions ${needle}`);
+});
+
+test("3.9.0: newest bot release, records /massban, the automod burst fix and the deploy note", () => {
+  const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
+  assert.equal(bot[0].version, "3.9.0");
+  assert.equal(bot[0].date, "2026-11-11");
+  assert.equal(VERSION, "3.9.0");
+  const text = bot[0].sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["/massban", "/case user", "/infractions", "60 seconds"]) assert.ok(text.includes(needle), `3.9.0 mentions ${needle}`);
 });

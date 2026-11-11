@@ -96,6 +96,8 @@ WarningSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 WarningSchema.index({ guildId: 1, userId: 1, revoked: 1, createdAt: -1 });
 // Guild-wide recent counts (/modreport, activity summary, dashboard).
 WarningSchema.index({ guildId: 1, createdAt: -1 });
+// /case search moderator: and the per-moderator warning counts.
+WarningSchema.index({ guildId: 1, moderatorId: 1, createdAt: -1 });
 WarningSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const WarningModel = mongoose.model("Warning", WarningSchema);
 
@@ -116,6 +118,10 @@ const ModerationCaseSchema = new mongoose.Schema({
 ModerationCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 // Guild case lists and recent counts (/case list, /modreport, /modstats, dashboard).
 ModerationCaseSchema.index({ guildId: 1, createdAt: -1 });
+// Counts and filters by action (/modstats ban/kick/timeout totals, /case search action:, /case user action:).
+ModerationCaseSchema.index({ guildId: 1, action: 1, createdAt: -1 });
+// Filters and leaderboards by moderator (/case search moderator:, /modreport, the staff digest).
+ModerationCaseSchema.index({ guildId: 1, moderatorId: 1, createdAt: -1 });
 ModerationCaseSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31_536_000 });
 export const ModerationCaseModel = mongoose.model("ModerationCase", ModerationCaseSchema);
 

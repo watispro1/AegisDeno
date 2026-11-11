@@ -100,6 +100,18 @@ export function scheduleGiveawayEnd(client: Client, guildId: string, messageId: 
   giveawayTimers.set(messageId, handle);
 }
 
+/**
+ * Cancel every pending auto-end timer (on shutdown). The giveaways stay in the
+ * database and initGiveawayScheduler re-arms them, or ends overdue ones, on the
+ * next start, so a giveaway never ends against a database that is closing.
+ */
+export function shutdownGiveawayTimers(): number {
+  const count = giveawayTimers.size;
+  for (const handle of giveawayTimers.values()) clearTimeout(handle);
+  giveawayTimers.clear();
+  return count;
+}
+
 /** Restore active giveaway timers after a bot restart. */
 export async function initGiveawayScheduler(client: Client): Promise<void> {
   const active = await GiveawayModel.find({ ended: false }).lean();

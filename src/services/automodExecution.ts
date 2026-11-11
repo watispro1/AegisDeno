@@ -12,34 +12,15 @@ import { addModerationCase } from "./moderationCases";
 import { sendGuildLog } from "./logging";
 import { logger } from "../utils/logger";
 import { AutomodHitModel } from "../database/mongo";
+import { PenaltyCooldown, SlidingWindowCounter, AUTOMOD_PENALTY_COOLDOWN_MS, type PenaltyDecision } from "./automodRate";
 
 
-// In-memory spam rate limiter
-// Maps `guildId:userId` → timestamps of recent messages
-const spamTracker = new Map<string, number[]>();
+// In-memory message-rate counter (`guildId:userId`) and per-member penalty cooldown.
+const spamCounter = new SlidingWindowCounter();
+const penaltyCooldown = new PenaltyCooldown();
 
-function recordAndCheckSpam(
-  guildId: string,
-  userId: string,
-  maxMessages: number,
-  windowMs: number
-): boolean {
-  const key = `${guildId}:${userId}`;
-  const now = Date.now();
-  const windowStart = now - windowMs;
-
-  const timestamps = (spamTracker.get(key) ?? []).filter(t => t > windowStart);
-  timestamps.push(now);
-  spamTracker.set(key, timestamps);
-
-  // Clean up old entries periodically to prevent memory leaks
-  if (spamTracker.size > 5000) {
-    for (const [k, ts] of spamTracker) {
-      if (ts.every(t => t <= windowStart)) spamTracker.delete(k);
-    }
-  }
-
-  return timestamps.length > maxMessages;
+function recordAndCheckSpam(guildId: string, userId: string, maxMessages: number, windowMs: number): boolean {
+  return spamCounter.record(`${guildId}:${userId}`, windowMs) > maxMessages;
 }
 
 const duplicateTracker = new DuplicateTracker();
@@ -209,7 +190,10 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
   };
   const ruleKey = ruleKeyMap[ruleName] ?? ruleName.toLowerCase();
 
-  await enforceAutomod(client, message, member, triggeredRule.action, ruleName, config.timeoutMinutes);
+  // One burst gets one penalty and one log entry; repeats inside the cooldown are only deleted.
+  // Keyed by action too, so a delete-only hit never stops a later timeout rule from acting.
+  const decision = penaltyCooldown.decide(`${message.guildId}:${message.author.id}:${triggeredRule.action}`);
+  await enforceAutomod(client, message, member, triggeredRule.action, ruleName, config.timeoutMinutes, decision);
 
   // Log the hit for /modreport analytics (fire-and-forget)
   AutomodHitModel.create({
@@ -231,12 +215,13 @@ async function enforceAutomod(
   action: string,
   ruleName: string,
   timeoutMinutes: number,
+  decision: PenaltyDecision = { punish: true, log: true, suppressed: 0 },
 ): Promise<void> {
   if (!message.guildId) return;
 
-  logger.info(
-    `Automod [${ruleName}] triggered on msg ${message.id} by ${message.author.id} in guild ${message.guildId}, action: ${action}`
-  );
+  const logLine = `Automod [${ruleName}] triggered on msg ${message.id} by ${message.author.id} in guild ${message.guildId}, action: ${action}`;
+  if (decision.log) logger.info(logLine);
+  else logger.debug(`${logLine} (within penalty cooldown: delete only)`);
 
   // Delete the message for all enforcement actions
   if (action === "delete" || action === "warn" || action === "timeout") {
@@ -251,7 +236,9 @@ async function enforceAutomod(
   const botId = client.user?.id ?? "Aegis";
   const reason = `Automod violation: ${ruleName}`;
   let outcome = "";
-  if (action === "warn") {
+  if (!decision.punish) {
+    // Already warned or timed out for this burst a moment ago; the delete above is enough.
+  } else if (action === "warn") {
     try {
       await addWarning(message.guildId, message.author.id, botId, reason);
       // Automod warnings count toward the escalation thresholds the same as /warn.
@@ -261,7 +248,9 @@ async function enforceAutomod(
       logger.error(`Automod: failed to add warning for user ${message.author.id} in guild ${message.guildId}`, err);
     }
   } else if (action === "timeout") {
-    if (member?.moderatable) {
+    if (member?.isCommunicationDisabled?.()) {
+      outcome = "Already timed out";
+    } else if (member?.moderatable) {
       const ok = await member.timeout(timeoutMinutes * 60_000, reason).then(() => true).catch(err => {
         logger.error(`Automod: failed to timeout user ${message.author.id} in guild ${message.guildId}`, err);
         return false;
@@ -278,6 +267,11 @@ async function enforceAutomod(
     }
   }
 
+  if (!decision.log) return;
+  const cooldownSeconds = Math.round(AUTOMOD_PENALTY_COOLDOWN_MS / 1000);
+  const followUpNote = action === "warn" || action === "timeout"
+    ? `Further hits by this member in the next ${cooldownSeconds}s are deleted without another ${action}.`
+    : `Further hits by this member in the next ${cooldownSeconds}s are deleted without a log entry.`;
   try {
     await sendGuildLog(client, message.guildId, {
       title: "🛡️ Automod Triggered",
@@ -292,7 +286,9 @@ async function enforceAutomod(
       fields: [
         { name: "User ID", value: message.author.id, inline: true },
         ...(outcome ? [{ name: "Result", value: outcome, inline: true }] : []),
+        ...(decision.suppressed > 0 ? [{ name: "Folded in", value: `${decision.suppressed} earlier hit(s) during the last cooldown were deleted without a log entry`, inline: false }] : []),
       ],
+      footer: { text: followUpNote },
     }, "modActions");
   } catch (err) {
     logger.error(`Automod: failed to send guild log for guild ${message.guildId}`, err);

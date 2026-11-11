@@ -23,7 +23,8 @@ The main admin commands:
   - `/automod caps toggle|threshold|action`: Manage uppercase and character flood detection.
   - `/automod status`: Interactive status hub with toggle buttons.
 - `/warn`, `/timeout`, `/ban`, `/kick`: Preset reasons, a confirmation step, and quick actions afterwards (Timeout 10m, +1h Extend, Undo, Revoke Ban).
-- `/case`: Case lookup (`/case view`, `/case user`), reason updates (`/case edit`), and JSON audit exports (`/case export`).
+- `/case`: Case lookup (`/case view`, `/case user` with `action:` and `hide_revoked:` filters), search (`/case search`), reason updates (`/case edit`), and JSON audit exports (`/case export`).
+- `/massban`: Ban up to 50 user IDs at once (Ban Members). Same hierarchy rules as `/ban`, confirmation, re-check before acting, one case per ban, one mod-log entry. No DMs or appeal codes. 30-second cooldown per moderator.
 - `/purge`: Filtered bulk message deletion with preview prompt, audit reason logging, and progress bar.
 - `/developer`: Restricted bot-owner diagnostics for live heap memory, cached guilds, and loaded commands.
 - `/sync`: Live slash command re-registration without process restarts.
@@ -41,6 +42,8 @@ Aegis runs on Fly.io. Before a rollout:
 3. **Smoke Tests**: Run `npm run test` before deployment to verify web endpoint health and API responses. It checks status codes, cache and security headers (CSP, HSTS) and the JSON endpoints.
 4. **Discord Intent and Permissions**: Verify that your bot has been granted the `Server Members` intent (if necessary for fetching member data) and `Message Content` intent (automod needs it to read messages) via the Discord Developer Portal.
 5. **Logs**: Monitor your deployment using `fly logs`. Startup logs one line each for the DB connection, command registration and the web server.
+   Discord rate limits show up as `Discord rate limit on <METHOD> <route>` (at most once a minute per route), and `invalid Discord API requests` warns before Discord's 10,000-per-10-minutes IP ban.
+6. **Shutdown**: On SIGTERM/SIGINT the bot stops timers, disconnects from Discord, flushes activity counters and closes MongoDB, in that order, once. If that takes more than 10 seconds it exits with code 1 and logs `shutdown did not finish`.
 
 ## Retired settings collection (`pluginconfigs`)
 
