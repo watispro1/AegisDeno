@@ -13,10 +13,36 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { getWarningsForUser } from "../../services/warnings";
-import { getModerationCases } from "../../services/moderationCases";
+import { ModerationCaseModel } from "../../database/mongo";
+import { truncate } from "../../utils/safeText";
 
 const CASES_PER_PAGE = 5;
 const WARNS_PER_PAGE = 5;
+/** Cases loaded for paging; the overview shows the true total from a count. */
+export const INFRACTION_CASES_LOADED = 100;
+
+/**
+ * A reason shown on one line: whitespace collapsed, cut to `max`, and with
+ * backticks swapped for a look-alike so a reason containing ` cannot break the
+ * surrounding Markdown.
+ */
+export function reasonLine(reason: string | null | undefined, max = 200): string {
+  const text = String(reason ?? "").replace(/\s+/g, " ").trim() || "No reason provided";
+  return truncate(text.replace(/`/g, "ˋ"), max);
+}
+
+/** "`ban` ×2  `timeout` ×1", counting revoked cases separately so undone actions don't read as live ones. */
+export function actionSummary(cases: ReadonlyArray<{ action: string; revoked?: boolean | null }>): string {
+  const live: Record<string, number> = {};
+  let revoked = 0;
+  for (const c of cases) {
+    if (c.revoked) { revoked++; continue; }
+    live[c.action] = (live[c.action] ?? 0) + 1;
+  }
+  const parts = Object.entries(live).sort((a, b) => b[1] - a[1]).map(([k, v]) => `\`${k}\` ×${v}`);
+  if (revoked) parts.push(`(${revoked} revoked)`);
+  return parts.join("  ") || "None";
+}
 
 type InfractionsView = "overview" | "warnings" | "cases";
 
@@ -43,20 +69,22 @@ export const command: Command = {
     await interaction.deferReply({ flags: ephemeral ? MessageFlags.Ephemeral : undefined });
 
     try {
-      const [warnings, cases] = await Promise.all([
+      // Cases come from the case log only; warnings have their own tab and
+      // count. (Before, warnings were merged into "Mod Cases" and counted twice.)
+      const [warnings, cases, caseTotal] = await Promise.all([
         getWarningsForUser(guildId, target.id),
-        getModerationCases(guildId, target.id, 100),
+        ModerationCaseModel.find({ guildId, userId: target.id })
+          .select("_id action reason moderatorId revoked createdAt")
+          .sort({ createdAt: -1 })
+          .limit(INFRACTION_CASES_LOADED)
+          .lean(),
+        ModerationCaseModel.countDocuments({ guildId, userId: target.id }),
       ]);
 
       const member = await interaction.guild?.members.fetch(target.id).catch(() => null);
 
-      const actionCounts: Record<string, number> = {};
-      for (const c of cases) {
-        actionCounts[c.action] = (actionCounts[c.action] ?? 0) + 1;
-      }
-      const actionSummary = Object.entries(actionCounts)
-        .map(([k, v]) => `\`${k}\` ×${v}`)
-        .join("  ") || "None";
+      const summary = actionSummary(cases) + (caseTotal > cases.length ? ` (newest ${cases.length} of ${caseTotal})` : "");
+      const caseCountText = caseTotal > cases.length ? `${caseTotal} (newest ${cases.length} listed)` : String(caseTotal);
 
       let currentView: InfractionsView = "overview";
       let warnPage = 0;
@@ -74,19 +102,19 @@ export const command: Command = {
             { name: "📅 Account Created", value: `<t:${Math.floor(target.createdTimestamp / 1000)}:D>`, inline: true },
             { name: "📥 Joined Server",   value: member?.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:D>` : "Unknown", inline: true },
             { name: "⚠️ Warnings",        value: `**${warnings.length}**`, inline: true },
-            { name: "📋 Mod Cases",       value: `**${cases.length}**`, inline: true },
-            { name: "🔍 Action Summary",  value: actionSummary, inline: false },
+            { name: "📋 Mod Cases",       value: `**${caseCountText}**`, inline: true },
+            { name: "🔍 Action Summary",  value: truncate(summary, 1024), inline: false },
             {
               name: "📌 Latest Warning",
               value: recentWarn
-                ? `\`${recentWarn.reason}\` — <t:${Math.floor(new Date(recentWarn.createdAt).getTime() / 1000)}:R>`
+                ? `\`${reasonLine(recentWarn.reason, 300)}\` — <t:${Math.floor(new Date(recentWarn.createdAt).getTime() / 1000)}:R>`
                 : "None on record",
               inline: false,
             },
             {
               name: "📌 Latest Case",
               value: recentCase
-                ? `\`${recentCase.action.toUpperCase()}\` — ${recentCase.reason} — <t:${Math.floor(new Date(recentCase.createdAt).getTime() / 1000)}:R>`
+                ? `\`${recentCase.action.toUpperCase()}\` — ${reasonLine(recentCase.reason, 300)} — <t:${Math.floor(new Date(recentCase.createdAt).getTime() / 1000)}:R>${recentCase.revoked ? " *(revoked)*" : ""}`
                 : "None on record",
               inline: false,
             },
@@ -102,8 +130,9 @@ export const command: Command = {
           ? ["✅ No warnings on record."]
           : slice.map((w, i) => {
               const ts = Math.floor(new Date(w.createdAt).getTime() / 1000);
-              const id = String(w._id).slice(-6);
-              return `**${page * WARNS_PER_PAGE + i + 1}.** \`${w.reason}\`\n> Mod: <@${w.moderatorId}> • <t:${ts}:R> • ID: \`${id}\``;
+              // The full ID, so it can be pasted into /case edit (which also edits warnings).
+              const id = String(w._id);
+              return `**${page * WARNS_PER_PAGE + i + 1}.** \`${reasonLine(w.reason)}\`\n> Mod: <@${w.moderatorId}> • <t:${ts}:R> • ID: \`${id}\``;
             });
         return new EmbedBuilder()
           .setColor(0xFEE75C)
@@ -125,13 +154,13 @@ export const command: Command = {
           : slice.map((c, i) => {
               const ts  = Math.floor(new Date(c.createdAt).getTime() / 1000);
               const emo = ACTION_EMOJI[c.action] ?? "📋";
-              return `**${page * CASES_PER_PAGE + i + 1}.** ${emo} \`${c.action.toUpperCase()}\`\n> ${c.reason}\n> Mod: <@${c.moderatorId}> • <t:${ts}:R>`;
+              return `**${page * CASES_PER_PAGE + i + 1}.** ${emo} \`${c.action.toUpperCase()}\`${c.revoked ? " *(revoked)*" : ""}\n> ${reasonLine(c.reason)}\n> Mod: <@${c.moderatorId}> • <t:${ts}:R> • ID: \`${String(c._id)}\``;
             });
         return new EmbedBuilder()
           .setColor(0xE67E22)
           .setTitle(`📋 Mod Cases — ${target.tag}`)
           .setDescription(lines.join("\n\n"))
-          .setFooter({ text: `Page ${page + 1}/${totalPages} • ${cases.length} total case(s)` })
+          .setFooter({ text: `Page ${page + 1}/${totalPages} • ${caseCountText} case(s) • /case view case_id:<id> for details` })
           .setTimestamp();
       }
 
@@ -152,7 +181,7 @@ export const command: Command = {
             .setEmoji("⚠️"),
           new ButtonBuilder()
             .setCustomId("inf_cases")
-            .setLabel(`Cases (${cases.length})`)
+            .setLabel(`Cases (${caseTotal})`)
             .setStyle(view === "cases" ? ButtonStyle.Primary : ButtonStyle.Secondary)
             .setEmoji("📋"),
           new ButtonBuilder()

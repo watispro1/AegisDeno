@@ -96,6 +96,18 @@ This is the hierarchy guard working correctly. The _moderator_ running the comma
 2. The spam detector uses an in-memory window. It resets on bot restart. After a restart, the counter starts fresh.
 3. Bot roles and channel exemptions bypass spam checks.
 
+### Automod warned or timed out only once during a spam burst
+
+This is intended. After automod warns or times out a member, their further hits in the next 60 seconds are deleted but not punished or logged again, so one burst cannot stack warnings into an escalation ban. The next log entry for that member has a **Folded in** field with the count.
+
+---
+
+## Mass bans
+
+### `/massban` skipped some IDs
+
+The result lists why: the ID is you, Aegis or the owner, the member's top role is equal to or above yours or Aegis's, or the user is already banned. Move the Aegis role higher in **Server Settings → Roles** for the "above mine" case. At most 50 IDs are processed per run; run it again for the rest.
+
 ---
 
 ## Scheduler / reminders not firing

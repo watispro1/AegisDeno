@@ -118,7 +118,9 @@ test("softban and temprole are case types everywhere cases are filtered or label
     assert.ok((CASE_TYPES as readonly string[]).includes(t));
   }
   for (const f of ["case.ts", "modhistory.ts", "modstats.ts", "modreport.ts", "infractions.ts"]) {
-    const src = fs.readFileSync(`src/commands/moderation/${f}`, "utf8");
+    // /case keeps its action icons next to the /case user list in case/user.ts.
+    const src = fs.readFileSync(`src/commands/moderation/${f}`, "utf8")
+      + (f === "case.ts" ? fs.readFileSync("src/commands/moderation/case/user.ts", "utf8") : "");
     assert.match(src, /softban:/, f);
     assert.match(src, /temprole:/, f);
   }

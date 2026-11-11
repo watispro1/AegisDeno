@@ -1,21 +1,18 @@
-import { guardCollect } from "../../utils/collectorGuard";
 import {
   PermissionFlagsBits,
   SlashCommandBuilder,
   EmbedBuilder,
   AttachmentBuilder,
   MessageFlags,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ComponentType,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { isValidObjectId } from "mongoose";
-import { ModerationCaseModel, WarningModel } from "../../database/mongo";
+import { ModerationCaseModel } from "../../database/mongo";
 import { sendGuildLog } from "../../services/logging";
 import { editCaseReason } from "../../services/moderationCases";
-import { MAX_CASES_BROWSABLE, pageInfo, stepPage } from "../../services/casePaging";
+import { CASE_USER_ACTIONS } from "../../services/casePaging";
+import { CASE_ACTION_ICONS, runCaseUser } from "./case/user";
+import { truncate as clip } from "../../utils/safeText";
 import { rankChoices, shortAge, type AutocompleteItem } from "../../utils/autocomplete";
 import { requestConfirmation } from "../../utils/confirmation";
 import { addCaseSearchSubcommand, runCaseSearch } from "../shared/caseSearch";
@@ -62,6 +59,9 @@ export const command: Command = {
         .setName("user")
         .setDescription("List recent moderation cases for a specific member.")
         .addUserOption(opt => opt.setName("user").setDescription("The member whose cases to list").setRequired(true))
+        .addStringOption(opt => opt.setName("action").setDescription("Only cases with this action")
+          .addChoices(...CASE_USER_ACTIONS.map(a => ({ name: a, value: a }))))
+        .addBooleanOption(opt => opt.setName("hide_revoked").setDescription("Leave out cases that were undone (default: show them)"))
     )
     .addSubcommand(addCaseSearchSubcommand)
     .addSubcommand(sub =>
@@ -114,19 +114,6 @@ export const command: Command = {
     if (!interaction.guild) return;
     const subcommand = interaction.options.getSubcommand();
 
-    const ACTION_ICONS: Record<string, string> = {
-      ban: "🔨",
-      softban: "🧹",
-      temprole: "🏷️",
-      unban: "↩️",
-      kick: "👢",
-      timeout: "⏱️",
-      untimeout: "🔓",
-      warn: "⚠️",
-      purge: "🗑️",
-      lock: "🔒",
-      unlock: "🔓",
-    };
 
     if (subcommand === "search") {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
@@ -155,7 +142,7 @@ export const command: Command = {
         return;
       }
 
-      const icon = ACTION_ICONS[record.action.toLowerCase()] ?? "📜";
+      const icon = CASE_ACTION_ICONS[record.action.toLowerCase()] ?? "📜";
       const embed = new EmbedBuilder()
         .setTitle(`${icon} Moderation Case #${caseId}`)
         .setColor(record.action === "ban" ? 0xED4245 : (record.action === "timeout" ? 0xFEE75C : 0x3498DB))
@@ -163,8 +150,8 @@ export const command: Command = {
           { name: "👤 Target User", value: `<@${record.userId}> (\`${record.userId}\`)`, inline: true },
           { name: "🛡️ Moderator",   value: `<@${record.moderatorId}>`, inline: true },
           { name: "⚖️ Action",      value: `\`${record.action.toUpperCase()}\``, inline: true },
-          { name: "📝 Reason",      value: record.reason || "No reason provided", inline: false },
-          ...(record.details ? [{ name: "ℹ️ Details", value: record.details, inline: false }] : []),
+          { name: "📝 Reason",      value: clip(record.reason || "No reason provided", 1024), inline: false },
+          ...(record.details ? [{ name: "ℹ️ Details", value: clip(record.details, 1024), inline: false }] : []),
           ...(record.proofUrl ? [{ name: "📎 Proof", value: `[Attachment](${record.proofUrl})`, inline: false }] : []),
           ...(record.revoked ? [{
             name: "↩️ Revoked",
@@ -186,61 +173,7 @@ export const command: Command = {
         return;
       }
 
-      const user = interaction.options.getUser("user", true);
-      const records = await ModerationCaseModel.find({ guildId: interaction.guild.id, userId: user.id })
-        .sort({ createdAt: -1 })
-        .limit(MAX_CASES_BROWSABLE)
-        .lean();
-
-      if (records.length === 0) {
-        await interaction.reply({ content: `✅ No moderation cases found on record for **${user.tag}** (<@${user.id}>).`, flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const prevId = `case_prev_${interaction.id}`;
-      const nextId = `case_next_${interaction.id}`;
-      let page = 0;
-
-      const render = (requested: number) => {
-        const info = pageInfo(records.length, requested);
-        const lines = records.slice(info.start, info.end).map((r, i) => {
-          const icon = ACTION_ICONS[r.action.toLowerCase()] ?? "📜";
-          const dateStr = `<t:${Math.floor(new Date(r.createdAt).getTime() / 1000)}:R>`;
-          const flags = `${r.revoked ? " · *revoked*" : ""}${r.proofUrl ? " · 📎" : ""}`;
-          return `**${info.start + i + 1}.** ${icon} \`${r.action.toUpperCase()}\` — ${r.reason} (${dateStr})\n└ *ID:* \`${String(r._id)}\` · *Mod:* <@${r.moderatorId}>${flags}`;
-        });
-        const embed = new EmbedBuilder()
-          .setTitle(`📜 Case History for ${user.tag} (${records.length}${records.length >= MAX_CASES_BROWSABLE ? "+" : ""})`)
-          .setThumbnail(user.displayAvatarURL())
-          .setColor(0x5865F2)
-          .setDescription(lines.join("\n\n"))
-          .setFooter({ text: `Page ${info.page + 1}/${info.totalPages} · /case view case_id:<id> for details` })
-          .setTimestamp();
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder().setCustomId(prevId).setLabel("Prev").setEmoji("◀️").setStyle(ButtonStyle.Secondary).setDisabled(!info.hasPrev),
-          new ButtonBuilder().setCustomId(nextId).setLabel("Next").setEmoji("▶️").setStyle(ButtonStyle.Secondary).setDisabled(!info.hasNext),
-        );
-        return { embeds: [embed], components: info.totalPages > 1 ? [row] : [] };
-      };
-
-      const first = render(page);
-      const response = await interaction.reply({ ...first, flags: MessageFlags.Ephemeral, withResponse: true });
-      if (first.components.length === 0) return;
-      const message = response.resource?.message;
-      if (!message) return;
-
-      const collector = message.createMessageComponentCollector({
-        componentType: ComponentType.Button,
-        time: 120_000,
-        filter: (i) => i.user.id === interaction.user.id && (i.customId === prevId || i.customId === nextId),
-      });
-      collector.on("collect", (i) => guardCollect("case", i, async () => {
-        page = stepPage(page, i.customId === nextId ? "next" : "prev", records.length);
-        await i.update(render(page)).catch(() => null);
-      }));
-      collector.on("end", () => {
-        interaction.editReply({ components: [] }).catch(() => null);
-      });
+      await runCaseUser(interaction);
       return;
     }
 
@@ -296,7 +229,7 @@ export const command: Command = {
         return;
       }
 
-      const icon = ACTION_ICONS[record.action.toLowerCase()] ?? "📜";
+      const icon = CASE_ACTION_ICONS[record.action.toLowerCase()] ?? "📜";
       const answer = await requestConfirmation(interaction, {
         embeds: [
           new EmbedBuilder()

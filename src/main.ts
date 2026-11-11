@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { REST, Routes } from "discord.js";
+import { Events, REST, Routes } from "discord.js";
 import { loadCommands, commands } from "./commands/loader";
 import { commandRegistrationData } from "./commands/registration";
 import { createClient, setupEvents } from "./bot/client";
@@ -9,6 +9,8 @@ import { logger } from "./utils/logger";
 import { startWebServer } from "./web/server";
 import { flushMemberActivity } from "./services/memberActivity";
 import { statusMonitor } from "./services/statusMonitor";
+import { createShutdown } from "./utils/shutdown";
+import { shutdownGiveawayTimers } from "./services/giveawayService";
 
 const TOKEN           = process.env.DISCORD_TOKEN!;
 const APPLICATION_ID  = process.env.DISCORD_APPLICATION_ID!;
@@ -82,7 +84,8 @@ async function main(): Promise<void> {
     // Keep booting: the commands are usually still registered from the last run.
   }
 
-  client.once("ready", async (c) => {
+  // "ready" is deprecated in discord.js 14.22+; clientReady is the same event.
+  client.once(Events.ClientReady, async (c) => {
     // Clear any leftover guild commands so they never duplicate with global commands
     try {
       const rest = new REST({ version: "10" }).setToken(TOKEN);
@@ -106,17 +109,21 @@ async function main(): Promise<void> {
     startLowTrustSync(c);
   });
 
-  const shutdown = async (signal: string) => {
-    logger.info(`received ${signal}, shutting down`);
-    shutdownScheduler();
-    await flushMemberActivity().catch(err => logger.warn("Activity flush error:", err));
-    await closeDatabase().catch(err => logger.error("Database shutdown error:", err));
-    client.destroy();
-    process.exit(0);
-  };
+  // Order matters: stop timers first so nothing new starts, disconnect from
+  // Discord so no more events arrive, then flush buffered writes and close Mongo.
+  const shutdown = createShutdown({
+    log: logger,
+    steps: [
+      { name: "scheduler", run: () => shutdownScheduler() },
+      { name: "giveaway timers", run: () => shutdownGiveawayTimers() },
+      { name: "discord client", run: () => client.destroy() },
+      { name: "activity flush", run: () => flushMemberActivity() },
+      { name: "database", run: () => closeDatabase() },
+    ],
+  });
 
-  process.on("SIGINT",  () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT",  () => { void shutdown("SIGINT"); });
+  process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
   process.on("uncaughtException",  err => logger.error("Uncaught Exception:", err));
   process.on("unhandledRejection", err => logger.error("Unhandled Rejection:", err));
 
