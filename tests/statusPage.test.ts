@@ -110,7 +110,7 @@ test("page: banner, components, metrics, bars and notices; CSP-safe markup; scri
   assert.match(html, /class="status-banner warn"/, "an open incident makes the banner amber");
   assert.match(html, /data-component="database"/);
   assert.match(html, /data-status-metric="shards"/);
-  assert.equal((html.match(/class="ub ub-/g) ?? []).length, 52);
+  assert.equal((html.match(/<li class="ub ub-/g) ?? []).length, 52, "24 hourly + 28 six-hour bars");
   assert.match(html, /ub-warn|ub-bad/);
   assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/, "notice text is escaped");
   assert.doesNotMatch(html, /\sstyle=|\son[a-z]+=/i, "no inline styles or handlers");

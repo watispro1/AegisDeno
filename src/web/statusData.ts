@@ -27,7 +27,13 @@ export interface StatusInput {
 }
 
 export interface StatusComponent { id: string; name: string; state: ComponentState; detail: string }
-export interface HistoryWindow { label: string; uptime: number | null; buckets: Array<{ start: string; end: string; uptime: number | null }> }
+export interface HistoryWindow {
+  label: string;
+  uptime: number | null;
+  /** Average gateway heartbeat over the window (connected samples only), or null with no data. */
+  pingMs: number | null;
+  buckets: Array<{ start: string; end: string; uptime: number | null; pingMs: number | null }>;
+}
 
 export interface StatusPayload {
   status: OverallState;
@@ -75,11 +81,38 @@ export function registrationState(r: CommandRegistration): StatusComponent {
   return { ...base, state: "degraded", detail: "The last registration failed; commands already registered keep working" };
 }
 
+/**
+ * Average gateway heartbeat per bucket, using the same bucket edges as
+ * bucketize(). Only samples taken while connected with a measured ping count;
+ * a bucket without any is null (no data, never zero).
+ */
+export function pingSeries(samples: readonly HeartbeatSample[], nowMs: number, spanMs: number, count: number): Array<number | null> {
+  const size = spanMs / count;
+  const start = nowMs - spanMs;
+  const sum = new Array<number>(count).fill(0);
+  const n = new Array<number>(count).fill(0);
+  for (const s of samples) {
+    if (s.at < start || s.at > nowMs || !s.gateway || !(s.ping > 0)) continue;
+    const i = Math.min(count - 1, Math.floor((s.at - start) / size));
+    sum[i] += s.ping;
+    n[i]++;
+  }
+  return sum.map((total, i) => (n[i] ? Math.round(total / n[i]) : null));
+}
+
 function windowOf(label: string, samples: readonly HeartbeatSample[], nowMs: number, spanMs: number, count: number): HistoryWindow {
+  const pings = pingSeries(samples, nowMs, spanMs, count);
+  const measured = samples.filter(s => s.at >= nowMs - spanMs && s.at <= nowMs && s.gateway && s.ping > 0);
   return {
     label,
     uptime: uptimeRatio(samples, nowMs, spanMs),
-    buckets: bucketize(samples, nowMs, spanMs, count).map(b => ({ start: new Date(b.start).toISOString(), end: new Date(b.end).toISOString(), uptime: b.uptime === null ? null : Math.round(b.uptime * 10000) / 10000 })),
+    pingMs: measured.length ? Math.round(measured.reduce((t, s) => t + s.ping, 0) / measured.length) : null,
+    buckets: bucketize(samples, nowMs, spanMs, count).map((b, i) => ({
+      start: new Date(b.start).toISOString(),
+      end: new Date(b.end).toISOString(),
+      uptime: b.uptime === null ? null : Math.round(b.uptime * 10000) / 10000,
+      pingMs: pings[i],
+    })),
   };
 }
 

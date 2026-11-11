@@ -26,7 +26,6 @@ export const cssResponsive = String.raw`/* ── Responsive ──────�
   .cmd-sticky .cmd-toolbar { gap: .5rem; margin-bottom: .5rem; }
   .cmd-sticky #cmd-expand { display: none; }
   .examples li { align-items: stretch; }
-  .release { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
   .feature-cmds div { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
   .toc-mobile ul { columns: 1; }
   .dc-embed { max-width: none; }
