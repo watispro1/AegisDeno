@@ -75,7 +75,7 @@ test("/changelog: product switch, stats, type filter, grouped version list and t
   assert.equal(opens.length, log.releases.length);
   opens.forEach((m, i) => assert.equal(Boolean(m[1]), i < OPEN_RELEASES, `release ${i} open state`));
   for (const r of log.releases) assert.ok(html.includes(`id="${r.id}"`), r.id);
-  assert.match(html, /class="release is-latest" id="v3\.8\.0"/);
+  assert.ok(html.includes(`class="release is-latest" id="v${VERSION}"`), "newest release is marked latest");
   assert.ok(html.includes('<span class="vbadge vb-major">Major</span>'), "major bump badge (3.0.0)");
   assert.ok(html.includes('<span class="vbadge vb-initial">First release</span>'), "first release badge");
   assert.match(html, /<section class="change-group" data-kind="security">/);

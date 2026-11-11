@@ -41,6 +41,15 @@ No new permissions or environment variables.
 - Batch verification (`/verify batch`) looks members up in one request
   instead of one per ID, and says up front when the verified role is missing,
   managed or above Aegis's role.
+- Website redesign. `/changelog` and `/dashboard/changelog` share one
+  timeline with a Bot and Dashboard switch, version badges, change-type
+  filters, search down to single entries and a new `/changelog.json` feed.
+  `/status` has a live banner with auto-refresh, active incidents at the top
+  and a gateway latency chart (`/api/status` adds `pingMs` history). The home,
+  commands, docs, troubleshooting and 404 pages are rebuilt: permission badges
+  and copyable usage on `/commands`, filters that work without JavaScript,
+  copy buttons on docs command blocks, deep links to each troubleshooting fix
+  and command search on the 404 page. The Content Security Policy is unchanged.
 
 ### Fixed
 - An automod burst no longer stacks penalties. Ten quick messages over the
