@@ -110,7 +110,9 @@ type Checked = Pick<Command, "guildOnly" | "userPermissions" | "botPermissions">
 
 /** How a command is named to the member: "/ban" or "User Info". */
 function invocationLabel(interaction: CommandInteraction): string {
-  return interaction.isChatInputCommand() ? `/${interaction.commandName}` : interaction.commandName;
+  // Context menus report a command type; slash commands (and lightweight test fakes) are treated as "/name".
+  const isMenu = typeof interaction.isContextMenuCommand === "function" && interaction.isContextMenuCommand();
+  return isMenu ? interaction.commandName : `/${interaction.commandName}`;
 }
 
 /** The first failed pre-check as a user-facing message, or null when the command may run. */
