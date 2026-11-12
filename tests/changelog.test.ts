@@ -276,13 +276,28 @@ test("dashboard 1.5.0 modules: newest dashboard release", () => {
   assert.equal(DASHBOARD_VERSION, "1.5.0");
 });
 
-test("3.11.0: newest bot release, records the command improvements and the deploy note", () => {
+test("3.11.0: records the command improvements and the deploy note", () => {
   const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
-  assert.equal(bot[0].version, "3.11.0");
-  assert.equal(bot[0].date, "2026-11-12");
-  assert.equal(VERSION, "3.11.0");
-  assert.ok(bot[0].notes.join(" ").includes("npm run deploy"), "deploy note");
-  assert.deepEqual(bot[0].sections.map((s) => s.title), ["Added", "Changed", "Fixed"]);
-  const text = bot[0].sections.flatMap((s) => s.items).join(" ");
+  const r = bot.find((x) => x.version === "3.11.0")!;
+  assert.ok(r, "3.11.0 is still listed");
+  assert.equal(r.date, "2026-11-12");
+  assert.ok(r.notes.join(" ").includes("npm run deploy"), "deploy note");
+  assert.deepEqual(r.sections.map((s) => s.title), ["Added", "Changed", "Fixed"]);
+  const text = r.sections.flatMap((s) => s.items).join(" ");
   for (const needle of ["Error IDs", "Report Message", "User Info", "/userinfo", "/avatar", "/help", "Friendlier Discord errors"]) assert.ok(text.includes(needle), `3.11.0 mentions ${needle}`);
+});
+
+test("3.12.0: newest bot release, records the moderation and economy overhaul and the deploy note", () => {
+  const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
+  assert.equal(bot[0].version, "3.12.0");
+  assert.equal(bot[0].date, "2026-11-12");
+  assert.equal(VERSION, "3.12.0");
+  assert.ok(bot[0].notes.join(" ").includes("npm run deploy"), "deploy note");
+  assert.deepEqual(bot[0].sections.map((s) => s.title), ["Added", "Changed", "Removed"]);
+  const text = bot[0].sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["Remind Me About This", "Timed slowmode", "Quick purges", "/roleinfo", "/serverinfo", "/leaderboard", "/shop view", "/inventory", "/transactions"]) assert.ok(text.includes(needle), `3.12.0 mentions ${needle}`);
+  const removed = bot[0].sections.find((s) => s.title === "Removed")!;
+  assert.ok(removed.items.some((i) => i.includes("/transactions") && i.includes("count")), "count option removal listed");
+  const items = bot[0].sections.flatMap((s) => s.items);
+  assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
