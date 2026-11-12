@@ -1,5 +1,8 @@
 import type {
   ChatInputCommandInteraction,
+  ContextMenuCommandBuilder,
+  MessageContextMenuCommandInteraction,
+  UserContextMenuCommandInteraction,
   Client,
   GuildMember,
   InteractionResponse,
@@ -42,6 +45,23 @@ export interface Command {
   execute(interaction: ChatInputCommandInteraction): Promise<void | InteractionResponse<boolean>>;
   /** Optional slash-command autocomplete handler. */
   autocomplete?(interaction: import("discord.js").AutocompleteInteraction): Promise<void>;
+}
+
+/**
+ * A right-click command (Apps menu) on a user or a message. Runs through the
+ * same executor as slash commands: guild-only, permission and cooldown checks,
+ * then error reporting with an error ID.
+ */
+export interface ContextMenu {
+  data: ContextMenuCommandBuilder;
+  /** One line for /help, e.g. "Right-click a message → Apps → Report Message". */
+  description: string;
+  guildOnly?: boolean;
+  userPermissions?: PermissionResolvable[];
+  botPermissions?: PermissionResolvable[];
+  /** Per-user cooldown in milliseconds; defaults to 1500. 0 turns it off. */
+  cooldownMs?: number;
+  execute(interaction: UserContextMenuCommandInteraction | MessageContextMenuCommandInteraction): Promise<unknown>;
 }
 
 // Compatibility aliases retained for existing modules.
