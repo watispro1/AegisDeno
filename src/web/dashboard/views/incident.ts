@@ -6,6 +6,15 @@ import type { IncidentRecord } from "../../../services/incidentStore";
 import { type GuildContext, copyId, csrfField, emptyState, fmtDate, idCode, notice, person, relTime } from "./layout";
 import { Form, channelPicks, type FormState, type Values } from "./form";
 import { errorSummary, modulePage } from "./parts";
+import { helpPanel, listFoot, listTools, pagedTable, pill, rowAttrs, summaryStrip } from "./moduleKit";
+
+const OPTION_HELP: Array<[string, string]> = [
+  ["Slowmode", "Sets a per-member delay in busy channels. Channels that are already slower keep their own setting."],
+  ["Lock", "Stops @everyone sending in public channels, or only the ones you pick."],
+  ["Join gate", "New accounts younger than the age you set are timed out or kicked as they join. Bots and members above Aegis are never gated."],
+  ["Pause invites", "Stops new joins through invites while the incident runs. Needs Manage Server for Aegis."],
+  ["Undo", "Everything is recorded and put back exactly when the incident ends, whether you end it or the timer does."],
+];
 
 export function incidentValues(o: IncidentOptions, auto?: IncidentConfig["autoTrigger"]): Values {
   return {
@@ -75,6 +84,7 @@ export function renderIncident(cfg: SiteConfig, ctx: GuildContext, o: {
     : `<section class="panel-card" aria-labelledby="inc-start-h">
         <h2 id="inc-start-h">Start Incident Mode</h2>
         <p class="muted">For raids and spam waves. Everything Aegis changes is recorded and put back exactly when the incident ends, by you or on its timer. Staff are alerted in the mod log without pings.</p>
+        ${helpPanel("What each option does", OPTION_HELP)}
         ${errorSummary(o.startState?.errors ?? {}, "f-inc-")}
         <form class="dash-form" method="post" action="${base}/start" novalidate data-confirm="Start Incident Mode now? Channels change immediately.">
           ${csrfField(ctx.viewer)}
@@ -84,12 +94,24 @@ export function renderIncident(cfg: SiteConfig, ctx: GuildContext, o: {
         </form>
       </section>`;
   const history = o.recent.filter(r => r.status === "ended");
+  const auto = o.config.autoTrigger;
+  const last = history.reduce<Date | null>((best, r) => {
+    const d = new Date(r.endedAt ?? r.startedAt);
+    return !best || d > best ? d : best;
+  }, null);
+  const strip = summaryStrip([
+    { label: "Status", value: "", html: a ? pill("Active", "bad") : pill("Standing by", "ok"), hint: a ? "Channels are changed" : "Nothing changed" },
+    { label: "Auto-trigger", value: auto.enabled ? "On" : "Off", tone: auto.enabled ? "ok" : "off", hint: auto.enabled ? `${auto.joins} joins in ${auto.seconds}s` : "Start it by hand" },
+    { label: "Past incidents", value: history.length, hint: "Kept 90 days" },
+    { label: "Last one", value: "—", html: last ? relTime(last) : undefined },
+  ], "Incident Mode summary");
   return modulePage(cfg, ctx, {
     active: "incident",
     title: "Incident Mode",
     lead: "Raid protection in one switch: slowmode, lockdown, a join gate for new accounts and paused invites, all undone exactly when it ends. Same as <code class=\"inline\">/incident</code>.",
     path: base,
     body: `${notice(o.noticeCode)}
+  ${strip}
   ${activeCard}
   <section class="panel-card" aria-labelledby="inc-def-h">
     <h2 id="inc-def-h">Defaults and auto-trigger</h2>
@@ -109,15 +131,18 @@ export function renderIncident(cfg: SiteConfig, ctx: GuildContext, o: {
     </form>
   </section>
   <h2>Past incidents</h2>
-  ${history.length ? `<div class="table-wrap"><table class="case-table">
+  ${history.length ? `${history.length > 1 ? listTools("inc-history", {
+    search: "Filter by reason",
+    sorts: [{ value: "joins:desc", label: "Most joins" }, { value: "gated:desc", label: "Most gated" }, { value: "length:desc", label: "Longest" }, { value: "started:asc", label: "Oldest first" }],
+  }) : ""}<div class="table-wrap"><table class="case-table" id="inc-history"${pagedTable(10)}>
     <caption class="visually-hidden">Past incidents</caption>
     <thead><tr><th scope="col">Started</th><th scope="col">Length</th><th scope="col">Reason</th><th scope="col">Joins</th><th scope="col">Gated</th><th scope="col">Report</th></tr></thead>
-    <tbody>${history.map(r => `<tr>
+    <tbody>${history.map(r => `<tr${rowAttrs(r.trigger === "auto" ? "auto" : "manual", { joins: r.counts.joins, gated: r.counts.gated, started: new Date(r.startedAt).getTime(), length: (r.endedAt ? new Date(r.endedAt).getTime() : Date.now()) - new Date(r.startedAt).getTime() })}>
       <td data-label="Started">${relTime(new Date(r.startedAt))}</td>
       <td data-label="Length">${esc(formatMinutes(((r.endedAt ? new Date(r.endedAt).getTime() : Date.now()) - new Date(r.startedAt).getTime()) / 60_000))}</td>
-      <td data-label="Reason">${esc(r.reason.slice(0, 80))}</td>
+      <td data-label="Reason">${esc(r.reason.slice(0, 80))}${r.trigger === "auto" ? ` ${pill("auto", "info")}` : ""}</td>
       <td data-label="Joins">${r.counts.joins}</td><td data-label="Gated">${r.counts.gated}</td>
-      <td data-label="Report"><a href="${base}/${esc(r.id)}">View</a></td></tr>`).join("")}</tbody></table></div>`
+      <td data-label="Report"><a class="btn sm ghost" href="${base}/${esc(r.id)}">View report</a></td></tr>`).join("")}</tbody></table></div>${history.length > 1 ? listFoot("inc-history") : ""}`
     : emptyState("No past incidents.", "Reports are kept for 90 days after an incident ends.")}`,
   });
 }

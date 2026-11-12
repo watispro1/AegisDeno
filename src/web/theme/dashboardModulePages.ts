@@ -43,6 +43,9 @@ tr[data-chip-out], tr[data-paged-out] { display: none; }
 .cell-actions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
 .cell-actions .inline-form { margin: 0; }
 
+.amount-in { color: var(--ok); font-variant-numeric: tabular-nums; }
+.amount-out { color: var(--danger); font-variant-numeric: tabular-nums; }
+
 /* Help panel */
 .help-panel { margin: 0 0 1rem; border: 1px solid var(--border); border-radius: var(--r-lg, var(--r)); background: var(--surface); }
 .help-panel > summary { padding: .6rem .9rem; cursor: pointer; font-weight: 600; font-size: .9rem; }

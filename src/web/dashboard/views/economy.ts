@@ -9,7 +9,8 @@ import { EFFECT_LABELS, EFFECT_LIMITS, effectSummary } from "../../../services/e
 export { economyValues };
 import { type GuildContext, copyId, csrfField, emptyState, notice, person, relTime } from "./layout";
 import { Form, type FormState, type Values } from "./form";
-import { actionButton, errorSummary, modulePage, pagerNav, tableFilter } from "./parts";
+import { actionButton, errorSummary, modulePage, pagerNav } from "./parts";
+import { helpPanel, listFoot, listTools, pagedTable, pill, rowAttrs, sectionJump, summaryStrip } from "./moduleKit";
 
 export const ECONOMY_LEADERBOARD_PAGE = 25;
 export const ECONOMY_TX_LIMIT = 25;
@@ -88,25 +89,33 @@ function shopTable(ctx: GuildContext, d: EconomyPageData, base: string): string 
   if (!d.items.length) return emptyState("The shop is empty.", "Add an item below, or with <code class=\"inline\">/shop add</code>.");
   const roleName = (id: string | null) => (id ? `@${esc(d.roles.find(r => r.id === id)?.name ?? id)}` : "—");
   const editing = d.pageState?.form.startsWith("edit:") ? d.pageState.form.slice(5) : null;
-  return `${tableFilter("eco-shop", "Filter items")}<div class="table-wrap"><table class="case-table" id="eco-shop"><caption class="visually-hidden">Shop items</caption>
+  const kindOf = (i: ShopItem) => (i.effect ? "effect" : i.roleId ? "role" : "collectible");
+  const count = (k: string) => d.items.filter(i => kindOf(i) === k).length;
+  const soldOut = d.items.filter(i => i.stock === 0).length;
+  return `${d.items.length > 1 ? listTools("eco-shop", {
+    search: "Filter items",
+    chipLabel: "Show items",
+    chips: [{ value: "role", label: "Roles", count: count("role") }, { value: "effect", label: "Effects", count: count("effect") }, { value: "collectible", label: "Collectibles", count: count("collectible") }].filter(c => c.count),
+    sorts: [{ value: "price:asc", label: "Cheapest first" }, { value: "price:desc", label: "Dearest first" }, { value: "name:asc", label: "Name A–Z" }, { value: "stock:asc", label: "Lowest stock" }],
+  }) : ""}${soldOut ? `<p class="faint">${pill(`${soldOut} sold out`, "warn")} Raise the stock in Edit to sell more.</p>` : ""}<div class="table-wrap"><table class="case-table" id="eco-shop"${pagedTable(15)}><caption class="visually-hidden">Shop items</caption>
     <thead><tr><th scope="col">Item</th><th scope="col">Price</th><th scope="col">Role</th><th scope="col">Stock</th><th scope="col">Limit</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
     <tbody>${d.items.map(i => {
       const open = editing === i.id;
       const f = new Form(open && d.pageState ? d.pageState.state : { values: itemValues(i), errors: {} }, `eco-e${i.id.slice(-6)}-`);
-      return `<tr>
+      return `<tr${rowAttrs(kindOf(i), { price: i.price, name: i.name.toLowerCase(), stock: i.stock === null ? 1e15 : i.stock })}>
       <td data-label="Item"><strong>${esc(i.name)}</strong>${i.description ? `<br><span class="faint">${esc(i.description)}</span>` : ""}</td>
       <td data-label="Price">${esc(formatCoins(d.config, i.price))}</td>
       <td data-label="Role">${i.effect ? esc(effectSummary(i.effect, i.effectHours ?? 0, i.effectPercent)) : `${roleName(i.roleId)}${i.roleId && i.roleDurationHours ? ` · ${i.roleDurationHours}h` : ""}${i.roleId && i.useToGrant ? " · on /use" : ""}`}</td>
-      <td data-label="Stock">${i.stock === null ? "Unlimited" : i.stock === 0 ? "Sold out" : i.stock.toLocaleString("en-US")}</td>
+      <td data-label="Stock">${i.stock === null ? "Unlimited" : i.stock === 0 ? pill("Sold out", "bad") : i.stock <= 5 ? `${i.stock.toLocaleString("en-US")} ${pill("low", "warn")}` : i.stock.toLocaleString("en-US")}</td>
       <td data-label="Limit">${i.perUserLimit === null ? "—" : `${i.perUserLimit} each`}</td>
-      <td><details class="row-edit"${open ? " open" : ""}><summary class="btn sm ghost">Edit</summary>
+      <td data-label="Actions" class="cell-actions-td"><details class="row-edit"${open ? " open" : ""}><summary class="btn sm ghost">Edit</summary>
         ${open ? errorSummary(d.pageState!.state.errors, `f-eco-e${i.id.slice(-6)}-`) : ""}
         <form class="dash-form" method="post" action="${base}/shop/${esc(i.id)}/edit" novalidate>${csrfField(ctx.viewer)}
           ${itemFields(f, d.roles)}
           <button class="btn sm" type="submit" data-save-button>Save item</button>
         </form></details>
         ${actionButton(`${base}/shop/${i.id}/remove`, ctx.viewer.csrf, "Remove", { danger: true, confirm: `Remove ${i.name} from the shop? Members who bought it keep it.` })}</td></tr>`;
-    }).join("")}</tbody></table></div>`;
+    }).join("")}</tbody></table></div>${d.items.length > 1 ? listFoot("eco-shop") : ""}`;
 }
 
 function leaderboardTable(ctx: GuildContext, d: EconomyPageData, base: string): string {
@@ -126,20 +135,27 @@ function leaderboardTable(ctx: GuildContext, d: EconomyPageData, base: string): 
 
 function transactionsTable(ctx: GuildContext, d: EconomyPageData): string {
   if (!d.transactions.length) return emptyState("No transactions yet.", "Claims, payments, purchases and staff changes show up here for 90 days.");
-  return `${tableFilter("eco-tx", "Filter transactions")}<div class="table-wrap"><table class="case-table" id="eco-tx"><caption class="visually-hidden">Recent transactions</caption>
+  const dir = (t: Transaction) => (t.type.startsWith("admin_") ? "staff" : t.amount >= 0 ? "in" : "out");
+  return `${listTools("eco-tx", {
+    search: "Filter by member, type or note",
+    chipLabel: "Show transactions",
+    chips: [{ value: "in", label: "Coins in", count: d.transactions.filter(t => dir(t) === "in").length }, { value: "out", label: "Coins out", count: d.transactions.filter(t => dir(t) === "out").length }, { value: "staff", label: "Staff changes", count: d.transactions.filter(t => dir(t) === "staff").length }].filter(c => c.count),
+    sorts: [{ value: "amount:desc", label: "Largest gain" }, { value: "amount:asc", label: "Largest loss" }, { value: "when:asc", label: "Oldest first" }],
+  })}<div class="table-wrap"><table class="case-table" id="eco-tx"${pagedTable(10)}><caption class="visually-hidden">Recent transactions</caption>
     <thead><tr><th scope="col">When</th><th scope="col">Member</th><th scope="col">Type</th><th scope="col">Amount</th><th scope="col">Balance after</th><th scope="col">Details</th></tr></thead>
-    <tbody>${d.transactions.map(t => `<tr><td data-label="When">${relTime(t.createdAt)}</td>
+    <tbody>${d.transactions.map(t => `<tr${rowAttrs(dir(t), { amount: t.amount, when: t.createdAt.getTime() })}><td data-label="When">${relTime(t.createdAt)}</td>
       <td data-label="Member">${person(ctx, t.userId)}</td>
       <td data-label="Type">${esc(TX_LABELS[t.type] ?? t.type)}</td>
-      <td data-label="Amount">${t.amount > 0 ? "+" : ""}${t.amount.toLocaleString("en-US")}</td>
+      <td data-label="Amount"><span class="${t.amount > 0 ? "amount-in" : t.amount < 0 ? "amount-out" : ""}">${t.amount > 0 ? "+" : ""}${t.amount.toLocaleString("en-US")}</span></td>
       <td data-label="Balance after">${t.balanceAfter.toLocaleString("en-US")}</td>
-      <td data-label="Details">${[t.otherUserId ? `${t.type === "pay_in" ? "from" : "to"} ${person(ctx, t.otherUserId)}` : "", t.actorId ? `by ${person(ctx, t.actorId)}` : "", t.note ? esc(t.note) : ""].filter(Boolean).join(" · ") || "—"}</td></tr>`).join("")}</tbody></table></div>`;
+      <td data-label="Details">${[t.otherUserId ? `${t.type === "pay_in" ? "from" : "to"} ${person(ctx, t.otherUserId)}` : "", t.actorId ? `by ${person(ctx, t.actorId)}` : "", t.note ? esc(t.note) : ""].filter(Boolean).join(" · ") || "—"}</td></tr>`).join("")}</tbody></table></div>${listFoot("eco-tx")}`;
 }
 
 export function renderEconomy(cfg: SiteConfig, ctx: GuildContext, d: EconomyPageData): string {
   const base = `/dashboard/${esc(ctx.guild.id)}/economy`;
   const c = d.config;
   const ps = d.pageState;
+  const risky = [c.crimeEnabled, c.gamblingEnabled, c.robEnabled].filter(Boolean).length;
   const settings = new Form(ps?.form === "settings" ? ps.state : { values: economyValues(c), errors: {} }, "eco-");
   const add = new Form(ps?.form === "add" ? ps.state : { values: itemValues(null), errors: {} }, "eco-a-");
   const adjust = new Form(ps?.form === "adjust" ? ps.state : { values: { userId: "", action: "give", amount: "", reason: "" }, errors: {} }, "eco-j-");
@@ -149,11 +165,14 @@ export function renderEconomy(cfg: SiteConfig, ctx: GuildContext, d: EconomyPage
     lead: "Opt-in server coins: <code class=\"inline\">/daily</code>, <code class=\"inline\">/weekly</code>, <code class=\"inline\">/work</code>, <code class=\"inline\">/crime</code>, a bank, <code class=\"inline\">/pay</code>, optional gambling, a shop and a leaderboard. Same as <code class=\"inline\">/economy</code> and <code class=\"inline\">/shop</code>.",
     path: base,
     body: `${notice(d.noticeCode)}
-  <dl class="stat-grid">
-    <div class="stat"><dt>Status</dt><dd>${c.enabled ? "On" : "Off"}</dd></div>
-    <div class="stat"><dt>Members with coins</dt><dd>${d.leaderboard.total.toLocaleString("en-US")}</dd></div>
-    <div class="stat"><dt>Shop items</dt><dd>${d.items.length}</dd></div>
-  </dl>
+  ${summaryStrip([
+    { label: "Status", value: c.enabled ? "On" : "Off", tone: c.enabled ? "ok" : "off", hint: c.enabled ? "Commands are open" : "Commands are closed" },
+    { label: "Currency", value: `${c.currencyEmoji} ${c.currencyName}`.trim() },
+    { label: "Members with coins", value: d.leaderboard.total, href: "#eco-lb-h" },
+    { label: "Shop items", value: d.items.length, href: "#eco-shop-h", hint: d.items.some(i => i.stock === 0) ? "Some are sold out" : undefined, tone: d.items.some(i => i.stock === 0) ? "warn" : undefined },
+    { label: "Risky games", value: `${risky} of 3 on`, hint: "Crime, gambling, rob", tone: risky ? "warn" : "off" },
+  ], "Economy summary")}
+  ${sectionJump([["eco-cfg-h", "Settings"], ["eco-shop-h", "Shop"], ["eco-lb-h", "Leaderboard"], ["eco-adj-h", "Adjust a balance"], ["eco-tx-h", "Transactions"]])}
   <section class="panel-card" aria-labelledby="eco-switch-h"><h2 id="eco-switch-h">Economy is ${c.enabled ? "on" : "off"}</h2>
     <p class="faint">${c.enabled ? "Members can use the economy commands." : "Members can't use the economy commands. Balances and the shop are kept while it's off."}</p>
     ${actionButton(`${base}/toggle`, ctx.viewer.csrf, c.enabled ? "Turn the economy off" : "Turn the economy on", { ghost: false, danger: c.enabled, fields: { enabled: c.enabled ? "off" : "on" }, ...(c.enabled ? { confirm: "Turn the economy off? Members won't be able to use it until you turn it back on. Nothing is deleted." } : {}) })}
@@ -161,7 +180,13 @@ export function renderEconomy(cfg: SiteConfig, ctx: GuildContext, d: EconomyPage
   ${settingsSection(ctx, base, settings, ps?.form === "settings" ? ps.state.errors : {})}
   <section class="panel-card" aria-labelledby="eco-shop-h"><h2 id="eco-shop-h">Shop</h2>
     ${shopTable(ctx, d, base)}
-    <h3>Add an item</h3>
+    <h3 id="eco-add-h">Add an item</h3>
+    ${helpPanel("What an item can do", [
+      ["Role", "Bought items give the role straight away, or on <code class=\"inline\">/use</code> if you tick that. A duration takes it back later."],
+      ["Effect", "A rob shield or work boost, started on <code class=\"inline\">/use</code>. Effects and roles can't be combined."],
+      ["Collectible", "No role and no effect: it just sits in the inventory, and can be sold back if selling is on."],
+      ["Stock and limits", "Blank stock is unlimited; 0 is sold out. The per-member limit counts every unit ever bought."],
+    ])}
     ${errorSummary(ps?.form === "add" ? ps.state.errors : {}, "f-eco-a-")}
     <form class="dash-form" method="post" action="${base}/shop/add" novalidate>${csrfField(ctx.viewer)}
       ${itemFields(add, d.roles)}
