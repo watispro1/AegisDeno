@@ -8,6 +8,35 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.6.0] - 2026-11-12
+
+Dashboard 1.6.0. The module page layout from 1.5.0 now reaches the Trust,
+Members, Activity, Analytics, Automod and embed builder pages and the community
+pages: giveaways, suggestions, Ghost Watch, polls, starboard top posts and the
+staff digest. Released alongside bot version 3.12.0. No new environment
+variables or OAuth scopes.
+
+### Added
+- Summary strips on Trust, member pages, Activity, Analytics, Modules,
+  giveaways, suggestions, Ghost Watch, polls, starboard top posts and the staff
+  digest.
+- Search, filter chips, sorting and Show more paging on the Trust member list,
+  member case and warning tables, Activity, finished giveaways, Ghost Watch,
+  polls and starboard top posts.
+- Active rules summary at the top of the Automod page, with each rule's on/off
+  state and action, and a one-line description on every rule.
+- "How it works" help panels on Trust, member search, Activity, Analytics,
+  Automod, giveaways, suggestions, Ghost Watch, polls and the staff digest.
+- Embed builder: character counters on the author, footer and field names, and
+  a total with an over-limit warning that also works without JavaScript.
+- Staff digest: a schedule line that updates as you change the form.
+
+### Changed
+- Trust Score bands, poll status, module switches and per-rule automod
+  exemptions show as status pills; polls mark the leading or tied option.
+- Empty states on these pages say what to do next.
+- Saving module switches on the Modules page asks first.
+
 ## [1.5.0] - 2026-11-12
 
 Dashboard 1.5.0. Modules look and work better: the overview shows every module

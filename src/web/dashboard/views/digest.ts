@@ -5,6 +5,8 @@ import { DAY_NAMES, describeSchedule, type DigestConfig, type DigestEmbedData } 
 import { type GuildContext, csrfField, emptyState, notice } from "./layout";
 import { Form, channelOptions, type FormState, type Values } from "./form";
 import { errorSummary, modulePage } from "./parts";
+import { helpPanel, pill, summaryStrip } from "./moduleKit";
+import { scheduleLine } from "./communityKit";
 
 export function digestValues(c: DigestConfig): Values {
   return { enabled: c.enabled, channelId: c.channelId ?? "", day: String(c.day), hour: String(c.hour), timezone: c.timezone };
@@ -31,12 +33,27 @@ export function digestPreview(d: DigestEmbedData | null, ctx: GuildContext): str
 export function renderDigest(cfg: SiteConfig, ctx: GuildContext, o: { config: DigestConfig; preview: DigestEmbedData | null; channels: ChannelOption[]; noticeCode: string | null; state?: FormState }): string {
   const base = `/dashboard/${esc(ctx.guild.id)}/digest`;
   const f = new Form(o.state ?? { values: digestValues(o.config), errors: {} }, "dg-");
+  const c = o.config;
+  const chan = c.channelId ? o.channels.find(x => x.id === c.channelId)?.name : null;
+  const stats = summaryStrip([
+    { label: "Status", value: "", html: pill(c.enabled ? "On" : "Off", c.enabled ? "ok" : "off") },
+    { label: "Posts", value: c.enabled ? (scheduleLine(c.day, c.hour, c.timezone, DAY_NAMES) ?? describeSchedule(c)) : "Not scheduled", tone: c.enabled ? undefined : "off" },
+    { label: "Channel", value: c.channelId ? (chan ? `#${chan}` : "Hidden or deleted") : "Mod log channel", tone: c.channelId && !chan ? "warn" : undefined, hint: c.channelId && !chan ? "Pick another channel below" : undefined },
+  ], "Digest summary");
+  const line = c.enabled ? `Will post ${describeSchedule(c)}.` : "Off: nothing will be posted.";
   return modulePage(cfg, ctx, {
     active: "digest",
     title: "Staff digest",
     lead: "One post a week for your staff: cases by type and moderator, joins and leaves, automod hits, incidents, trust changes and what's still open. Same as <code class=\"inline\">/digest</code>.",
     path: base,
-    body: `${notice(o.noticeCode)}
+    body: `${notice(o.noticeCode)}${stats}
+  ${helpPanel("What the digest covers", [
+    ["Cases", "New cases in the past 7 days, by type and by moderator."],
+    ["Members", "Joins and leaves, plus Trust Score averages and the lowest scores."],
+    ["Automod and incidents", "Automod hits and any Incident Mode runs."],
+    ["Still open", "Open tickets, appeals and ModMail threads waiting for staff."],
+    ["Privacy", "Members are named but never pinged. Post it in a staff-only channel."],
+  ])}
   <section class="panel-card" aria-labelledby="dg-cfg-h"><h2 id="dg-cfg-h">Schedule</h2>
     <p class="muted">${o.config.enabled ? `On: posts ${esc(describeSchedule(o.config))}.` : "Off."}</p>
     ${errorSummary(o.state?.errors ?? {}, "f-dg-")}
@@ -50,8 +67,9 @@ export function renderDigest(cfg: SiteConfig, ctx: GuildContext, o: { config: Di
       </div>
       ${f.text("timezone", "Time zone", 64, "IANA name such as UTC, America/Chicago or Europe/London.", ' spellcheck="false" autocapitalize="off" list="dg-zones"')}
       <datalist id="dg-zones">${["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Berlin", "Asia/Kolkata", "Asia/Tokyo", "Australia/Sydney"].map(z => `<option value="${z}">`).join("")}</datalist>
+      <p class="schedule-line" data-schedule-preview="dg-" data-days="${esc(DAY_NAMES.join(","))}" aria-live="polite">${esc(line)}</p>
       <button class="btn" type="submit" data-save-button>Save digest settings</button>
     </form></section>
-  <section class="panel-card" aria-labelledby="dg-prev-h"><h2 id="dg-prev-h">Preview (last 7 days)</h2>${digestPreview(o.preview, ctx)}</section>`,
+  <section class="panel-card" aria-labelledby="dg-prev-h"><h2 id="dg-prev-h">Preview (last 7 days)</h2><p class="muted">What the next digest would look like if it posted now.</p>${digestPreview(o.preview, ctx)}</section>`,
   });
 }

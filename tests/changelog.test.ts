@@ -269,11 +269,24 @@ test("dashboard 1.4.0 redesign: released 2026-11-12", () => {
   assert.equal(r.date, "2026-11-12");
 });
 
-test("dashboard 1.5.0 modules: newest dashboard release", () => {
+test("dashboard 1.5.0 modules: released 2026-11-12", () => {
   const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
-  assert.equal(dash[0].version, "1.5.0");
+  const r = dash.find((x) => x.version === "1.5.0");
+  assert.ok(r, "1.5.0 is listed");
+  assert.equal(r.date, "2026-11-12");
+});
+
+test("dashboard 1.6.0 trust, members, automod and community pages: newest dashboard release", () => {
+  const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
+  assert.equal(dash[0].version, "1.6.0");
   assert.equal(dash[0].date, "2026-11-12");
-  assert.equal(DASHBOARD_VERSION, "1.5.0");
+  assert.equal(DASHBOARD_VERSION, "1.6.0");
+  assert.ok(dash[0].notes.join(" ").includes("3.12.0"), "names the bot release it shipped with");
+  assert.deepEqual(dash[0].sections.map((s) => s.title), ["Added", "Changed"]);
+  const text = dash[0].sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["Trust", "Activity", "Automod", "Embed builder", "giveaways", "suggestions", "Ghost Watch", "polls", "starboard", "Staff digest"]) assert.ok(text.includes(needle), `1.6.0 mentions ${needle}`);
+  const items = dash[0].sections.flatMap((s) => s.items);
+  assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
 
 test("3.11.0: records the command improvements and the deploy note", () => {
