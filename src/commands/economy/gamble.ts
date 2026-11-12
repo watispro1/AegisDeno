@@ -9,6 +9,8 @@ import {
 } from "../../services/economyRules";
 import { DICE_RETURN_PERCENT } from "../../services/economyProgress";
 import { COLORS, footer } from "../../utils/embedStyle";
+import { betPrompt, needsBetConfirmation } from "../../services/economyStatus";
+import { requestConfirmation } from "../../utils/confirmation";
 
 const BET_MAX = 10_000_000;
 const x = (tenths: number) => `${(tenths / 10).toLocaleString("en-US")}×`;
@@ -76,11 +78,22 @@ export const command: Command = {
       ? { game: "coinflip", call: interaction.options.getString("call", true) === "tails" ? "tails" : "heads" }
       : sub === "dice" ? { game: "dice", guess: interaction.options.getInteger("face", true) }
       : { game: "slots" };
+    // A big share of the wallet on one bet asks first (the bet itself is still checked atomically below).
+    let confirmed = false;
+    if (cfg.gamblingEnabled) {
+      const wallet = (await economy().balance(guildId, interaction.user.id)).balance;
+      if (bet <= wallet && needsBetConfirmation(bet, wallet, cfg)) {
+        const answer = await requestConfirmation(interaction, { content: betPrompt(cfg, bet, wallet), confirmLabel: `Bet ${bet.toLocaleString("en-US")}` });
+        if (answer !== "confirmed") return;
+        confirmed = true;
+      }
+    }
     const r = await economy().gamble(guildId, interaction.user.id, bet, game);
     if (!r.ok) {
       const content = r.reason === "refused" ? betRefusalText(cfg, r.refusal, r.resetsAt)
         : r.reason === "cooldown" ? `⏳ Slow down. Bet again ${relativeTimestamp(r.retryAt)}.`
         : "❌ Your balance changed while that was running. Run it again.";
+      if (confirmed) return void await interaction.editReply({ content, components: [], allowedMentions: NO_PINGS });
       return interaction.reply({ content, flags: MessageFlags.Ephemeral, allowedMentions: NO_PINGS });
     }
     const net = r.result.payout - r.bet;
@@ -98,6 +111,11 @@ export const command: Command = {
       embed.addFields({ name: "Loss limit left today", value: formatCoins(cfg, Math.max(0, cfg.gambleDailyLossCap - Math.max(0, r.lossToday))), inline: true });
     }
     embed.setFooter(footer("Loss limit resets at 00:00 UTC · /gamble info for odds"));
+    if (confirmed) {
+      await interaction.editReply({ content: `✅ Bet placed. Balance: ${formatCoins(cfg, r.balance)}.`, components: [] });
+      await interaction.followUp({ embeds: [embed], allowedMentions: NO_PINGS });
+      return;
+    }
     await interaction.reply({ embeds: [embed], allowedMentions: NO_PINGS });
   },
 };
