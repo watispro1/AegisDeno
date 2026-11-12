@@ -3,7 +3,8 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { RoleOption } from "../botView";
 import { formatPoints, isLowTrust, type TrustConfig, type TrustResult } from "../../../services/trustEngine";
 import type { TrustMemberPage, TrustMemberQuery, TrustOverview } from "../extras";
-import { trustMemberList } from "./trustMembers";
+import { trustMemberList, trustPill } from "./trustMembers";
+import { helpPanel, pill, sectionJump, summaryStrip } from "./moduleKit";
 import { type GuildContext, copyId, csrfField, emptyState, notice } from "./layout";
 import { Form, ROLE_PICKER_HELP, roleOptions, type FormState, type Values } from "./form";
 import { errorSummary, modulePage } from "./parts";
@@ -59,19 +60,32 @@ export function renderTrust(cfg: SiteConfig, ctx: GuildContext, o: {
     ? `<div class="table-wrap"><table class="case-table"><caption class="visually-hidden">Lowest-trust members</caption>
       <thead><tr><th scope="col">Member</th><th scope="col">Score</th><th scope="col">Band</th></tr></thead>
       <tbody>${ov.lowest.map(m => `<tr><td data-label="Member"><a href="/dashboard/${esc(ctx.guild.id)}/members/${esc(m.userId)}">${esc(m.name)}</a> ${copyId(m.userId, "Copy user ID")}</td>
-        <td data-label="Score">${m.score}</td><td data-label="Band">${esc(m.bandLabel)}</td></tr>`).join("")}</tbody></table></div>`
-    : emptyState("No members scored yet.", "Scores appear once Aegis can read this server's member list.");
+        <td data-label="Score">${m.score}</td><td data-label="Band">${trustPill(m.score, m.bandLabel)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="field-help">Open a member to see every factor behind their score and take action.</p>`
+    : emptyState("No members scored yet.", "Scores appear once Aegis can read this server's member list. Check that Aegis has the Server Members intent, then reload.");
+  const cfgOn = ov.config.enabled;
+  const integrations = [ov.config.linkFilterLowTrustOnly, ov.config.incidentGate, Boolean(ov.config.lowTrustRoleId)].filter(Boolean).length;
+  const lowShare = ov.scored ? Math.round((ov.lowCount / ov.scored) * 100) : 0;
   return modulePage(cfg, ctx, {
     active: "trust",
     title: "Trust Score",
     lead: "An explainable 0–100 score per member from account age, time here, verification, activity, cases, warnings, automod hits and Incident Mode gates. Same as <code class=\"inline\">/trust</code>.",
     path: base,
     body: `${notice(o.noticeCode)}
-  <dl class="stat-grid">
-    <div class="stat"><dt>Members scored</dt><dd>${ov.scored.toLocaleString("en-US")}</dd></div>
-    <div class="stat"><dt>Average score</dt><dd>${ov.average ?? "—"}</dd></div>
-    <div class="stat"><dt>Below ${ov.config.lowThreshold}</dt><dd>${ov.lowCount.toLocaleString("en-US")}</dd></div>
-  </dl>
+  ${summaryStrip([
+    { label: "Members scored", value: ov.scored, hint: ov.truncated ? "First part of a large server" : undefined },
+    { label: "Average score", value: ov.average ?? "—", tone: ov.average === null ? undefined : ov.average >= 60 ? "ok" : ov.average >= 40 ? "info" : "warn" },
+    { label: `Below ${ov.config.lowThreshold}`, value: ov.lowCount, hint: ov.scored ? `${lowShare}% of scored` : undefined, tone: ov.lowCount ? "warn" : "ok", href: o.members ? `${base}?low=1#trust-members-h` : undefined },
+    { label: "Integrations", value: cfgOn ? `${integrations} of 3 on` : "Off", tone: cfgOn ? "ok" : "off", href: `${base}#trust-cfg-h` },
+  ], "Trust Score summary")}
+  <p class="trust-status">${cfgOn ? pill("Integrations on", "ok") : pill("Integrations off", "off")} ${pill(`Weights: ${ov.config.preset}`, "info")}</p>
+  ${sectionJump([["trust-dist-h", "Distribution"], ["trust-low-h", "Lowest trust"], ...(o.members ? [["trust-members-h", "All members"] as [string, string]] : []), ["trust-cfg-h", "Settings"]])}
+  ${helpPanel("How Trust Score works", [
+    ["Bands", "80+ Trusted · 60–79 Established · 40–59 Neutral · 20–39 Low trust · under 20 High risk."],
+    ["What counts", "Account age, time in this server, verification, activity, cases, warnings, automod hits and Incident Mode gates. Counts and dates only, never message content."],
+    ["Weights", "Strict makes penalties weigh more; Lenient makes them weigh less. Scores change straight away."],
+    ["Integrations", "Optional: limit the link filter to low-trust members, gate low-trust joins during an incident, or give low-trust members a role."],
+  ])}
   <section class="panel-card" aria-labelledby="trust-dist-h"><h2 id="trust-dist-h">Distribution</h2>
     ${trustHistogram(ov.distribution, ov.config.lowThreshold)}
     ${ov.truncated ? `<p class="faint">Large server: the first ${ov.scored.toLocaleString("en-US")} members are scored here. Every member is listed below.</p>` : ""}
@@ -92,6 +106,7 @@ export function renderTrust(cfg: SiteConfig, ctx: GuildContext, o: {
       ${f.checkbox("incidentGate", "Incident Mode join gate also gates low-trust joins", "Applies only while an incident is active and its join gate is on.")}
       ${f.select("lowTrustRoleId", "Give low-trust members this role", roleOptions(o.roles, "No role"), `Given on join and whenever a score drops below the threshold; taken away again once it recovers. ${ROLE_PICKER_HELP}`)}
       <button class="btn" type="submit" data-save-button>Save trust settings</button>
+      <p class="field-help">Saved changes are listed on the Activity page.</p>
     </form>
   </section>`,
   });
