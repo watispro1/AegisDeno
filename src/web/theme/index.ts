@@ -22,6 +22,7 @@ import { cssDashboardCommunity } from "./dashboardCommunity";
 import { cssDashboardRedesign } from "./dashboardRedesign";
 import { cssDashboardModules } from "./dashboardModules";
 import { cssDashboardModulePages } from "./dashboardModulePages";
+import { cssDashboardTrustPages } from "./dashboardTrustPages";
 
 /* Concatenated in this order; later rules override earlier ones. */
 export const styles =
@@ -38,4 +39,5 @@ export const styles =
   cssDashboardRedesign +
   cssDashboardModules +
   cssDashboardModulePages +
+  cssDashboardTrustPages +
   cssResponsive;
