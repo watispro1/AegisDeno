@@ -1,4 +1,3 @@
-import { formatPermissions as formatPermissionNames } from "../executor";
 import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
@@ -10,7 +9,6 @@ import {
   StringSelectMenuBuilder,
   ComponentType,
   PermissionFlagsBits,
-  type PermissionResolvable,
   MessageFlags,
   PermissionsBitField,
   type AutocompleteInteraction,
@@ -20,7 +18,11 @@ import { Command } from "../../types/discord";
 import { footer } from "../../utils/embedStyle";
 import { commands, COMMAND_CATEGORIES } from "../loader";
 import { canUseCommand, searchCommands } from "../../services/commandAccess";
-import { DOC_ANCHORS, commandUrl, docsUrl, inviteUrl, siteUrl, supportServerUrl } from "../../config/links";
+import { commandUrl, docsUrl, inviteUrl, siteUrl, supportServerUrl } from "../../config/links";
+import { contextMenus } from "../contextMenus";
+import {
+  APPS_PAGE, CATEGORIES, CATEGORY_ICONS, accessLabel, appsSectionText, categoryDocsUrl, formatCooldown, formatPermissions, subcommandNames, truncate,
+} from "../../services/helpFormat";
 
 type Invoker = Pick<ChatInputCommandInteraction | AutocompleteInteraction, "inGuild" | "memberPermissions">;
 
@@ -46,86 +48,6 @@ function visibleCommands(interaction: Invoker): Command[] {
       { inGuild, memberPermissions },
     );
   });
-}
-
-function subcommandNames(cmd: Command): string[] {
-  const json = cmd.data.toJSON() as { options?: Array<{ type: number; name: string; options?: Array<{ type: number; name: string }> }> };
-  const out: string[] = [];
-  for (const o of json.options ?? []) {
-    if (o.type === 1) out.push(o.name);
-    if (o.type === 2) for (const sub of o.options ?? []) out.push(`${o.name} ${sub.name}`);
-  }
-  return out;
-}
-
-const CATEGORY_ICONS: Record<string, string> = {
-  general: "🌐",
-  moderation: "🔨",
-  config: "⚙️",
-  logging: "📋",
-  automod: "🛡️",
-  welcome: "👋",
-  community: "🗳️",
-  automation: "⏰",
-  tickets: "🎫",
-  verification: "🛡️",
-  autoresponder: "🤖",
-  roles: "🎭",
-  economy: "💰",
-  developer: "🔧",
-};
-
-const CATEGORIES: Record<string, string> = Object.fromEntries(
-  COMMAND_CATEGORIES.map((cat) => [
-    cat,
-    `${CATEGORY_ICONS[cat] ?? "•"} ${cat[0].toUpperCase()}${cat.slice(1)}`,
-  ]),
-);
-
-/** Docs section that explains each command category. */
-const CATEGORY_DOC_ANCHORS: Record<string, string> = {
-  general: DOC_ANCHORS.quickstart,
-  moderation: DOC_ANCHORS.moderation,
-  config: DOC_ANCHORS.configuration,
-  logging: DOC_ANCHORS.logging,
-  automod: DOC_ANCHORS.automod,
-  welcome: DOC_ANCHORS.welcome,
-  community: DOC_ANCHORS.community,
-  automation: DOC_ANCHORS.automation,
-  tickets: DOC_ANCHORS.tickets,
-  verification: DOC_ANCHORS.verification,
-  autoresponder: DOC_ANCHORS.autoresponder,
-  roles: DOC_ANCHORS.rolePanels,
-  economy: DOC_ANCHORS.economy,
-  developer: DOC_ANCHORS.configuration,
-};
-
-function categoryDocsUrl(category: string | null | undefined): string {
-  return docsUrl(category ? CATEGORY_DOC_ANCHORS[category] : undefined);
-}
-
-/** Short access label for a command, or null when everyone can run it. */
-function accessLabel(cmd: Command): string | null {
-  if (cmd.userPermissions?.length) return formatPermissions(cmd.userPermissions);
-  const json = cmd.data.toJSON() as { default_member_permissions?: string | null };
-  const declared = json.default_member_permissions;
-  if (declared && declared !== "0") {
-    try {
-      return formatPermissions([BigInt(declared)]);
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-function formatPermissions(permissions?: PermissionResolvable[]): string {
-  if (!permissions?.length) return "Everyone";
-  return formatPermissionNames(permissions);
-}
-
-function truncate(value: string, limit = 1_000): string {
-  return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 }
 
 /** Where a first-time user should go next, naming only commands they can run here. */
@@ -195,7 +117,6 @@ export const command: Command = {
         : "None";
 
       const categoryIcon = CATEGORY_ICONS[foundCmd.category ?? "general"] ?? "🌐";
-      const cooldownSec = foundCmd.cooldownMs ? Math.round(foundCmd.cooldownMs / 1000) : 1.5;
 
       const detailEmbed = new EmbedBuilder()
         .setColor(0x5865F2)
@@ -205,7 +126,7 @@ export const command: Command = {
           { name: "📁 Category", value: foundCmd.category ? foundCmd.category.toUpperCase() : "GENERAL", inline: true },
           { name: "👤 Required User Permissions", value: userPerms, inline: true },
           { name: "🤖 Required Bot Permissions", value: botPerms, inline: true },
-          { name: "⏱️ Cooldown", value: `\`${cooldownSec}s\``, inline: true },
+          { name: "⏱️ Cooldown", value: formatCooldown(foundCmd.cooldownMs), inline: true },
           { name: "⚙️ Options", value: optionsList, inline: false },
           { name: "🔀 Subcommands", value: subcommandsList, inline: false },
           { name: "💡 Usage Example", value: `\`/${shownName}${subcommands.length > 0 ? ` ${subcommands[0].name}` : ""}\``, inline: false }
@@ -253,8 +174,19 @@ export const command: Command = {
           .addFields(
             { name: "📊 Your Commands", value: `**${allCmds.length}** of ${commands.size} commands are available to you, across ${categories.length} categories`, inline: false },
             { name: "⚡ Quick Start", value: "• `/help` — Browse available commands & permission requirements\n• `/diagnostics` — Audit server configuration and bot permissions\n• `/warn` — Issue warnings with automatic auto-escalation\n• `/logging channel` — Configure audit logging\n• `/dashboard` — Manage your server from the web", inline: false },
+            { name: "🖱️ Apps (right-click)", value: appsSectionText(contextMenus.values(), interaction.inGuild()), inline: false },
             { name: "🚀 New here?", value: newHereLine(interaction.inGuild(), visibleNames), inline: false },
           )
+          .setFooter(footer("Pick a category below · /help command:<name> for details"))
+          .setTimestamp();
+      }
+
+      if (category === APPS_PAGE) {
+        return new EmbedBuilder()
+          .setColor(0x5865f2)
+          .setTitle(`🖱️ Apps — right-click commands (${contextMenus.size})`)
+          .setDescription(appsSectionText(contextMenus.values(), interaction.inGuild()) +
+            "\n\nOn desktop, right-click a member or message and open **Apps**. On mobile, long-press it, then tap **Apps**.")
           .setFooter(footer("Pick a category below · /help command:<name> for details"))
           .setTimestamp();
       }
@@ -295,6 +227,7 @@ export const command: Command = {
           value: cat,
           emoji: CATEGORY_ICONS[cat] ?? "•",
         })),
+        { label: "Apps", description: "Right-click commands on members and messages", value: APPS_PAGE, emoji: "🖱️" },
       );
 
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(

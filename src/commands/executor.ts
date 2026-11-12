@@ -9,9 +9,11 @@ import {
   PermissionFlagsBits,
   PermissionsBitField,
   type ChatInputCommandInteraction,
+  type CommandInteraction,
   type PermissionResolvable,
 } from "discord.js";
-import type { Command } from "../types/discord";
+import type { Command, ContextMenu } from "../types/discord";
+import { describeCommandError, newErrorId } from "../utils/errorReport";
 import { logger } from "../utils/logger";
 import { docsUrl } from "../config/links";
 import { permissionName } from "../utils/embedStyle";
@@ -92,7 +94,7 @@ export class CooldownTracker {
 
 const cooldowns = new CooldownTracker();
 
-async function replyError(interaction: ChatInputCommandInteraction, content: string): Promise<void> {
+async function replyError(interaction: CommandInteraction, content: string): Promise<void> {
   if (interaction.replied) {
     await interaction.followUp({ content, flags: MessageFlags.Ephemeral }).catch(() => undefined);
   } else if (interaction.deferred) {
@@ -103,8 +105,18 @@ async function replyError(interaction: ChatInputCommandInteraction, content: str
   }
 }
 
+/** The pre-check fields shared by slash commands and context menus. */
+type Checked = Pick<Command, "guildOnly" | "userPermissions" | "botPermissions">;
+
+/** How a command is named to the member: "/ban" or "User Info". */
+function invocationLabel(interaction: CommandInteraction): string {
+  // Context menus report a command type; slash commands (and lightweight test fakes) are treated as "/name".
+  const isMenu = typeof interaction.isContextMenuCommand === "function" && interaction.isContextMenuCommand();
+  return isMenu ? interaction.commandName : `/${interaction.commandName}`;
+}
+
 /** The first failed pre-check as a user-facing message, or null when the command may run. */
-function precheck(command: Command, interaction: ChatInputCommandInteraction): string | null {
+function precheck(command: Checked, interaction: CommandInteraction): string | null {
   if (command.guildOnly && !interaction.guildId) {
     return "❌ This command can only be used in a server.";
   }
@@ -115,7 +127,7 @@ function precheck(command: Command, interaction: ChatInputCommandInteraction): s
     const missing = command.userPermissions.filter((p) => !perms.has(p));
     if (missing.length) {
       logger.warn(
-        `Permission denied: /${interaction.commandName} by ${interaction.user.tag} ` +
+        `Permission denied: ${invocationLabel(interaction)} by ${interaction.user.tag} ` +
           `(${interaction.user.id}) in guild ${interaction.guildId ?? "DM"} — missing: ${formatPermissions(missing)}`,
       );
       return (
@@ -132,7 +144,7 @@ function precheck(command: Command, interaction: ChatInputCommandInteraction): s
     if (!have) return "❌ I couldn't verify my permissions in this server.";
     const missing = command.botPermissions.filter((p) => !have.has(p));
     if (missing.length) {
-      logger.warn(`Bot missing permissions for /${interaction.commandName} in guild ${interaction.guildId}: ${formatPermissions(missing)}`);
+      logger.warn(`Bot missing permissions for ${invocationLabel(interaction)} in guild ${interaction.guildId}: ${formatPermissions(missing)}`);
       return (
         `❌ I am missing the following permission(s): **${formatPermissions(missing)}**. ` +
         "Grant these to Aegis's role (Server Settings → Roles → Aegis) or in this channel's settings → Permissions, then run `/diagnostics` to confirm. " +
@@ -144,20 +156,31 @@ function precheck(command: Command, interaction: ChatInputCommandInteraction): s
   return null;
 }
 
-export async function executeCommand(command: Command, interaction: ChatInputCommandInteraction): Promise<void> {
-  const blocked = precheck(command, interaction);
+/** Cooldown message with the exact time left: "Please wait 4s before using /work again (in 4 seconds)". */
+export function cooldownMessage(label: string, waitSeconds: number, now = Date.now()): string {
+  const readyAt = Math.floor(now / 1000) + waitSeconds;
+  const shown = label.startsWith("/") ? `\`${label}\`` : `**${label}**`;
+  return `⌛ Please wait **${waitSeconds}s** before using ${shown} again (<t:${readyAt}:R>).`;
+}
+
+async function run(
+  spec: Checked & Pick<Command, "cooldownMs">,
+  interaction: CommandInteraction,
+  body: () => Promise<unknown>,
+): Promise<void> {
+  const blocked = precheck(spec, interaction);
   if (blocked) {
     await replyError(interaction, blocked);
     return;
   }
 
-  const cooldownMs = command.cooldownMs ?? DEFAULT_COOLDOWN_MS;
+  const label = invocationLabel(interaction);
+  const cooldownMs = spec.cooldownMs ?? DEFAULT_COOLDOWN_MS;
   const cooldownKey = `${interaction.commandName}:${interaction.user.id}`;
   if (cooldownMs > 0) {
     const wait = cooldowns.reserve(cooldownKey, cooldownMs);
     if (wait !== null) {
-      const readyAt = Math.floor(Date.now() / 1000) + wait;
-      await replyError(interaction, `⌛ Please wait **${wait}s** before using \`/${interaction.commandName}\` again (<t:${readyAt}:R>).`);
+      await replyError(interaction, cooldownMessage(label, wait));
       return;
     }
   }
@@ -167,14 +190,27 @@ export async function executeCommand(command: Command, interaction: ChatInputCom
   // show "The application did not respond" while the work continues.
   const stopSlowGuard = startSlowCommandGuard(interaction as unknown as SlowGuardInteraction);
   try {
-    await command.execute(interaction);
-    logger.debug(`/${interaction.commandName} succeeded in ${Date.now() - startedAt}ms for ${interaction.user.tag}`);
+    await body();
+    logger.debug(`${label} succeeded in ${Date.now() - startedAt}ms for ${interaction.user.tag}`);
   } catch (err) {
     // A failed run does not use up the cooldown.
     cooldowns.release(cooldownKey);
-    logger.error(`Unhandled error in /${interaction.commandName} by ${interaction.user.tag} after ${Date.now() - startedAt}ms:`, err);
-    await replyError(interaction, "❌ An unexpected error occurred while running this command. Please try again.");
+    const errorId = newErrorId();
+    const report = describeCommandError(err, label, errorId);
+    const where = `${label} by ${interaction.user.tag} (${interaction.user.id}) in guild ${interaction.guildId ?? "DM"} after ${Date.now() - startedAt}ms`;
+    if (report.expected) logger.warn(`[${errorId}] Discord refused ${where}:`, err);
+    else logger.error(`[${errorId}] Unhandled error in ${where}:`, err);
+    if (!report.silent) await replyError(interaction, report.message);
   } finally {
     stopSlowGuard();
   }
+}
+
+export async function executeCommand(command: Command, interaction: ChatInputCommandInteraction): Promise<void> {
+  await run(command, interaction, () => command.execute(interaction));
+}
+
+/** Runs a right-click (Apps) command with the same checks, cooldowns and error reporting as slash commands. */
+export async function executeContextMenu(menu: ContextMenu, interaction: CommandInteraction): Promise<void> {
+  await run(menu, interaction, () => menu.execute(interaction as Parameters<ContextMenu["execute"]>[0]));
 }
