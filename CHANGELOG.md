@@ -38,9 +38,9 @@ migration, new permissions or environment variables.
   channels, closed DMs, deleted messages, members who left and the 14-day
   bulk-delete limit are explained in plain words with what to fix. Expired
   interactions are logged quietly instead of showing an error.
-- `/userinfo` is rewritten and gains a `private` option: it works for users who are not in the server,
-  shows boosting, highest role and activity, and moderators get warnings,
-  recent cases, ban status and the Trust Score in a private reply, with a
+- `/userinfo` is rewritten and gains a `private` option: it works for users
+  who are not in the server, shows boosting, highest role and activity, and
+  moderators get warnings, recent cases, ban status and the Trust Score in a private reply, with a
   link to the member's cases on the dashboard.
 - Cooldown messages show the exact time left and when the command is ready
   again. Context menus share the slash commands' permission, cooldown and

@@ -9,12 +9,15 @@ import {
   InteractionContextType,
   MessageFlags,
   type EmbedData,
+  type ContextMenuCommandInteraction,
   type Message,
   type MessageContextMenuCommandInteraction,
   type RESTPostAPIContextMenuApplicationCommandsJSONBody,
   type UserContextMenuCommandInteraction,
 } from "discord.js";
 import type { ContextMenu } from "../types/discord";
+import { executeContextMenu } from "./executor";
+import { logger } from "../utils/logger";
 import { showUserInfo } from "./general/userinfo";
 import { showAvatar } from "./general/avatar";
 import { sendGuildLog } from "../services/logging";
@@ -83,6 +86,13 @@ const reportMessage: ContextMenu = {
 export const contextMenus = new Map<string, ContextMenu>(
   [userInfo, avatar, reportMessage].map((menu) => [menu.data.name, menu]),
 );
+
+/** Runs the context menu the interaction names (from client.ts's interactionCreate). */
+export async function dispatchContextMenu(interaction: ContextMenuCommandInteraction): Promise<void> {
+  const menu = contextMenus.get(interaction.commandName);
+  if (menu) await executeContextMenu(menu, interaction);
+  else logger.warn(`Unknown context menu: ${interaction.commandName}`);
+}
 
 /** Registration payloads for the context menus (server-only). */
 export function contextMenuRegistrationData(): RESTPostAPIContextMenuApplicationCommandsJSONBody[] {

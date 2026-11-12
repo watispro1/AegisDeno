@@ -14,8 +14,8 @@ import {
 import "../types/augmentation"; // Ensure augmentation is loaded
 import { logger } from "../utils/logger";
 import { commands } from "../commands/loader";
-import { executeCommand, executeContextMenu } from "../commands/executor";
-import { contextMenus } from "../commands/contextMenus";
+import { executeCommand } from "../commands/executor";
+import { dispatchContextMenu } from "../commands/contextMenus";
 import { sendGuildLog } from "../services/logging";
 import { processAutomod, processAutomodEdit } from "../services/automodExecution";
 import { processAutoResponders } from "../services/autoResponderService";
@@ -186,9 +186,7 @@ export function setupEvents(client: Client): void {
       }
       await executeCommand(command, interaction);
     } else if (interaction.isContextMenuCommand()) {
-      const menu = contextMenus.get(interaction.commandName);
-      if (menu) await executeContextMenu(menu, interaction);
-      else logger.warn(`Unknown context menu: ${interaction.commandName}`);
+      await dispatchContextMenu(interaction);
     } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
       const handled = await componentRouter.dispatch(interaction);
       // Unknown IDs may belong to a command's own collector; give it a moment,
