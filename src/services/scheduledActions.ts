@@ -61,6 +61,7 @@ export async function deliverPersonalReminder(client: Client, task: ScheduledTas
           .setStyle(ButtonStyle.Secondary)
           .setEmoji("💤"),
       ),
+      ...(payload.jumpUrl ? [new ButtonBuilder().setLabel("Jump to message").setStyle(ButtonStyle.Link).setURL(payload.jumpUrl)] : []),
     );
 
     const user = await client.users.fetch(task.creatorId).catch(() => null);

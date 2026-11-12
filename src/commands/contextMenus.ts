@@ -1,6 +1,6 @@
 /**
  * Right-click (Apps menu) commands: User Info and Avatar on a member,
- * Report Message on a message. They run through executeContextMenu, so they get
+ * Report Message and Remind Me About This on a message. They run through executeContextMenu, so they get
  * the same guild-only, permission, cooldown and error-ID handling as slash commands.
  */
 import {
@@ -22,6 +22,7 @@ import { showUserInfo } from "./general/userinfo";
 import { showAvatar } from "./general/avatar";
 import { sendGuildLog } from "../services/logging";
 import { truncate } from "../utils/safeText";
+import { remindAboutMessage } from "./general/remindme/message";
 
 const userInfo: ContextMenu = {
   data: new ContextMenuCommandBuilder().setName("User Info").setType(ApplicationCommandType.User),
@@ -83,8 +84,16 @@ const reportMessage: ContextMenu = {
   },
 };
 
+const remindMe: ContextMenu = {
+  data: new ContextMenuCommandBuilder().setName("Remind Me About This").setType(ApplicationCommandType.Message),
+  description: "Right-click a message → Apps → Remind Me About This: pick when, and Aegis DMs you a link back to it.",
+  guildOnly: true,
+  cooldownMs: 5_000,
+  execute: (interaction) => remindAboutMessage(interaction as MessageContextMenuCommandInteraction),
+};
+
 export const contextMenus = new Map<string, ContextMenu>(
-  [userInfo, avatar, reportMessage].map((menu) => [menu.data.name, menu]),
+  [userInfo, avatar, reportMessage, remindMe].map((menu) => [menu.data.name, menu]),
 );
 
 /** Runs the context menu the interaction names (from client.ts's interactionCreate). */

@@ -21,6 +21,7 @@ import { handleReasonAutocomplete } from "../../utils/moderationPresets";
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid, isBotHierarchyValid } from "../../permissions/hierarchy";
+import { hierarchyRefusalText } from "../../permissions/hierarchyExplain";
 import { addModerationCase } from "../../services/moderationCases";
 import { caseActionsRow, modLogRow } from "../../services/modLogLinks";
 import { softFail } from "../../utils/softFail";
@@ -38,6 +39,9 @@ export const command: Command = {
     )
     .addBooleanOption(opt =>
       opt.setName("silent").setDescription("Skip DM notification to the member (default: false)").setRequired(false)
+    )
+    .addAttachmentOption(opt =>
+      opt.setName("proof").setDescription("Optional screenshot or proof, stored with the case").setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
 
@@ -57,6 +61,7 @@ export const command: Command = {
       }
     }
     const reason  = interaction.options.getString("reason")?.trim() || "No reason provided.";
+    const proof   = interaction.options.getAttachment("proof");
     const silent  = interaction.options.getBoolean("silent") ?? false;
     const guildId = interaction.guildId!;
 
@@ -73,7 +78,7 @@ export const command: Command = {
       return interaction.reply({ content: "❌ You cannot kick the server owner.", flags: MessageFlags.Ephemeral });
     }
     if (!target.kickable) {
-      return interaction.reply({ content: "❌ I cannot kick this member — check my role hierarchy.", flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: await hierarchyRefusalText(interaction.guild!, "bot", interaction.client.user.id, target.id, "kick", target.user.tag), flags: MessageFlags.Ephemeral });
     }
 
     const [hierarchyOk, botHierarchyOk] = await Promise.all([
@@ -82,10 +87,10 @@ export const command: Command = {
     ]);
 
     if (!hierarchyOk) {
-      return interaction.reply({ content: "❌ You cannot kick this member — they have a higher or equal role.", flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: await hierarchyRefusalText(interaction.guild!, "you", interaction.user.id, target.id, "kick", target.user.tag), flags: MessageFlags.Ephemeral });
     }
     if (!botHierarchyOk) {
-      return interaction.reply({ content: "❌ I cannot kick this member — they are above my highest role.", flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: await hierarchyRefusalText(interaction.guild!, "bot", interaction.client.user.id, target.id, "kick", target.user.tag), flags: MessageFlags.Ephemeral });
     }
 
     const confirmEmbed = new EmbedBuilder()
@@ -100,6 +105,7 @@ export const command: Command = {
         { name: "📝 Reason",     value: reason, inline: false },
         { name: "🔕 Silent",     value: silent ? "Yes — no DM will be sent" : "No — member will be notified by DM", inline: true },
         { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
+        ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
       )
       .setFooter({ text: "This prompt expires in 30 seconds." })
       .setTimestamp();
@@ -204,6 +210,7 @@ export const command: Command = {
             action: "kick",
             reason: finalReason,
             details: `Silent: ${silent}`,
+            proofUrl: proof?.url ?? null,
           });
 
           const resultEmbed = new EmbedBuilder()
@@ -215,6 +222,7 @@ export const command: Command = {
               { name: "📝 Reason",     value: finalReason, inline: false },
               { name: "🛡️ Moderator", value: interaction.user.tag, inline: true },
               { name: "🔕 DM Sent",   value: dmSentLabel(dm), inline: true },
+              ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
             )
             .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)
             .setTimestamp();
@@ -228,7 +236,7 @@ export const command: Command = {
           await sendGuildLog(interaction.client, guildId, {
             title: "👢 Member Kicked",
             color: 0xE67E22,
-            description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Reason:** ${finalReason}\n**Moderator:** ${interaction.user.tag}\n**DM Sent:** ${dmSentText(dm)}`,
+            description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Reason:** ${finalReason}\n**Moderator:** ${interaction.user.tag}\n**DM Sent:** ${dmSentText(dm)}${proof ? `\n**Proof:** ${proof.url}` : ""}`,
           }, "modActions", caseId ? [modLogRow(guildId, target.id, caseId)] : undefined);
         } catch (err) {
           logger.error(`Failed to kick user ${target.user.id} in guild ${guildId}`, err);
