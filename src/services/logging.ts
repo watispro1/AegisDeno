@@ -18,6 +18,7 @@ export type LogCategory =
   | "channelEvents"
   | "voiceEvents";
 
+/** Posts an entry to the guild log. Resolves true when it was sent, false when logging is off, the channel is missing/hidden, or sending failed. */
 export async function sendGuildLog(
   client: Client,
   guildId: string,
@@ -25,20 +26,20 @@ export async function sendGuildLog(
   category?: LogCategory,
   components?: ActionRowBuilder<ButtonBuilder>[],
   files?: AttachmentBuilder[],
-): Promise<void> {
+): Promise<boolean> {
   try {
     const config = await getGuildConfig(guildId);
-    if (!config.loggingEnabled || !config.loggingChannelId) return;
+    if (!config.loggingEnabled || !config.loggingChannelId) return false;
 
-    if (category && !isLogCategoryOn(config.logCategories, category)) return;
+    if (category && !isLogCategoryOn(config.logCategories, category)) return false;
 
     // A category may have its own channel (set on the dashboard); otherwise the main log channel.
     const channelId = (category && config.logChannels?.[category]) || config.loggingChannelId;
     const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel || !(channel instanceof TextChannel)) return;
+    if (!channel || !(channel instanceof TextChannel)) return false;
     if (isObfuscatedChannel(channel)) {
       logger.warn(`Log channel ${channelId} in guild ${guildId} is hidden from Aegis (no View Channel); log entry skipped.`);
-      return;
+      return false;
     }
 
     const me = channel.guild.members.me;
@@ -55,7 +56,9 @@ export async function sendGuildLog(
       ...(components?.length ? { components } : {}),
       ...(plan.attach ? { files } : {}),
     });
+    return true;
   } catch (error) {
     logger.error(`Failed to send log to guild ${guildId}:`, error);
+    return false;
   }
 }
