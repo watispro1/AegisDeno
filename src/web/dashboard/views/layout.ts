@@ -130,7 +130,7 @@ function sidebar(ctx: GuildContext, active: GuildSection): string {
     return `<li class="nav-group"><details class="nav-group-details" open data-nav-group="${esc(grp.group)}"${hasActive ? ' data-active-group=""' : ""}>
       <summary class="nav-group-title"><span>${esc(grp.group)}</span><span class="nav-caret" aria-hidden="true">▾</span></summary>
       <ul class="nav-group-items">
-        ${grp.items.map(i => `<li data-nav-item><a class="side-link" href="${base}${i.href}" data-nav-key="${esc(i.key)}" title="${esc(i.label)}"${i.key === active ? ' aria-current="page"' : ""}><span class="side-icon" aria-hidden="true">${i.icon}</span>${esc(i.label)}</a></li>`).join("")}
+        ${grp.items.map(i => `<li data-nav-item><a class="side-link" data-nav-key="${esc(i.key)}" title="${esc(i.label)}" href="${base}${i.href}"${i.key === active ? ' aria-current="page"' : ""}><span class="side-icon" aria-hidden="true">${i.icon}</span>${esc(i.label)}</a></li>`).join("")}
       </ul>
     </details></li>`;
   }).join("");
