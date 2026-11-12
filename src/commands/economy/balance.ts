@@ -6,6 +6,7 @@ import { formatCoins, relativeTimestamp, dailyClaim, workClaim } from "../../ser
 import { WEEKLY_COOLDOWN_MS, cooldownLeft } from "../../services/economyRules";
 import { INTEREST_COOLDOWN_MS, activeBoost, earnedBadges, workLevel } from "../../services/economyProgress";
 import { levelLine } from "./work";
+import { nextDailyAmount, rankLine, streakLine } from "../../services/economyStatus";
 import { COLORS, footer } from "../../utils/embedStyle";
 
 export const command: Command = {
@@ -21,10 +22,12 @@ export const command: Command = {
     if (!cfg) return;
     const user = interaction.options.getUser("user") ?? interaction.user;
     if (user.bot) return interaction.reply({ content: "🤖 Bots don't have balances.", flags: MessageFlags.Ephemeral });
-    const [acct, items] = await Promise.all([
+    const [acct, items, rank] = await Promise.all([
       economy().balance(interaction.guildId!, user.id),
       economy().inventory(interaction.guildId!, user.id),
+      economy().rank(interaction.guildId!, user.id).catch(() => null),
     ]);
+    const now = Date.now();
     const self = user.id === interaction.user.id;
     const level = workLevel(acct.workXp);
     const badges = earnedBadges({ total: acct.balance + acct.bank, bank: acct.bank, streak: acct.dailyStreak, workLevel: level, distinctItems: items.length });
@@ -34,20 +37,19 @@ export const command: Command = {
       .setDescription([
         `**Wallet:** ${formatCoins(cfg, acct.balance)}`,
         `**Bank:** ${formatCoins(cfg, acct.bank)}${cfg.bankCap > 0 ? ` / ${formatCoins(cfg, cfg.bankCap)}` : ""}`,
-        `**Total:** ${formatCoins(cfg, acct.balance + acct.bank)}`,
-        `**Streak:** ${acct.dailyStreak > 0 ? `🔥 ${acct.dailyStreak} day${acct.dailyStreak === 1 ? "" : "s"}` : "—"}`,
+        `**Total:** ${formatCoins(cfg, acct.balance + acct.bank)}${rankLine(rank) ? ` · 🏆 ${rankLine(rank)}` : ""}`,
+        `**Streak:** ${streakLine(acct.lastDaily, acct.dailyStreak, now, cfg)}`,
         `**Work:** ${levelLine(level, acct.workXp)}`,
         badges.length ? `**Badges:** ${badges.map(b => `${b.emoji} ${b.name}`).join(" · ")}` : null,
       ].filter(Boolean).join("\n"))
       .setFooter(footer(self ? "Coins in the bank are safe from /crime fines. Move them with /deposit and /withdraw." : null));
     let effects: string[] = [];
     if (self) {
-      const now = Date.now();
       const d = dailyClaim(acct.lastDaily, acct.dailyStreak, now, cfg);
       const w = workClaim(acct.lastWork, now, cfg, () => 0);
       const ready = (cmd: string, at: number | null) => (at === null ? `✅ Ready, run \`/${cmd}\`` : `⏳ ${relativeTimestamp(at)}`);
       embed.addFields(
-        { name: "Daily", value: ready("daily", d.ok ? null : d.retryAt), inline: true },
+        { name: "Daily", value: `${ready("daily", d.ok ? null : d.retryAt)}\nPays ${formatCoins(cfg, nextDailyAmount(acct.lastDaily, acct.dailyStreak, now, cfg))}`, inline: true },
         { name: "Work", value: ready("work", w.ok ? null : w.retryAt), inline: true },
       );
       if (cfg.weeklyAmount > 0) embed.addFields({ name: "Weekly", value: ready("weekly", cooldownLeft(acct.lastWeekly, WEEKLY_COOLDOWN_MS, now)), inline: true });

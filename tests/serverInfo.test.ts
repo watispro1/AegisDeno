@@ -71,3 +71,19 @@ test("source files outside the dashboard stay under 400 lines", async () => {
     .filter(([, n]) => n >= 400);
   assert.deepEqual(big, []);
 });
+
+test("/serverinfo: boost progress, features, members and asset slots read clearly", async () => {
+  const x = await import("../src/services/serverInfoExtras");
+  assert.match(x.boostProgress(0, 1), /1\/2 to Level 1/);
+  assert.match(x.boostProgress(1, 4), /Level \*\*1\*\* · \*\*4\*\* boosts\n▰+▱+ 4\/7 to Level 2/);
+  assert.match(x.boostProgress(3, 20), /max level/);
+  assert.match(x.boostProgress(2, 1), /\*\*1\*\* boost\n/, "singular boost");
+  assert.equal(x.progressBar(5, 10), "▰▰▰▰▰▱▱▱▱▱");
+  assert.equal(x.progressBar(50, 10), "▰".repeat(10), "over the target is a full bar");
+  assert.deepEqual(x.featureNames(["COMMUNITY", "NEW_THING_HERE", "COMMUNITY", "AUTO_MODERATION"]), ["AutoMod", "Community", "New Thing Here"]);
+  assert.equal(x.memberBreakdown(10, { humans: 3, bots: 1 }), "**10** members", "no breakdown from a partial cache");
+  assert.match(x.memberBreakdown(4, { humans: 3, bots: 1 }), /3 humans · 1 bots/);
+  assert.equal(x.assetSlots(1, { total: 34, animated: 12 }, 3), "Emojis **34**/200 (12 animated) · Stickers **3**/15");
+  assert.match(x.roleListLine({ id: "7", name: "Mods", members: 1, managed: true }, 0), /<@&7> · 1 member · managed$/);
+  assert.equal(x.emojiListLine({ id: "5", name: "wave", animated: true, available: false }), "<a:wave:5> `:wave:` · animated · unavailable (boost lost)");
+});

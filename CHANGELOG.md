@@ -9,6 +9,56 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.12.0] - 2026-11-12
+
+Moderation, utility and economy commands overhaul: quick purges, a Remind Me
+About This context menu, timed slowmode, richer `/roleinfo` and `/serverinfo`,
+and paging and filters across the economy commands. Upgrade notes: a new
+context menu (Remind Me About This) and new or removed options on `/purge`,
+`/slowmode`, `/roleinfo`, `/kick`, `/shop view` and `/transactions`, so
+commands are re-registered on deploy (or run `npm run deploy`). No migration,
+new permissions or environment variables.
+
+### Added
+- Remind Me About This, on any message: a form asks when and for an optional
+  note, and the reminder DM has a Jump to message button.
+- Timed slowmode: `/slowmode set` and `/slowmode custom` take `for:` (1 minute
+  to 7 days, autocompleted). The previous rate comes back afterwards, even
+  after a restart, unless someone changed it in the meantime. `/slowmode check`
+  shows when it is due.
+- `/purge` filters `invites`, `attachments`, `mentions` and `stickers`, and
+  `after_message` to delete everything after a message. The result and the
+  mod log show who was removed and the human, bot, file and link counts.
+- `/roleinfo` shows the role kind and icon, with All permissions (grouped the
+  way Discord groups them) and Members buttons, and an `ephemeral` option.
+- `/serverinfo` shows boost progress and the next level's perks, features, key
+  channels, the member breakdown, and Roles and Emojis buttons with paged
+  lists.
+- `/kick` takes an optional `proof` attachment, saved with the case.
+- Economy paging: `/leaderboard` gets First, Prev, Jump to me, Next and Last,
+  with the viewer's rank in the footer; `/shop view` is paged with sort, show
+  and `affordable` options and a Buy menu; `/inventory` is paged with sell
+  values and Use and Sell menus.
+- `/transactions` is paged, with `type` (earnings, transfers, gambling, shop,
+  bank, crime, staff) and `period` (24h, 7d, 30d, all) filters and an earned,
+  spent and net summary.
+
+### Changed
+- Quick purges: `/purge` deletes 10 or fewer matches straight away. Larger
+  purges still show the preview first, and `preview: true` always asks.
+- `/remindme` accepts friendly durations like `1d 12h` or `2 weeks`, with
+  autocomplete showing how the input reads, and the list is paged.
+- `/warn`, `/kick`, `/timeout` and `/ban`: a role order refusal names both top
+  roles, whose role is too low and how to fix it. The checks are unchanged.
+- `/balance` shows your leaderboard rank, the streak deadline and what the next
+  `/daily` pays; `/daily` shows the next payout and the streak deadline.
+- `/gamble` asks for confirmation on a bet of half your wallet or more that is
+  also over the server's large-amount threshold.
+
+### Removed
+- The `/transactions` `count` option. Paging and the `type` and `period`
+  filters replace it.
+
 ## [3.11.0] - 2026-11-12
 
 Command improvements and quality of life: error IDs on failures, plain-word

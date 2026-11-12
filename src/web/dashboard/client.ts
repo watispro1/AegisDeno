@@ -4,6 +4,7 @@ import { dashboardQolScript } from "./clientQol";
 import { dashboardRedesignScript } from "./clientRedesign";
 import { dashboardModulesScript } from "./clientModules";
 import { dashboardModulePagesScript } from "./clientModulePages";
+import { dashboardTrustPagesScript } from "./clientTrustPages";
 import { dashboardCommunityPagesScript } from "./clientCommunityPages";
 
 /**
@@ -152,4 +153,4 @@ const baseScript = String.raw`
 `;
 
 /** Everything served from /assets/dashboard.js: the original helpers, then the app shell's. */
-export const dashboardScript = baseScript + dashboardAppScript + dashboardPaletteScript + dashboardQolScript + dashboardRedesignScript + dashboardModulePagesScript + dashboardModulesScript + dashboardCommunityPagesScript;
+export const dashboardScript = baseScript + dashboardAppScript + dashboardPaletteScript + dashboardQolScript + dashboardRedesignScript + dashboardModulePagesScript + dashboardModulesScript + dashboardTrustPagesScript + dashboardCommunityPagesScript;

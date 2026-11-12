@@ -13,6 +13,7 @@ const OVERDUE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
  * - timed_unban: lift a `/ban duration:` ban (creatorId is the banned user, payload is JSON, see timedActions.ts)
  * - temprole_remove: take a `/temprole` role off (creatorId is the member, payload is JSON, see tempRoleLogic.ts)
  * - staff_digest: the weekly staff digest (one per guild, see digestService.ts; each run schedules the next)
+ * - slowmode_revert: end a timed `/slowmode ... for:` (creatorId is the channel, payload is JSON, see slowmodeRevert.ts)
  */
 export type TaskType =
   | "reminder"
@@ -24,10 +25,11 @@ export type TaskType =
   | "poll_close"
   | "timed_unban"
   | "temprole_remove"
-  | "staff_digest";
+  | "staff_digest"
+  | "slowmode_revert";
 
 /** Restored on boot however overdue: each re-checks current state before acting. */
-const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick", "poll_close", "timed_unban", "temprole_remove", "staff_digest"];
+const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick", "poll_close", "timed_unban", "temprole_remove", "staff_digest", "slowmode_revert"];
 
 /** Most tasks one listing returns (a guild's automation list, a user's reminders). */
 export const MAX_LISTED_TASKS = 200;

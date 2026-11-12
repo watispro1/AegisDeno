@@ -34,11 +34,12 @@ test("DM-capable commands keep their contexts", () => {
   assert.equal(byName.get("about")?.contexts, undefined, "a command that works anywhere is left untagged");
 });
 
-test("context menus: User Info, Avatar and Report Message are registered for servers only", () => {
+test("context menus: User Info, Avatar, Report Message and Remind Me About This are registered for servers only", () => {
   const menus = commandRegistrationData().filter(d => d.type === ApplicationCommandType.User || d.type === ApplicationCommandType.Message);
-  assert.deepEqual(menus.map(m => m.name).sort(), ["Avatar", "Report Message", "User Info"]);
+  assert.deepEqual(menus.map(m => m.name).sort(), ["Avatar", "Remind Me About This", "Report Message", "User Info"]);
   for (const m of menus) assert.deepEqual(m.contexts, [InteractionContextType.Guild], `${m.name} is hidden in DMs`);
   assert.equal(menus.find(m => m.name === "Report Message")?.type, ApplicationCommandType.Message);
+  assert.equal(menus.find(m => m.name === "Remind Me About This")?.type, ApplicationCommandType.Message);
   for (const menu of contextMenus.values()) assert.ok(menu.description.length > 0 && menu.description.length < 200);
 });
 

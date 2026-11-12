@@ -31,6 +31,8 @@ export interface PersonalReminderPayload {
   setAt: number;
   /** Repeating reminders re-fire on this cadence until cancelled. Omitted for one-off reminders. */
   repeat?: ReminderRepeat;
+  /** Set by "Remind Me About This": a link back to the message, shown as a button on the DM. */
+  jumpUrl?: string;
 }
 
 export type ReminderRepeat = "daily" | "weekly";
@@ -98,6 +100,7 @@ export function decodePersonalReminder(raw: string): PersonalReminderPayload | n
       setAt: typeof o.setAt === "number" && Number.isFinite(o.setAt) ? o.setAt : Date.now(),
     };
     if (o.repeat === "daily" || o.repeat === "weekly") payload.repeat = o.repeat;
+    if (typeof o.jumpUrl === "string" && o.jumpUrl.startsWith("https://")) payload.jumpUrl = o.jumpUrl;
     return payload;
   } catch {
     return null;
