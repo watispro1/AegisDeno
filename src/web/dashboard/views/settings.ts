@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { ChannelOption, RoleOption } from "../botView";
 import type { SettingsSnapshot } from "../data";
-import { ESCALATION_ROWS, LOG_CATEGORY_LABELS, MAX_TIMEOUT_MINUTES, SECTION_TITLES, WELCOME_MESSAGE_MAX, welcomePreview, type SettingsSection } from "../validation";
+import { type FormBody, ESCALATION_ROWS, LOG_CATEGORY_LABELS, MAX_TIMEOUT_MINUTES, SECTION_TITLES, WELCOME_MESSAGE_MAX, welcomePreview, type SettingsSection } from "../validation";
 import { MAX_WARN_EXPIRY_DAYS } from "../../../services/configuration";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../../services/ticketTranscript";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
@@ -13,7 +13,8 @@ import { AUTOMOD_RULE_KEYS, normalizeAutomodConfig } from "../../../services/aut
 import { ruleExemptionsPanel, type RuleExemptionState } from "./automodExemptions";
 import { starboardTopPanel, type StarboardTopView } from "./starboardTop";
 import { GOODBYE_MESSAGE_MAX } from "../../../services/configuration";
-import { Form, ROLE_PICKER_HELP, type FormState, channelOptions, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
+import { moduleDocsHref, moduleMeta } from "../moduleDataCatalog";
+import { Form, MULTI_FIELDS, ROLE_PICKER_HELP, type FormState, channelOptions, settingsValues, channelPickerEmptyNote, channelPicks, hiddenChannelNote, missingNote, roleOptions, rolePickerEmptyNote, rolePicks } from "./form";
 
 const LOG_CATEGORY_DESCRIPTIONS: Record<string, string> = {
   modActions: "Warnings, timeouts, kicks, bans, unbans, and automod enforcement actions.",
@@ -194,17 +195,75 @@ export function sectionEnabled(section: SettingsSection, s: SettingsSnapshot): b
   }
 }
 
-function sectionIntro(section: SettingsSection, s: SettingsSnapshot, base: string): string {
+/** The form field that switches each section's module on or off (none: no single switch). */
+export const SECTION_TOGGLE_KEY: Partial<Record<SettingsSection, string>> = {
+  logging: "loggingEnabled", escalation: "enabled", welcome: "welcomeEnabled", goodbye: "goodbyeEnabled", verification: "enabled", starboard: "enabled",
+};
+
+/** Catalog key behind each section (for icon, description and command). */
+const SECTION_MODULE: Record<SettingsSection, string> = {
+  logging: "logging", escalation: "moderation", automod: "automod", welcome: "welcome", goodbye: "goodbye",
+  tickets: "tickets", verification: "verification", starboard: "starboard",
+};
+
+/** Whether the header switch can be shown for this section (it has one switch, and something saved to flip). */
+export function canToggle(section: SettingsSection, s: SettingsSnapshot): boolean {
+  return Boolean(SECTION_TOGGLE_KEY[section]) && !(section === "verification" && !s.verification);
+}
+
+/**
+ * The header switch posts only `_toggle=on|off` (plus CSRF) to the normal
+ * section POST. This turns that into a full form body: the saved settings
+ * with only the module switch changed, so it goes through the same
+ * validation and save as the main form, works without JavaScript, and never
+ * submits unsaved edits. Any other body is returned unchanged.
+ */
+export function toggleBody(section: SettingsSection, body: FormBody, s: SettingsSnapshot): FormBody {
+  const want = body?._toggle;
+  const key = SECTION_TOGGLE_KEY[section];
+  if ((want !== "on" && want !== "off") || !key || !canToggle(section, s)) return body;
+  const v = settingsValues(section, s);
+  v[key] = want === "on";
+  const out: FormBody = { _csrf: body._csrf };
+  const multi = new Set(MULTI_FIELDS[section] ?? []);
+  for (const [name, value] of Object.entries(v)) {
+    if (value === false) continue;
+    if (value === true) out[name] = "on";
+    else out[name] = multi.has(name) ? value.split(",").filter(Boolean) : value;
+  }
+  return out;
+}
+
+function moduleHeader(section: SettingsSection, s: SettingsSnapshot, base: string, ctx: GuildContext): string {
   const on = sectionEnabled(section, s);
+  const meta = moduleMeta(SECTION_MODULE[section]);
+  const dash = base.replace(/\/settings$/, "");
   const tabs = section === "welcome" || section === "goodbye"
     ? `<nav class="tabs" aria-label="Welcome and goodbye"><a href="${base}/welcome"${section === "welcome" ? ' aria-current="page"' : ""}>Welcome</a><a href="${base}/goodbye"${section === "goodbye" ? ' aria-current="page"' : ""}>Goodbye</a></nav>`
     : "";
+  const switchable = canToggle(section, s);
+  const label = section === "goodbye" ? "Goodbye" : section === "welcome" ? "Welcome" : PAGE_TITLES[section];
+  const toggle = switchable && on !== null
+    ? `<form class="mod-toggle-form" method="post" action="${base}/${section}" data-module-toggle>
+        ${csrfField(ctx.viewer)}<input type="hidden" name="_toggle" value="${on ? "off" : "on"}">
+        <button class="mod-toggle" type="submit" role="switch" aria-checked="${on ? "true" : "false"}" title="${on ? "Turn off" : "Turn on"} and save"><span class="mod-toggle-track" aria-hidden="true"></span><span>${on ? `Turn ${esc(label.toLowerCase())} off` : `Turn ${esc(label.toLowerCase())} on`}</span></button>
+      </form>`
+    : "";
   const extra = section === "escalation"
-    ? `<p class="muted">Cases are on the <a href="${base.replace(/\/settings$/, "")}/cases">Cases</a> page; appeals on <a href="${base.replace(/\/settings$/, "")}/appeals">Appeals</a>.</p>`
+    ? `<p class="muted">Cases are on the <a href="${dash}/cases">Cases</a> page; appeals on <a href="${dash}/appeals">Appeals</a>.</p>`
     : section === "tickets"
-      ? `<p class="muted">Post or move the ticket panel from <a href="${base.replace(/\/settings$/, "")}/panels#tickets">Role panels &amp; panels</a>.</p>`
+      ? `<p class="muted">Post or move the ticket panel from <a href="${dash}/panels#tickets">Role panels &amp; panels</a>.</p>`
       : "";
-  return `${tabs}<div class="module-head">${on === null ? "" : moduleStatus(on)}<span class="muted">${on === null ? "Always available." : on ? "Aegis is using this module." : "Turn it on below, then save."}</span></div>${extra}`;
+  const status = on === null ? "Always available." : on ? "Aegis is using this module." : switchable ? "Switched off. Use the switch to turn it on." : "Turn it on below, then save.";
+  return `${tabs}<div class="module-head mod-head" data-module-head>
+    <span class="mod-icon" aria-hidden="true">${esc(meta.icon)}</span>
+    <div class="mod-head-text">
+      <div class="mod-head-line">${on === null ? `<span class="status-pill neutral">Available</span>` : moduleStatus(on)}<span class="muted">${status}</span></div>
+      ${meta.description ? `<p class="mod-head-desc">${esc(meta.description)}</p>` : ""}
+      <p class="mod-head-links">${meta.command ? `<a href="${esc(moduleDocsHref(SECTION_MODULE[section]))}">Docs: <code class="inline">${esc(meta.command)}</code></a>` : `<a href="/docs">Docs</a>`}<a href="${dash}">Back to overview</a></p>
+    </div>
+    ${toggle}
+  </div>${extra}`;
 }
 
 export function renderSettings(
@@ -224,6 +283,10 @@ export function renderSettings(
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}/settings`;
   const f = new Form(state);
+  if (section === "verification") f.require("verifiedRoleId");
+  if (section === "starboard") f.require("emoji", "threshold");
+  if (section === "escalation") f.require("warnExpiryDays");
+  if (section === "tickets") f.require("autoCloseHours");
   const errorKeys = Object.keys(state.errors);
   const summary = errorKeys.length
     ? `<div class="error-summary" role="alert" tabindex="-1" data-error-summary>
@@ -240,11 +303,11 @@ export function renderSettings(
     guild: ctx,
     active: SECTION_NAV[section],
     body: `${head(PAGE_TITLES[section], "", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], [PAGE_TITLES[section], null]])}
-  ${sectionIntro(section, snapshot, base)}
+  ${moduleHeader(section, snapshot, base, ctx)}
   ${notice(noticeCode)}
   ${summary}
   ${section === "escalation" ? "" : channelPickerEmptyNote(channels, hiddenChannelIds)}
-  <form class="dash-form${section === "welcome" || section === "goodbye" ? " wide" : ""}" method="post" action="${base}/${section}" novalidate data-track-changes>
+  <form class="dash-form mod-settings${section === "welcome" || section === "goodbye" ? " wide" : ""}" method="post" action="${base}/${section}" novalidate data-track-changes>
     ${csrfField(ctx.viewer)}
     ${sectionForm(section, f, ctx, channels, roles, snapshot, hiddenChannelIds)}
     ${canSave ? `<button class="btn" type="submit" data-save-button>Save ${SECTION_TITLES[section].toLowerCase()} settings</button>` : ""}
