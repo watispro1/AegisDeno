@@ -6,17 +6,15 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { createTask, getTasksForCreator, deleteTaskForCreator, updateTaskForCreator } from "../../services/scheduler";
+import { getTasksForCreator, deleteTaskForCreator, updateTaskForCreator } from "../../services/scheduler";
 import { planReminderEdit } from "../../services/reminderEdit";
 import { scheduleTask, cancelTask } from "../../services/schedulerRunner";
-import { encodePersonalReminder, decodePersonalReminder, reminderRepeatIntervalMs, type ReminderRepeat } from "../../services/timedActions";
-import { parseDuration, formatDuration } from "../../utils/duration";
-
-const MIN_REMINDER_SECONDS = 10;
-const MAX_REMINDER_DAYS = 365;
-const MAX_REMINDER_SECONDS = MAX_REMINDER_DAYS * 86400;
-/** Pending reminders a single user may hold; they are persisted, so keep it bounded. */
-const MAX_PENDING_PER_USER = 25;
+import { encodePersonalReminder, decodePersonalReminder, type ReminderRepeat } from "../../services/timedActions";
+import { parseFriendlyDuration, formatDurationLong } from "../../utils/duration";
+import { createPersonalReminder, MAX_PENDING_PER_USER, REMINDER_BOUNDS, REMINDER_DURATION_PRESETS, reminderListLine } from "../../services/personalReminders";
+import { buildDurationSuggestions } from "../../utils/moderationPresets";
+import { replyPagedList } from "../../utils/listPager";
+import { COLORS, footer } from "../../utils/embedStyle";
 
 function reminderText(payload: string): string {
   return decodePersonalReminder(payload)?.text ?? "(unreadable reminder)";
@@ -38,7 +36,7 @@ export const command: Command = {
           opt.setName("reminder").setDescription("What should I remind you about?").setRequired(true).setMaxLength(512)
         )
         .addStringOption(opt =>
-          opt.setName("duration").setDescription("When to remind you (e.g. 30m, 2h, 1d, 1w)").setRequired(true).setAutocomplete(true)
+          opt.setName("duration").setDescription("When to remind you (e.g. 30m, 2h, 1d 12h, 2 weeks)").setRequired(true).setAutocomplete(true)
         )
         .addBooleanOption(opt =>
           opt.setName("channel_reminder").setDescription("Also ping you in this channel (default: DM only)").setRequired(false)
@@ -102,20 +100,14 @@ export const command: Command = {
         return interaction.reply({ content: "You have no pending reminders.", flags: MessageFlags.Ephemeral });
       }
 
-      const lines = reminders.slice(0, 15).map(t => {
-        const ts = Math.floor(new Date(t.executeAt).getTime() / 1000);
-        const repeat = decodePersonalReminder(t.payload)?.repeat;
-        return `⏰ **\`${t.id}\`** — <t:${ts}:R>${repeat ? ` · 🔁 ${repeat}` : ""}\n*${preview(reminderText(t.payload))}*`;
+      await replyPagedList(interaction, {
+        title: `📋 Your Reminders (${reminders.length}/${MAX_PENDING_PER_USER})`,
+        lines: [...reminders].sort((a, b) => new Date(a.executeAt).getTime() - new Date(b.executeAt).getTime()).map(reminderListLine),
+        perPage: 8,
+        note: "Change one with /remindme edit, or cancel it with /remindme cancel",
+        ephemeral: true,
       });
-
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle(`📋 Your Reminders (${reminders.length})`)
-        .setDescription(lines.join("\n\n"))
-        .setFooter({ text: reminders.length > 15 ? `Showing 15 of ${reminders.length}. Change one with /remindme edit, or cancel it with /remindme cancel.` : "Change one with /remindme edit, or cancel it with /remindme cancel." })
-        .setTimestamp();
-
-      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      return;
     }
 
     // edit
@@ -127,7 +119,7 @@ export const command: Command = {
         return interaction.reply({ content: `❌ Reminder \`${id}\` not found. Use \`/remindme list\` to see your reminders.`, flags: MessageFlags.Ephemeral });
       }
       const durationRaw = interaction.options.getString("duration");
-      const durationSec = durationRaw === null ? null : parseDuration(durationRaw) ?? 0;
+      const durationSec = durationRaw === null ? null : parseFriendlyDuration(durationRaw) ?? 0;
       const repeatRaw = interaction.options.getString("repeat");
       const plan = planReminderEdit(current, {
         text: interaction.options.getString("reminder"),
@@ -172,72 +164,38 @@ export const command: Command = {
     const inChannel   = interaction.options.getBoolean("channel_reminder") ?? false;
     const repeatRaw   = interaction.options.getString("repeat");
     const repeat: ReminderRepeat | undefined = repeatRaw === "daily" || repeatRaw === "weekly" ? repeatRaw : undefined;
-    const intervalMs  = reminderRepeatIntervalMs(repeat);
+    const durationSec = parseFriendlyDuration(durationRaw) ?? 0;
 
-    const durationSec = parseDuration(durationRaw);
-    if (!durationSec || durationSec < MIN_REMINDER_SECONDS) {
-      return interaction.reply({
-        content: "❌ Invalid duration. Use formats like `30m`, `2h`, `1d`. Minimum is 10 seconds.",
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-    if (durationSec > MAX_REMINDER_SECONDS) {
-      return interaction.reply({
-        content: `❌ Reminders cannot be set more than ${MAX_REMINDER_DAYS} days ahead.`,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    const pending = await getTasksForCreator(interaction.user.id, "personal_reminder");
-    if (pending.length >= MAX_PENDING_PER_USER) {
-      return interaction.reply({
-        content: `❌ You already have ${pending.length} pending reminders. Cancel one with \`/remindme cancel\` first.`,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    const setAt  = Date.now();
-    const fireAt = new Date(setAt + durationSec * 1000);
-    const fireTs = Math.floor(fireAt.getTime() / 1000);
-
-    let taskId: string;
+    let result: Awaited<ReturnType<typeof createPersonalReminder>>;
     try {
-      const task = await createTask(
-        interaction.guildId ?? "dm",
-        interaction.channelId,
-        interaction.user.id,
-        "personal_reminder",
-        encodePersonalReminder({
-          text,
-          inChannel,
-          sourceName: interaction.guild?.name ?? "Direct Message",
-          setAt,
-          ...(repeat ? { repeat } : {}),
-        }),
-        fireAt,
-        intervalMs,
-      );
-      scheduleTask(interaction.client, task);
-      taskId = task.id!;
+      result = await createPersonalReminder(interaction.client, {
+        userId: interaction.user.id,
+        guildId: interaction.guildId,
+        guildName: interaction.guild?.name ?? null,
+        channelId: interaction.channelId,
+        text,
+        durationSec,
+        inChannel,
+        repeat,
+      });
     } catch (err) {
       logger.error(`Failed to save reminder for user ${interaction.user.id}`, err);
-      return interaction.reply({
-        content: "❌ Couldn't save your reminder. Please try again in a moment.",
-        flags: MessageFlags.Ephemeral,
-      });
+      return interaction.reply({ content: "❌ Couldn't save your reminder. Please try again in a moment.", flags: MessageFlags.Ephemeral });
     }
+    if (!result.ok) return interaction.reply({ content: `❌ ${result.error}`, flags: MessageFlags.Ephemeral });
 
+    const fireTs = Math.floor(result.fireAt.getTime() / 1000);
     const confirmEmbed = new EmbedBuilder()
-      .setColor(0x5865F2)
+      .setColor(COLORS.brand)
       .setTitle("⏰ Reminder Set!")
       .setDescription(`I'll remind you <t:${fireTs}:R> (at <t:${fireTs}:f>).`)
       .addFields(
         { name: "📝 Reminder", value: text, inline: false },
-        { name: "⏳ Duration", value: formatDuration(durationSec), inline: true },
+        { name: "⏳ Duration", value: formatDurationLong(durationSec), inline: true },
         { name: "🔔 Delivery",  value: inChannel ? "DM + Channel Ping" : "DM only", inline: true },
         { name: "🔁 Repeats",   value: repeat ? (repeat === "daily" ? "Daily" : "Weekly") : "Once", inline: true },
       )
-      .setFooter({ text: `ID: ${taskId} · You can close this. I'll DM you when the time comes.` })
+      .setFooter(footer(`ID: ${result.task.id} · You can close this. I'll DM you when the time comes.`))
       .setTimestamp();
 
     await interaction.reply({ embeds: [confirmEmbed], flags: MessageFlags.Ephemeral });
@@ -258,20 +216,7 @@ export const command: Command = {
       return;
     }
 
-    const presets = [
-      { name: "10 minutes", value: "10m" },
-      { name: "30 minutes", value: "30m" },
-      { name: "1 hour", value: "1h" },
-      { name: "2 hours", value: "2h" },
-      { name: "4 hours", value: "4h" },
-      { name: "8 hours", value: "8h" },
-      { name: "12 hours", value: "12h" },
-      { name: "1 day (tomorrow)", value: "1d" },
-      { name: "3 days", value: "3d" },
-      { name: "1 week", value: "1w" },
-    ];
-    const filtered = presets.filter(p => !focused || p.name.toLowerCase().includes(focused) || p.value.toLowerCase().includes(focused));
-    await interaction.respond(filtered.slice(0, 10).map(p => ({ name: `${p.value} (${p.name})`, value: p.value })));
+    await interaction.respond(buildDurationSuggestions(focusedOpt.value, REMINDER_DURATION_PRESETS, REMINDER_BOUNDS));
   },
 };
 

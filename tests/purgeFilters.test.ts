@@ -85,3 +85,44 @@ test("chunk splits into bulk-delete batches of 100", () => {
   assert.deepEqual(chunk(items).map((c) => c.length), [100, 100, 50]);
   assert.deepEqual(chunk([]), []);
 });
+
+test("purge: new filters for files, invites, mentions and stickers", async () => {
+  const { matchesPurgeCriteria } = await import("../src/services/purgeFilters");
+  const base: PurgeCandidate = { id: "100000000000000010", authorId: "1", authorBot: false, content: "", attachmentCount: 0, embedCount: 0, hasImageEmbed: false, pinned: false, createdTimestamp: Date.now() };
+  assert.equal(matchesPurgeCriteria({ ...base, attachmentCount: 1 }, { mode: "attachments" }), true);
+  assert.equal(matchesPurgeCriteria({ ...base, hasImageEmbed: true }, { mode: "attachments" }), false, "a link preview is not a file");
+  assert.equal(matchesPurgeCriteria({ ...base, content: "join discord.gg/abc" }, { mode: "invites" }), true);
+  assert.equal(matchesPurgeCriteria({ ...base, content: "https://discord.com/invite/x-y" }, { mode: "invites" }), true);
+  assert.equal(matchesPurgeCriteria({ ...base, content: "https://example.com" }, { mode: "invites" }), false);
+  assert.equal(matchesPurgeCriteria({ ...base, mentionCount: 2 }, { mode: "mentions" }), true);
+  assert.equal(matchesPurgeCriteria(base, { mode: "mentions" }), false, "missing counts mean none");
+  assert.equal(matchesPurgeCriteria({ ...base, stickerCount: 1 }, { mode: "stickers" }), true);
+});
+
+test("purge: after_message keeps only newer messages; invalid IDs never match", async () => {
+  const { isAfterSnowflake, matchesPurgeCriteria } = await import("../src/services/purgeFilters");
+  assert.equal(isAfterSnowflake("100000000000000010", "100000000000000009"), true);
+  assert.equal(isAfterSnowflake("100000000000000009", "100000000000000009"), false, "the anchor itself is kept");
+  assert.equal(isAfterSnowflake("abc", "1"), false);
+  const msg: PurgeCandidate = { id: "100000000000000005", authorId: "1", authorBot: false, content: "", attachmentCount: 0, embedCount: 0, hasImageEmbed: false, pinned: false, createdTimestamp: Date.now() };
+  assert.equal(matchesPurgeCriteria(msg, { mode: "all", afterId: "100000000000000004" }), true);
+  assert.equal(matchesPurgeCriteria(msg, { mode: "all", afterId: "100000000000000006" }), false);
+});
+
+test("purge: confirmation only above the threshold unless a preview is asked for", async () => {
+  const { needsPurgeConfirmation, PURGE_CONFIRM_ABOVE } = await import("../src/services/purgeFilters");
+  assert.equal(needsPurgeConfirmation(PURGE_CONFIRM_ABOVE, false), false);
+  assert.equal(needsPurgeConfirmation(PURGE_CONFIRM_ABOVE + 1, false), true);
+  assert.equal(needsPurgeConfirmation(1, true), true);
+});
+
+test("purge: summary counts authors, bots, files and links", async () => {
+  const { summarizePurge, purgeSummaryText } = await import("../src/services/purgeFilters");
+  const mk = (authorId: string, extra: Partial<PurgeCandidate> = {}): PurgeCandidate => ({ id: "1", authorId, authorBot: false, content: "", attachmentCount: 0, embedCount: 0, hasImageEmbed: false, pinned: false, createdTimestamp: 0, ...extra });
+  const s = summarizePurge([mk("a"), mk("a"), mk("a", { content: "see https://x.y" }), mk("b", { authorBot: true }), mk("c", { attachmentCount: 2 })], 2);
+  assert.deepEqual(s.topAuthors, [{ authorId: "a", count: 3 }, { authorId: "b", count: 1 }]);
+  assert.equal(s.otherAuthors, 1);
+  assert.equal(s.bots, 1);
+  assert.equal(purgeSummaryText(s), "<@a> ×3 · <@b> ×1 · +1 other\n4 human · 1 bot · 1 with files · 1 with links");
+  assert.equal(purgeSummaryText(summarizePurge([])), "Nothing deleted.");
+});

@@ -13,6 +13,7 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { isBotHierarchyValid, isRoleHierarchyValid } from "../../permissions/hierarchy";
+import { hierarchyRefusalText } from "../../permissions/hierarchyExplain";
 import { sendGuildLog } from "../../services/logging";
 import { addModerationCase, revokeModerationCase } from "../../services/moderationCases";
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
@@ -129,10 +130,10 @@ export const command: Command = {
         isBotHierarchyValid(interaction.client, guildId, target.id),
       ]);
       if (!hierarchyOk) {
-        return interaction.reply({ content: "❌ You cannot ban this user — they have a higher or equal role.", flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: await hierarchyRefusalText(interaction.guild!, "you", interaction.user.id, target.id, "ban", target.tag), flags: MessageFlags.Ephemeral });
       }
       if (!botHierarchyOk) {
-        return interaction.reply({ content: "❌ I cannot ban this user — they are above my highest role.", flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: await hierarchyRefusalText(interaction.guild!, "bot", interaction.client.user.id, target.id, "ban", target.tag), flags: MessageFlags.Ephemeral });
       }
     }
 
