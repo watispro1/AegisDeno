@@ -14,6 +14,7 @@ import {
 import { Command } from "../../types/discord";
 import { getWarningsForUser } from "../../services/warnings";
 import { pageInfo, stepPage } from "../../services/casePaging";
+import { memberPageUrl } from "../../config/links";
 
 export const WARNINGS_PER_PAGE = 5;
 
@@ -98,13 +99,22 @@ export const command: Command = {
     const nextId = `warnings_next_${interaction.id}`;
     let page = 0;
 
-    const view = (requested: number) => {
+    const view = (requested: number, disabled = false) => {
       const r = renderWarningsPage(who, warnings, requested);
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId(prevId).setLabel("Prev").setStyle(ButtonStyle.Secondary).setDisabled(!r.hasPrev),
-        new ButtonBuilder().setCustomId(nextId).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(!r.hasNext),
-      );
-      return { embeds: [r.embed], components: r.totalPages > 1 ? [row] : [], allowedMentions: { parse: [] as never[] } };
+      const buttons: ButtonBuilder[] = [];
+      if (r.totalPages > 1) {
+        buttons.push(
+          new ButtonBuilder().setCustomId(prevId).setLabel("Prev").setStyle(ButtonStyle.Secondary).setDisabled(disabled || !r.hasPrev),
+          new ButtonBuilder().setCustomId(nextId).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(disabled || !r.hasNext),
+        );
+      }
+      if (guildId && warnings.length > 0) {
+        buttons.push(
+          new ButtonBuilder().setLabel("Member on Dashboard").setStyle(ButtonStyle.Link).setURL(memberPageUrl(guildId, target.id)).setEmoji("👤"),
+        );
+      }
+      const components = buttons.length > 0 ? [new ActionRowBuilder<ButtonBuilder>().addComponents(buttons)] : [];
+      return { embeds: [r.embed], components, allowedMentions: { parse: [] as never[] } };
     };
 
     const first = view(page);
@@ -127,7 +137,7 @@ export const command: Command = {
       await i.update(view(page)).catch(() => null);
     }));
     collector.on("end", () => {
-      interaction.editReply({ components: [] }).catch(() => null);
+      interaction.editReply(view(page, true)).catch(() => null);
     });
   },
 };

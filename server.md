@@ -296,7 +296,7 @@ Overflow sandbox for busy times and multi-person tests (polls, reminders). Same 
 
 `#mod-commands-testing`
 ```text
-Staff sandbox. Rehearse /warn, /timeout, /case, /purge, /lock and /incident status on a test account only. Every action here creates a real case and a mod-log entry.
+Staff sandbox. Rehearse /warn, /timeout, /case, /purge, /massban, /lock and /incident status on a test account only. Every action here creates a real case and a mod-log entry.
 ```
 
 ---
@@ -377,7 +377,7 @@ One post per member who DMs Aegis. Reply with /modmail reply, the Reply buttons,
 
 `#mod-logs`
 ```text
-Aegis audit log: warnings, timeouts, kicks, bans, purges, case edits, Incident Mode steps and ModMail closes. Each entry links its case. Look a case up with /case view or on https://aegisdeno.fly.dev/dashboard
+Aegis audit log: warnings, timeouts, kicks, bans, mass bans, purges, case edits, join risk flags, message reports, Incident Mode steps and ModMail closes. Each entry links its case. Look a case up with /case view or on https://aegisdeno.fly.dev/dashboard
 ```
 
 `#staff-digest`
@@ -431,9 +431,12 @@ Voice channels have no topic. Set the channel **status** instead.
 
 | Aegis event | Destination | Trigger |
 |---|---|---|
-| Warnings, timeouts, kicks, bans, unbans, purges, case edits | `#mod-logs` | `/warn`, `/timeout`, `/kick`, `/ban`, `/unban`, `/purge`, `/case edit` |
+| Warnings, timeouts, kicks, bans, unbans, purges, mass bans, case edits | `#mod-logs` | `/warn`, `/timeout`, `/kick`, `/ban`, `/unban`, `/purge`, `/massban`, `/case edit` |
 | Incident Mode start, steps and restore | `#mod-logs` | `/incident start`, `/incident end`, the `/incident auto` trigger |
 | ModMail conversations / close summaries | `#modmail` / `#mod-logs` | Member DMs Aegis; `/modmail close` |
+| Member join risk flags & audit | `#mod-logs` | Member join (when memberJoins log is enabled) |
+| Member message reports | `#mod-logs` | Message Apps context menu "Report Message" |
+| Reverted slowmode completions | `#mod-logs` | Automated completion of `/slowmode set` duration |
 | Weekly staff digest | `#staff-digest` | `/digest setup` schedule |
 | Ghost Watch alerts | `#watchlist-alerts` + the watcher's DMs | `/watchlist add` |
 | Ticket transcripts | `#ticket-transcripts` (and the member's DMs) | `/ticket close`, idle auto-close |
@@ -594,7 +597,7 @@ Run the following commands inside the server using the bot to configure its nati
 ### 7.1 Setup Order
 
 1. **Invite Aegis** from https://aegisdeno.fly.dev/invite (`bot` and `applications.commands` scopes) and drag `Aegis Bot` above every role it must manage (§2).
-2. **Run `/diagnostics`** and fix every missing permission. Aegis needs what its invite asks for (permissions integer `1460691659798`): View Channels, Send Messages, Send Messages in Threads, Create Private Threads, Manage Threads, Embed Links, Attach Files, Read Message History, Manage Messages, Moderate Members, Kick Members, Ban Members, Manage Nicknames, Manage Channels (slowmode, tickets) and Manage Roles (locks, roles, ticket members). `/lock` needs Manage Roles, not Manage Channels. Manage Server is optional: only Incident Mode's "pause invites" uses it.
+2. **Run `/diagnostics`** and fix every missing permission. Aegis needs what its invite asks for (permissions integer `1460691659798`): View Channels, Send Messages, Send Messages in Threads, Create Private Threads, Manage Threads, Embed Links, Attach Files, Read Message History, Manage Messages, Moderate Members, Kick Members, Ban Members, Manage Nicknames, Manage Channels (slowmode, tickets) and Manage Roles (locks, roles, ticket members). `/lock` needs Manage Roles, not Manage Channels. Manage Server is optional: only Incident Mode's "pause invites" uses it. Built-in Apps context menus (Report Message, Remind Me About This, User Info, Avatar) require no extra permissions.
 3. **Logging** (7.2), then **verification** and **role panels** (7.3–7.4).
 4. **Tickets, welcome, suggestions and starboard** (7.5–7.8).
 5. **Automod and escalation** (7.9–7.10).
@@ -612,7 +615,7 @@ Run the following commands inside the server using the bot to configure its nati
 /logging test
 ```
 
-`/logging status` opens the interactive category manager. Use the buttons to toggle mod actions, member joins/leaves, message edits/deletes, role changes, and channel events. There is no `/logging categories` subcommand - the buttons replace it.
+`/logging status` opens the interactive category manager. Use the buttons to toggle mod actions, member joins/leaves, message edits/deletes, role changes, and channel events. There is no `/logging categories` subcommand - the buttons replace it. When member joins logging is active, Aegis automatically attaches join-risk intelligence flags (new accounts under 1d/7d/30d, default avatars, generated names, returning members with prior infractions).
 
 ### 7.3 Verification Gate
 
@@ -744,6 +747,7 @@ Links, mention floods, message floods and caps are filtered everywhere except th
 - **Incident Mode:** `/incident auto` starts it when 10 accounts join within 30 seconds. Start it by hand during a raid with `/incident start` (defaults: 1 hour, gates accounts younger than 7 days) and end it early with `/incident end`, which puts back every slowmode, lock and invite it changed. Each step is logged to `#mod-logs`.
 - **Trust Score:** `/trust user` shows a member's 0-100 score and why. With `incident_gate:true`, Incident Mode's join gate also catches low-trust joins. The link-filter and low-trust-role integrations stay off unless you turn them on.
 - **Ghost Watch:** `/watchlist add user:@member reason:Suspected alt account alert_channel:#watchlist-alerts`, then `/watchlist list` to review.
+- **Mass Ban:** `/massban user_ids:"ID1 ID2" reason:"Raid cleanup"` quickly purges up to 50 bad actors by ID with confirmation and a single audit case.
 
 ### 7.12 Economy (Optional, for the Playground)
 
@@ -757,7 +761,7 @@ The economy is off by default. Turn it on here so visitors can try it in `#bot-p
 /leaderboard
 ```
 
-- Members use `/daily`, `/work`, `/pay`, `/balance`, `/shop buy` and `/inventory`. The leaderboard never pings.
+- Members use `/daily` (with streak deadlines), `/work`, `/pay`, `/balance`, `/shop buy`, `/inventory` (with interactive use and sell menus), `/transactions` (paged audit trail), `/rob`, and `/interest`. The leaderboard never pings.
 - `/economy give`, `/economy take` and `/economy reset` are posted to `#mod-logs`. Use them for event prizes, not to settle disputes.
 - The badge is an inventory item with no role. If you ever sell a role, keep it cosmetic and below `Aegis Bot` and your own role; Aegis refuses anything higher.
 
@@ -779,7 +783,7 @@ The economy is off by default. Turn it on here so visitors can try it in `#bot-p
 - **Minor** (caps, off-topic, light spam): redirect in chat, then `/warn` with severity Low.
 - **Moderate** (disrespect, NSFW link attempt, toxicity): `/warn` with severity Medium; repeat within 10 minutes -> `/timeout` for 10 minutes.
 - **Severe** (malicious links, token grabbers, hate speech): `/ban` with `delete_messages` and a `proof` attachment.
-- **Raid:** `/incident start` (locks public channels, adds slowmode, gates new accounts), clean up with `/purge` (filter: links or bots), and `/incident end` once it is over. Post an update in `#status-and-incidents` only if the bot itself is affected.
+- **Raid:** `/incident start` (locks public channels, adds slowmode, gates new accounts), clean up with `/massban` or `/purge` (filter: links or bots), and `/incident end` once it is over. Post an update in `#status-and-incidents` only if the bot itself is affected.
 
 ### Ticket Resolution Etiquette
 1. **Claiming:** Staff members must press **Claim** on the ticket embed (`/ticket claim`) before providing in-depth support to avoid duplicate staff intervention.
@@ -817,8 +821,10 @@ The economy is off by default. Turn it on here so visitors can try it in `#bot-p
 - [ ] `/incident start` on a test server slows and locks public channels, and `/incident end` restores them exactly.
 - [ ] `/trust user` shows a score with its factors for a test account.
 - [ ] Every channel topic from §5 is pasted, and `#status-and-incidents` links https://aegisdeno.fly.dev/status.
+- [ ] Apps context menu "Report Message" delivers an audit notice to `#mod-logs`.
+- [ ] Member join with risk factors displays color-coded indicators in `#mod-logs`.
 - [ ] Invite, dashboard, docs, status, and changelog links in `#official-links` all resolve.
 
 ---
 
-*Document version: 3.8.0 (2026-11-07) • Maintained by the Aegis team • Source: https://github.com/watispro1/AegisDeno*
+*Document version: 3.12.0 (2026-11-12) • Maintained by the Aegis team • Source: https://github.com/watispro1/AegisDeno*

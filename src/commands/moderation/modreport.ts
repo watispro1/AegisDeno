@@ -287,7 +287,9 @@ export const command: Command = {
       }));
 
       collector.on("end", () => {
-        interaction.editReply({ components: [] }).catch(() => null);
+        const row = buildRow(currentSection);
+        row.components.forEach(c => c.setDisabled(true));
+        interaction.editReply({ components: [row] }).catch(() => null);
       });
     } catch (err) {
       logger.error("modreport failed", err);
