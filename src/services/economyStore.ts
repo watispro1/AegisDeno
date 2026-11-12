@@ -66,6 +66,15 @@ export interface AccountUpdate {
 
 export type LeaderboardSort = "total" | "wallet" | "bank";
 export interface LeaderboardRow { userId: string; balance: number; bank: number; total: number }
+/** A member's place on the leaderboard: 1-based rank, how many are ranked, and the value ranked by. */
+export interface LeaderboardRank { rank: number; total: number; value: number }
+
+/** The score an account is ranked by (wallet, bank or both). */
+export const leaderboardScore = (a: Pick<Account, "balance" | "bank">, sort: LeaderboardSort = "total"): number =>
+  sort === "wallet" ? a.balance : sort === "bank" ? a.bank : a.balance + a.bank;
+
+/** Narrows a history read: only these types, and/or only since a time. */
+export interface TransactionFilter { types?: readonly TransactionType[]; since?: Date }
 
 export type CooldownField = "lastDaily" | "lastWork";
 
@@ -132,8 +141,10 @@ export interface EconomyStore {
   setBalance(guildId: string, userId: string, balance: number, bank?: number): Promise<Account>;
   /** Accounts with coins, richest first by the chosen sort (ties by user ID); zero rows hidden. */
   leaderboard(guildId: string, offset: number, limit: number, sort?: LeaderboardSort): Promise<{ rows: LeaderboardRow[]; total: number }>;
+  /** Where a member sits on the leaderboard (same order and zero-hiding as `leaderboard`); null when they aren't on it. */
+  rank(guildId: string, userId: string, sort?: LeaderboardSort): Promise<LeaderboardRank | null>;
   logTransaction(tx: Transaction): Promise<void>;
-  recentTransactions(guildId: string, limit: number, userId?: string): Promise<Transaction[]>;
+  recentTransactions(guildId: string, limit: number, userId?: string, filter?: TransactionFilter): Promise<Transaction[]>;
   listItems(guildId: string): Promise<ShopItem[]>;
   getItem(guildId: string, id: string): Promise<ShopItem | null>;
   addItem(guildId: string, input: ShopItemInput): Promise<ShopItem | "duplicate" | "full">;
@@ -197,6 +208,9 @@ export function memoryEconomyStore(seed: { config?: Partial<EconomyConfig>; now?
   let seq = 0;
   const key = (g: string, u: string) => `${g}:${u}`;
   const copy = (a: Account): Account => ({ ...a });
+  const ranked = (guildId: string, sort: LeaderboardSort) => [...accounts.values()]
+    .filter(a => a.guildId === guildId && leaderboardScore(a, sort) > 0)
+    .sort((x, y) => leaderboardScore(y, sort) - leaderboardScore(x, sort) || (x.userId < y.userId ? -1 : 1));
   const nameTaken = (guildId: string, name: string, except?: string) =>
     items.some(i => i.guildId === guildId && i.id !== except && itemNameKey(i.name) === itemNameKey(name));
 
@@ -263,14 +277,19 @@ export function memoryEconomyStore(seed: { config?: Partial<EconomyConfig>; now?
       return copy(a);
     },
     async leaderboard(guildId, offset, limit, sort = "total") {
-      const score = (a: Account) => (sort === "wallet" ? a.balance : sort === "bank" ? a.bank : a.balance + a.bank);
-      const all = [...accounts.values()].filter(a => a.guildId === guildId && score(a) > 0)
-        .sort((x, y) => score(y) - score(x) || (x.userId < y.userId ? -1 : 1));
+      const all = ranked(guildId, sort);
       return { rows: all.slice(offset, offset + limit).map(a => ({ userId: a.userId, balance: a.balance, bank: a.bank, total: a.balance + a.bank })), total: all.length };
     },
+    async rank(guildId, userId, sort = "total") {
+      const all = ranked(guildId, sort);
+      const at = all.findIndex(a => a.userId === userId);
+      return at < 0 ? null : { rank: at + 1, total: all.length, value: leaderboardScore(all[at], sort) };
+    },
     async logTransaction(tx) { transactions.push({ ...tx }); },
-    async recentTransactions(guildId, limit, userId) {
-      return transactions.filter(t => t.guildId === guildId && (!userId || t.userId === userId)).slice().reverse().slice(0, limit);
+    async recentTransactions(guildId, limit, userId, filter = {}) {
+      return transactions.filter(t => t.guildId === guildId && (!userId || t.userId === userId)
+        && (!filter.types || filter.types.includes(t.type))
+        && (!filter.since || t.createdAt.getTime() >= filter.since.getTime())).slice().reverse().slice(0, limit);
     },
     async listItems(guildId) { return items.filter(i => i.guildId === guildId).sort((a, b) => a.price - b.price || a.name.localeCompare(b.name)).map(i => ({ ...i })); },
     async getItem(guildId, id) { const i = items.find(x => x.guildId === guildId && x.id === id); return i ? { ...i } : null; },

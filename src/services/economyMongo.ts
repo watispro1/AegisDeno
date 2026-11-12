@@ -6,7 +6,7 @@
  */
 import { TtlCache } from "../utils/ttlCache";
 import { MAX_BALANCE, MAX_SHOP_ITEMS, itemNameKey, normalizeEconomyConfig, type EconomyConfig, type ShopItem } from "./economyLogic";
-import { TRANSACTION_TYPES, withBounds, type Account, type AccountUpdate, type EconomyStore, type InventoryRow, type LeaderboardRow, type Transaction, type TransactionType } from "./economyStore";
+import { TRANSACTION_TYPES, leaderboardScore, withBounds, type Account, type AccountUpdate, type EconomyStore, type InventoryRow, type LeaderboardRow, type LeaderboardSort, type Transaction, type TransactionFilter, type TransactionType } from "./economyStore";
 import { isItemEffect } from "./economyProgress";
 
 type Doc = Record<string, unknown>;
@@ -84,6 +84,34 @@ export function accountChange(update: AccountUpdate): Doc {
   if (update.set && Object.keys(update.set).length) change.$set = { ...update.set };
   return change;
 }
+const TOTAL_EXPR = { $add: [{ $ifNull: ["$balance", 0] }, { $ifNull: ["$bank", 0] }] };
+
+/** Accounts that appear on the leaderboard for a sort (zero scores are hidden). */
+export function boardFilter(guildId: string, sort: LeaderboardSort): Doc {
+  if (sort === "total") return { guildId, $or: [{ balance: { $gt: 0 } }, { bank: { $gt: 0 } }] };
+  return { guildId, [sort === "bank" ? "bank" : "balance"]: { $gt: 0 } };
+}
+
+/** Accounts ranked above a member: a higher score, or the same score and a smaller user ID (the leaderboard's tie-break). */
+export function rankAheadFilter(guildId: string, userId: string, sort: LeaderboardSort, value: number): Doc {
+  if (sort === "total") {
+    return {
+      guildId,
+      $expr: { $or: [{ $gt: [TOTAL_EXPR, value] }, { $and: [{ $eq: [TOTAL_EXPR, value] }, { $lt: ["$userId", userId] }] }] },
+    };
+  }
+  const f = sort === "bank" ? "bank" : "balance";
+  return { guildId, $or: [{ [f]: { $gt: value } }, { [f]: value, userId: { $lt: userId } }] };
+}
+
+/** The Mongo filter for a member's (or the server's) history, narrowed by type and time. */
+export function transactionQuery(guildId: string, userId?: string, filter: TransactionFilter = {}): Doc {
+  const q: Doc = userId ? { guildId, userId } : { guildId };
+  if (filter.types?.length) q.type = { $in: [...filter.types] };
+  if (filter.since) q.createdAt = { $gte: filter.since };
+  return q;
+}
+
 function toItem(d: Doc): ShopItem {
   return {
     id: String(d._id), guildId: String(d.guildId), name: String(d.name), description: String(d.description ?? ""),
@@ -205,18 +233,18 @@ export function mongoEconomyStore(models: EconomyModels = defaultModels()): Econ
       };
       if (sort !== "total" || !models.account.aggregate) {
         const f = sort === "bank" ? "bank" : "balance";
-        const filter = { guildId, [f]: { $gt: 0 } };
+        const filter = boardFilter(guildId, sort === "bank" ? "bank" : "wallet");
         const [rows, total] = await Promise.all([
           models.account.find(filter).sort({ [f]: -1, userId: 1 }).skip(offset).limit(limit).select({ userId: 1, balance: 1, bank: 1 }).lean(),
           models.account.countDocuments(filter),
         ]);
         return { rows: rows.map(row), total };
       }
-      const filter = { guildId, $or: [{ balance: { $gt: 0 } }, { bank: { $gt: 0 } }] };
+      const filter = boardFilter(guildId, "total");
       const [rows, total] = await Promise.all([
         models.account.aggregate([
           { $match: filter },
-          { $project: { userId: 1, balance: 1, bank: 1, total: { $add: [{ $ifNull: ["$balance", 0] }, { $ifNull: ["$bank", 0] }] } } },
+          { $project: { userId: 1, balance: 1, bank: 1, total: TOTAL_EXPR } },
           { $sort: { total: -1, userId: 1 } },
           { $skip: offset },
           { $limit: limit },
@@ -225,9 +253,20 @@ export function mongoEconomyStore(models: EconomyModels = defaultModels()): Econ
       ]);
       return { rows: rows.map(row), total };
     },
+    async rank(guildId, userId, sort = "total") {
+      const d = await models.account.findOne({ guildId, userId }).lean();
+      if (!d) return null;
+      const value = leaderboardScore({ balance: Number(d.balance ?? 0), bank: Number(d.bank ?? 0) }, sort);
+      if (value <= 0) return null;
+      const [ahead, total] = await Promise.all([
+        models.account.countDocuments(rankAheadFilter(guildId, userId, sort, value)),
+        models.account.countDocuments(boardFilter(guildId, sort)),
+      ]);
+      return { rank: ahead + 1, total: Math.max(total, ahead + 1), value };
+    },
     async logTransaction(tx) { await models.transaction.create({ ...tx, note: tx.note ? tx.note.slice(0, 300) : null }); },
-    async recentTransactions(guildId, limit, userId) {
-      const rows = await models.transaction.find(userId ? { guildId, userId } : { guildId }).sort({ createdAt: -1 }).limit(limit).lean();
+    async recentTransactions(guildId, limit, userId, filter) {
+      const rows = await models.transaction.find(transactionQuery(guildId, userId, filter)).sort({ createdAt: -1 }).limit(limit).lean();
       return rows.map(toTx);
     },
     async listItems(guildId) {
