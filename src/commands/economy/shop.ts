@@ -1,33 +1,23 @@
 import {
-  SlashCommandBuilder, EmbedBuilder, InteractionContextType, MessageFlags, PermissionFlagsBits,
+  SlashCommandBuilder, InteractionContextType, MessageFlags, PermissionFlagsBits,
   type ChatInputCommandInteraction, type AutocompleteInteraction,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { economy } from "../../services/economyService";
-import { economyGate, grantShopRole, inventoryAutocomplete, shopItemAutocomplete, shopRoleRefusal, NO_PINGS } from "../../services/economyDiscord";
-import { MAX_BALANCE, SHOP_LIMITS, formatCoins, type EconomyConfig, type ShopItem } from "../../services/economyLogic";
-import { EFFECT_LIMITS, effectSummary, isItemEffect } from "../../services/economyProgress";
-import { COLORS, footer } from "../../utils/embedStyle";
+import { economyGate, inventoryAutocomplete, shopItemAutocomplete, shopRoleRefusal, NO_PINGS } from "../../services/economyDiscord";
+import { MAX_BALANCE, SHOP_LIMITS, formatCoins } from "../../services/economyLogic";
+import { EFFECT_LIMITS, isItemEffect } from "../../services/economyProgress";
+import { buyAction, sellAction } from "../../services/economyItemActions";
+import { isShopShow, isShopSort, shopItemLine, SHOP_SHOW_LABEL, SHOP_SORT_LABEL } from "../../services/economyShopView";
+import { runShopView } from "../../services/economyShopPager";
+
+export { roleSummary } from "../../services/economyShopView";
 
 const EFFECT_CHOICES = [
   { name: "No effect", value: "none" },
   { name: "Rob shield", value: "rob_shield" },
   { name: "Work boost", value: "work_boost" },
 ];
-import { truncate } from "../../utils/safeText";
-
-/** " · gives @Role for 24h on /use": what a role item does. */
-export function roleSummary(i: Pick<ShopItem, "roleId" | "roleDurationHours" | "useToGrant"> & Partial<Pick<ShopItem, "effect" | "effectHours" | "effectPercent">>): string {
-  if (i.effect) return ` · ${effectSummary(i.effect, i.effectHours ?? 0, i.effectPercent ?? null)} on \`/use\``;
-  if (!i.roleId) return "";
-  return ` · gives <@&${i.roleId}>${i.roleDurationHours ? ` for ${i.roleDurationHours}h` : ""}${i.useToGrant ? " on `/use`" : ""}`;
-}
-
-function itemLine(cfg: EconomyConfig, i: ShopItem): string {
-  const stock = i.stock === null ? "" : i.stock === 0 ? " · **sold out**" : ` · ${i.stock} left`;
-  const limit = i.perUserLimit === null ? "" : ` · max ${i.perUserLimit} each`;
-  return `**${i.name}** · ${formatCoins(cfg, i.price)}${roleSummary(i)}${stock}${limit}${i.description ? `\n> ${i.description}` : ""}`;
-}
 
 const ephemeral = (interaction: ChatInputCommandInteraction, content: string) =>
   interaction.reply({ content, flags: MessageFlags.Ephemeral, allowedMentions: NO_PINGS });
@@ -41,7 +31,12 @@ export const command: Command = {
     .setName("shop")
     .setDescription("Browse and buy items with coins. Staff can manage the shop.")
     .setContexts(InteractionContextType.Guild)
-    .addSubcommand(s => s.setName("view").setDescription("See what's for sale."))
+    .addSubcommand(s => s.setName("view").setDescription("See what's for sale, a page at a time, and buy from the menu.")
+      .addStringOption(o => o.setName("sort").setDescription("Order items by (default: price, low to high)")
+        .addChoices(...(Object.keys(SHOP_SORT_LABEL) as Array<keyof typeof SHOP_SORT_LABEL>).map(v => ({ name: SHOP_SORT_LABEL[v], value: v }))))
+      .addStringOption(o => o.setName("show").setDescription("Which items to list (default: all)")
+        .addChoices(...(Object.keys(SHOP_SHOW_LABEL) as Array<keyof typeof SHOP_SHOW_LABEL>).map(v => ({ name: SHOP_SHOW_LABEL[v], value: v }))))
+      .addBooleanOption(o => o.setName("affordable").setDescription("Only list items you can afford right now")))
     .addSubcommand(s => s.setName("buy").setDescription("Buy an item.")
       .addStringOption(o => o.setName("item").setDescription("Item to buy").setRequired(true).setAutocomplete(true)))
     .addSubcommand(s => s.setName("add").setDescription("Staff: add an item (Manage Server).")
@@ -93,52 +88,22 @@ export const command: Command = {
     const svc = economy();
 
     if (sub === "view") {
-      const items = await svc.items(guild.id);
-      const embed = new EmbedBuilder()
-        .setColor(COLORS.brand)
-        .setTitle(`🛒 ${guild.name} shop`)
-        .setDescription(items.length ? truncate(items.map(i => itemLine(cfg, i)).join("\n\n"), 4000) : "The shop is empty. Staff can add items with `/shop add` or on the dashboard.")
-        .setFooter(footer("Buy with /shop buy"));
-      return interaction.reply({ embeds: [embed], allowedMentions: NO_PINGS });
+      const sortRaw = interaction.options.getString("sort");
+      const showRaw = interaction.options.getString("show");
+      return runShopView(interaction, cfg, {
+        sort: isShopSort(sortRaw) ? sortRaw : "price_asc",
+        show: interaction.options.getBoolean("affordable") ? "affordable" : isShopShow(showRaw) ? showRaw : "all",
+      });
     }
 
     if (sub === "buy") {
-      const member = await guild.members.fetch(interaction.user.id).catch(() => null);
-      const itemId = interaction.options.getString("item", true);
-      const r = await svc.buy(guild.id, interaction.user.id, itemId, {
-        ownsRole: (roleId) => Boolean(member?.roles.cache.has(roleId)),
-        grantRole: async (roleId, hours) => {
-          const name = (await svc.item(guild.id, itemId))?.name ?? "item";
-          return grantShopRole(guild, interaction.user.id, roleId, { hours, channelId: interaction.channelId, itemName: name });
-        },
-      });
-      if (!r.ok) {
-        const msg = r.reason === "not_found" ? "That item isn't in the shop. Pick one from the list."
-          : r.reason === "sold_out" ? "That item is sold out."
-          : r.reason === "limit" ? `You've reached the limit for that item (${r.limit} per member).`
-          : r.reason === "already_owned" ? "You already have that role."
-          : r.reason === "insufficient" ? `It costs ${formatCoins(cfg, r.price)} and you have ${formatCoins(cfg, r.balance)}.`
-          : r.reason === "role_failed" ? `${r.detail} You were not charged.` : "That didn't work.";
-        return ephemeral(interaction, `❌ ${msg}`);
-      }
-      const got = r.item.roleId && !r.item.useToGrant ? ` and got <@&${r.item.roleId}>${r.item.roleDurationHours ? ` for ${r.item.roleDurationHours}h` : ""}` : "";
-      const hint = r.item.useToGrant ? " Run `/use` when you want its role." : r.item.effect ? " Run `/use` when you want its effect." : "";
-      return interaction.reply({
-        content: `🛍️ You bought **${r.item.name}** for ${formatCoins(cfg, r.item.price)}${got}. Balance: ${formatCoins(cfg, r.balance)}.${hint}`,
-        allowedMentions: NO_PINGS,
-      });
+      const r = await buyAction(guild, interaction.user.id, interaction.channelId, interaction.options.getString("item", true), cfg);
+      return interaction.reply({ content: r.content, ...(r.ephemeral ? { flags: MessageFlags.Ephemeral } : {}), allowedMentions: NO_PINGS });
     }
 
     if (sub === "sell") {
-      const r = await svc.sellItem(guild.id, interaction.user.id, interaction.options.getString("item", true));
-      if (!r.ok) {
-        const msg = r.reason === "off" ? "Selling items back is turned off in this server."
-          : r.reason === "not_owned" ? "You don't have that item. Pick one from your inventory."
-          : r.reason === "not_sellable" ? "That item can't be sold back (it's no longer in the shop, or its role was given on purchase)."
-          : "Your balance is at the maximum, so nothing was sold.";
-        return ephemeral(interaction, `❌ ${msg}`);
-      }
-      return ephemeral(interaction, `💱 Sold **${r.item.name}** for ${formatCoins(cfg, r.price)} (${cfg.shopSellPercent}% of its price). Balance: ${formatCoins(cfg, r.balance)}.`);
+      const r = await sellAction(guild.id, interaction.user.id, interaction.options.getString("item", true), cfg);
+      return ephemeral(interaction, r.content);
     }
 
     if (sub === "add") {
@@ -197,7 +162,7 @@ export const command: Command = {
       useToGrant: interaction.options.getBoolean("use_to_grant") ?? item.useToGrant,
     });
     if (!r.ok) return ephemeral(interaction, `❌ ${firstError(r.errors)}`);
-    return ephemeral(interaction, `✅ Updated.\n${itemLine(cfg, r.value)}`);
+    return ephemeral(interaction, `✅ Updated.\n${shopItemLine(cfg, r.value)}`);
   },
 
   async autocomplete(interaction: AutocompleteInteraction) {
