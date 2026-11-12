@@ -8,6 +8,14 @@ export const AUTOMOD_TEST_MAX = 2000;
 
 const ACTION_TEXT: Record<string, string> = { delete: "deletes the message", warn: "deletes it and warns the member", timeout: "deletes it and times the member out" };
 
+/** One-click examples that fill the box (dashboard.js); the test still runs on the server. */
+export const TEST_SAMPLES: ReadonlyArray<[string, string]> = [
+  ["Invite link", "Join my server: discord.gg/example"],
+  ["Shouting", "THIS IS THE BEST SERVER EVER JOIN NOW"],
+  ["Mass mentions", "<@100000000000000001> <@100000000000000002> <@100000000000000003> <@100000000000000004> <@100000000000000005> <@100000000000000006>"],
+  ["Link", "Free stuff at https://example.com/gift"],
+];
+
 export interface AutomodTestState {
   content: string;
   result: AutomodPreview | null;
@@ -40,7 +48,10 @@ export function automodTestPanel(ctx: GuildContext, state: AutomodTestState | nu
         <textarea id="f-am-test" name="content" maxlength="${AUTOMOD_TEST_MAX}" rows="3" spellcheck="false" data-count-max="${AUTOMOD_TEST_MAX}"${state?.error ? ' aria-invalid="true" aria-describedby="f-am-test-err"' : ""}>${esc(content)}</textarea>
         ${state?.error ? `<p class="field-error" id="f-am-test-err">${esc(state.error)}</p>` : ""}
       </div>
-      <button class="btn ghost" type="submit">Test message</button>
+      <div class="btn-row">
+        <button class="btn ghost" type="submit">Test message</button>
+        <span class="test-samples" role="group" aria-label="Try an example">${TEST_SAMPLES.map(([label, text]) => `<button type="button" class="chip" data-fill-target="f-am-test" data-fill-text="${esc(text)}">${esc(label)}</button>`).join("")}</span>
+      </div>
     </form>
     ${state?.result ? resultBlock(state.result) : ""}
   </section>`;

@@ -108,5 +108,36 @@ export const dashboardModulePagesScript = String.raw`
       refresh(id);
     });
   });
+
+  /* Panel previews: title, description and button follow the form; blank fields show the bot's default. */
+  all('[data-panel-preview]').forEach(function (fig) {
+    var px = fig.getAttribute('data-panel-preview');
+    var pairs = [['title', '[data-pp-title]'], ['description', '[data-pp-desc]']];
+    pairs.forEach(function (p) {
+      var input = doc.getElementById('f-' + px + p[0]);
+      var out = fig.querySelector(p[1]);
+      if (!input || !out) return;
+      var sync = function () { out.textContent = input.value.trim() || out.getAttribute('data-pp-default'); };
+      input.addEventListener('input', sync);
+    });
+    var type = doc.getElementById('f-' + px + 'type');
+    var btn = fig.querySelector('[data-pp-button]');
+    if (type && btn && fig.getAttribute('data-pp-captcha')) {
+      var syncType = function () { btn.textContent = type.value === 'captcha' ? fig.getAttribute('data-pp-captcha') : btn.getAttribute('data-pp-default'); };
+      type.addEventListener('change', syncType);
+      syncType();
+    }
+  });
+
+  /* Example buttons that fill a field (automod test). */
+  all('[data-fill-target]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var field = doc.getElementById(b.getAttribute('data-fill-target'));
+      if (!field) return;
+      field.value = b.getAttribute('data-fill-text') || '';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.focus();
+    });
+  });
 })();
 `;

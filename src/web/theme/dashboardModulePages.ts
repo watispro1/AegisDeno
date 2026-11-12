@@ -78,6 +78,22 @@ tr[data-chip-out], tr[data-paged-out] { display: none; }
 /* Collapsible filter form on small screens */
 .filter-toggle > summary { cursor: pointer; font-weight: 600; margin: 0 0 .5rem; }
 
+/* Panels: form beside a Discord-style preview */
+.panel-compose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem); gap: 1.25rem; align-items: start; margin-bottom: 1.5rem; }
+.panel-compose > .dash-form { margin-bottom: 0; }
+.panel-preview { position: sticky; top: calc(var(--nav-h, 3.5rem) + 1rem); margin: 0; padding: .75rem; background: var(--dc-bg); color: var(--dc-text); border-radius: var(--r-lg, var(--r)); }
+.panel-preview figcaption { margin-bottom: .5rem; color: var(--dc-muted); font: 500 .72rem var(--mono); text-transform: uppercase; letter-spacing: .05em; }
+.pp-embed { padding: .6rem .75rem; background: var(--dc-embed); border-left: 4px solid var(--dc-blurple); border-radius: 4px; }
+.pp-title { display: block; margin-bottom: .3rem; overflow-wrap: anywhere; }
+.pp-desc { margin: 0; font-size: .88rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pp-button { display: inline-block; margin-top: .6rem; padding: .35rem .9rem; font-size: .85rem; font-weight: 500; color: #fff; background: var(--dc-blurple); border-radius: 3px; }
+.test-samples { display: inline-flex; flex-wrap: wrap; gap: .35rem; }
+html:not(.js) .test-samples { display: none; }
+
+@media (max-width: 860px) {
+  .panel-compose { grid-template-columns: minmax(0, 1fr); }
+  .panel-preview { position: static; }
+}
 @media (max-width: 640px) {
   .help-panel dl { grid-template-columns: minmax(0, 1fr); gap: .15rem; }
   .help-panel dd { margin-bottom: .45rem; }
