@@ -63,3 +63,22 @@ test("inventory sell value follows the shop's sell rules", () => {
   assert.equal(inventorySellValue(item("a", 100, { roleId: "1", useToGrant: true }), 50), 50);
   assert.equal(inventorySellValue(item("a", 100), 0), null, "selling off");
 });
+
+test("inventory entries: sell value each, usable flag, total worth; removed items can't be sold", async () => {
+  const { inventoryEntries, inventoryLine, inventoryWorth } = await import("../src/services/economyInventoryView");
+  const shield = item("Shield", 200, { effect: "rob_shield", effectHours: 12 });
+  const pass = item("Pass", 100, { roleId: "1", useToGrant: true });
+  const vip = item("VIP", 1000, { roleId: "2" });
+  const rows = [
+    { itemId: shield.id, name: "Shield", quantity: 3, roleId: null },
+    { itemId: pass.id, name: "Pass", quantity: 1, roleId: "1" },
+    { itemId: vip.id, name: "VIP", quantity: 1, roleId: "2" },
+    { itemId: "f".repeat(24), name: "Gone", quantity: 2, roleId: null },
+  ];
+  const e = inventoryEntries(rows, [shield, pass, vip], 50);
+  assert.deepEqual(e.map(x => [x.sellEach, x.usable]), [[100, true], [50, true], [null, false], [null, false]]);
+  assert.equal(inventoryWorth(e), 350);
+  assert.equal(inventoryLine(cfg, e[0]), "• **Shield** ×3 · usable · sells for 🪙 100 coins each");
+  assert.equal(inventoryLine(cfg, e[2]), "• **VIP** ×1 · <@&2>");
+  assert.equal(inventoryWorth(inventoryEntries(rows, [shield], 0)), 0, "selling off");
+});

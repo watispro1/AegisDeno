@@ -11,7 +11,7 @@ import { economy } from "./economyService";
 import { NO_PINGS } from "./economyDiscord";
 import type { EconomyConfig, ShopItem } from "./economyLogic";
 import { runPager } from "./economyPager";
-import { buyAction, buyPrompt, confirmShortcut } from "./economyItemActions";
+import { buyAction, buyPrompt, confirmShortcut, whileEnabled } from "./economyItemActions";
 import {
   SHOP_PAGE_SIZE, SHOP_SHOW_LABEL, SHOP_SORT_LABEL, arrangeShop, buyChoices, isShopShow, isShopSort, shopFooter, shopItemLine,
   type ShopShow, type ShopSort,
@@ -89,7 +89,7 @@ export async function runShopView(interaction: ChatInputCommandInteraction, cfg:
         return "handled";
       }
       const result = await confirmShortcut(i, buyPrompt(cfg, item, wallet), `Buy for ${item.price.toLocaleString("en-US")}`,
-        () => buyAction(guild, userId, interaction.channelId, item.id, cfg));
+        () => whileEnabled(guild.id, () => buyAction(guild, userId, interaction.channelId, item.id, cfg)));
       // A role grant is worth announcing like /shop buy does; everything else stays private.
       if (result?.ok && !result.ephemeral && item.roleId && !item.useToGrant) {
         await i.followUp({ content: result.content, allowedMentions: NO_PINGS }).catch(() => null);

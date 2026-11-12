@@ -6,7 +6,7 @@
  */
 import type { ChatInputCommandInteraction, Guild, MessageComponentInteraction } from "discord.js";
 import { economy } from "./economyService";
-import { grantShopRole } from "./economyDiscord";
+import { ECONOMY_OFF, grantShopRole } from "./economyDiscord";
 import { formatCoins, relativeTimestamp, type EconomyConfig, type ShopItem } from "./economyLogic";
 import { requestConfirmation } from "../utils/confirmation";
 
@@ -71,6 +71,12 @@ export async function useAction(guild: Guild, userId: string, channelId: string,
   }
   const length = r.item.roleDurationHours ? ` for ${r.item.roleDurationHours}h` : "";
   return { ok: true, content: `✨ You used **${r.item.name}** and got <@&${r.item.roleId}>${length}.`, ephemeral: false };
+}
+
+/** Run a shortcut only while the economy is still on (it may be switched off while a menu is open). */
+export async function whileEnabled(guildId: string, action: () => Promise<ActionReply>): Promise<ActionReply> {
+  const cfg = await economy().config(guildId);
+  return cfg.enabled ? action() : { ok: false, content: ECONOMY_OFF, ephemeral: true };
 }
 
 /** The confirmation text for a shortcut-menu purchase. Pure, for tests. */
