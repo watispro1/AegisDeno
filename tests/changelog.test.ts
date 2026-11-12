@@ -236,9 +236,9 @@ test("3.8.0 and dashboard 1.3.0: released 2026-11-05", () => {
   const r = bot.find((x) => x.version === "3.8.0")!;
   assert.ok(r, "3.8.0 is still listed");
   assert.equal(r.date, "2026-11-05");
-  assert.equal(dash[0].version, "1.3.0");
-  assert.equal(dash[0].date, "2026-11-05");
-  assert.equal(DASHBOARD_VERSION, "1.3.0");
+  const d130 = dash.find((x) => x.version === "1.3.0")!;
+  assert.ok(d130, "dashboard 1.3.0 is still listed");
+  assert.equal(d130.date, "2026-11-05");
   const text = r.sections.flatMap((s) => s.items).join(" ");
   for (const needle of ["/deposit", "/weekly", "/crime", "/gamble", "/softban"]) assert.ok(text.includes(needle), `3.8.0 mentions ${needle}`);
 });
@@ -260,6 +260,13 @@ test("3.10.0: records the economy expansion and the deploy note", () => {
   assert.ok(r.notes.join(" ").includes("npm run deploy"), "deploy note");
   const text = r.sections.flatMap((s) => s.items).join(" ");
   for (const needle of ["/rob", "/interest", "/transactions", "/gamble dice", "/economy stats"]) assert.ok(text.includes(needle), `3.10.0 mentions ${needle}`);
+});
+
+test("dashboard 1.4.0 redesign: released 2026-11-12", () => {
+  const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
+  assert.equal(dash[0].version, "1.4.0");
+  assert.equal(dash[0].date, "2026-11-12");
+  assert.equal(DASHBOARD_VERSION, "1.4.0");
 });
 
 test("3.11.0: newest bot release, records the command improvements and the deploy note", () => {

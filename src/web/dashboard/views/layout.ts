@@ -108,11 +108,18 @@ export function serverSwitcher(ctx: GuildContext, cls = "switcher"): string {
         <span class="g-name">${esc(g.name)}</span>
         <span class="caret" aria-hidden="true">▾</span>
       </summary>
-      <ul class="switcher-list">
+      <ul class="switcher-list" data-switcher-list>
+        ${others.length > 6 ? `<li class="switcher-filter" data-js-only><label class="visually-hidden" for="${cls}-q">Find a server</label><input type="search" id="${cls}-q" data-switcher-filter placeholder="Find a server…" autocomplete="off"></li>` : ""}
         ${others.map(s => `<li><a href="/dashboard/${esc(s.id)}">${iconOrInitial(s.iconUrl, s.name, "g-icon sm")}${esc(s.name)}</a></li>`).join("")}
         <li class="switcher-all"><a href="/dashboard">All servers</a></li>
       </ul>
     </details>`;
+}
+
+/** "1,284 members" for the sidebar and overview header. */
+export function memberLabel(n: number): string {
+  const v = Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+  return `${v.toLocaleString("en-US")} member${v === 1 ? "" : "s"}`;
 }
 
 function sidebar(ctx: GuildContext, active: GuildSection): string {
@@ -123,17 +130,27 @@ function sidebar(ctx: GuildContext, active: GuildSection): string {
     return `<li class="nav-group"><details class="nav-group-details" open data-nav-group="${esc(grp.group)}"${hasActive ? ' data-active-group=""' : ""}>
       <summary class="nav-group-title"><span>${esc(grp.group)}</span><span class="nav-caret" aria-hidden="true">▾</span></summary>
       <ul class="nav-group-items">
-        ${grp.items.map(i => `<li><a class="side-link" href="${base}${i.href}"${i.key === active ? ' aria-current="page"' : ""}><span class="side-icon" aria-hidden="true">${i.icon}</span>${esc(i.label)}</a></li>`).join("")}
+        ${grp.items.map(i => `<li data-nav-item><a class="side-link" data-nav-key="${esc(i.key)}" title="${esc(i.label)}" href="${base}${i.href}"${i.key === active ? ' aria-current="page"' : ""}><span class="side-icon" aria-hidden="true">${i.icon}</span>${esc(i.label)}</a></li>`).join("")}
       </ul>
     </details></li>`;
   }).join("");
 
   return `<aside class="app-side" id="dash-sidebar" data-drawer aria-label="Server menu">
     <div class="side-head">
-      <div class="side-brand">${iconOrInitial(g.iconUrl, g.name, "g-icon")}<span class="side-brand-name">${esc(g.name)}</span></div>
+      <a class="side-brand" href="${base}" title="${esc(g.name)} overview">${iconOrInitial(g.iconUrl, g.name, "g-icon")}<span class="side-brand-text"><span class="side-brand-name">${esc(g.name)}</span><span class="side-brand-meta">${esc(memberLabel(g.memberCount))}</span></span></a>
       <button class="drawer-close" type="button" data-drawer-close aria-label="Close menu">✕</button>
     </div>
-    <nav aria-label="Modules"><ul class="side-nav">${groups}</ul></nav>
+    <div class="side-filter" data-js-only>
+      <label class="visually-hidden" for="side-filter-q">Filter the menu</label>
+      <input type="search" id="side-filter-q" class="side-filter-input" data-nav-filter placeholder="Filter menu…" autocomplete="off" aria-controls="dash-side-nav">
+      <p class="side-filter-empty faint" data-nav-filter-empty hidden>No page matches.</p>
+    </div>
+    <nav aria-label="Modules"><ul class="side-nav" id="dash-side-nav">${groups}</ul></nav>
+    <div class="side-foot">
+      <a class="side-foot-link" href="/docs">Docs</a>
+      <a class="side-foot-link" href="/status">Status</a>
+      <a class="side-foot-link" href="/dashboard/changelog">v${esc(DASHBOARD_VERSION)}</a>
+    </div>
   </aside>
   <div class="drawer-backdrop" data-drawer-close aria-hidden="true"></div>`;
 }
@@ -160,10 +177,11 @@ function userMenu(viewer: Viewer): string {
 }
 
 /** Shared page furniture: toasts, the unsaved-changes bar and the confirm dialog (all driven by dashboard.js). */
-const APP_CHROME = `<div class="toast-region" data-toasts aria-live="polite" aria-atomic="false"></div>
+const APP_CHROME = `<div class="nav-progress" data-nav-progress aria-hidden="true"></div>
+  <div class="toast-region" data-toasts aria-live="polite" aria-atomic="false"></div>
   <div class="unsaved-bar" data-unsaved-bar hidden role="region" aria-label="Unsaved changes">
-    <span>You have unsaved changes</span>
-    <span class="btn-row"><button class="btn ghost sm" type="button" data-unsaved-reset>Reset</button><button class="btn sm" type="button" data-unsaved-save>Save</button></span>
+    <span class="unsaved-text"><span class="unsaved-dot" aria-hidden="true"></span>You have unsaved changes <span class="unsaved-count" data-unsaved-count></span></span>
+    <span class="btn-row"><button class="btn ghost sm" type="button" data-unsaved-reset>Discard</button><button class="btn sm" type="button" data-unsaved-save>Save <kbd class="unsaved-kbd">Ctrl S</kbd></button></span>
   </div>
   <dialog class="palette" data-palette aria-label="Jump to a page">
     <label class="visually-hidden" for="palette-q">Jump to</label>
@@ -177,6 +195,8 @@ const APP_CHROME = `<div class="toast-region" data-toasts aria-live="polite" ari
       <div><dt><kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd></dt><dd>Jump to a page or search cases</dd></div>
       <div><dt><kbd>/</kbd></dt><dd>Focus the table filter on this page</dd></div>
       <div><dt><kbd>Ctrl</kbd> <kbd>S</kbd> / <kbd>⌘</kbd> <kbd>S</kbd></dt><dd>Save the form you changed</dd></div>
+      <div><dt><kbd>G</kbd> then <kbd>O</kbd> / <kbd>S</kbd> / <kbd>C</kbd> / <kbd>A</kbd> / <kbd>M</kbd></dt><dd>Go to Overview, Settings, Cases, Activity or Members</dd></div>
+      <div><dt><kbd>[</kbd></dt><dd>Collapse or expand the sidebar</dd></div>
       <div><dt><kbd>?</kbd></dt><dd>Show this list</dd></div>
       <div><dt><kbd>Esc</kbd></dt><dd>Close dialogs and menus</dd></div>
     </dl>
@@ -194,14 +214,16 @@ const APP_CHROME = `<div class="toast-region" data-toasts aria-live="polite" ari
 
 export function shell(cfg: SiteConfig, o: { title: string; path: string; body: string; viewer?: Viewer; scripts?: boolean; guild?: GuildContext; active?: GuildSection }): string {
   const v = cfg.assetVersion ? `?v=${encodeURIComponent(cfg.assetVersion)}` : "";
-  const footer = `<p class="muted dash-foot">Dashboard v${esc(DASHBOARD_VERSION)}. <a href="/dashboard/changelog">Dashboard changelog</a>: what changed in the dashboard.</p>`;
+  const support = cfg.supportUrl && /^https:\/\//.test(cfg.supportUrl) ? ` · <a href="${esc(cfg.supportUrl)}" rel="noopener noreferrer">Support server</a>` : "";
+  const footer = `<p class="muted dash-foot"><span class="dash-foot-v">Dashboard v${esc(DASHBOARD_VERSION)}</span>. <a href="/dashboard/changelog">Dashboard changelog</a>: what changed in the dashboard. <span class="dash-foot-links"><a href="/docs">Docs</a> · <a href="/status">Status</a>${support}</span></p>`;
   let body: string;
   if (o.guild && o.viewer) {
-    body = `<div class="app" data-app>
+    body = `<div class="app" data-app data-guild="${esc(o.guild.guild.id)}">
     ${sidebar(o.guild, o.active ?? "overview")}
     <div class="app-main">
       <div class="app-top">
         <button class="btn ghost sm drawer-toggle" type="button" aria-controls="dash-sidebar" aria-expanded="false" data-drawer-toggle>☰ <span>Menu</span></button>
+        <button class="icon-btn side-collapse" type="button" data-side-collapse aria-controls="dash-sidebar" aria-pressed="false" aria-keyshortcuts="BracketLeft" title="Collapse sidebar ([)"><span aria-hidden="true">⇤</span><span class="visually-hidden">Collapse sidebar</span></button>
         <div class="app-top-switcher">${serverSwitcher(o.guild, "top-switcher")}</div>
         <form class="top-search" method="get" action="/dashboard/${esc(o.guild.guild.id)}/search" role="search">
           <label class="visually-hidden" for="top-q">Search cases and members</label>
@@ -252,13 +274,22 @@ export function csrfField(viewer: Viewer): string {
   return `<input type="hidden" name="_csrf" value="${esc(viewer.csrf)}">`;
 }
 
-export function head(title: string, lead: string, crumbs: Array<[string, string | null]> = []): string {
+export interface HeadOptions {
+  /** Small mono line above the title (the server name on module pages). */
+  eyebrow?: string;
+  /** Already-escaped HTML shown at the right of the header (buttons, pills). */
+  actions?: string;
+}
+
+export function head(title: string, lead: string, crumbs: Array<[string, string | null]> = [], o: HeadOptions = {}): string {
   const trail = crumbs.length
     ? `<nav class="breadcrumbs" aria-label="Breadcrumb">${crumbs
         .map(([label, href]) => (href ? `<a href="${esc(href)}">${esc(label)}</a>` : `<span aria-current="page">${esc(label)}</span>`))
         .join(`<span class="sep" aria-hidden="true">/</span>`)}</nav>`
     : "";
-  return `${trail}<div class="page-head"><h1>${esc(title)}</h1>${lead ? `<p class="lead">${lead}</p>` : ""}</div>`;
+  // Module pages name their server above the title, like the public pages' eyebrow.
+  const eyebrow = o.eyebrow ?? (crumbs.length >= 3 ? crumbs[1][0] : "");
+  return `${trail}<header class="page-head dash-head"><div class="dash-head-text">${eyebrow ? `<span class="eyebrow dash-eyebrow">${esc(eyebrow)}</span>` : ""}<h1>${esc(title)}</h1>${lead ? `<p class="lead">${lead}</p>` : ""}</div>${o.actions ? `<div class="dash-head-actions">${o.actions}</div>` : ""}</header>`;
 }
 
 /**
@@ -327,6 +358,6 @@ export function person(ctx: GuildContext, id: string): string {
 }
 
 /** A friendly empty state block. */
-export function emptyState(title: string, text: string): string {
-  return `<div class="empty-state"><strong>${esc(title)}</strong> ${text}</div>`;
+export function emptyState(title: string, text: string, action?: { label: string; href: string }): string {
+  return `<div class="empty-state"><span class="empty-icon" aria-hidden="true">∅</span><div class="empty-body"><strong>${esc(title)}</strong> ${text}${action ? ` <a class="btn ghost sm empty-action" href="${esc(action.href)}">${esc(action.label)}</a>` : ""}</div></div>`;
 }

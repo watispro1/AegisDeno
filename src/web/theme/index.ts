@@ -19,6 +19,7 @@ import { cssResponsive } from "./responsive";
 import { cssStatus } from "./status";
 import { cssDashboardExtras } from "./dashboardExtras";
 import { cssDashboardCommunity } from "./dashboardCommunity";
+import { cssDashboardRedesign } from "./dashboardRedesign";
 
 /* Concatenated in this order; later rules override earlier ones. */
 export const styles =
@@ -32,4 +33,5 @@ export const styles =
   cssStatus +
   cssDashboardExtras +
   cssDashboardCommunity +
+  cssDashboardRedesign +
   cssResponsive;
