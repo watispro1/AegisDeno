@@ -8,6 +8,37 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.5.0] - 2026-11-12
+
+Dashboard 1.5.0. Modules look and work better: the overview shows every module
+with its status and what needs attention, module pages share one header with an
+on/off switch, forms check themselves before you save, and nine module pages got
+a layout and usability pass. No new environment variables or OAuth scopes.
+
+### Added
+- Module grid on the overview, grouped by category, with an On/Off pill, a
+  Configured, Needs setup or Problem status with the reason, and a Configure
+  link. A summary line, a filter box and category buttons sit above it.
+- Every module settings page has the same header: icon, status, description,
+  the slash command it pairs with and a link back to the overview.
+- On/off switch for logging, moderation, welcome, goodbye, starboard and
+  verification, saved through the same validation and audit log.
+- Long channel and role lists get a filter box; checkbox lists get chips,
+  Select all and Select none.
+- Fields are checked before you save (required, ranges, lengths, patterns), with
+  the message under the field; text areas show a character counter.
+- Summary strips, search, filter chips, sorting and Show more on autoresponders,
+  scheduled messages, ModMail, appeals, cases, economy and the shop, and
+  Incident Mode.
+- Live Discord-style preview beside the ticket and verification panel forms.
+- One-click example messages on the automod test page.
+
+### Changed
+- Settings sections show as labelled cards with help text.
+- Status pills for appeals, cases, shop stock and ModMail threads.
+- Destructive actions on these pages ask before they run, and tables become
+  cards on phones.
+
 ## [1.4.0] - 2026-11-12
 
 Dashboard 1.4.0. A redesign in the flat style of the public changelog and status

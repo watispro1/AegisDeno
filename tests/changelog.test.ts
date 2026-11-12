@@ -264,9 +264,16 @@ test("3.10.0: records the economy expansion and the deploy note", () => {
 
 test("dashboard 1.4.0 redesign: released 2026-11-12", () => {
   const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
-  assert.equal(dash[0].version, "1.4.0");
+  const r = dash.find((x) => x.version === "1.4.0");
+  assert.ok(r, "1.4.0 is listed");
+  assert.equal(r.date, "2026-11-12");
+});
+
+test("dashboard 1.5.0 modules: newest dashboard release", () => {
+  const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
+  assert.equal(dash[0].version, "1.5.0");
   assert.equal(dash[0].date, "2026-11-12");
-  assert.equal(DASHBOARD_VERSION, "1.4.0");
+  assert.equal(DASHBOARD_VERSION, "1.5.0");
 });
 
 test("3.11.0: newest bot release, records the command improvements and the deploy note", () => {

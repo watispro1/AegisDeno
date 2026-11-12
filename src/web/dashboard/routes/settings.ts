@@ -5,6 +5,7 @@ import type { SettingsSnapshot, SettingsValue } from "../data";
 import { EXEMPTION_RULE_LABELS, fieldValues, isExemptionRule, parseRuleExemptions, isSettingsSection, parseAutomod, parseEscalation, parseLogging, parseStarboard, parseTickets, parseVerification, parseWelcome, Errors, LOG_CATEGORY_LABELS, type FormBody, type Parsed, type SettingsSection, type ValidationContext } from "../validation";
 import { parseGoodbye, parseLogChannels, parseWelcomeEmbed } from "../moduleValidation";
 import { MULTI_FIELDS, renderSettings, settingsValues, submittedValues } from "../views";
+import { toggleBody } from "../views/settings";
 import { type RouteKit, type GuildLocals } from "./context";
 import { previewAutomod } from "../../../services/automodChecks";
 import { AUTOMOD_TEST_MAX } from "../views/automodTest";
@@ -122,8 +123,9 @@ export function registerSettingsRoutes(router: Router, k: RouteKit): void {
       const { ctx } = res.locals.dash as GuildLocals;
       const section = req.params.section;
       if (!isSettingsSection(section)) return fail(res, 404, "No such settings page", "Pick a section from the settings menu.", ctx.viewer);
-      const body = (req.body ?? {}) as FormBody;
       const before = await deps.data.loadSettings(ctx.guild.id);
+      // The module header's switch posts only _toggle; expand it to the saved settings with the switch flipped.
+      const body = toggleBody(section, (req.body ?? {}) as FormBody, before);
       const parsed = parseSection(section, body, validationContext(ctx), before);
       if (!parsed.ok) {
         // Keep display-only values that are not form fields.
