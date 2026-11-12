@@ -4,6 +4,7 @@ import { CASE_REASON_MAX, CASE_TYPES, CASE_QUERY_MAX, type CaseFilter, CASE_PAGE
 import { CASE_EXPORT_MAX } from "../casesCsv";
 import { type GuildContext, csrfField, head, idCode, notice, person, personId, relTime, shell } from "./layout";
 import { caseTable } from "./overview";
+import { pill, summaryStrip } from "./moduleKit";
 
 /* Cases */
 
@@ -20,6 +21,9 @@ export function casesQuery(filter: CaseFilter, page: number): string {
   const s = q.toString();
   return s ? `?${s}` : "";
 }
+
+/** The most-used case types, offered as one-click filters above the full filter form. */
+export const QUICK_TYPES = ["warn", "timeout", "kick", "ban", "unban"] as const;
 
 export function renderCases(
   cfg: SiteConfig,
@@ -54,6 +58,15 @@ export function renderCases(
     guild: ctx,
     active: "cases",
     body: `${head("Cases", "Moderation cases and warnings, newest first. Records older than a year are deleted automatically.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Cases", null]])}
+  ${summaryStrip([
+    { label: filtered ? "Matching" : "Records", value: result.total },
+    { label: "Showing", value: result.total ? `${(page - 1) * perPage + 1}–${Math.min(page * perPage, result.total)}` : "0", hint: `Page ${page} of ${pages}` },
+    { label: "Filter", value: filtered ? "On" : "Off", tone: filtered ? "info" : "off", hint: filtered ? "Clear it to see everything" : "Showing every record" },
+  ], "Cases summary")}
+  <ul class="quick-filters" aria-label="Quick filters by type">
+    <li><a href="${base}${esc(casesQuery({ ...filter, type: null }, 1))}"${filter.type ? "" : ' aria-current="true"'}>All types</a></li>
+    ${QUICK_TYPES.map(t => `<li><a href="${base}${esc(casesQuery({ ...filter, type: t }, 1))}"${filter.type === t ? ' aria-current="true"' : ""}>${t}</a></li>`).join("")}
+  </ul>
   <form class="filter-bar" method="get" action="${base}" role="search" aria-label="Filter cases">
     <div><label for="f-type">Type</label><select id="f-type" name="type">${typeOptions}</select></div>
     <div><label for="f-user">Member ID</label><input id="f-user" name="user" type="text" inputmode="numeric" autocomplete="off" value="${esc(filter.userId ?? "")}" placeholder="123456789012345678"></div>
@@ -67,7 +80,7 @@ export function renderCases(
   ${result.total ? `<p class="muted"><a class="text-link" href="${base}/export.csv${esc(casesQuery({ ...filter, per: undefined }, 1))}" download>Download ${result.total > CASE_EXPORT_MAX ? `the newest ${CASE_EXPORT_MAX.toLocaleString("en-US")}` : `all ${result.total.toLocaleString("en-US")}`} as CSV</a> <span class="faint">(uses the filter above)</span></p>` : ""}
   ${result.items.length ? caseTable(ctx, result.items, "Cases matching the filter") : (filtered
     ? `<div class="empty-state"><strong>Nothing matches.</strong> Try a different filter, or <a href="${base}">clear it</a>.</div>`
-    : `<div class="empty-state"><strong>No cases yet.</strong> Cases appear here when someone is warned, timed out, kicked or banned with Aegis.</div>`)}
+    : `<div class="empty-state"><strong>No cases yet.</strong> Cases appear here when someone is warned, timed out, kicked or banned with Aegis. <a class="btn ghost sm empty-action" href="/dashboard/${esc(g.id)}/settings/automod">Set up automod</a></div>`)}
   ${pager}`,
   });
 }
@@ -109,6 +122,11 @@ export function renderCase(
     active: "cases",
     body: `${head(`${kind}: ${record.action}`, "", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Cases", `/dashboard/${g.id}/cases`], [record.id, null]])}
   ${notice(o.noticeCode)}
+  ${summaryStrip([
+    { label: "Action", value: record.action },
+    { label: "Status", value: "", html: record.revoked ? pill("Revoked", "off") : pill("Counting", "ok") },
+    { label: "When", value: "", html: relTime(record.createdAt) },
+  ], `${kind} summary`)}
   <dl class="detail-list">
     <dt>ID</dt><dd>${idCode(record.id, "Copy case ID")}</dd>
     <dt>Action</dt><dd>${esc(record.action)}${record.revoked ? ' <span class="tag warn">revoked</span>' : ""}</dd>

@@ -1,8 +1,9 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { AppealRecord } from "../data";
 import { APPEAL_FILTERS, APPEAL_REVIEW_NOTE_MAX, type AppealFilter } from "../validation";
-import { type GuildContext, copyId, csrfField, head, idCode, notice, person, personId, relTime, shell } from "./layout";
+import { type GuildContext, copyId, csrfField, emptyState, head, idCode, notice, person, personId, relTime, shell } from "./layout";
 import { errorSummary, pagerNav, permissionNote } from "./parts";
+import { type Tone, helpPanel, listFoot, listTools, pill, rowAttrs, summaryStrip } from "./moduleKit";
 
 /* Appeals */
 
@@ -10,9 +11,10 @@ const APPEAL_FILTER_LABELS: Record<AppealFilter, string> = {
   pending: "Pending", approved: "Approved", denied: "Denied", expired: "Expired", all: "All",
 };
 
+const APPEAL_TONES: Record<string, Tone> = { pending: "warn", approved: "ok", denied: "bad", expired: "off" };
+
 function appealTag(status: string): string {
-  const cls = status === "approved" ? "ok" : status === "pending" ? "warn" : "";
-  return `<span class="tag${cls ? ` ${cls}` : ""}">${esc(status)}</span>`;
+  return pill(status, APPEAL_TONES[status] ?? "info");
 }
 
 export function renderAppeals(
@@ -37,12 +39,14 @@ export function renderAppeals(
   const tabs = `<nav aria-label="Appeal status"><ul class="dash-nav">${APPEAL_FILTERS.map(s =>
     `<li><a href="${base}${s === "pending" ? "" : `?status=${s}`}"${s === filter.status ? ' aria-current="page"' : ""}>${APPEAL_FILTER_LABELS[s]}</a></li>`).join("")}</ul></nav>`;
 
-  const rows = result.items.map(a => `<tr>
+  const submitted = result.items.filter(a => a.appealText).length;
+  const rows = result.items.map(a => `<tr${rowAttrs(a.appealText ? "submitted" : "waiting", { filed: a.createdAt.getTime() })}>
       <td data-label="Filed">${relTime(a.createdAt)}</td>
       <td data-label="Code"><a class="case-link" href="${base}/${esc(a.code)}">${esc(a.code)}</a> ${copyId(a.code, "Copy appeal code")} ${appealTag(a.status)}</td>
       <td data-label="Member">${personId(ctx, a.userId)}</td>
       <td data-label="Banned by">${person(ctx, a.moderatorId)}</td>
       <td data-label="Statement">${a.appealText ? esc(a.appealText.length > 120 ? a.appealText.slice(0, 117) + "…" : a.appealText) : `<span class="faint">Not submitted yet</span>`}</td>
+      <td data-label="Actions" class="cell-actions-td"><a class="btn sm${a.status === "pending" && a.appealText ? "" : " ghost"}" href="${base}/${esc(a.code)}">${a.status === "pending" && a.appealText ? "Review" : "Open"}</a></td>
     </tr>`).join("");
 
   return shell(cfg, {
@@ -54,12 +58,29 @@ export function renderAppeals(
     body: `${head("Ban appeals", "Members banned by Aegis get an appeal code by DM and send their statement with <code class=\"inline\">/appeal submit</code>. Review them here or with <code class=\"inline\">/appeal review</code>.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Appeals", null]])}
   ${notice(o.noticeCode)}
   ${permissionNote(o.missingPermission ?? null)}
+  ${summaryStrip([
+    { label: `${APPEAL_FILTER_LABELS[filter.status]} appeals`, value: result.total, tone: filter.status === "pending" && result.total ? "warn" : undefined },
+    { label: "Statements on this page", value: submitted, hint: `${result.items.length - submitted} not sent yet` },
+    { label: "Page", value: `${page} / ${pages}` },
+  ], "Appeals summary")}
   ${tabs}
-  ${result.items.length ? `<div class="table-wrap"><table class="case-table">
+  ${helpPanel("How appeals work", [
+    ["Code", "Sent by DM when Aegis bans someone. It is how the member and staff refer to the appeal."],
+    ["Statement", "The member writes it with <code class=\"inline\">/appeal submit</code>. An appeal without one can still be decided."],
+    ["Approve", "Unbans the member, records an unban case and DMs them your note."],
+    ["Deny", "Keeps the ban and DMs them your note. Unanswered appeals expire after a while."],
+  ])}
+  ${result.items.length > 1 ? listTools("appeals-table", {
+    search: "Filter by code, member or statement",
+    chipLabel: "Show appeals",
+    chips: [{ value: "submitted", label: "Statement sent", count: submitted }, { value: "waiting", label: "No statement yet", count: result.items.length - submitted }],
+    sorts: [{ value: "filed:asc", label: "Oldest first" }, { value: "filed:desc", label: "Newest first" }],
+  }) : ""}
+  ${result.items.length ? `<div class="table-wrap"><table class="case-table" id="appeals-table" data-filterable>
     <caption class="visually-hidden">${esc(APPEAL_FILTER_LABELS[filter.status])} ban appeals</caption>
-    <thead><tr><th scope="col">Filed</th><th scope="col">Code</th><th scope="col">Member</th><th scope="col">Banned by</th><th scope="col">Statement</th></tr></thead>
+    <thead><tr><th scope="col">Filed</th><th scope="col">Code</th><th scope="col">Member</th><th scope="col">Banned by</th><th scope="col">Statement</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
     <tbody>${rows}</tbody>
-  </table></div>` : `<div class="empty-state"><strong>No ${filter.status === "all" ? "" : `${filter.status} `}appeals.</strong>${filter.status === "pending" ? "Nothing is waiting for review." : "Try another status."}</div>`}
+  </table></div>${result.items.length > 1 ? listFoot("appeals-table") : ""}` : emptyState(`No ${filter.status === "all" ? "" : `${filter.status} `}appeals.`, filter.status === "pending" ? "Nothing is waiting for review." : "Try another status.", filter.status === "pending" ? { label: "See all appeals", href: `${base}?status=all` } : { label: "Back to pending", href: base })}
   ${pagerNav(base, query, page, pages, result.total, "appeal")}`,
   });
 }
@@ -106,14 +127,20 @@ export function renderAppeal(
     body: `${head(`Appeal ${appeal.code}`, "", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Appeals", `/dashboard/${g.id}/appeals`], [appeal.code, null]])}
   ${notice(o.noticeCode)}
   ${permissionNote(o.missingPermission ?? null)}
+  ${summaryStrip([
+    { label: "Status", value: "", html: appealTag(appeal.status) },
+    { label: "Member's history", value: "Open cases", href: `/dashboard/${g.id}/cases?user=${appeal.userId}` },
+    { label: "Statement", value: appeal.appealText ? "Sent" : "Not yet", tone: appeal.appealText ? "ok" : "off" },
+  ], "Appeal summary")}
   <dl class="detail-list">
     <dt>Code</dt><dd>${idCode(appeal.code, "Copy appeal code")} ${appealTag(appeal.status)}</dd>
     <dt>Member</dt><dd>${personId(ctx, appeal.userId)} <a class="text-link" href="/dashboard/${esc(g.id)}/cases?user=${esc(appeal.userId)}">Their history</a></dd>
     <dt>Banned by</dt><dd>${personId(ctx, appeal.moderatorId)}</dd>
     <dt>Filed</dt><dd>${relTime(appeal.createdAt)}</dd>
     <dt>Ban reason</dt><dd>${esc(appeal.banReason)}</dd>
-    <dt>Statement</dt><dd class="prewrap">${appeal.appealText ? esc(appeal.appealText) : `<span class="faint">Not submitted yet. They send it with /appeal submit.</span>`}</dd>
   </dl>
+  <h2>Their statement</h2>
+  ${appeal.appealText ? `<blockquote class="quote-block">${esc(appeal.appealText)}</blockquote>` : emptyState("Not submitted yet.", "They send it with <code class=\"inline\">/appeal submit</code>. You can still decide without it.")}
   ${review}`,
   });
 }
