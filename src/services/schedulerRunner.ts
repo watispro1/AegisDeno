@@ -82,6 +82,14 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       return;
     }
 
+    if (task.type === "slowmode_revert") {
+      // Lazy import: slowmodeRevert.ts imports this module to arm its timers.
+      const { performSlowmodeRevert } = await import("./slowmodeRevert");
+      await performSlowmodeRevert(client, task);
+      retryCount.delete(taskId);
+      return;
+    }
+
     if (task.type === "poll_close") {
       // Lazy import: polls.ts imports this module to arm its timers.
       const { closePollFromTask } = await import("./polls");
