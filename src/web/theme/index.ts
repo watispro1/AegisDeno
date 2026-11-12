@@ -20,6 +20,7 @@ import { cssStatus } from "./status";
 import { cssDashboardExtras } from "./dashboardExtras";
 import { cssDashboardCommunity } from "./dashboardCommunity";
 import { cssDashboardRedesign } from "./dashboardRedesign";
+import { cssDashboardModulePages } from "./dashboardModulePages";
 
 /* Concatenated in this order; later rules override earlier ones. */
 export const styles =
@@ -34,4 +35,5 @@ export const styles =
   cssDashboardExtras +
   cssDashboardCommunity +
   cssDashboardRedesign +
+  cssDashboardModulePages +
   cssResponsive;
