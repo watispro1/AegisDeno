@@ -283,6 +283,10 @@ export function renderSettings(
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}/settings`;
   const f = new Form(state);
+  if (section === "verification") f.require("verifiedRoleId");
+  if (section === "starboard") f.require("emoji", "threshold");
+  if (section === "escalation") f.require("warnExpiryDays");
+  if (section === "tickets") f.require("autoCloseHours");
   const errorKeys = Object.keys(state.errors);
   const summary = errorKeys.length
     ? `<div class="error-summary" role="alert" tabindex="-1" data-error-summary>

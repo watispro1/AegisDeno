@@ -128,8 +128,26 @@ export function submittedValues(body: FormBody): Values {
   return v;
 }
 
+/** Selects with more options than this get a filter box (dashboard.js); multi lists get a search box. */
+export const SEARCHABLE_OPTIONS = 10;
+
 export class Form {
+  private readonly required = new Set<string>();
+
   constructor(private readonly state: FormState, private readonly px = "") {}
+
+  /**
+   * Mark fields as required: they render `required aria-required="true"`
+   * and dashboard.js checks them before submit. The server still validates.
+   */
+  require(...keys: string[]): this {
+    for (const k of keys) this.required.add(k);
+    return this;
+  }
+
+  private req(key: string): string {
+    return this.required.has(key) ? ' required aria-required="true"' : "";
+  }
 
   str(key: string): string {
     const v = this.state.values[key];
@@ -143,7 +161,7 @@ export class Form {
   private errAttrs(key: string, helpId?: string): string {
     const err = this.state.errors[key];
     const ids = [err ? `${this.px}${key}-error` : "", helpId ?? ""].filter(Boolean).join(" ");
-    return `${err ? ' aria-invalid="true"' : ""}${ids ? ` aria-describedby="${ids}"` : ""}`;
+    return `${err ? ' aria-invalid="true"' : ""}${ids ? ` aria-describedby="${ids}"` : ""}${this.req(key)}`;
   }
 
   private errText(key: string): string {
@@ -188,7 +206,7 @@ export class Form {
     if (openGroup) html += "</optgroup>";
     return `<div class="field">
       <label for="f-${this.px}${key}">${esc(label)}</label>
-      <select id="f-${this.px}${key}" name="${key}"${this.errAttrs(key, help ? `${this.px}${key}-help` : undefined)}${extra}>${html}</select>
+      <select id="f-${this.px}${key}" name="${key}"${this.errAttrs(key, help ? `${this.px}${key}-help` : undefined)}${extra}${options.length > SEARCHABLE_OPTIONS ? " data-searchable" : ""}>${html}</select>
       ${this.errText(key)}${this.help(key, help)}
     </div>`;
   }
@@ -223,9 +241,9 @@ export class Form {
     });
     if (openGroup) html += "</div>";
     const err = this.state.errors[key];
-    return `<fieldset class="pick-list" id="f-${this.px}${key}"${err ? ' aria-invalid="true"' : ""}${err || help ? ` aria-describedby="${[err ? `${this.px}${key}-error` : "", help ? `${this.px}${key}-help` : ""].filter(Boolean).join(" ")}"` : ""}>
+    return `<fieldset class="pick-list" data-pick-list id="f-${this.px}${key}"${err ? ' aria-invalid="true"' : ""}${err || help ? ` aria-describedby="${[err ? `${this.px}${key}-error` : "", help ? `${this.px}${key}-help` : ""].filter(Boolean).join(" ")}"` : ""}>
       <legend>${esc(legend)} <span class="faint">(${picked.size} picked)</span></legend>
-      ${all.length ? `<div class="pick-scroll">${html}</div>` : `<p class="muted">Nothing to pick from.</p>`}
+      ${all.length ? `${pickTools(`${this.px}${key}`, legend, all.length)}<div class="pick-scroll">${html}</div>` : `<p class="muted">Nothing to pick from.</p>`}
       ${this.errText(key)}${this.help(key, help)}
     </fieldset>`;
   }
@@ -233,10 +251,25 @@ export class Form {
   textarea(key: string, label: string, max: number, help?: string, extra = ""): string {
     return `<div class="field">
       <label for="f-${this.px}${key}">${esc(label)}</label>
-      <textarea id="f-${this.px}${key}" name="${key}" maxlength="${max}"${this.errAttrs(key, help ? `${this.px}${key}-help` : undefined)}${extra}>${esc(this.str(key))}</textarea>
+      <textarea id="f-${this.px}${key}" name="${key}" maxlength="${max}"${this.errAttrs(key, help ? `${this.px}${key}-help` : undefined)}${extra}${extra.includes("data-count-max") ? "" : ` data-count-max="${max}"`}>${esc(this.str(key))}</textarea>
       ${this.errText(key)}${this.help(key, help)}
     </div>`;
   }
+}
+
+/**
+ * The toolbar above a checkbox list: picked items as removable chips, a
+ * search box for long lists, and Select all / Select none (acting on the
+ * items the search shows). Hidden until dashboard.js wires it up, so the
+ * plain checkboxes are all a browser without JavaScript sees.
+ */
+export function pickTools(id: string, legend: string, count: number): string {
+  if (count < 2) return "";
+  const search = count > SEARCHABLE_OPTIONS
+    ? `<label class="visually-hidden" for="pick-q-${esc(id)}">Filter ${esc(legend.toLowerCase())}</label><input class="pick-search" type="search" id="pick-q-${esc(id)}" placeholder="Filter…" autocomplete="off" data-pick-search>`
+    : "";
+  return `<ul class="pick-chips" data-pick-chips aria-label="Picked ${esc(legend.toLowerCase())}" hidden></ul>
+      <div class="pick-tools" data-pick-tools hidden>${search}<button class="btn ghost sm" type="button" data-pick-all>Select all</button><button class="btn ghost sm" type="button" data-pick-none>Select none</button></div>`;
 }
 
 export function channelOptions(channels: ChannelOption[], noneLabel: string) {
