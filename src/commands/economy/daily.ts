@@ -2,8 +2,18 @@ import { SlashCommandBuilder, EmbedBuilder, InteractionContextType, MessageFlags
 import type { Command } from "../../types/discord";
 import { economy } from "../../services/economyService";
 import { economyGate, NO_PINGS } from "../../services/economyDiscord";
-import { formatCoins, relativeTimestamp } from "../../services/economyLogic";
+import { formatCoins, relativeTimestamp, type EconomyConfig } from "../../services/economyLogic";
 import { COLORS, footer } from "../../utils/embedStyle";
+import { nextDailyAmount, streakDeadline } from "../../services/economyStatus";
+import type { Account } from "../../services/economyStore";
+
+/** " Your 🔥 4-day streak is safe until <t:…:R>; next claim pays 🪙 150 coins." */
+function streakHint(acct: Account, cfg: EconomyConfig): string {
+  const now = Date.now();
+  const deadline = streakDeadline(acct.lastDaily, acct.dailyStreak, now, cfg);
+  const pays = ` Next claim pays ${formatCoins(cfg, nextDailyAmount(acct.lastDaily, acct.dailyStreak, now, cfg))}.`;
+  return deadline === null ? pays : ` Your 🔥 ${acct.dailyStreak}-day streak is safe until ${relativeTimestamp(deadline)}.${pays}`;
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
@@ -18,7 +28,7 @@ export const command: Command = {
     const r = await economy().daily(interaction.guildId!, interaction.user.id);
     if (!r.ok) {
       const content = r.reason === "cooldown"
-        ? `⏳ You already claimed your daily. Try again ${relativeTimestamp(r.retryAt)}.`
+        ? `⏳ You already claimed your daily. Try again ${relativeTimestamp(r.retryAt)}.${streakHint(await economy().balance(interaction.guildId!, interaction.user.id), cfg)}`
         : "❌ Your balance is at the maximum, so nothing was added.";
       return interaction.reply({ content, flags: MessageFlags.Ephemeral });
     }
@@ -30,7 +40,8 @@ export const command: Command = {
       .addFields(
         { name: "Balance", value: formatCoins(cfg, r.balance), inline: true },
         { name: "Streak", value: `🔥 ${r.streak} day${r.streak === 1 ? "" : "s"}`, inline: true },
-        { name: "Next claim", value: relativeTimestamp(Date.now() + cfg.dailyCooldownHours * 3_600_000), inline: true },
+        { name: "Next claim", value: `${relativeTimestamp(Date.now() + cfg.dailyCooldownHours * 3_600_000)}\npays ${formatCoins(cfg, nextDailyAmount(new Date(), r.streak, Date.now(), cfg))}`, inline: true },
+        { name: "Keep the streak", value: `Claim before ${relativeTimestamp(Date.now() + cfg.dailyCooldownHours * 3_600_000 * 2)}`, inline: true },
       )
       .setFooter(footer(cfg.dailyStreakBonus > 0 && cfg.dailyStreakCapDays > 0
         ? `Streak bonus grows for ${cfg.dailyStreakCapDays} day${cfg.dailyStreakCapDays === 1 ? "" : "s"}. Miss a day and it starts over.`

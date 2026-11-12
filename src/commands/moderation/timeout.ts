@@ -15,6 +15,7 @@ import {
 import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
+import { hierarchyRefusalText } from "../../permissions/hierarchyExplain";
 import { addModerationCase, revokeModerationCase } from "../../services/moderationCases";
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
 import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
@@ -117,14 +118,14 @@ export const command: Command = {
       return interaction.reply({ content: "❌ You cannot timeout the server owner.", flags: MessageFlags.Ephemeral });
     }
     if (!target.moderatable) {
-      return interaction.reply({ content: "❌ I cannot timeout this member — check my role hierarchy.", flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: await hierarchyRefusalText(interaction.guild!, "bot", interaction.client.user.id, target.id, "time out", target.user.tag), flags: MessageFlags.Ephemeral });
     }
 
     const hierarchyOk = await isRoleHierarchyValid(
       interaction.client, guildId, interaction.user.id, target.id
     );
     if (!hierarchyOk) {
-      return interaction.reply({ content: "❌ You cannot timeout this member — they have a higher or equal role.", flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: await hierarchyRefusalText(interaction.guild!, "you", interaction.user.id, target.id, "time out", target.user.tag), flags: MessageFlags.Ephemeral });
     }
 
     let until = new Date(Date.now() + durationMs);

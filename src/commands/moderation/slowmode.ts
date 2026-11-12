@@ -19,6 +19,14 @@ import { formatDurationLong } from "../../utils/duration";
 import { auditReason } from "../../utils/safeText";
 import { sendGuildLog } from "../../services/logging";
 import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
+import { parseFriendlyDuration } from "../../utils/duration";
+import { buildDurationSuggestions } from "../../utils/moderationPresets";
+import {
+  clearSlowmodeReverts, pendingSlowmodeRevert, scheduleSlowmodeRevert, slowmodeForProblem,
+  SLOWMODE_FOR_PRESETS, SLOWMODE_REVERT_MAX_SECONDS, SLOWMODE_REVERT_MIN_SECONDS,
+} from "../../services/slowmodeRevert";
+
+const FOR_DESCRIPTION = "Change it back to the current rate after e.g. 30m, 2h, 1d (up to 7 days)";
 
 // Slowmode presets
 
@@ -72,6 +80,9 @@ export const command: Command = {
         .addStringOption(opt =>
           opt.setName("reason").setDescription("Reason for setting slowmode").setMaxLength(256).setRequired(false)
         )
+        .addStringOption(opt =>
+          opt.setName("for").setDescription(FOR_DESCRIPTION).setMaxLength(40).setAutocomplete(true).setRequired(false)
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -90,6 +101,9 @@ export const command: Command = {
         )
         .addStringOption(opt =>
           opt.setName("reason").setDescription("Reason for setting slowmode").setMaxLength(256).setRequired(false)
+        )
+        .addStringOption(opt =>
+          opt.setName("for").setDescription(FOR_DESCRIPTION).setMaxLength(40).setAutocomplete(true).setRequired(false)
         )
     )
     .addSubcommand(sub =>
@@ -122,6 +136,7 @@ export const command: Command = {
     // /slowmode check
     if (sub === "check") {
       const currentRate = (targetChan as TextChannel).rateLimitPerUser ?? 0;
+      const pendingRevert = await pendingSlowmodeRevert(guildId, targetChan.id);
       const embed = new EmbedBuilder()
         .setColor(currentRate === 0 ? 0x57F287 : 0x3498DB)
         .setTitle("🐌 Slowmode Status")
@@ -129,6 +144,7 @@ export const command: Command = {
           { name: "📌 Channel",     value: `<#${targetChan.id}>`, inline: true },
           { name: "⏱️ Current Rate", value: formatDuration(currentRate), inline: true },
           { name: "📊 Max (Discord)", value: "6 hours", inline: true },
+          ...(pendingRevert ? [{ name: "⏲️ Timed", value: `Changes back <t:${Math.floor(pendingRevert.executeAt.getTime() / 1000)}:R>`, inline: true }] : []),
         )
         .setFooter({ text: `Checked by ${interaction.user.tag}` })
         .setTimestamp();
@@ -153,14 +169,31 @@ export const command: Command = {
       ? interaction.options.getInteger("duration", true)
       : interaction.options.getInteger("seconds", true);
     const reason = interaction.options.getString("reason") ?? "No reason provided.";
+    const previousRate = (targetChan as TextChannel).rateLimitPerUser ?? 0;
+    const forRaw = interaction.options.getString("for")?.trim() || null;
+    const forSeconds = forRaw ? parseFriendlyDuration(forRaw) : null;
+    if (forRaw) {
+      const problem = slowmodeForProblem(forSeconds, seconds, previousRate);
+      if (problem) return interaction.reply({ content: `❌ ${problem}`, flags: MessageFlags.Ephemeral });
+    }
 
     await interaction.deferReply();
-    const previousRate = (targetChan as TextChannel).rateLimitPerUser ?? 0;
     try {
       await (targetChan as TextChannel).setRateLimitPerUser(
         seconds,
         auditReason(`${reason} | Set by ${interaction.user.tag}`),
       );
+
+      // A new slowmode replaces any timed one still pending on this channel.
+      let revertAt: Date | null = null;
+      if (forRaw && forSeconds) {
+        revertAt = new Date(Date.now() + forSeconds * 1000);
+        await scheduleSlowmodeRevert(interaction.client, guildId, targetChan.id, { previousRate, appliedRate: seconds, moderatorTag: interaction.user.tag }, revertAt)
+          .catch((err) => { logger.warn(`Could not schedule slowmode revert for ${targetChan.id}`, err); revertAt = null; });
+      } else {
+        await clearSlowmodeReverts(guildId, targetChan.id).catch(() => 0);
+      }
+      const revertText = revertAt ? `Back to ${formatDuration(previousRate)} <t:${Math.floor(revertAt.getTime() / 1000)}:R>` : null;
 
       const action = seconds === 0 ? "🔓 Slowmode Disabled" : "🐌 Slowmode Set";
       const color  = seconds === 0 ? 0x57F287 : 0x3498DB;
@@ -173,6 +206,7 @@ export const command: Command = {
           { name: "⏱️ New Duration",  value: formatDuration(seconds), inline: true },
           { name: "📝 Reason",        value: reason, inline: false },
           { name: "🛡️ Set By",       value: interaction.user.tag, inline: true },
+          ...(revertText ? [{ name: "⏲️ Ends", value: revertText, inline: true }] : []),
         )
         .setTimestamp();
 
@@ -216,6 +250,7 @@ export const command: Command = {
             return { ok: false, message: `❌ You no longer have **Manage Channels** in <#${targetChan.id}>.` };
           }
           await (targetChan as TextChannel).setRateLimitPerUser(previousRate, auditReason(`Undo by ${i.user.tag}`));
+          await clearSlowmodeReverts(guildId, targetChan.id).catch(() => 0);
           currentRate = previousRate;
           undoState = "done";
           await sendGuildLog(interaction.client, guildId, { title: "↩️ Slowmode Change Undone", color: 0x99aab5, description: `**Channel:** <#${targetChan.id}>\n**Restored:** ${formatDuration(previousRate)}\n**By:** ${i.user.tag}` }, "modActions");
@@ -226,7 +261,7 @@ export const command: Command = {
       await sendGuildLog(interaction.client, guildId, {
         title: action,
         color,
-        description: `**Channel:** <#${targetChan.id}>\n**Duration:** ${formatDuration(seconds)}\n**Reason:** ${reason}\n**Set By:** ${interaction.user.tag}`,
+        description: `**Channel:** <#${targetChan.id}>\n**Duration:** ${formatDuration(seconds)}${revertText ? `\n**Ends:** ${revertText}` : ""}\n**Reason:** ${reason}\n**Set By:** ${interaction.user.tag}`,
       }, "modActions");
 
       const quickPresets: Record<string, number> = { off: 0, "5s": 5, "30s": 30, "5m": 300, "1h": 3600 };
@@ -251,8 +286,10 @@ export const command: Command = {
           const updatedEmbed = EmbedBuilder.from(embed)
             .setTitle(newRate === 0 ? "🔓 Slowmode Disabled" : "🐌 Slowmode Set")
             .setColor(newRate === 0 ? 0x57F287 : 0x3498DB)
-            .spliceFields(1, 1, { name: "⏱️ New Duration", value: formatDuration(newRate), inline: true });
+            .spliceFields(1, 1, { name: "⏱️ New Duration", value: formatDuration(newRate), inline: true })
+            .spliceFields(4, 1); // a quick change ends any timed slowmode
           currentRate = newRate;
+          await clearSlowmodeReverts(guildId, targetChan.id).catch(() => 0);
           await interaction.editReply({ embeds: [updatedEmbed], components: [buildQuickRow(newRate), quickUndoRow(undoId, undoState)] }).catch(() => null);
         } catch (err) {
           logger.warn("Quick-adjust slowmode failed", err);
@@ -268,6 +305,11 @@ export const command: Command = {
       logger.error(`Failed to set slowmode on channel ${targetChan.id}`, err);
       await interaction.editReply("❌ Failed to set slowmode. Check my permissions.");
     }
+  },
+
+  async autocomplete(interaction) {
+    await interaction.respond(buildDurationSuggestions(String(interaction.options.getFocused() ?? ""), SLOWMODE_FOR_PRESETS,
+      { minSeconds: SLOWMODE_REVERT_MIN_SECONDS, maxSeconds: SLOWMODE_REVERT_MAX_SECONDS }));
   },
 };
 

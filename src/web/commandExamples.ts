@@ -181,10 +181,11 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
   gamble: ["/gamble coinflip bet:100 call:Heads", "/gamble dice bet:50 face:4", "/gamble slots bet:50", "/gamble info"],
   rob: ["/rob user:@member"],
   interest: ["/interest"],
-  transactions: ["/transactions", "/transactions count:25", "/transactions user:@member"],
+  transactions: ["/transactions", "/transactions type:Gambling period:Last 7 days", "/transactions user:@member"],
   leaderboard: ["/leaderboard", "/leaderboard sort:Wallet page:2"],
   shop: [
     "/shop view",
+    "/shop view sort:Price: high to low affordable:true",
     "/shop buy item:VIP pass",
     "/shop add name:VIP pass price:5000 role:@VIP role_hours:168 use_to_grant:true per_user_limit:1",
     "/shop add name:Golden trophy price:20000 stock:10",

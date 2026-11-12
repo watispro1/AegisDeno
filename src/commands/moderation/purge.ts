@@ -1,6 +1,4 @@
 import { guardCollect } from "../../utils/collectorGuard";
-import { noteIncidentDeletes } from "../../services/incidentHooks";
-import { markMessageDeletedByBot } from "../../services/deletedMessages";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -15,16 +13,17 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
-import { sendGuildLog } from "../../services/logging";
-import { addModerationCase } from "../../services/moderationCases";
-import { caseActionsRow, modLogRow } from "../../services/modLogLinks";
-import { describePurgeSkips, runPurge } from "../../services/purgeRunner";
 import {
   type PurgeCandidate,
   type PurgeFilterMode as FilterMode,
+  isAfterSnowflake,
   isBulkDeletable,
+  needsPurgeConfirmation,
   planPurge,
+  PURGE_CONFIRM_ABOVE,
 } from "../../services/purgeFilters";
+import { finishPurge, type PurgeRunContext, respondViaButton } from "./purge/finish";
+import { COLORS, footer } from "../../utils/embedStyle";
 
 /** Most messages /purge will look through in one run (10 API pages). */
 const MAX_SCAN = 1_000;
@@ -41,6 +40,8 @@ function toCandidate(msg: Message): ScannedMessage {
     attachmentCount: msg.attachments.size,
     embedCount: msg.embeds.length,
     hasImageEmbed: msg.embeds.some((e) => Boolean(e.image || e.thumbnail)),
+    mentionCount: msg.mentions.users.size + msg.mentions.roles.size + (msg.mentions.everyone ? 1 : 0),
+    stickerCount: msg.stickers.size,
     pinned: msg.pinned,
     createdTimestamp: msg.createdTimestamp,
     message: msg,
@@ -55,6 +56,10 @@ const FILTER_LABELS: Record<FilterMode, string> = {
   images:  "Messages with images/attachments",
   embeds:  "Messages with embeds",
   keyword: "Messages matching keyword",
+  attachments: "Messages with file attachments",
+  invites: "Messages with server invites",
+  mentions: "Messages that mention someone",
+  stickers: "Messages with stickers",
 };
 
 export const command: Command = {
@@ -79,8 +84,12 @@ export const command: Command = {
           { name: "Bot messages only",             value: "bots" },
           { name: "Human messages only",           value: "humans" },
           { name: "Messages with links",           value: "links" },
+          { name: "Messages with server invites",  value: "invites" },
           { name: "Messages with images/attachments", value: "images" },
+          { name: "Messages with file attachments (no link previews)", value: "attachments" },
           { name: "Messages with embeds",          value: "embeds" },
+          { name: "Messages that mention someone", value: "mentions" },
+          { name: "Messages with stickers",        value: "stickers" },
           { name: "Messages matching keyword",     value: "keyword" },
         )
     )
@@ -93,11 +102,17 @@ export const command: Command = {
     .addStringOption(opt =>
       opt.setName("reason").setDescription("Reason for the purge (recorded in mod logs)").setRequired(false).setMaxLength(256)
     )
-        .addStringOption(opt =>
+    .addStringOption(opt =>
       opt.setName("before_message").setDescription("Only scan messages sent before this message ID (right-click a message → Copy ID)").setRequired(false)
+    )
+    .addStringOption(opt =>
+      opt.setName("after_message").setDescription("Only delete messages sent after this message ID: clears everything since a point").setRequired(false)
     )
     .addBooleanOption(opt =>
       opt.setName("keep_pinned").setDescription("Protect pinned messages from being deleted (default: true)").setRequired(false)
+    )
+    .addBooleanOption(opt =>
+      opt.setName("preview").setDescription(`Always show a preview to confirm (default: only above ${PURGE_CONFIRM_ABOVE} messages)`).setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
@@ -112,6 +127,8 @@ export const command: Command = {
     const keyword = interaction.options.getString("keyword");
     const reason  = interaction.options.getString("reason") ?? "Channel message cleanup";
     const beforeMsgId = interaction.options.getString("before_message") ?? undefined;
+    const afterMsgId = interaction.options.getString("after_message")?.trim() || undefined;
+    const forcePreview = interaction.options.getBoolean("preview") ?? false;
     const keepPinned = interaction.options.getBoolean("keep_pinned") ?? true;
     const channel = interaction.channel;
     const guildId = interaction.guildId!;
@@ -136,8 +153,13 @@ export const command: Command = {
       }
     }
 
-    if (beforeMsgId && !/^\d{17,20}$/.test(beforeMsgId)) {
-      return interaction.reply({ content: "❌ `before_message` must be a valid Discord message ID (17–20 digits).", flags: MessageFlags.Ephemeral });
+    for (const [name, id] of [["before_message", beforeMsgId], ["after_message", afterMsgId]] as const) {
+      if (id && !/^\d{17,20}$/.test(id)) {
+        return interaction.reply({ content: `❌ \`${name}\` must be a valid Discord message ID (17–20 digits). Right-click a message → Copy Message ID.`, flags: MessageFlags.Ephemeral });
+      }
+    }
+    if (beforeMsgId && afterMsgId && !isAfterSnowflake(beforeMsgId, afterMsgId)) {
+      return interaction.reply({ content: "❌ `after_message` must be older than `before_message`, or nothing can match.", flags: MessageFlags.Ephemeral });
     }
 
     if (filter === "keyword" && !keyword) {
@@ -150,6 +172,7 @@ export const command: Command = {
       // Page backwards through history until we have enough matches, hit the
       // 14-day bulk-delete limit, or reach the scan cap.
       const scanned: ScannedMessage[] = [];
+      const criteria = { mode: filter, userId: target?.id, contains: keyword, skipPinned: keepPinned, afterId: afterMsgId };
       // Use beforeMsgId as the scan start point if provided
       let before: string | undefined = beforeMsgId;
       const scanStartedAt = Date.now();
@@ -160,11 +183,12 @@ export const command: Command = {
         scanned.push(...batch);
         before = batch[batch.length - 1].id;
         const oldest = batch[batch.length - 1];
-        const plan = planPurge(scanned, { mode: filter, userId: target?.id, contains: keyword, skipPinned: keepPinned }, amount, scanStartedAt);
-        if (plan.toDelete.length >= amount || !isBulkDeletable(oldest.createdTimestamp, scanStartedAt) || page.size < 100) break;
+        const plan = planPurge(scanned, criteria, amount, scanStartedAt);
+        const reachedAfter = afterMsgId ? !isAfterSnowflake(oldest.id, afterMsgId) : false;
+        if (plan.toDelete.length >= amount || reachedAfter || !isBulkDeletable(oldest.createdTimestamp, scanStartedAt) || page.size < 100) break;
       }
 
-      const plan = planPurge(scanned, { mode: filter, userId: target?.id, contains: keyword, skipPinned: keepPinned }, amount, Date.now());
+      const plan = planPurge(scanned, criteria, amount, Date.now());
       const toDelete = plan.toDelete.map((c) => c.message);
       const skippedNote = [
         plan.tooOld > 0 ? `${plan.tooOld} matching message(s) are 14+ days old and can't be bulk-deleted` : null,
@@ -178,6 +202,16 @@ export const command: Command = {
         return;
       }
 
+      const filterText = `\`${filter}\`${keyword ? ` — \`${keyword}\`` : ""}${afterMsgId ? ` · after \`${afterMsgId}\`` : ""}`;
+      const runCtx: Omit<PurgeRunContext, "respond"> = {
+        interaction, channel, guildId, toDelete: plan.toDelete, filter, filterText, targetId: target?.id ?? null, reason, skippedNote,
+      };
+      // Small purges run straight away; bigger ones (or `preview: true`) show a preview to confirm.
+      if (!needsPurgeConfirmation(toDelete.length, forcePreview)) {
+        await finishPurge({ ...runCtx, respond: (payload) => interaction.editReply(payload) });
+        return;
+      }
+
       const sampleMessages = toDelete.slice(0, 5).map(m => {
         const author = m.author.tag.slice(0, 20);
         const content = (m.content || "[embed/attachment]").slice(0, 60);
@@ -185,7 +219,7 @@ export const command: Command = {
       });
 
       const previewEmbed = new EmbedBuilder()
-        .setColor(0xED4245)
+        .setColor(COLORS.danger)
         .setTitle("🗑️ Purge Preview")
         .setDescription(
           `Found **${toDelete.length}** message(s) matching your filter (scanned ${scanned.length}).\n` +
@@ -198,7 +232,7 @@ export const command: Command = {
           { name: "👤 User",     value: target ? `<@${target.id}>` : "All users", inline: true },
           { name: "🗑️ To Delete", value: `**${toDelete.length}** message(s)`, inline: true },
         )
-        .setFooter({ text: "Confirm to proceed with deletion." })
+        .setFooter(footer(`Confirm within 30 seconds · purges of ${PURGE_CONFIRM_ABOVE} or fewer skip this step`))
         .setTimestamp();
 
       const previewRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -228,60 +262,8 @@ export const command: Command = {
           await i.update({ content: "❌ Purge cancelled.", embeds: [], components: [] });
           return;
         }
-
         await i.deferUpdate();
-        const outcome = await runPurge(toDelete, {
-          deleteOne: (m) => { markMessageDeletedByBot(m.id); return m.delete(); },
-          bulkDelete: async (batch) => (await channel.bulkDelete(batch, true)).keys(),
-          onBatchError: (err, size) => logger.warn(`Purge batch of ${size} failed in channel ${channel.id} guild ${guildId}`, err),
-        });
-        const deletedCount = outcome.deleted;
-        const skips = describePurgeSkips(outcome);
-
-        if (deletedCount === 0) {
-          await i.editReply({
-            content: `❌ No messages were deleted${skips ? ` (${skips})` : ""}. Check my permissions in this channel.`,
-            embeds: [],
-            components: [],
-          }).catch((err) => logger.warn(`Could not report purge result in guild ${guildId}`, err));
-          return;
-        }
-
-        // Record the case before the result so the confirmation can link to it.
-        const caseOwnerId = target?.id ?? interaction.user.id;
-        noteIncidentDeletes(guildId, deletedCount, `/purge by ${interaction.user.tag}`);
-        const caseId = await addModerationCase({
-          guildId,
-          userId: caseOwnerId,
-          moderatorId: interaction.user.id,
-          action: "purge",
-          reason,
-          details: `Channel: #${channel.name || channel.id} | Deleted ${deletedCount} message(s) [Filter: ${filter}]`,
-        });
-
-        const filterText = `\`${filter}\`${keyword ? ` — \`${keyword}\`` : ""}`;
-        const resultEmbed = new EmbedBuilder()
-          .setColor(0xED4245)
-          .setTitle("🗑️ Messages Purged")
-          .setDescription(`Deleted **${deletedCount}** of ${toDelete.length} in <#${channel.id}>.${skips ? `\nSkipped: ${skips}.` : ""}`)
-          .addFields(
-            { name: "Filter", value: `${filterText}${target ? ` + from <@${target.id}>` : ""}`, inline: true },
-            { name: "Moderator", value: interaction.user.tag, inline: true },
-          )
-          .setFooter({ text: [skippedNote, caseId ? `Case ID: ${caseId}` : ""].filter(Boolean).join(" · ") || "Purge complete" })
-          .setTimestamp();
-
-        await i.editReply({
-          content: null,
-          embeds: [resultEmbed],
-          components: caseId ? [caseActionsRow(guildId, caseOwnerId, caseId)] : [],
-        }).catch((err) => logger.warn(`Could not report purge result in guild ${guildId}`, err));
-
-        await sendGuildLog(interaction.client, guildId, {
-          title: "🗑️ Messages Purged",
-          color: 0xED4245,
-          description: `**Channel:** <#${channel.id}>\n**Deleted:** ${deletedCount}/${toDelete.length}${skips ? ` (${skips})` : ""}\n**Filter:** ${filterText}\n**User Filter:** ${target ? `<@${target.id}>` : "None"}\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
-        }, "modActions", caseId ? [modLogRow(guildId, caseOwnerId, caseId)] : undefined);
+        await finishPurge({ ...runCtx, respond: respondViaButton(i) });
       }));
 
       collector.on("end", async (_, stopReason) => {

@@ -16,6 +16,7 @@ import {
 import { Command } from "../../types/discord";
 import { addWarning, getWarningsForUser, revokeWarning } from "../../services/warnings";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
+import { hierarchyRefusalText } from "../../permissions/hierarchyExplain";
 import { sendGuildLog } from "../../services/logging";
 import { checkEscalation } from "../../services/escalation";
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
@@ -106,7 +107,7 @@ export const command: Command = {
     );
     if (!hierarchyOk) {
       return interaction.reply({
-        content: "❌ You cannot warn this user — they have a higher or equal role.",
+        content: await hierarchyRefusalText(interaction.guild!, "you", interaction.user.id, target.id, "warn", target.tag),
         flags: MessageFlags.Ephemeral,
       });
     }

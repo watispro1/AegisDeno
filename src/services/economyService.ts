@@ -10,7 +10,7 @@ import {
   MAX_BALANCE, dailyClaim, workClaim, applyEconomySettings, validateShopItem,
   type EconomyConfig, type EconomySettingsInput, type ShopItem, type ShopItemInput,
 } from "./economyLogic";
-import { memoryEconomyStore, type Account, type EconomyStore, type LeaderboardSort, type Transaction, type TransactionType } from "./economyStore";
+import { memoryEconomyStore, type Account, type EconomyStore, type LeaderboardSort, type Transaction, type TransactionFilter, type TransactionType } from "./economyStore";
 import * as flows from "./economyFlows";
 import * as activities from "./economyActivities";
 import type { RandomInt } from "./economyRules";
@@ -48,6 +48,8 @@ export interface EconomyServiceOptions {
 }
 
 const SWAP_RETRIES = 3;
+/** Most transactions /transactions loads for paging (the log keeps 90 days). */
+export const HISTORY_BROWSE_MAX = 250;
 
 export class EconomyService {
   private readonly now: () => number;
@@ -119,6 +121,10 @@ export class EconomyService {
   async rob(guildId: string, robberId: string, targetId: string, targetIsBot: boolean) { return activities.rob(this.flow, await this.config(guildId), guildId, robberId, targetId, targetIsBot); }
   /** A member's own recent transactions (this server only). */
   history(guildId: string, userId: string, limit = 10) { return this.store.recentTransactions(guildId, Math.max(1, Math.min(25, Math.floor(limit))), userId); }
+  /** Up to `limit` (≤ HISTORY_BROWSE_MAX) of a member's transactions, newest first, narrowed by type and time; for paged /transactions. */
+  browseHistory(guildId: string, userId: string, filter: TransactionFilter = {}, limit = HISTORY_BROWSE_MAX) {
+    return this.store.recentTransactions(guildId, Math.max(1, Math.min(HISTORY_BROWSE_MAX, Math.floor(limit))), userId, filter);
+  }
   /** Server totals and the last `days` days of activity (this server only). */
   stats(guildId: string, days = 7) { return this.store.stats(guildId, new Date(this.now() - Math.max(1, Math.min(90, days)) * 86_400_000)); }
 
@@ -213,6 +219,9 @@ export class EconomyService {
     const safePage = Math.max(1, Math.floor(page));
     return this.store.leaderboard(guildId, (safePage - 1) * perPage, perPage, sort);
   }
+
+  /** A member's place on the leaderboard, or null when they have no coins. */
+  rank(guildId: string, userId: string, sort: LeaderboardSort = "total") { return this.store.rank(guildId, userId, sort); }
 
   recentTransactions(guildId: string, limit: number, userId?: string) { return this.store.recentTransactions(guildId, limit, userId); }
   items(guildId: string) { return this.store.listItems(guildId); }
