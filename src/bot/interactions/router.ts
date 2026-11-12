@@ -14,7 +14,7 @@ import {
   type ModalSubmitInteraction,
 } from "discord.js";
 import { logger } from "../../utils/logger";
-import { EXPIRED_COMPONENT_MESSAGE } from "./expired";
+import { describeCommandError, newErrorId } from "../../utils/errorReport";
 
 export type ComponentInteraction =
   | ButtonInteraction
@@ -44,7 +44,13 @@ export interface RoutableInteraction {
   editReply(options: { content: string }): Promise<unknown>;
 }
 
-const FAILURE_MESSAGE = EXPIRED_COMPONENT_MESSAGE;
+/** What a member sees when a button, menu or modal handler throws: a known Discord refusal explained, else a retry hint, plus the error ID. */
+export function componentFailureMessage(err: unknown, routeName: string, errorId: string): string | null {
+  const report = describeCommandError(err, routeName, errorId);
+  if (report.silent) return null;
+  if (report.expected) return report.message;
+  return `⚠️ That button or menu didn't work. Run the command again to get a fresh one.\n-# Error ID: \`${errorId}\``;
+}
 
 export class InteractionRouter {
   private readonly routes: readonly ComponentRoute[];
@@ -82,11 +88,14 @@ export class InteractionRouter {
       // Handlers get the full discord.js interaction; tests pass a stand-in.
       await hit.route.handle(interaction as unknown as ComponentInteraction, hit.match);
     } catch (err) {
-      logger.error(`Component handler "${hit.route.name}" failed for customId "${customId}":`, err);
+      const errorId = newErrorId();
+      logger.error(`[${errorId}] Component handler "${hit.route.name}" failed for customId "${customId}":`, err);
+      const message = componentFailureMessage(err, hit.route.name, errorId);
+      if (!message) return true;
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: FAILURE_MESSAGE, flags: MessageFlags.Ephemeral }).catch(() => null);
+        await interaction.reply({ content: message, flags: MessageFlags.Ephemeral }).catch(() => null);
       } else if (interaction.deferred && !interaction.replied) {
-        await interaction.editReply({ content: FAILURE_MESSAGE }).catch(() => null);
+        await interaction.editReply({ content: message }).catch(() => null);
       }
     }
     return true;

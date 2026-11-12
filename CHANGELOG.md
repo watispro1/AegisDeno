@@ -9,6 +9,50 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.11.0] - 2026-11-12
+
+Command improvements and quality of life: error IDs on failures, plain-word
+explanations for Discord refusals, reworked `/userinfo` and `/avatar`, and
+right-click (Apps) commands. Upgrade notes: three new context menus (User
+Info, Avatar, Report Message) and new options on `/userinfo` and `/avatar`,
+so commands are re-registered on deploy (or run `npm run deploy`). No
+migration, new permissions or environment variables.
+
+### Added
+- Error IDs: when a command, context menu, button or menu fails, the member
+  sees a short ID like `AE-7K3QX9` and the same ID is written to the log, so
+  support can find the exact failure.
+- Right-click (Apps) commands on a member: User Info and Avatar open the same
+  views as `/userinfo` and `/avatar`, privately.
+- Report Message, on any message: privately flags it to the server's log
+  channel with the author, reporter, channel and a jump link. The reporter is
+  told when the server has no log channel set up. 30-second cooldown, and
+  members cannot report their own messages.
+- `/avatar` switches between the main avatar, server avatar and profile
+  banner with buttons, links every format, works for users outside the
+  server, and gains `banner` and `private` options.
+- `/help` gains an Apps section and page listing the right-click commands.
+
+### Changed
+- Friendlier Discord errors: missing permissions, role hierarchy, hidden
+  channels, closed DMs, deleted messages, members who left and the 14-day
+  bulk-delete limit are explained in plain words with what to fix. Expired
+  interactions are logged quietly instead of showing an error.
+- `/userinfo` is rewritten and gains a `private` option: it works for users
+  who are not in the server, shows boosting, highest role and activity, and
+  moderators get warnings, recent cases, ban status and the Trust Score in a private reply, with a
+  link to the member's cases on the dashboard.
+- Cooldown messages show the exact time left and when the command is ready
+  again. Context menus share the slash commands' permission, cooldown and
+  error handling.
+- A failed button or menu tells the member to run the command again for a
+  fresh one instead of showing "Interaction failed".
+
+### Fixed
+- `/help` showed a 1.5s cooldown for commands with the cooldown turned off,
+  and rounded real cooldowns to whole seconds. It now shows the actual
+  cooldown, "None", or the 1.5s default.
+
 ## [3.10.0] - 2026-11-11
 
 Economy expansion and exploit hardening: work levels, daily bank interest,
