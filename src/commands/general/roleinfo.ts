@@ -122,7 +122,8 @@ export const command: Command = {
       });
     }));
     collector.on("end", () => {
-      interaction.editReply({ components: [] }).catch(() => null);
+      row.components.forEach(c => c.setDisabled(true));
+      interaction.editReply({ components: [row] }).catch(() => null);
     });
   },
 };

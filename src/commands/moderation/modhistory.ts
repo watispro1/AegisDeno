@@ -12,6 +12,7 @@ import {
 } from "discord.js";
 import { getModerationCases } from "../../services/moderationCases";
 import { Command } from "../../types/discord";
+import { memberPageUrl } from "../../config/links";
 
 const ACTION_LABELS: Record<string, string> = {
   warn:          "⚠️ Warning",
@@ -24,6 +25,7 @@ const ACTION_LABELS: Record<string, string> = {
   unban:         "✅ Unban",
   clearwarnings: "🗑️ Warnings Cleared",
   note:          "📝 Staff Note",
+  massban:       "🔨 Mass Ban",
 };
 
 const ACTION_FILTER_CHOICES = [
@@ -125,26 +127,37 @@ export const command: Command = {
       return embed;
     };
 
-    const buildButtons = () => {
-      const nav = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    const buildButtons = (disabled = false) => {
+      const navButtons: ButtonBuilder[] = [
         new ButtonBuilder()
           .setCustomId("mh_prev")
           .setLabel("Previous")
           .setStyle(ButtonStyle.Secondary)
           .setEmoji("◀️")
-          .setDisabled(page === 0),
+          .setDisabled(disabled || page === 0),
         new ButtonBuilder()
           .setCustomId("mh_next")
           .setLabel("Next")
           .setStyle(ButtonStyle.Secondary)
           .setEmoji("▶️")
-          .setDisabled(page >= totalPages() - 1),
+          .setDisabled(disabled || page >= totalPages() - 1),
         new ButtonBuilder()
           .setCustomId("mh_refresh")
           .setLabel("Refresh")
           .setStyle(ButtonStyle.Secondary)
-          .setEmoji("🔄"),
-      );
+          .setEmoji("🔄")
+          .setDisabled(disabled),
+      ];
+      if (guildId) {
+        navButtons.push(
+          new ButtonBuilder()
+            .setLabel("Member page")
+            .setStyle(ButtonStyle.Link)
+            .setURL(memberPageUrl(guildId, target.id))
+            .setEmoji("👤")
+        );
+      }
+      const nav = new ActionRowBuilder<ButtonBuilder>().addComponents(navButtons);
 
       const filters = new ActionRowBuilder<ButtonBuilder>().addComponents(
         ...ACTION_FILTER_CHOICES.map(f =>
@@ -153,15 +166,16 @@ export const command: Command = {
             .setLabel(f.label)
             .setStyle(currentFilter === f.value ? ButtonStyle.Primary : ButtonStyle.Secondary)
             .setEmoji(f.emoji)
+            .setDisabled(disabled)
         )
       );
 
       return [nav, filters];
     };
 
-    const getComponents = () => {
+    const getComponents = (disabled = false) => {
       if (allCases.length === 0) return [];
-      const [nav, filters] = buildButtons();
+      const [nav, filters] = buildButtons(disabled);
       return filteredCases.length > 0 ? [nav, filters] : [filters];
     };
 
@@ -200,7 +214,7 @@ export const command: Command = {
     }));
 
     collector.on("end", async () => {
-      await interaction.editReply({ components: [] }).catch(() => null);
+      await interaction.editReply({ components: getComponents(true) }).catch(() => null);
     });
   },
 };

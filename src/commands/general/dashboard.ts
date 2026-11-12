@@ -257,7 +257,14 @@ export const command: Command = {
     }));
 
     collector.on("end", async () => {
-      await interaction.editReply({ components: [] }).catch(() => null);
+      const linkRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setLabel("Web Dashboard")
+          .setStyle(ButtonStyle.Link)
+          .setURL(dashboardUrl(interaction.guildId ?? undefined))
+          .setEmoji("🌐"),
+      );
+      await interaction.editReply({ components: [linkRow] }).catch(() => null);
     });
   },
 };

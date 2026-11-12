@@ -14,6 +14,7 @@ import {
 import { Command } from "../../types/discord";
 import { getRecentCasesForGuild, getTopOffendersForGuild } from "../../services/moderationCases";
 import { WarningModel, ModerationCaseModel } from "../../database/mongo";
+import { dashboardUrl } from "../../config/links";
 
 const ACTION_EMOJI: Record<string, string> = {
   warn: "⚠️", kick: "👢", ban: "🔨", softban: "🧹", timeout: "⏱️", temprole: "🏷️",
@@ -111,22 +112,30 @@ export const command: Command = {
         .setTimestamp();
     };
 
-    const buildButtons = (period: Period) => new ActionRowBuilder<ButtonBuilder>().addComponents(
+    const buildButtons = (period: Period, disabled = false) => new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId("modstats_7d")
         .setLabel("Last 7 Days")
         .setStyle(period === "7d" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("📅"),
+        .setEmoji("📅")
+        .setDisabled(disabled),
       new ButtonBuilder()
         .setCustomId("modstats_30d")
         .setLabel("Last 30 Days")
         .setStyle(period === "30d" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("📆"),
+        .setEmoji("📆")
+        .setDisabled(disabled),
       new ButtonBuilder()
         .setCustomId("modstats_refresh")
         .setLabel("Refresh")
         .setStyle(ButtonStyle.Success)
-        .setEmoji("🔄"),
+        .setEmoji("🔄")
+        .setDisabled(disabled),
+      new ButtonBuilder()
+        .setLabel("Dashboard")
+        .setStyle(ButtonStyle.Link)
+        .setURL(dashboardUrl(guildId))
+        .setEmoji("🌐"),
     );
 
     let currentPeriod = initialPeriod;
@@ -149,7 +158,7 @@ export const command: Command = {
     }));
 
     collector.on("end", async () => {
-      await interaction.editReply({ components: [] }).catch(() => null);
+      await interaction.editReply({ components: [buildButtons(currentPeriod, true)] }).catch(() => null);
     });
   },
 };
