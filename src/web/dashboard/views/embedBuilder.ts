@@ -70,6 +70,13 @@ function previewCard(f: Form, p: string, sample: TemplateValues, contentKey?: st
   </div>`;
 }
 
+/** Characters Discord counts towards the embed's 6,000 total: title, description, author, footer and fields. */
+export function embedTotal(f: Form, p: string): number {
+  let n = ["title", "description", "author", "footer"].reduce((a, k) => a + f.str(`${p}${k}`).length, 0);
+  for (let i = 0; i < EMBED_BUILDER_FIELDS; i++) n += f.str(`${p}fname_${i}`).length + f.str(`${p}fvalue_${i}`).length;
+  return n;
+}
+
 function hostOf(url: string): string {
   try { return new URL(url).hostname; } catch { return "invalid link"; }
 }
@@ -81,7 +88,7 @@ function hostOf(url: string): string {
 export function embedBuilder(f: Form, p: string, o: { legend: string; sample: TemplateValues; contentKey?: string; help?: string }): string {
   const rows = Array.from({ length: EMBED_BUILDER_FIELDS }, (_, i) => `
     <div class="embed-field-row" data-embed-field-row${i > 1 && !f.str(`${p}fname_${i}`) && !f.str(`${p}fvalue_${i}`) ? " data-optional" : ""}>
-      ${f.text(`${p}fname_${i}`, `Field ${i + 1} name`, EMBED_LIMITS.fieldName)}
+      ${f.text(`${p}fname_${i}`, `Field ${i + 1} name`, EMBED_LIMITS.fieldName, undefined, ` data-count-max="${EMBED_LIMITS.fieldName}"`)}
       ${f.textarea(`${p}fvalue_${i}`, `Field ${i + 1} value`, EMBED_LIMITS.fieldValue, undefined, ' rows="2"')}
       ${f.checkbox(`${p}finline_${i}`, "Inline")}
     </div>`).join("");
@@ -91,7 +98,7 @@ export function embedBuilder(f: Form, p: string, o: { legend: string; sample: Te
     <fieldset class="embed-inputs"><legend>${esc(o.legend)}</legend>
       ${o.help ? `<p class="field-help">${o.help}</p>` : ""}
       <div class="field-row two">
-        ${f.text(`${p}author`, "Author", EMBED_LIMITS.author)}
+        ${f.text(`${p}author`, "Author", EMBED_LIMITS.author, undefined, ` data-count-max="${EMBED_LIMITS.author}"`)}
         ${f.text(`${p}color`, "Colour (hex)", 7, "Such as #5865F2. Blank uses Discord's default.", ' spellcheck="false" autocapitalize="off" placeholder="#5865F2"')}
       </div>
       ${f.text(`${p}title`, "Title", EMBED_LIMITS.title, undefined, ` data-count-max="${EMBED_LIMITS.title}"`)}
@@ -100,16 +107,18 @@ export function embedBuilder(f: Form, p: string, o: { legend: string; sample: Te
         ${f.text(`${p}image`, "Image URL", EMBED_LIMITS.url, "https:// links only.", ' inputmode="url" spellcheck="false" autocapitalize="off"')}
         ${f.text(`${p}thumbnail`, "Thumbnail URL", EMBED_LIMITS.url, "https:// links only.", ' inputmode="url" spellcheck="false" autocapitalize="off"')}
       </div>
-      ${f.text(`${p}footer`, "Footer", EMBED_LIMITS.footer)}
+      ${f.text(`${p}footer`, "Footer", EMBED_LIMITS.footer, `Small text under the embed. Up to ${EMBED_LIMITS.footer.toLocaleString("en-US")} characters.`, ` data-count-max="${EMBED_LIMITS.footer}"`)}
       <details class="embed-fields"${rows && Array.from({ length: EMBED_BUILDER_FIELDS }, (_, i) => f.str(`${p}fname_${i}`)).some(Boolean) ? " open" : ""}>
         <summary>Fields (up to ${EMBED_BUILDER_FIELDS})</summary>
+        <p class="field-help">A field shows only when it has both a name and a value. Tick Inline to place up to three side by side.</p>
         ${rows}
       </details>
       ${variableReference()}
-      <p class="field-help">Total across the embed: <span data-embed-total>0</span> of ${EMBED_LIMITS.total.toLocaleString("en-US")} characters.</p>
+      <p class="field-help embed-total" data-embed-total-wrap="${EMBED_LIMITS.total}">Total across the embed: <span data-embed-total>${embedTotal(f, p)}</span> of ${EMBED_LIMITS.total.toLocaleString("en-US")} characters.</p>
+      <p class="callout warn embed-over" data-embed-over${embedTotal(f, p) > EMBED_LIMITS.total ? "" : " hidden"}>Discord refuses embeds over ${EMBED_LIMITS.total.toLocaleString("en-US")} characters in total. Shorten the description or fields before saving.</p>
     </fieldset>
     <div class="embed-preview-wrap">
-      <p class="field-help" id="${esc(p)}preview-label">Preview</p>
+      <p class="field-help embed-preview-label" id="${esc(p)}preview-label"><strong>Live preview</strong> <span class="faint">Variables show sample values: ${esc(o.sample.user)} in ${esc(o.sample.server)}.</span></p>
       <div class="embed-preview" data-embed-preview aria-live="polite" aria-labelledby="${esc(p)}preview-label">${previewCard(f, p, o.sample, o.contentKey)}</div>
       <p class="field-help">Images are not loaded in the preview; their link is shown instead.</p>
     </div>

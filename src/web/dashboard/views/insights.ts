@@ -7,6 +7,9 @@ import { SETTINGS_IMPORT_MAX_CHARS } from "../settingsTransfer";
 import { type GuildContext, copyId, csrfField, notice } from "./layout";
 import { modulePage } from "./parts";
 import { barChart, lineChart, rankBars } from "./charts";
+import { helpPanel, pill, summaryStrip } from "./moduleKit";
+
+const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 
 export const ANALYTICS_RANGES = [7, 30, 90] as const;
 
@@ -21,6 +24,13 @@ export function renderAnalytics(cfg: SiteConfig, ctx: GuildContext, o: { days: n
     lead: "Joins and leaves, moderation cases and automod hits over time. Counts only; nothing here identifies members.",
     path: base,
     body: `<nav class="btn-row range-nav" aria-label="Time range">${range}</nav>
+  ${summaryStrip([
+    { label: "Joins", value: sum(d.joins), hint: `Last ${o.days} days` },
+    { label: "Leaves", value: sum(d.leaves) },
+    { label: "Net change", value: `${sum(d.joins) - sum(d.leaves) >= 0 ? "+" : ""}${(sum(d.joins) - sum(d.leaves)).toLocaleString("en-US")}`, tone: sum(d.joins) >= sum(d.leaves) ? "ok" : "warn" },
+    { label: "Cases and warnings", value: sum(d.cases) },
+    { label: "Automod hits", value: sum(d.automod), tone: sum(d.automod) ? "info" : undefined },
+  ], `Totals for the last ${o.days} days`)}
   <div class="insight-grid">
     <section class="panel-card span-2"><h2>Joins and leaves</h2>
       ${lineChart({ label: "Joins", values: d.joins, cls: "s-join" }, { label: "Leaves", values: d.leaves, cls: "s-leave" }, d.days, "Joins and leaves per day")}
@@ -31,7 +41,12 @@ export function renderAnalytics(cfg: SiteConfig, ctx: GuildContext, o: { days: n
     <section class="panel-card"><h2>Cases by type</h2>${rankBars(d.casesByType, k => esc(k), "No cases in this range.")}</section>
     <section class="panel-card"><h2>Cases by moderator</h2>${rankBars(d.casesByModerator, k => { const n = ctx.nameOf(k); return `${n ? esc(n) : `<code class="inline">${esc(k)}</code>`} ${copyId(k, "Copy user ID")}`; }, "No cases in this range.")}</section>
     <section class="panel-card"><h2>Automod hits by rule</h2>${rankBars(d.automodByRule, k => esc(k), "No automod hits in this range.")}</section>
-  </div>`,
+  </div>
+  ${helpPanel("Reading these charts", [
+    ["Range", "Pick 7, 30 or 90 days above. Each bar or point is one day; the totals strip adds them up."],
+    ["Cases", "Every recorded case and warning, whether it came from a slash command or this dashboard."],
+    ["Privacy", "Counts only. Nothing here identifies a member except the moderator ranking."],
+  ])}`,
   });
 }
 
@@ -49,10 +64,15 @@ export function renderTools(cfg: SiteConfig, ctx: GuildContext, o: { switches: M
     lead: "Switch whole modules off, and save or restore this server's Aegis settings as a file.",
     path: base,
     body: `${notice(o.noticeCode)}
+  ${summaryStrip([
+    { label: "Modules on", value: `${MODULE_SWITCH_KEYS.filter(k => o.switches[k]).length} of ${MODULE_SWITCH_KEYS.length}`, tone: MODULE_SWITCH_KEYS.every(k => o.switches[k]) ? "ok" : "warn", href: "#mod-h" },
+    { label: "Backup", value: "Export", hint: "Settings only, as JSON", href: "#exp-h" },
+    { label: "Restore", value: "Import", hint: "Replaces settings", href: "#imp-h" },
+  ], "Modules and backup")}
   <section class="panel-card" aria-labelledby="mod-h"><h2 id="mod-h">Modules</h2>
-    <form class="dash-form" method="post" action="${base}/modules" data-track-changes>
+    <form class="dash-form" method="post" action="${base}/modules" data-track-changes data-confirm="Save module switches? Turned-off modules refuse new use straight away.">
       ${csrfField(ctx.viewer)}
-      ${MODULE_SWITCH_KEYS.map(k => `<div class="field"><label class="check switch" for="f-module_${k}"><input type="checkbox" id="f-module_${k}" name="module_${k}"${o.switches[k] ? " checked" : ""}><span>${esc(MODULE_LABELS[k])}<small>${esc(help[k])}</small></span></label></div>`).join("")}
+      ${MODULE_SWITCH_KEYS.map(k => `<div class="field"><label class="check switch" for="f-module_${k}"><input type="checkbox" id="f-module_${k}" name="module_${k}"${o.switches[k] ? " checked" : ""}><span>${esc(MODULE_LABELS[k])} ${o.switches[k] ? pill("On", "ok") : pill("Off", "off")}<small>${esc(help[k])}</small></span></label></div>`).join("")}
       <button class="btn" type="submit" data-save-button>Save modules</button>
     </form>
   </section>

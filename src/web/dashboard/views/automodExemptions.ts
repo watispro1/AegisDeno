@@ -10,6 +10,7 @@ import { EXEMPTION_RULES, EXEMPTION_RULE_LABELS, RULE_EXEMPTIONS_MAX, type Exemp
 import { type GuildContext, csrfField } from "./layout";
 import { Form, channelPicks, type Values } from "./form";
 import { errorSummary } from "./parts";
+import { pill } from "./moduleKit";
 
 /** A rejected per-rule form: which rule, what was ticked, and why it was refused. */
 export interface RuleExemptionState {
@@ -51,7 +52,7 @@ export function ruleExemptionsPanel(
     const own = state?.rule === rule ? state : null;
     const f = new Form({ values: own?.values ?? ruleExemptionValues(config, rule), errors: own?.errors ?? {} }, `rx-${rule}-`);
     return `<details class="panel-card" id="rx-${rule}"${own ? " open" : ""}>
-      <summary>${esc(EXEMPTION_RULE_LABELS[rule])} <span class="faint">(${esc(countLabel(config, rule))})</span></summary>
+      <summary>${esc(EXEMPTION_RULE_LABELS[rule])} <span class="faint">(${esc(countLabel(config, rule))})</span> ${countLabel(config, rule) === "none" ? pill("No exemptions", "off") : pill("Has exemptions", "info")}</summary>
       ${errorSummary(own?.errors ?? {}, `f-rx-${rule}-`)}
       <form class="dash-form" method="post" action="${action}" novalidate data-track-changes>
         ${csrfField(ctx.viewer)}
@@ -62,9 +63,10 @@ export function ruleExemptionsPanel(
       </form>
     </details>`;
   }).join("");
+  const withAny = EXEMPTION_RULES.filter(rule => countLabel(config, rule) !== "none").length;
   return `<section aria-labelledby="rx-h">
-    <h2 class="section-title" id="rx-h">Per-rule exemptions</h2>
-    <p class="muted">Roles and channels one rule skips, on top of the exemptions above. Each rule saves on its own; the main form above keeps these lists.</p>
+    <h2 class="section-title" id="rx-h">Per-rule exemptions <span class="faint">${withAny} of ${EXEMPTION_RULES.length} rules have some</span></h2>
+    <p class="muted">Roles and channels one rule skips, on top of the exemptions above. Each rule saves on its own; the main form above keeps these lists. Open a rule to change it; untick everything and save to clear it.</p>
     ${forms}
   </section>`;
 }
