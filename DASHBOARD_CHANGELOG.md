@@ -8,6 +8,38 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.4.0] - 2026-11-12
+
+Dashboard 1.4.0. A redesign in the flat style of the public changelog and status
+pages: a single stats strip, a page header with the server name, a sidebar you
+can filter and collapse, keyboard shortcuts to jump between pages, a server
+filter on the picker, clearer error and empty states, and a thin progress bar
+while a page loads. No new environment variables or OAuth scopes.
+
+### Added
+- Sidebar filter: type to narrow the menu, Enter opens the first match.
+- The sidebar can be collapsed to icons with the button in the top bar or `[`;
+  the choice is remembered on this device.
+- Keyboard shortcuts `G` then `O`, `S`, `C`, `A` or `M` open Overview, Settings,
+  Cases, Activity or Members.
+- Server filter on the server list and in the header server switcher when you
+  manage more than six servers.
+- The unsaved changes bar counts the fields you changed and shows the save
+  shortcut.
+- A thin progress bar at the top of the page while a link or form loads.
+- The sidebar shows the member count and links to the docs, status page and
+  dashboard changelog.
+
+### Changed
+- Overview stats are one bordered strip, like the changelog stats, with no
+  shadows or hover lifts.
+- Page headers name the server above the title and can carry actions.
+- The server list shows each server as a card with your role (Owner,
+  Administrator or Manage Server) and puts the last opened server first.
+- The sign-in page, error pages and empty states were redesigned; error pages
+  list what to try next.
+- Clearer focus rings on the sidebar, cards and buttons.
+
 ## [1.3.0] - 2026-11-05
 
 Dashboard 1.3.0. Grouped folding sidebar, header server switcher, System/Light/Dark
