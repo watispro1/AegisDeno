@@ -6,6 +6,27 @@ import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic
 import { type GuildContext, copyId, csrfField, head, notice, relTime, shell } from "./layout";
 import { Form, ROLE_PICKER_HELP, type Values, channelOptions, channelPickerEmptyNote, hiddenChannelNote, roleOptions, rolePickerEmptyNote } from "./form";
 import { errorSummary, permissionNote } from "./parts";
+import { helpPanel, pill, sectionJump, summaryStrip } from "./moduleKit";
+
+/* The bot's defaults (ticketService / verificationService), shown in the preview when a field is blank. */
+export const PANEL_DEFAULTS = {
+  ticket: { title: "🎫 Support Tickets", description: "Need assistance? Click the button below to open a private support ticket with our team.", button: "Create Ticket" },
+  verification: { title: "🛡️ Server Verification Required", description: "Click the button below to verify your account and gain access to the rest of the server.", button: "Verify Account", captcha: "Verify with CAPTCHA" },
+} as const;
+
+/** A Discord-style preview of a ticket or verification panel, kept live by dashboard.js as the fields change. */
+export function panelPreview(which: "ticket" | "verification", values: { title?: string; description?: string; type?: string }): string {
+  const d = PANEL_DEFAULTS[which];
+  const title = values.title?.trim() || d.title;
+  const description = values.description?.trim() || d.description;
+  const button = which === "verification" && values.type === "captcha" ? PANEL_DEFAULTS.verification.captcha : d.button;
+  return `<figure class="panel-preview" data-panel-preview="${which}-"${which === "verification" ? ` data-pp-captcha="${esc(PANEL_DEFAULTS.verification.captcha)}"` : ""}>
+    <figcaption class="faint">Preview</figcaption>
+    <div class="pp-embed"><strong class="pp-title" data-pp-title data-pp-default="${esc(d.title)}">${esc(title)}</strong>
+      <p class="pp-desc" data-pp-desc data-pp-default="${esc(d.description)}">${esc(description)}</p></div>
+    <span class="pp-button" data-pp-button data-pp-default="${esc(d.button)}">${esc(button)}</span>
+  </figure>`;
+}
 
 /* Panels */
 
@@ -60,8 +81,9 @@ export function renderPanels(
         </form>
       </li>`;
       }).join("")}</ul>`
-    : `<div class="empty-state"><strong>No role panels yet.</strong>Create one with <code class="inline">/rolepanel create</code> in Discord; it will show up here to re-post.</div>`;
+    : `<div class="empty-state"><strong>No role panels yet.</strong> Create one with <code class="inline">/rolepanel create</code> in Discord; it will show up here to re-post.</div>`;
 
+  const valuesFor = (which: "ticket" | "verification") => (state.form === which ? { title: String(state.values.title ?? ""), description: String(state.values.description ?? ""), type: String(state.values.type ?? "") } : {});
   return shell(cfg, {
     title: `Panels in ${g.name}`,
     path: `/dashboard/${g.id}/panels`,
@@ -70,12 +92,18 @@ export function renderPanels(
     active: "panels",
     body: `${head("Panels", "Post the messages members click: the ticket button, the verification button and role panels. Each uses the same code as its slash command.", [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], ["Panels", null]])}
   ${notice(o.noticeCode)}
+  ${summaryStrip([
+    { label: "Ticket panel", value: "Post or move", href: "#tickets", hint: o.missing.tickets ? `Needs ${o.missing.tickets}` : "Ready" },
+    { label: "Verification", value: "", html: o.verificationSetUp ? pill("Set up", "ok") : pill("Not set up", "off"), href: "#verification" },
+    { label: "Role panels", value: o.rolePanels.length, href: "#roles", hint: o.rolePanels.length ? "Re-post below" : "Make one in Discord" },
+  ], "Panels summary")}
+  ${sectionJump([["tickets", "Ticket panel"], ["verification", "Verification panel"], ["roles", "Role panels"]])}
   ${channelPickerEmptyNote(o.channels, hidden)}
-
   <h2 id="tickets">Ticket panel</h2>
   <p class="muted">Same as <code class="inline">/ticket setup</code>. Earlier Aegis ticket panels in the channel are removed first.</p>
   ${permissionNote(o.missing.tickets)}
   ${summaryFor("ticket")}
+  <div class="panel-compose">
   <form class="dash-form" method="post" action="${base}/tickets" novalidate>
     ${csrfField(ctx.viewer)}
     <fieldset><legend>Ticket panel</legend>
@@ -84,8 +112,10 @@ export function renderPanels(
       ${t.text("title", "Title", PANEL_TITLE_MAX, "Optional. Default: 🎫 Support Tickets")}
       ${t.textarea("description", "Description", TICKET_PANEL_DESCRIPTION_MAX, "Optional. Default: Need assistance? Click the button below…")}
     </fieldset>
-    <button class="btn" type="submit">Post ticket panel</button>
+    <button class="btn" type="submit" data-confirm-button="Post the ticket panel? Earlier Aegis ticket panels in that channel are removed first.">Post ticket panel</button>
   </form>
+  ${panelPreview("ticket", valuesFor("ticket"))}
+  </div>
 
   <h2 id="verification">Verification panel</h2>
   <p class="muted">Same as <code class="inline">/verify setup</code>. ${o.verificationSetUp
@@ -93,6 +123,12 @@ export function renderPanels(
     : "<strong>Verification is not set up yet.</strong> Posting the panel turns it on."} Earlier Aegis verification panels in the channel are removed first.</p>
   ${permissionNote(o.missing.roles)}
   ${summaryFor("verification")}
+  ${helpPanel("Button or captcha?", [
+    ["Button", "One click gives the role. Stops most join bots that never touch the server."],
+    ["Captcha", "The member solves a short sum first. A little slower for people, harder for scripted accounts."],
+    ["Auto-kick", "Members who haven't verified after the minutes you set are kicked. 0 turns auto-kick off."],
+  ])}
+  <div class="panel-compose">
   <form class="dash-form" method="post" action="${base}/verification" novalidate>
     ${csrfField(ctx.viewer)}
     <fieldset><legend>Verification panel</legend>
@@ -107,8 +143,10 @@ export function renderPanels(
       ${v.text("title", "Title", PANEL_TITLE_MAX, "Optional. Default: 🛡️ Server Verification Required")}
       ${v.textarea("description", "Description", VERIFY_PANEL_DESCRIPTION_MAX, "Optional. Default: Click the button below to verify your account…")}
     </fieldset>
-    <button class="btn" type="submit">Post verification panel</button>
+    <button class="btn" type="submit" data-confirm-button="Post the verification panel? Earlier Aegis verification panels in that channel are removed first, and verification is turned on.">Post verification panel</button>
   </form>
+  ${panelPreview("verification", { type: "button", ...valuesFor("verification") })}
+  </div>
 
   <h2 id="roles">Role panels</h2>
   <p class="muted">Re-post a panel made with <code class="inline">/rolepanel create</code>, in the same channel or another one. The new message replaces the old one; the roles and options stay the same.</p>

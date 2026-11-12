@@ -6,7 +6,8 @@ import { AUTORESPONDER_RESPONSE_MAX, AUTORESPONDER_TRIGGER_MAX, SCHEDULED_MESSAG
 import { EMBED_LIMITS } from "../../../services/embedSpec";
 import { type GuildContext, copyId, csrfField, emptyState, moduleStatus, notice, personId, relTime } from "./layout";
 import { Form, channelOptions, channelPickerEmptyNote, type FormState } from "./form";
-import { actionButton, errorSummary, modulePage, tableFilter } from "./parts";
+import { actionButton, errorSummary, modulePage } from "./parts";
+import { countBy, helpPanel, listFoot, listTools, pagedTable, rowAttrs, soonest, summaryStrip, usage } from "./moduleKit";
 import { embedBuilder, variableReference } from "./embedBuilder";
 
 const MATCH_LABELS: Record<string, string> = { contains: "Contains", exact: "Exact match", startsWith: "Starts with" };
@@ -22,13 +23,14 @@ export function renderAutoResponders(cfg: SiteConfig, ctx: GuildContext, o: {
   const base = `/dashboard/${g}/autoresponders`;
   const state = o.state ?? { values: { matchType: "contains" }, errors: {} };
   const f = new Form(state, "ar-");
-  const rows = o.rows.map(r => `<tr>
+  const onCount = o.rows.filter(r => r.enabled).length;
+  const rows = o.rows.map(r => `<tr${rowAttrs(r.enabled ? "on" : "off", { trigger: r.trigger.toLowerCase(), added: r.createdAt.getTime() })}>
       <td data-label="Trigger"><code class="inline">${esc(r.trigger)}</code> ${copyId(r.id, "Copy autoresponder ID")}</td>
       <td data-label="Match">${esc(MATCH_LABELS[r.matchType] ?? r.matchType)}</td>
       <td data-label="Response" class="prewrap">${esc(clip(r.response, 160))}</td>
       <td data-label="Status">${moduleStatus(r.enabled, r.enabled ? "On" : "Off")}</td>
       <td data-label="Added">${relTime(r.createdAt)} <span class="faint">by</span> ${personId(ctx, r.createdBy)}</td>
-      <td data-label="Actions"><span class="btn-row">
+      <td data-label="Actions"><span class="btn-row cell-actions">
         ${actionButton(`${base}/${esc(r.id)}/toggle`, ctx.viewer.csrf, r.enabled ? "Turn off" : "Turn on", { fields: { enabled: r.enabled ? "0" : "1" } })}
         ${actionButton(`${base}/${esc(r.id)}/delete`, ctx.viewer.csrf, "Delete", { danger: true, confirm: `Delete the autoresponder for "${clip(r.trigger, 60)}"? This can't be undone.` })}
       </span></td>
@@ -39,14 +41,27 @@ export function renderAutoResponders(cfg: SiteConfig, ctx: GuildContext, o: {
     lead: "Automatic replies when a message matches a trigger. The same list as <code class=\"inline\">/autoresponder</code>.",
     path: base,
     body: `${notice(o.noticeCode)}
+  ${summaryStrip([
+    { label: "Module", value: o.enabled ? "On" : "Off", tone: o.enabled ? "ok" : "off", hint: o.enabled ? "Answering triggers" : "Nothing answers" },
+    { label: "Saved", value: o.rows.length },
+    { label: "Turned on", value: onCount, tone: onCount ? "ok" : "off" },
+    { label: "Turned off", value: o.rows.length - onCount, tone: o.rows.length - onCount ? "warn" : undefined },
+    usage(o.rows.length, o.max),
+  ], "Autoresponder summary")}
   <div class="module-head">
     ${moduleStatus(o.enabled)}
-    <form class="inline-form" method="post" action="${base}/module">${csrfField(ctx.viewer)}<input type="hidden" name="enabled" value="${o.enabled ? "0" : "1"}">
+    <form class="inline-form" method="post" action="${base}/module"${o.enabled ? ' data-confirm="Turn off every autoresponder? They are kept and come back when you turn them on again."' : ""}>${csrfField(ctx.viewer)}<input type="hidden" name="enabled" value="${o.enabled ? "0" : "1"}">
       <button class="btn sm${o.enabled ? " ghost" : ""}" type="submit">${o.enabled ? "Turn off all autoresponders" : "Turn autoresponders on"}</button></form>
     <span class="muted">${o.enabled ? "Each one can also be turned off on its own." : "None of them answer while this is off; they are kept."}</span>
   </div>
   <section class="panel-card" aria-labelledby="ar-add-h">
     <h2 id="ar-add-h">Add an autoresponder</h2>
+    ${helpPanel("How matching works", [
+      ["Message contains it", "Answers when the trigger appears anywhere in a message, such as <code class=\"inline\">rules</code> in “where are the rules?”."],
+      ["Message is exactly it", "Answers only when the whole message is the trigger. Best for short commands like <code class=\"inline\">!ip</code>."],
+      ["Message starts with it", "Answers when a message begins with the trigger."],
+      ["Case and bots", "Matching ignores upper and lower case. Bots and webhooks never trigger a reply."],
+    ])}
     ${errorSummary(state.errors, "f-ar-")}
     <form class="dash-form" method="post" action="${base}" novalidate data-track-changes>
       ${csrfField(ctx.viewer)}
@@ -61,11 +76,16 @@ export function renderAutoResponders(cfg: SiteConfig, ctx: GuildContext, o: {
     </form>
   </section>
   <h2>Saved autoresponders</h2>
-  ${o.rows.length ? `${tableFilter("ar-table", "Filter by trigger or response")}
-  <div class="table-wrap"><table class="case-table" id="ar-table" data-filterable>
+  ${o.rows.length ? `${listTools("ar-table", {
+    search: "Filter by trigger or response",
+    chipLabel: "Show autoresponders",
+    chips: [{ value: "on", label: "On", count: onCount }, { value: "off", label: "Off", count: o.rows.length - onCount }],
+    sorts: [{ value: "trigger:asc", label: "Trigger A–Z" }, { value: "added:desc", label: "Newest first" }, { value: "added:asc", label: "Oldest first" }],
+  })}
+  <div class="table-wrap"><table class="case-table" id="ar-table"${pagedTable(20)}>
     <caption class="visually-hidden">Autoresponders</caption>
     <thead><tr><th scope="col">Trigger</th><th scope="col">Match</th><th scope="col">Response</th><th scope="col">Status</th><th scope="col">Added</th><th scope="col">Actions</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>` : emptyState("No autoresponders yet.", "Add one above, or with <code class=\"inline\">/autoresponder add</code>.")}`,
+    <tbody>${rows}</tbody></table></div>${listFoot("ar-table")}` : emptyState("No autoresponders yet.", "Add one above, or with <code class=\"inline\">/autoresponder add</code>.", { label: "Add the first one", href: "#ar-add-h" })}`,
   });
 }
 
@@ -85,7 +105,10 @@ export function renderAutomations(cfg: SiteConfig, ctx: GuildContext, o: {
   const state = o.state ?? { values: { delay: "1h" }, errors: {} };
   const f = new Form(state, "task-");
   const chan = (id: string) => o.channels.find(c => c.id === id)?.name;
-  const rows = o.rows.map(t => `<tr>
+  const next = soonest(o.rows.map(t => t.executeAt));
+  const kind = (t: AutomationRow) => (t.type === "reminder" ? "reminder" : t.intervalMs ? "repeat" : "once");
+  const kinds = countBy(o.rows, kind);
+  const rows = o.rows.map(t => `<tr${rowAttrs(kind(t), { next: t.executeAt.getTime(), channel: (chan(t.channelId) ?? "~").toLowerCase() })}>
       <td data-label="Next post">${relTime(t.executeAt)}</td>
       <td data-label="Channel">${chan(t.channelId) ? `#${esc(chan(t.channelId) as string)}` : `<span class="faint">hidden or deleted</span>`} ${copyId(t.channelId, "Copy channel ID")}</td>
       <td data-label="Repeats">${esc(every(t.intervalMs))}${t.type === "reminder" ? ' <span class="tag">reminder</span>' : ""}</td>
@@ -99,6 +122,13 @@ export function renderAutomations(cfg: SiteConfig, ctx: GuildContext, o: {
     lead: "Posts Aegis makes later, once or on repeat. The same list as <code class=\"inline\">/automation list all:true</code>.",
     path: base,
     body: `${notice(o.noticeCode)}
+  ${summaryStrip([
+    { label: "Pending", value: o.rows.length },
+    { label: "Repeating", value: kinds.get("repeat") ?? 0 },
+    { label: "Posting once", value: (kinds.get("once") ?? 0) + (kinds.get("reminder") ?? 0) },
+    { label: "Next post", value: "—", html: next ? relTime(next) : undefined, hint: next ? undefined : "Nothing scheduled" },
+  ], "Scheduled messages summary")}
+  ${o.moduleOff ? `<p class="callout warn">Scheduled messages are switched off on the <a href="/dashboard/${g}/tools">Modules &amp; backup</a> page. Already scheduled messages still post.</p>` : ""}
   <section class="panel-card" aria-labelledby="task-h">
     <h2 id="task-h">Schedule a message</h2>
     ${errorSummary(state.errors, "f-task-")}
@@ -120,11 +150,16 @@ export function renderAutomations(cfg: SiteConfig, ctx: GuildContext, o: {
     </form>
   </section>
   <h2>Pending</h2>
-  ${o.rows.length ? `${tableFilter("task-table", "Filter scheduled messages")}
-  <div class="table-wrap"><table class="case-table" id="task-table" data-filterable>
+  ${o.rows.length ? `${listTools("task-table", {
+    search: "Filter scheduled messages",
+    chipLabel: "Show scheduled messages",
+    chips: [{ value: "repeat", label: "Repeating", count: kinds.get("repeat") ?? 0 }, { value: "once", label: "Once", count: kinds.get("once") ?? 0 }, { value: "reminder", label: "Reminders", count: kinds.get("reminder") ?? 0 }].filter(c => c.count),
+    sorts: [{ value: "next:asc", label: "Posting soonest" }, { value: "next:desc", label: "Posting latest" }, { value: "channel:asc", label: "Channel A–Z" }],
+  })}
+  <div class="table-wrap"><table class="case-table" id="task-table"${pagedTable(20)}>
     <caption class="visually-hidden">Scheduled messages</caption>
     <thead><tr><th scope="col">Next post</th><th scope="col">Channel</th><th scope="col">Repeats</th><th scope="col">Message</th><th scope="col">By</th><th scope="col">Actions</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>` : emptyState("Nothing scheduled.", "Schedule a message above, or with <code class=\"inline\">/automation message</code>.")}`,
+    <tbody>${rows}</tbody></table></div>${listFoot("task-table")}` : emptyState("Nothing scheduled.", "Schedule a message above, or with <code class=\"inline\">/automation message</code>.", { label: "Schedule one", href: "#task-h" })}`,
   });
 }
 

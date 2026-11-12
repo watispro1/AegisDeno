@@ -3,6 +3,7 @@ import { ECONOMY_LIMITS, ECONOMY_NUMBER_KEYS, type EconomyConfig, type EconomyNu
 import { csrfField, type GuildContext } from "./layout";
 import { Form, type Values } from "./form";
 import { errorSummary } from "./parts";
+import { helpPanel } from "./moduleKit";
 
 export function economyValues(c: EconomyConfig): Values {
   const v: Values = { enabled: c.enabled, crimeEnabled: c.crimeEnabled, gamblingEnabled: c.gamblingEnabled, robEnabled: c.robEnabled, currencyName: c.currencyName, currencyEmoji: c.currencyEmoji };
@@ -20,6 +21,11 @@ export function settingsSection(ctx: GuildContext, base: string, settings: Form,
   const f = settings;
   return `<section class="panel-card" aria-labelledby="eco-cfg-h"><h2 id="eco-cfg-h">Settings</h2>
     ${errorSummary(errors, "f-eco-")}
+    ${helpPanel("How coins move", [
+      ["Earning", "<code class=\"inline\">/daily</code>, <code class=\"inline\">/weekly</code>, <code class=\"inline\">/work</code> and a successful <code class=\"inline\">/crime</code> or <code class=\"inline\">/rob</code> add to the wallet. <code class=\"inline\">/interest</code> pays a share of the bank once a day."],
+      ["Spending and losing", "The shop, <code class=\"inline\">/pay</code> tax, gambling, fines and being robbed take coins out of the wallet."],
+      ["Safe", "Coins in the bank can't be fined or robbed. A bank limit stops one member hoarding."],
+    ])}
     <form class="dash-form" method="post" action="${base}/settings" novalidate data-track-changes>
       ${csrfField(ctx.viewer)}
       ${f.checkbox("enabled", "Economy on", "Off by default. Same as /economy toggle.")}
