@@ -86,9 +86,9 @@ export const cssShowcase = String.raw`
   .home-hero h1 { font-size: 1.85rem; line-height: 1.15; max-width: none; margin-bottom: .6rem; }
   .home-hero .eyebrow { font-size: .72rem; margin-bottom: .35rem; }
   .home-hero .lead { font-size: 1rem; line-height: 1.55; margin-bottom: 1.1rem; }
-  .hero-cta { gap: .5rem; }
-  .hero-cta .btn { flex: 1 1 0; min-height: 44px; padding: .45rem .6rem; font-size: .85rem; justify-content: center; text-align: center; }
-  .hero-cta .btn.hero-main { flex: 1 1 100%; min-height: 52px; font-size: 1.05rem; font-weight: 600; }
+  .home-hero .btn-row { gap: .5rem; }
+  .home-hero .btn-row > .btn { flex: 1 1 0; min-height: 44px; padding: .45rem .6rem; font-size: .85rem; justify-content: center; text-align: center; }
+  .home-hero .btn-row > .btn:not(.ghost) { flex: 1 1 100%; min-height: 52px; font-size: 1.05rem; font-weight: 600; }
   .home-hero .home-assurances { margin-top: 1rem; gap: .3rem 1rem; font-size: .82rem; }
   .home-hero .live-pill { order: 10; align-self: flex-start; margin: 1rem 0 0; font-size: .72rem; }
   .home-hero .hero-aside { display: none; }

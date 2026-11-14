@@ -3,6 +3,7 @@ import { faqs } from "../content";
 import { type SiteConfig, breadcrumb, cmdBlock, escapeHtml, faqBlock, fmtNum, page, safeUrl, statStrip } from "./shared";
 import { icon, iconSprite, type IconId } from "./icons";
 import { economyDocsSection } from "./docsEconomy";
+import { needHelp, sideHelp } from "./helpBlock";
 import { DOC_GROUPS, SUBCOMMAND_CHECKS, botPermissionTable, docAnchors, docHeading, docToc, linkCommandsInHtml, permissionTable } from "./docsData";
 
 export function renderDocs(cfg: SiteConfig): string {
@@ -279,7 +280,8 @@ npm run dev             # or: npm run build && npm start`)}
         <li><a href="/troubleshooting#cat-automation">Reminders and welcome messages</a>.</li>
         <li><a href="/troubleshooting#cat-hosting">Self-hosting</a>.</li>
       </ul>
-      <p>Still stuck? Run <code>/diagnostics</code> and include its output when you ask${cfg.supportUrl ? ` in the <a href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">support server</a>` : ""} or <a href="${REPO_URL}/issues" rel="noopener noreferrer">open an issue on GitHub</a>.</p>
+      <p>Still stuck? Run <code>/diagnostics</code> and include its output when you ask in the <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a> or <a href="${REPO_URL}/issues" rel="noopener noreferrer">open an issue on GitHub</a>.</p>
+      ${needHelp(cfg)}
 
       <nav class="doc-pager" data-doc-pager aria-label="Previous and next section">
         <a class="doc-pager-link prev" data-doc-prev hidden><span class="doc-pager-label">Previous section</span><strong></strong></a>
@@ -336,6 +338,7 @@ npm run dev             # or: npm run build && npm start`)}
       ${toc}
       </div>
       <p class="toc-empty" id="toc-empty" hidden>No section matches.</p>
+      ${sideHelp(cfg)}
       <p class="side-title">Elsewhere</p>
       <ul>
         <li><a href="/commands">Commands</a></li>

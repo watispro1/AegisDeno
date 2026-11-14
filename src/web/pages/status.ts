@@ -1,6 +1,7 @@
 import { breadcrumb, cmdBlock, escapeHtml, fmtUptime, page, type SiteConfig } from "./shared";
 import { BADGES, BADGE_CACHE_SECONDS } from "../badges";
 import { siteBaseUrl } from "../../config/links";
+import { needHelp } from "./helpBlock";
 import type { ComponentState, HistoryWindow, OverallState, StatusPayload } from "../statusData";
 
 /* Status */
@@ -254,6 +255,7 @@ export function renderStatus(cfg: SiteConfig, s: StatusPayload): string {
     ${cmdBlock(`[![${b.alt}](${badgeOrigin}${b.path})](${badgeOrigin}/status)`)}`).join("\n    ")}
     <p class="faint" data-status-note>Times are shown in UTC until the page script loads, then in your local time. Values refresh every ${STATUS_REFRESH_SECONDS} seconds while this tab is open.</p>
   </section>
+  ${needHelp(cfg, "Aegis not responding in your server while this page says it is up? Ask in the support server. Include the output of <code class=\"inline\">/diagnostics</code> if the bot can still run it.")}
 </div>`;
 
   const v = cfg.assetVersion ? `?v=${encodeURIComponent(cfg.assetVersion)}` : "";

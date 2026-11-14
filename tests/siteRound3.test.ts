@@ -78,11 +78,30 @@ test("home: differentiators and audience split come before the feature list; car
 test("mobile hero: dominant full-width Add to Discord, compact secondary buttons, skip link and focus ring", async () => {
   const { styles } = await import("../src/web/theme");
   const home = renderHome(cfg, stats, true);
-  assert.match(home, /class="btn-row hero-cta">\s*<a class="btn hero-main"/);
+  assert.match(home, /class="btn-row">\s*<a class="btn" href="https:\/\/discord/);
   const mobile = styles.slice(styles.indexOf("Mobile hero"));
   assert.match(mobile, /@media \(max-width: 480px\)/);
-  assert.match(mobile, /\.hero-cta \.btn\.hero-main \{ flex: 1 1 100%; min-height: 52px/);
+  assert.match(mobile, /\.home-hero \.btn-row > \.btn:not\(\.ghost\) \{ flex: 1 1 100%; min-height: 52px/);
   assert.match(mobile, /\.home-hero \.live-pill \{ order: 10/);
   assert.match(styles, /:focus-visible \{ outline: 2px solid var\(--accent\)/);
   assert.match(home, /<a class="skip-link" href="#main">/);
+});
+
+test("support server is visible on docs (sidebar and block), troubleshooting and status, using the configured URL", async () => {
+  const { renderDocs, renderTroubleshooting } = await import("../src/web/pages");
+  const { renderStatus } = await import("../src/web/pages/status");
+  const { buildStatusPayload } = await import("../src/web/statusData");
+  const { SUPPORT_SERVER_INVITE } = await import("../src/web/layout");
+  const now = Date.now();
+  const payload = buildStatusPayload({ nowMs: now, online: true, ping: 40, guilds: 1, shards: 1, memoryRss: 1, version: "t", startedAt: now - 1000, commands: 1,
+    dbConnected: true, dbLatency: 1, registration: { ok: true, count: 1, at: now }, samples: [], notices: [] });
+  const custom = { ...cfg, supportUrl: "https://discord.gg/example" };
+  for (const [name, html] of [["docs", renderDocs(custom)], ["troubleshooting", renderTroubleshooting(custom)], ["status", renderStatus(custom, payload)]] as const) {
+    assert.match(html, /class="help-block"/, `${name} has a Need help block`);
+    assert.ok(html.includes('href="https://discord.gg/example"'), `${name} uses the configured URL`);
+  }
+  assert.match(renderDocs(custom), /class="doc-help"/);
+  assert.match(renderTroubleshooting(custom), /class="doc-help"/);
+  assert.ok(renderDocs(cfg).includes(`href="${SUPPORT_SERVER_INVITE}"`), "falls back to the default invite");
+  assert.equal(SUPPORT_SERVER_INVITE, "https://discord.gg/HwTbCYC4PM");
 });
