@@ -136,7 +136,7 @@ test("glass: dark base, drifting glows that stop under reduced motion", () => {
 test("glass: blur only where supported, solid under prefers-reduced-transparency", () => {
   assert.match(styles, /@supports \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\)/);
   assert.match(styles, /@media \(prefers-reduced-transparency: reduce\)/);
-  const outside = styles.replace(/@supports \(\(backdrop-filter[\s\S]*?\n}\n/, "").replace(/@media \(prefers-reduced-transparency: reduce\)[\s\S]*?\n}\n/, "");
+  const outside = styles.replace(/@supports (not )?\(\(backdrop-filter[\s\S]*?\n}\n/g, "").replace(/@media \(prefers-reduced-transparency: reduce\)[\s\S]*?\n}\n/g, "");
   assert.ok(!/backdrop-filter:\s*blur/.test(outside.slice(outside.indexOf("Glass (beta)"))), "no unconditional blur for glass");
 });
 
