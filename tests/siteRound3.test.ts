@@ -74,3 +74,15 @@ test("home: differentiators and audience split come before the feature list; car
   assert.equal(itemHeadline("Timed slowmode: <code>/slowmode set</code> takes for."), "Timed slowmode");
   assert.equal(itemHeadline("A &amp; B. More"), "A & B");
 });
+
+test("mobile hero: dominant full-width Add to Discord, compact secondary buttons, skip link and focus ring", async () => {
+  const { styles } = await import("../src/web/theme");
+  const home = renderHome(cfg, stats, true);
+  assert.match(home, /class="btn-row hero-cta">\s*<a class="btn hero-main"/);
+  const mobile = styles.slice(styles.indexOf("Mobile hero"));
+  assert.match(mobile, /@media \(max-width: 480px\)/);
+  assert.match(mobile, /\.hero-cta \.btn\.hero-main \{ flex: 1 1 100%; min-height: 52px/);
+  assert.match(mobile, /\.home-hero \.live-pill \{ order: 10/);
+  assert.match(styles, /:focus-visible \{ outline: 2px solid var\(--accent\)/);
+  assert.match(home, /<a class="skip-link" href="#main">/);
+});

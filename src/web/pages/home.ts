@@ -94,8 +94,8 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
       <p class="eyebrow">Moderation that keeps up with your community</p>
       <h1 id="hero-title">Moderation for Discord that shows its work.</h1>
       <p class="lead">Aegis handles warnings, timeouts, bans and the case log behind them, plus automod, raid response, ban appeals, tickets, verification and logging. You run it with slash commands in your server, and server managers can review cases and change settings in the <a href="/dashboard">web dashboard</a>.</p>
-      <div class="btn-row">
-        <a class="btn" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
+      <div class="btn-row hero-cta">
+        <a class="btn hero-main" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
         <a class="btn ghost" href="/dashboard">Open the dashboard</a>
         <a class="btn ghost" href="/commands">Browse ${cs.commands} commands</a>
       </div>

@@ -84,7 +84,7 @@ export function whatsNewStrip(): string {
   const r = newestWithAdditions();
   if (!r) return "";
   const added = r.sections.find(s => /^added$/i.test(s.title)) ?? r.sections[0];
-  const items = (added?.items ?? []).slice(0, 3).map(i => itemHeadline(i, 44)).filter(Boolean);
+  const items = (added?.items ?? []).slice(0, 2).map(i => itemHeadline(i, 44)).filter(Boolean);
   return `<aside class="whats-new" aria-label="What's new">
     <span class="whats-new-label">New in <a href="/changelog#${esc(r.id)}">v${esc(r.version)}</a></span>
     ${items.length ? `<ul>${items.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
