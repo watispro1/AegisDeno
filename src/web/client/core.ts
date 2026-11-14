@@ -88,6 +88,7 @@ export const jsCore = String.raw`
     { name: 'Dashboard', detail: 'Log in with Discord to manage cases and settings', href: '/dashboard' },
     { name: 'Troubleshooting', detail: 'Missing permissions, missing commands and other fixes', href: '/troubleshooting' },
     { name: 'Changelog', detail: 'Release history', href: '/changelog' },
+    { name: 'What\'s next', detail: 'Roadmap: planned work, not promises', href: '/roadmap' },
     { name: 'Status', detail: 'Gateway latency and uptime', href: '/status' },
     { name: 'Privacy', detail: 'What is stored and for how long', href: '/privacy' },
     { name: 'Terms', detail: 'Terms of service', href: '/terms' },

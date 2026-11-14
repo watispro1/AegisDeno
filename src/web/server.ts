@@ -23,6 +23,7 @@ import {
   renderSecurity,
   renderNotFound,
   renderWhy,
+  renderRoadmap,
   SiteConfig,
   Stats,
 } from "./pages";
@@ -119,6 +120,7 @@ const ROUTES: RouteDef[] = [
   { path: "/docs", render: c => renderDocs(c), priority: "0.8" },
   { path: "/troubleshooting", render: c => renderTroubleshooting(c), priority: "0.7" },
   { path: "/changelog", render: c => renderChangelog(c), priority: "0.6" },
+  { path: "/roadmap", render: c => renderRoadmap(c), priority: "0.5" },
   // Public and static, so it is served (and indexed) even when the dashboard is off.
   // Registered before the /dashboard router, which would otherwise treat it as a server ID.
   { path: "/dashboard/changelog", render: c => renderDashboardChangelog(c), priority: "0.4" },
@@ -136,6 +138,7 @@ const SUGGESTABLE = [
   { href: "/docs", label: "Docs" },
   { href: "/troubleshooting", label: "Troubleshooting" },
   { href: "/changelog", label: "Changelog" },
+  { href: "/roadmap", label: "What's next" },
   { href: "/status", label: "Status" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },

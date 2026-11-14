@@ -9,12 +9,13 @@ import { loadCommands } from "../src/commands/loader";
 import { clearCatalogCache } from "../src/web/catalog";
 import { features } from "../src/web/content";
 import { HEADLINE } from "../src/web/pages/featuresData";
-import { renderHome, renderPrivacy, renderSecurity, renderWhy, type SiteConfig } from "../src/web/pages";
+import { renderChangelog, renderRoadmap, renderHome, renderPrivacy, renderSecurity, renderWhy, type SiteConfig } from "../src/web/pages";
 import { CONTENT_SECURITY_POLICY, securityHeaders } from "../src/web/securityHeaders";
 import { SECRET_ENV_KEYS } from "../src/utils/logger";
 import { OAUTH_SCOPES } from "../src/web/dashboard/discordOAuth";
 import { serializeCookie } from "../src/web/dashboard/security";
 import { WHY_REASONS } from "../src/web/pages/why";
+import { ROADMAP } from "../src/web/pages/roadmap";
 import { layout } from "../src/web/layout";
 import { UNDO_WINDOW_MS } from "../src/services/moderationUndo";
 import { INCIDENT_MAX_MINUTES } from "../src/services/incidentLogic";
@@ -101,4 +102,16 @@ test("security: data handling, CSP, secrets and reporting match the code", () =>
   assert.ok(html.includes("Report a vulnerability") && html.includes("/issues") && html.includes("https://discord.gg/HwTbCYC4PM"), "reporting routes");
   assert.ok(renderSecurity({ ...cfg, supportUrl: "https://discord.gg/custom" }).includes("https://discord.gg/custom"), "configured support server wins");
   assert.ok(renderPrivacy(cfg).includes('<a href="/security">security page</a>'), "privacy links security");
+});
+
+test("roadmap: the known open items, marked as plans, linked from the changelog and footer", () => {
+  const html = renderRoadmap(cfg);
+  cspClean(html, "roadmap");
+  const titles = ROADMAP.flatMap(g => g.items.map(i => i.title));
+  for (const t of ["Blackjack", "Daily quests", "Buy more than one", "Paging follow-ups", "Snooze keeps the jump link", "Legal pages redesign"]) assert.ok(titles.includes(t), t);
+  assert.ok(html.includes("plans, not promises"));
+  assert.ok(!/\b(Q[1-4]|20\d\d-\d\d|by (January|February|March|April|May|June|July|August|September|October|November|December))\b/.test(html), "no dates promised");
+  assert.ok(renderChangelog(cfg).includes('href="/roadmap"'), "changelog links the roadmap");
+  const shell = layout({ title: "t", description: "d", path: "/", body: "", inviteUrl: "#", supportUrl: "", version: "1" });
+  assert.ok(shell.includes('href="/roadmap"'), "footer links the roadmap");
 });

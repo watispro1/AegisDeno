@@ -228,6 +228,7 @@ function renderLog(cfg: SiteConfig, product: Product): string {
     : `<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep">/</span><a href="/changelog">Changelog</a><span class="sep">/</span><span>Dashboard</span></nav>`;
 
   const feeds = [
+    product === "bot" ? `<a href="/roadmap">What's next</a>` : "",
     product === "bot" ? `<a href="/changelog.xml">Atom feed</a>` : "",
     `<a href="/changelog.json">JSON</a>`,
     `<a href="${REPO_URL}/blob/main/${info.file}">${info.file} on GitHub</a>`,

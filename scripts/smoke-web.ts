@@ -29,6 +29,7 @@ const ROUTES: [string, number][] = [
   ["/docs", 200],
   ["/troubleshooting", 200],
   ["/changelog", 200],
+  ["/roadmap", 200],
   ["/dashboard/changelog", 200],
   ["/status", 200],
   ["/privacy", 200],

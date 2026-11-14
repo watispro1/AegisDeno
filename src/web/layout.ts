@@ -194,6 +194,7 @@ ${o.body}
           <li><a href="/commands">Commands</a></li>
           <li><a href="/docs">Documentation</a></li>
           <li><a href="/changelog">Changelog</a></li>
+          <li><a href="/roadmap">What's next</a></li>
           <li><a href="/status">Status</a></li>
           <li><a href="/dashboard">Dashboard</a></li>
         </ul>
