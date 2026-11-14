@@ -1,4 +1,4 @@
-import { layout, sunIcon, moonIcon, systemIcon } from "../../layout";
+import { layout, themePicker } from "../../layout";
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
@@ -167,6 +167,8 @@ function userMenu(viewer: Viewer): string {
           <button class="btn ghost xs" type="button" data-set-theme="system">System</button>
           <button class="btn ghost xs" type="button" data-set-theme="light">Light</button>
           <button class="btn ghost xs" type="button" data-set-theme="dark">Dark</button>
+          <button class="btn ghost xs" type="button" data-set-theme="steel">Steel &amp; Ink</button>
+          <button class="btn ghost xs" type="button" data-set-theme="glass">Glass (beta)</button>
         </div>
         <form method="post" action="/dashboard/logout">
           ${csrfField(viewer)}
@@ -231,9 +233,7 @@ export function shell(cfg: SiteConfig, o: { title: string; path: string; body: s
         </form>
         <button class="btn ghost sm palette-btn" type="button" data-palette-open aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" title="Jump to (Ctrl+K)">⌘K</button>
         <button class="btn ghost sm" type="button" data-shortcuts-open aria-haspopup="dialog" aria-keyshortcuts="Shift+Slash" title="Keyboard shortcuts (?)">?</button>
-        <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme" title="Switch theme (System / Light / Dark)">
-          ${sunIcon}${moonIcon}${systemIcon}
-        </button>
+        ${themePicker()}
         ${userMenu(o.viewer)}
       </div>
       <div class="app-content">${o.body}</div>
