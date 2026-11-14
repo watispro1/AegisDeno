@@ -22,10 +22,13 @@ import {
   renderPrivacy,
   renderSecurity,
   renderNotFound,
+  renderWhy,
+  renderRoadmap,
   SiteConfig,
   Stats,
 } from "./pages";
 import { buildInviteUrl } from "./invite";
+import { SUPPORT_SERVER_INVITE } from "./layout";
 import { suggestPages } from "./notFound";
 import { commands } from "../commands/loader";
 import { VERSION } from "../version";
@@ -70,7 +73,8 @@ function siteConfig(): SiteConfig {
 
   return {
     inviteUrl,
-    supportUrl: process.env.SUPPORT_SERVER_URL || "",
+    // The public support server unless the deployment points somewhere else.
+    supportUrl: process.env.SUPPORT_SERVER_URL?.trim() || SUPPORT_SERVER_INVITE,
     version: SITE_VERSION,
     // Optional. Without it the legal pages point to GitHub instead of an inbox.
     contactEmail: process.env.CONTACT_EMAIL?.trim() || "",
@@ -113,10 +117,12 @@ interface RenderContext {
 const ROUTES: RouteDef[] = [
   { path: "/", render: (c, x) => renderHome(c, x.stats, x.online), priority: "1.0", live: true },
   { path: "/features", render: c => renderFeatures(c), priority: "0.9" },
+  { path: "/why", render: c => renderWhy(c), priority: "0.8" },
   { path: "/commands", render: (c, x) => renderCommands(c, x.query), priority: "0.9" },
   { path: "/docs", render: c => renderDocs(c), priority: "0.8" },
   { path: "/troubleshooting", render: c => renderTroubleshooting(c), priority: "0.7" },
   { path: "/changelog", render: c => renderChangelog(c), priority: "0.6" },
+  { path: "/roadmap", render: c => renderRoadmap(c), priority: "0.5" },
   // Public and static, so it is served (and indexed) even when the dashboard is off.
   // Registered before the /dashboard router, which would otherwise treat it as a server ID.
   { path: "/dashboard/changelog", render: c => renderDashboardChangelog(c), priority: "0.4" },
@@ -129,10 +135,12 @@ const ROUTES: RouteDef[] = [
 /** Pages offered on the 404 page when an address is a typo away from one. */
 const SUGGESTABLE = [
   { href: "/features", label: "Features" },
+  { href: "/why", label: "Why Aegis" },
   { href: "/commands", label: "Commands" },
   { href: "/docs", label: "Docs" },
   { href: "/troubleshooting", label: "Troubleshooting" },
   { href: "/changelog", label: "Changelog" },
+  { href: "/roadmap", label: "What's next" },
   { href: "/status", label: "Status" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },

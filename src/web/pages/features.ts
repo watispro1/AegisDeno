@@ -7,6 +7,7 @@
 import { getCommand } from "../catalog";
 import { commandAnchor } from "./commands";
 import { FEATURE_CATEGORIES, HEADLINE, WHY_ROWS } from "./featuresData";
+import { dashboardExamples } from "./featuresExamples";
 import { icon, iconSprite } from "./icons";
 import { type SiteConfig, breadcrumb, escapeHtml as esc, page, safeUrl } from "./shared";
 
@@ -53,6 +54,7 @@ export function renderFeatures(cfg: SiteConfig): string {
     <div class="table-wrap"><table class="f-why"><caption class="visually-hidden">Aegis compared with doing it by hand or other bots</caption>
       <thead><tr><th scope="col">What matters</th><th scope="col">Aegis</th><th scope="col">Elsewhere</th></tr></thead>
       <tbody>${WHY_ROWS.map(([a, b, c]) => `<tr><th scope="row">${esc(a)}</th><td>${esc(b)}</td><td>${esc(c)}</td></tr>`).join("")}</tbody></table></div>
+    <p><a class="text-link" href="/why">More on why Aegis &rarr;</a></p>
   </section>`;
   const body = `${sprite()}
 <div class="wrap">
@@ -66,8 +68,9 @@ export function renderFeatures(cfg: SiteConfig): string {
     </div>
   </div>
   <ul class="f-hero" aria-label="Headline features">${hero}</ul>
-  <nav class="f-nav" aria-label="Feature categories"><ul>${nav}<li><a href="#why">Why Aegis</a></li></ul></nav>
+  <nav class="f-nav" aria-label="Feature categories"><ul>${nav}<li><a href="#examples">Examples</a></li><li><a href="#why">Why Aegis</a></li></ul></nav>
   ${sections}
+  ${dashboardExamples()}
   ${why}
   <div class="end-note">
     <p>Ready to try it? It works on a test server too.</p>

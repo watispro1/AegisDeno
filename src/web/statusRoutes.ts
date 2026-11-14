@@ -6,6 +6,7 @@ import type { Express } from "express";
 import type { Client } from "discord.js";
 import { buildStatusPayload, type StatusPayload } from "./statusData";
 import { loadNotices } from "./statusNotices";
+import { registerBadgeRoutes } from "./badges";
 import { databaseConnected, statusMonitor } from "../services/statusMonitor";
 import type { Stats } from "./pages";
 
@@ -49,6 +50,9 @@ export function registerStatusRoutes(app: Express, o: { online: () => boolean; s
       next(err);
     }
   });
+
+  // Embeddable SVG badges built from the same payload, cached briefly.
+  registerBadgeRoutes(app, statusPayload);
 
   return statusPayload;
 }

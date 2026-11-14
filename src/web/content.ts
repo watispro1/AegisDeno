@@ -7,6 +7,8 @@ export interface Feature {
   title: string;
   /** One line used in the home page reference table. */
   short: string;
+  /** What a server gets out of it, in one plain line (home page cards). */
+  outcome: string;
   /** Paragraph shown at the top of the feature's section. */
   text: string;
   points: string[];
@@ -21,6 +23,7 @@ export interface Feature {
 export const features: Feature[] = [
   {
     id: "moderation",
+    outcome: "Act fast, and undo it within five minutes if you got it wrong.",
     start: "/warn",
     title: "Moderation and cases",
     short: "Warn, timeout, kick and ban. Every action becomes a numbered case you can look up later.",
@@ -53,6 +56,7 @@ export const features: Feature[] = [
   },
   {
     id: "automod",
+    outcome: "Catch spam and invite links before your moderators have to.",
     start: "/automod status",
     title: "Automod",
     short: "Filters for blocked words, links, invites, mention spam, message spam, repeats, caps, emoji walls and zalgo.",
@@ -76,6 +80,7 @@ export const features: Feature[] = [
   },
   {
     id: "trustscore",
+    outcome: "See where a member stands before you hand out a role.",
     start: "/trust user",
     title: "Trust score",
     short: "A 0 to 100 number for a member, from account age, time in the server, their record and how active they are.",
@@ -97,6 +102,7 @@ export const features: Feature[] = [
   },
   {
     id: "appeal",
+    outcome: "Handle ban appeals without a separate form or inbox.",
     start: "/appeal review",
     title: "Ban appeals",
     short: "Banned members get a code by DM and can appeal from Discord. Approving one lifts the ban.",
@@ -115,6 +121,7 @@ export const features: Feature[] = [
   },
   {
     id: "watchlist",
+    outcome: "Keep an eye on a member without tipping them off.",
     start: "/watchlist add",
     title: "Watchlist",
     short: "Quietly watch a member. You get a DM when they post, edit, delete, join voice, join, leave or change roles.",
@@ -135,6 +142,7 @@ export const features: Feature[] = [
   },
   {
     id: "modreport",
+    outcome: "See how last week actually went, in one embed.",
     start: "/modreport",
     title: "Mod reports",
     short: "A digest of the last day or week: actions taken, repeat offenders, staff activity, automod hits.",
@@ -151,6 +159,7 @@ export const features: Feature[] = [
   },
   {
     id: "logging",
+    outcome: "Keep a record of joins, leaves and deletions in your own server.",
     start: "/logging channel",
     title: "Logging",
     short: "Joins, leaves, deleted messages and every moderation action, posted to a channel you choose.",
@@ -168,6 +177,7 @@ export const features: Feature[] = [
   },
   {
     id: "tickets",
+    outcome: "Give members a private line to staff, with a transcript at the end.",
     start: "/ticket setup",
     title: "Tickets",
     short: "A button that opens a private channel between a member and your staff.",
@@ -189,6 +199,7 @@ export const features: Feature[] = [
   },
   {
     id: "verification",
+    outcome: "Slow down raids and throwaway accounts at the door.",
     start: "/verify setup",
     title: "Verification",
     short: "New members press a button or solve a captcha before they get the verified role.",
@@ -208,6 +219,7 @@ export const features: Feature[] = [
   },
   {
     id: "community",
+    outcome: "Run giveaways, polls and role panels without another bot.",
     start: "/starboard setup",
     title: "Community tools",
     short: "Starboard, giveaways, polls, suggestions, welcome messages and role panels.",
@@ -230,6 +242,7 @@ export const features: Feature[] = [
   },
   {
     id: "automation",
+    outcome: "Schedule posts and reminders that survive a restart.",
     start: "/remindme",
     title: "Reminders and schedules",
     short: "Personal reminders, one-off posts and repeating messages that survive restarts.",
@@ -264,6 +277,26 @@ export const faqs: { q: string; a: string }[] = [
   {
     q: "Is data shared between servers?",
     a: `<p>No. Settings, warnings, cases, tickets and rules are stored per server ID. Warnings, cases and staff notes are deleted automatically after a year. Details are in the <a href="/privacy">privacy policy</a>.</p>`,
+  },
+  {
+    q: "Why does Aegis not ask for Administrator?",
+    a: `<p>Administrator lets a bot do anything in your server, so a bug or a leaked token would have no limit. Aegis asks only for the permissions its commands declare, and Administrator is removed from the invite even if one asked for it. You can see exactly what each permission is for in the <a href="/docs#permissions">permissions table</a>, and <a href="/why#permissions">why that matters</a>.</p>`,
+  },
+  {
+    q: "Why can't Aegis act on some members?",
+    a: `<p>Role order. Discord does not let a bot change anyone whose highest role is level with or above the bot's own, and Aegis applies the same rule to moderators: you can only act on members whose top role is below yours (the server owner is the exception). Drag the Aegis role above the roles it should moderate in Server Settings, then run <code class="inline">/diagnostics</code> to check.</p>`,
+  },
+  {
+    q: "Does Aegis work in private or hidden channels?",
+    a: `<p>Only where its role can see them. Automod, logging, purges and locks need View Channel (and the usual send or manage permissions) in that channel. For a private channel, add the Aegis role to the channel's permissions; the <a href="/docs#hidden-channels">hidden channels guide</a> walks through it. <code class="inline">/diagnostics</code> lists channels Aegis can't view or post in. Watchlist alerts from a private channel only reach watchers who can see it, and staff-channel copies leave the message text out.</p>`,
+  },
+  {
+    q: "I just added Aegis. Why is a command missing or out of date?",
+    a: `<p>Commands are registered with Discord globally when the bot starts, and Discord usually shows changes within minutes. Your Discord client caches the list, so restart it (Ctrl+R on desktop) if a new or renamed command is missing. If no Aegis commands appear at all, re-invite with the <code class="inline">applications.commands</code> scope.</p>`,
+  },
+  {
+    q: "How long is data kept?",
+    a: `<p>Warnings, moderation cases and staff notes are deleted after one year. Trust Score activity counters go after 180 days without a message, dashboard activity after 180 days and dashboard sessions after 7 days. Settings stay until staff change them or deletion is requested; removing Aegis does not delete a server's records automatically. The <a href="/privacy">privacy policy</a> has the full table.</p>`,
   },
   {
     q: "Commands are not showing up. What now?",

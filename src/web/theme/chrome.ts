@@ -38,7 +38,9 @@ export const cssChrome = String.raw`/* ── Header ─────────
 :not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 :not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
 
-@media (max-width: 860px) {
+/* Seven nav links plus the theme picker, search and CTA need ~1040px, so the
+   header folds into the menu button below 1080px rather than overflowing. */
+@media (max-width: 1080px) {
   .nav-toggle { display: inline-flex; }
   .site-search-trigger { width: 44px; padding: 0; border-color: transparent; }
   .site-search-trigger kbd { display: none; }

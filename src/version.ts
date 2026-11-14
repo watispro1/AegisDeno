@@ -1,4 +1,4 @@
 /** Single source of truth for the bot, website, and public diagnostics. */
-export const VERSION = "3.12.0";
+export const VERSION = "3.12.1";
 /** Web dashboard version; matches the newest dated release in DASHBOARD_CHANGELOG.md. */
-export const DASHBOARD_VERSION = "1.6.0";
+export const DASHBOARD_VERSION = "1.7.0";
