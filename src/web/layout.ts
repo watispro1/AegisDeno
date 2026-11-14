@@ -32,6 +32,7 @@ export const REPO_URL = "https://github.com/watispro1/AegisDeno";
 export const NAV: NavLink[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Features", href: "/features" },
+  { label: "Why Aegis", href: "/why" },
   { label: "Commands", href: "/commands" },
   { label: "Docs", href: "/docs" },
   { label: "Changelog", href: "/changelog" },
@@ -186,6 +187,7 @@ ${o.body}
         <h2 class="footer-title">Site</h2>
         <ul>
           <li><a href="/features">Features</a></li>
+          <li><a href="/why">Why Aegis</a></li>
           <li><a href="/commands">Commands</a></li>
           <li><a href="/docs">Documentation</a></li>
           <li><a href="/changelog">Changelog</a></li>

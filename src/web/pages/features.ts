@@ -53,6 +53,7 @@ export function renderFeatures(cfg: SiteConfig): string {
     <div class="table-wrap"><table class="f-why"><caption class="visually-hidden">Aegis compared with doing it by hand or other bots</caption>
       <thead><tr><th scope="col">What matters</th><th scope="col">Aegis</th><th scope="col">Elsewhere</th></tr></thead>
       <tbody>${WHY_ROWS.map(([a, b, c]) => `<tr><th scope="row">${esc(a)}</th><td>${esc(b)}</td><td>${esc(c)}</td></tr>`).join("")}</tbody></table></div>
+    <p><a class="text-link" href="/why">More on why Aegis &rarr;</a></p>
   </section>`;
   const body = `${sprite()}
 <div class="wrap">

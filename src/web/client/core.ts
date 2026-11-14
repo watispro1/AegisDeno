@@ -82,6 +82,7 @@ export const jsCore = String.raw`
 
   var pagesIndex = [
     { name: 'Features', detail: 'What each part of the bot does', href: '/features' },
+    { name: 'Why Aegis', detail: 'Reversible actions, explainable scores, no Administrator', href: '/why' },
     { name: 'Commands', detail: 'Every slash command with its options', href: '/commands' },
     { name: 'Docs', detail: 'Setup, configuration and permissions', href: '/docs' },
     { name: 'Dashboard', detail: 'Log in with Discord to manage cases and settings', href: '/dashboard' },

@@ -202,6 +202,7 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
     <div>
       <div class="section-head">
         <h2 id="know-title">Good to know</h2>
+        <p>The reasoning behind each of these is on <a href="/why">Why Aegis</a>.</p>
       </div>
       <ul class="notes home-notes" aria-labelledby="know-title">
         <li><strong>No Administrator.</strong> The invite asks only for the permissions its commands use. You can read the <a href="/docs#permissions">full list</a> before inviting.</li>

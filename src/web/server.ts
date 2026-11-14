@@ -22,6 +22,7 @@ import {
   renderPrivacy,
   renderSecurity,
   renderNotFound,
+  renderWhy,
   SiteConfig,
   Stats,
 } from "./pages";
@@ -113,6 +114,7 @@ interface RenderContext {
 const ROUTES: RouteDef[] = [
   { path: "/", render: (c, x) => renderHome(c, x.stats, x.online), priority: "1.0", live: true },
   { path: "/features", render: c => renderFeatures(c), priority: "0.9" },
+  { path: "/why", render: c => renderWhy(c), priority: "0.8" },
   { path: "/commands", render: (c, x) => renderCommands(c, x.query), priority: "0.9" },
   { path: "/docs", render: c => renderDocs(c), priority: "0.8" },
   { path: "/troubleshooting", render: c => renderTroubleshooting(c), priority: "0.7" },
@@ -129,6 +131,7 @@ const ROUTES: RouteDef[] = [
 /** Pages offered on the 404 page when an address is a typo away from one. */
 const SUGGESTABLE = [
   { href: "/features", label: "Features" },
+  { href: "/why", label: "Why Aegis" },
   { href: "/commands", label: "Commands" },
   { href: "/docs", label: "Docs" },
   { href: "/troubleshooting", label: "Troubleshooting" },

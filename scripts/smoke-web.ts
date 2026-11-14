@@ -24,6 +24,7 @@ const fakeClient = {
 const ROUTES: [string, number][] = [
   ["/", 200],
   ["/features", 200],
+  ["/why", 200],
   ["/commands", 200],
   ["/docs", 200],
   ["/troubleshooting", 200],
