@@ -29,6 +29,9 @@ export interface LayoutOptions {
 /** Public source repository. */
 export const REPO_URL = "https://github.com/watispro1/AegisDeno";
 
+/** Public support server, used when SUPPORT_SERVER_URL is not set. */
+export const SUPPORT_SERVER_INVITE = "https://discord.gg/HwTbCYC4PM";
+
 export const NAV: NavLink[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Features", href: "/features" },

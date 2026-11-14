@@ -9,7 +9,11 @@ import { loadCommands } from "../src/commands/loader";
 import { clearCatalogCache } from "../src/web/catalog";
 import { features } from "../src/web/content";
 import { HEADLINE } from "../src/web/pages/featuresData";
-import { renderHome, renderWhy, type SiteConfig } from "../src/web/pages";
+import { renderHome, renderPrivacy, renderSecurity, renderWhy, type SiteConfig } from "../src/web/pages";
+import { CONTENT_SECURITY_POLICY, securityHeaders } from "../src/web/securityHeaders";
+import { SECRET_ENV_KEYS } from "../src/utils/logger";
+import { OAUTH_SCOPES } from "../src/web/dashboard/discordOAuth";
+import { serializeCookie } from "../src/web/dashboard/security";
 import { WHY_REASONS } from "../src/web/pages/why";
 import { layout } from "../src/web/layout";
 import { UNDO_WINDOW_MS } from "../src/services/moderationUndo";
@@ -79,4 +83,22 @@ test("why: linked from nav, footer, home and features", () => {
   assert.match(shell, /<a class="nav-link" href="\/why">Why Aegis<\/a>/);
   assert.ok((shell.match(/href="\/why"/g) ?? []).length >= 2, "nav and footer");
   assert.ok(renderHome(cfg, stats, true).includes('href="/why"'));
+});
+
+test("security: data handling, CSP, secrets and reporting match the code", () => {
+  const html = renderSecurity(cfg);
+  cspClean(html, "security");
+  for (const id of ["report", "data", "browser", "secrets", "scope", "supported", "response"]) assert.ok(html.includes(`id="${id}"`), id);
+  for (const d of CONTENT_SECURITY_POLICY.split("; ")) assert.ok(html.includes(`<code class="inline">${d.replace(/'/g, "&#39;")}</code>`), d);
+  for (const k of SECRET_ENV_KEYS) assert.ok(html.includes(`<code class="inline">${k}</code>`), k);
+  for (const scope of OAUTH_SCOPES.split(" ")) assert.ok(html.includes(`<code class="inline">${scope}</code>`), scope);
+  const cookie = serializeCookie("x", "y", { maxAgeSeconds: 1, secure: true });
+  for (const flag of ["HttpOnly", "SameSite=Lax", "Secure"]) assert.ok(cookie.includes(flag) && html.includes(flag), flag);
+  const h = securityHeaders("/");
+  assert.equal(h["X-Frame-Options"], "DENY");
+  assert.match(h["Strict-Transport-Security"], /max-age=63072000/, "two years, as the page says");
+  assert.ok(html.includes("Fly.io secrets") && html.includes("environment variables"));
+  assert.ok(html.includes("Report a vulnerability") && html.includes("/issues") && html.includes("https://discord.gg/HwTbCYC4PM"), "reporting routes");
+  assert.ok(renderSecurity({ ...cfg, supportUrl: "https://discord.gg/custom" }).includes("https://discord.gg/custom"), "configured support server wins");
+  assert.ok(renderPrivacy(cfg).includes('<a href="/security">security page</a>'), "privacy links security");
 });

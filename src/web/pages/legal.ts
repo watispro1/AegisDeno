@@ -1,5 +1,4 @@
 import { REPO_URL } from "../layout";
-import { DASHBOARD_VERSION } from "../../version";
 import { type SiteConfig, breadcrumb, escapeHtml, page, safeUrl } from "./shared";
 
 /* Legal */
@@ -296,7 +295,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
       {
         id: "security",
         title: "How data is protected",
-        html: `<p>Secrets such as the bot token and database password are kept in environment variables, never in the source code or on this website. Dashboard session IDs are stored only as hashes, Discord access tokens stay on the server, forms are protected against cross-site request forgery, and the site sends a strict content security policy. No system is perfectly secure, and we cannot promise that data will never be exposed. To report a problem, see the <a href="/security">security policy</a>.</p>`,
+        html: `<p>Secrets such as the bot token and database password are kept in environment variables, never in the source code or on this website. Dashboard session IDs are stored only as hashes, Discord access tokens stay on the server, forms are protected against cross-site request forgery, and the site sends a strict content security policy. No system is perfectly secure, and we cannot promise that data will never be exposed. How data is protected, and how to report a problem, is on the <a href="/security">security page</a>.</p>`,
       },
       {
         id: "retention",
@@ -331,45 +330,5 @@ export function renderPrivacy(cfg: SiteConfig): string {
 
 /* Security */
 
-export function renderSecurity(cfg: SiteConfig): string {
-  const body = `
-<div class="wrap">
-  ${breadcrumb("Security")}
-  <div class="page-head">
-    <h1>Security</h1>
-    <p class="lead">How to report a vulnerability in Aegis, and what is in scope. The full policy is <a href="${REPO_URL}/blob/main/SECURITY.md" rel="noopener noreferrer">SECURITY.md</a> in the repository.</p>
-  </div>
-  <div class="legal">
-    <h2 id="report">Reporting a vulnerability</h2>
-    <p>Please report it privately, not in a public issue, Discord message or pull request.</p>
-    <ol>
-      <li>Open the repository's <a href="${REPO_URL}/security" rel="noopener noreferrer">Security tab</a> on GitHub.</li>
-      <li>Choose <strong>Report a vulnerability</strong>. This opens a private advisory that only the maintainers can see.</li>
-      <li>Describe the problem, the steps to reproduce it, the version (shown in the site footer and in <code class="inline">/about</code>) and what an attacker could do with it.</li>
-    </ol>
-    <p>If the Report a vulnerability button is not available, open a public issue that says only that you have a security report and would like a private way to send it. Do not include any details.</p>
-
-    <h2 id="scope">Scope</h2>
-    <ul>
-      <li>The Aegis bot and its slash commands.</li>
-      <li>This website, its API under <code class="inline">/api</code>, and the dashboard under <code class="inline">/dashboard</code>.</li>
-      <li>The source code in the <a href="${REPO_URL}" rel="noopener noreferrer">repository</a>.</li>
-    </ul>
-    <p>Discord itself, Fly.io and MongoDB are out of scope; report problems with them to those companies. Please do not run denial-of-service tests, spam servers, or access or change data that is not yours. Use your own test server.</p>
-
-    <h2 id="supported">Supported versions</h2>
-    <p>Only the latest release gets security fixes: bot ${escapeHtml(cfg.version)} and dashboard ${escapeHtml(DASHBOARD_VERSION)} at the moment. Older versions are not patched.</p>
-
-    <h2 id="response">What happens next</h2>
-    <p>The maintainer will acknowledge your report, look into it, and keep you updated in the advisory. Aegis is maintained in spare time, so there are no guaranteed response times. Fixes ship through the normal <a href="/changelog">changelog</a>, and you will be credited in the advisory if you would like to be.</p>
-    <p>Machine-readable contact details are at <a href="/.well-known/security.txt">/.well-known/security.txt</a>.</p>
-  </div>
-</div>`;
-
-  return page(cfg, {
-    title: "Security | Aegis",
-    description: "How to report a security vulnerability in the Aegis Discord bot, website or dashboard.",
-    path: "/security",
-    body,
-  });
-}
+/* /security lives in security.ts. */
+export { renderSecurity } from "./security";
