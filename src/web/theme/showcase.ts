@@ -51,6 +51,8 @@ export const cssShowcase = String.raw`
 /* ── Home: differentiators, audience split, what's new ────────────────── */
 .diff-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
 .diff-card { display: grid; gap: .35rem; align-content: start; padding: 1rem; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.diff-grid > li, .whats-new li, .audience-card li { margin: 0; }
+.diff-card .f-icon { width: 24px; height: 24px; }
 .diff-card h3 { margin: 0; font-size: 1.02rem; }
 .diff-card p { margin: 0; font-size: .92rem; color: var(--text-2); }
 .diff-card .text-link { font-size: .88rem; }
@@ -61,8 +63,10 @@ export const cssShowcase = String.raw`
 .audience-card p { margin: 0; font-size: .9rem; }
 .whats-new { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; padding: .7rem 1rem; margin: 0 0 2.5rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--r); background: var(--surface); font-size: .92rem; }
 .whats-new-label { font: 600 .74rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.whats-new-label a { text-transform: none; }
 .whats-new ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .3rem 1rem; }
 .whats-new li { color: var(--text-2); }
+.home-feature-links { margin: .5rem 0 0; font-size: .85rem; color: var(--faint); }
 .home-links { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin: 1rem 0 0; font-size: .93rem; }
 .help-block { margin: 1.5rem 0; padding: 1rem 1.15rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--r); background: var(--surface); }
 .help-block h2, .help-block h3 { margin: 0 0 .35rem; font-size: 1.05rem; }

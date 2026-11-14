@@ -50,3 +50,27 @@ test("showcase appears on home, /features and /why", () => {
   const home = renderHome(cfg, stats, true);
   assert.ok(home.indexOf('class="showcase"') < home.indexOf("highlights-title"), "showcase sits above Built for the bad days");
 });
+
+test("home: differentiators and audience split come before the feature list; cards link to docs; what's new and roadmap", async () => {
+  const { getReleases } = await import("../src/web/changelog");
+  const { newestWithAdditions, itemHeadline } = await import("../src/web/pages/homeSections");
+  const { features } = await import("../src/web/content");
+  const { renderDocs } = await import("../src/web/pages");
+  const home = renderHome(cfg, stats, true);
+  const at = (needle: string) => { const i = home.indexOf(needle); assert.ok(i >= 0, needle); return i; };
+  assert.ok(at("diff-title") < at("what-title"));
+  assert.ok(at("audience-title") < at("what-title"));
+  for (const t of ["Exact restore", "A Trust Score you can read", "No Administrator", "Free, nothing locked"]) assert.ok(home.includes(t), t);
+  assert.ok(home.includes('href="/roadmap"'));
+  const docIds = new Set([...renderDocs(cfg).matchAll(/id="([^"]+)"/g)].map(m => m[1]));
+  for (const f of features) {
+    const id = f.docs ?? f.id;
+    assert.ok(home.includes(`href="/docs#${id}"`), `home links /docs#${id}`);
+    assert.ok(docIds.has(id), `/docs#${id} exists`);
+  }
+  const r = newestWithAdditions(getReleases());
+  assert.ok(r);
+  assert.ok(home.includes(`href="/changelog#${r.id}"`));
+  assert.equal(itemHeadline("Timed slowmode: <code>/slowmode set</code> takes for."), "Timed slowmode");
+  assert.equal(itemHeadline("A &amp; B. More"), "A & B");
+});
