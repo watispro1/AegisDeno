@@ -119,3 +119,20 @@ test("self-hosting note repeats the Terms: public for review, own copies need wr
   assert.ok(faqs.some(f => /written permission/.test(f.a) && /\/terms#source/.test(f.a)));
   assert.match(readFileSync("README.md", "utf8"), /Self-hosting and the source/);
 });
+
+test("structured data: richer featureList, BreadcrumbList on deeper pages, no ratings", async () => {
+  const { renderDocs, renderTroubleshooting } = await import("../src/web/pages");
+  const ld = (html: string) => [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1]));
+  const home = ld(renderHome(cfg, stats, true));
+  const app = home.flatMap(d => d["@graph"] ?? [d]).find(x => x["@type"] === "SoftwareApplication");
+  assert.ok(app.featureList.length >= 25, `featureList has ${app.featureList.length}`);
+  assert.ok(app.featureList.includes("Incident Mode") && app.featureList.includes("Public status page"));
+  assert.equal(new Set(app.featureList).size, app.featureList.length);
+  for (const [name, html, label] of [["features", renderFeatures(cfg), "Features"], ["why", renderWhy(cfg), "Why Aegis"], ["docs", renderDocs(cfg), "Docs"], ["troubleshooting", renderTroubleshooting(cfg), "Troubleshooting"]] as const) {
+    const crumbs = ld(html).filter(d => d["@type"] === "BreadcrumbList");
+    assert.equal(crumbs.length, 1, `${name} has one BreadcrumbList`);
+    assert.equal(crumbs[0].itemListElement[1].name, label);
+  }
+  assert.equal(home.flatMap(d => d["@graph"] ?? [d]).filter(x => x["@type"] === "BreadcrumbList").length, 1, "home keeps just its own");
+  for (const html of [renderHome(cfg, stats, true), renderFeatures(cfg), renderWhy(cfg)]) assert.doesNotMatch(html, /aggregateRating|"review"/i);
+});

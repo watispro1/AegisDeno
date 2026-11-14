@@ -1,7 +1,7 @@
 import { catalogStats } from "../catalog";
 import { getReleases } from "../changelog";
 import { features, faqs, quickstart } from "../content";
-import { HEADLINE } from "./featuresData";
+import { FEATURE_CATEGORIES, HEADLINE } from "./featuresData";
 import { icon, iconSprite, type IconId } from "./icons";
 import { botShowcase } from "./botReplies";
 import { audienceSplit, differentiators, whatsNewStrip } from "./homeSections";
@@ -227,7 +227,7 @@ ${audienceSplit()}
           softwareVersion: cfg.version,
           url: process.env.SITE_URL || "/",
           offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-          featureList: features.map(f => f.title),
+          featureList: [...new Set([...HEADLINE.map(h => h.title), ...features.map(f => f.title), ...FEATURE_CATEGORIES.flatMap(c => c.cards.map(card => card.title))])],
         },
         {
           "@type": "BreadcrumbList",

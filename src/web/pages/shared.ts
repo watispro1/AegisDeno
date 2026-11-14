@@ -76,8 +76,27 @@ export function page(cfg: SiteConfig, opts: {
     ogImage: opts.ogImage ?? "/assets/og.png",
     noindex: opts.noindex,
     omitCanonical: opts.omitCanonical,
-    headExtra: opts.headExtra,
+    headExtra: (opts.headExtra ?? "") + breadcrumbLd(opts),
     scripts: opts.scripts,
+  });
+}
+
+/**
+ * BreadcrumbList for every indexable page below the home page (Home > Page),
+ * named from the page title without the " | Aegis" suffix. Skipped when the
+ * page already supplies its own.
+ */
+export function breadcrumbLd(opts: { title: string; path: string; noindex?: boolean; headExtra?: string }): string {
+  if (opts.path === "/" || opts.noindex || opts.headExtra?.includes("BreadcrumbList")) return "";
+  const base = process.env.SITE_URL || "";
+  const name = opts.title.replace(/\s*\|\s*Aegis\s*$/, "").trim() || opts.path;
+  return jsonLd({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: `${base}/` },
+      { "@type": "ListItem", position: 2, name, item: `${base}${opts.path}` },
+    ],
   });
 }
 
