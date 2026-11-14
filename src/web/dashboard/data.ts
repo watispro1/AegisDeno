@@ -309,6 +309,10 @@ export function mongoDashboardData(client: Client): DashboardData {
       return { guild, automod, tickets, verification, starboard };
     },
 
+    async dismissOnboarding(guildId) {
+      await updateGuildConfig(guildId, { onboardingDismissed: true });
+    },
+
     async saveSettings(guildId, input, actor) {
       switch (input.section) {
         case "logging":

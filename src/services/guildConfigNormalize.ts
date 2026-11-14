@@ -74,6 +74,8 @@ export interface GuildConfig {
   digest?: DigestConfig;
   /** What reposts do with media Discord flagged as explicit, gore or self-harm. On by default. */
   mediaSafety?: MediaSafetyConfig;
+  /** The dashboard overview's "Get started" card was dismissed. */
+  onboardingDismissed?: boolean;
 }
 
 /** Modules a server can switch off as a whole. The bot refuses new use of an off module. */
@@ -128,6 +130,7 @@ const DEFAULT_CONFIG: Omit<GuildConfig, "guildId"> = {
   goodbyeMessage: "**{username}** left {server}. We now have {memberCount} members.",
   goodbyeEmbed: null,
   autorespondersEnabled: true,
+  onboardingDismissed: false,
   logChannels: null,
   incident: normalizeIncidentConfig(undefined),
   modules: normalizeModuleSwitches(undefined),
@@ -248,6 +251,7 @@ export function normalizeGuildConfig(guildId: string, source?: StoredGuildConfig
     goodbyeMessage: typeof config.goodbyeMessage === "string" && config.goodbyeMessage.length <= GOODBYE_MESSAGE_MAX ? config.goodbyeMessage : DEFAULT_CONFIG.goodbyeMessage,
     goodbyeEmbed: normalizeEmbedSpec(config.goodbyeEmbed),
     autorespondersEnabled: config.autorespondersEnabled !== false,
+    onboardingDismissed: config.onboardingDismissed === true,
     logChannels: normalizeLogChannels(config.logChannels),
     incident: normalizeIncidentConfig(config.incident),
     modules: normalizeModuleSwitches(config.modules),
@@ -264,7 +268,7 @@ export function guildConfigSetPaths(update: GuildConfigUpdate): Record<string, u
     "prefix", "language", "loggingEnabled", "loggingChannelId", "logCategories",
     "welcomeEnabled", "welcomeChannelId", "welcomeMessage", "welcomeRoleId",
     "suggestionsChannelId", "escalation",
-    "goodbyeEnabled", "goodbyeChannelId", "goodbyeMessage", "autorespondersEnabled",
+    "goodbyeEnabled", "goodbyeChannelId", "goodbyeMessage", "autorespondersEnabled", "onboardingDismissed",
   ]);
   // Stored as whole sub-documents, so they are normalised here rather than per field.
   const whole: Record<string, (value: unknown) => unknown> = {

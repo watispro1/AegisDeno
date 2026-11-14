@@ -51,10 +51,17 @@ export function fmtAge(ms: number): string {
   return rem > 0 ? `${years}y ${rem}mo` : `${years}y`;
 }
 
-/** Returns a filled/empty bar of given width (1–10). */
+/**
+ * Ten-segment score bar for embeds, e.g. `🟩🟩🟩🟩🟩🟩🟩🟩⬛⬛` for 80.
+ * Emoji squares render at a fixed size on desktop and mobile in both themes;
+ * the old block glyphs (█░) in a code span looked like a broken box in Discord.
+ * Filled colour follows the trust band (same cut-offs as bandFor). Never wrap it in backticks.
+ */
 export function scoreBar(score: number): string {
-  const filled = Math.round(score / 10);
-  return "█".repeat(Math.max(0, filled)) + "░".repeat(Math.max(0, 10 - filled));
+  const s = Math.max(0, Math.min(100, Number.isFinite(score) ? score : 0));
+  const filled = Math.round(s / 10);
+  const fill = s >= 80 ? "🟩" : s >= 60 ? "🟦" : s >= 40 ? "🟨" : s >= 20 ? "🟧" : "🟥";
+  return fill.repeat(filled) + "⬛".repeat(10 - filled);
 }
 
 /** Message volume points: 0 / 2 / 4 / 7 / 10 at 10, 50, 250 and 1,000 messages. */

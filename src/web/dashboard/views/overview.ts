@@ -1,7 +1,9 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord, OverviewData, SettingsSnapshot } from "../data";
 import type { OverviewExtras } from "../moduleData";
-import { type GuildContext, copyId, head, moduleStatus, person, personId, relTime, shell } from "./layout";
+import { type GuildContext, copyId, head, moduleStatus, notice, person, personId, relTime, shell } from "./layout";
+import type { AuditEntry } from "../audit";
+import { gettingStartedCard, onboardingSteps, recentActivityCard, showGettingStarted } from "./gettingStarted";
 import { AUTOMOD_RULE_KEYS, enabledAutomodRules } from "../../../services/automod";
 import { MODULE_CATEGORIES, READINESS_LABEL, type ModuleCategory, type Readiness, moduleMeta } from "../moduleDataCatalog";
 
@@ -47,6 +49,12 @@ export interface OverviewModel {
   missingBotPermissions?: string[];
   /** Bot websocket ping in ms, or null if unavailable. */
   pingMs?: number | null;
+  /** Newest dashboard changes for "Recent activity"; null when the read failed, undefined to hide the card. */
+  audit?: AuditEntry[] | null;
+  /** The data layer can store the "Get started" dismissal. */
+  canDismissOnboarding?: boolean;
+  /** ?notice= code from a redirect (e.g. after Dismiss). */
+  noticeCode?: string | null;
 }
 
 export interface ModuleState {
@@ -262,6 +270,8 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
     : `<p class="muted">No open tickets.</p>`;
   const states = moduleCards(g.id, data, model);
   const checks = setupChecklist(g.id, model);
+  const steps = model.snapshot ? onboardingSteps(g.id, model.snapshot, model.audit ?? [], ctx.viewer.userId) : [];
+  const gettingStarted = showGettingStarted(model.snapshot, data, steps) ? gettingStartedCard(ctx, steps, model.canDismissOnboarding === true) : "";
 
   return shell(cfg, {
     title: g.name,
@@ -270,6 +280,8 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
     guild: ctx,
     active: "overview",
     body: `${head(g.name, "Overview of moderation and modules in this server.", [["Servers", "/dashboard"], [g.name, null]])}
+  ${notice(model.noticeCode)}
+  ${gettingStarted}
   <h2 class="visually-hidden">Last 7 and 30 days</h2>
   <dl class="stat-grid">
     ${card("Members", g.memberCount)}
@@ -302,6 +314,7 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
       <a class="btn ghost sm" href="${base}/incident">Incident Mode</a>
     </div>
   </section>
+  ${model.audit !== undefined ? recentActivityCard(g.id, model.audit) : ""}
   ${states.length ? `<section class="mod-section" aria-labelledby="modules-h"><h2 id="modules-h">Modules</h2>${moduleGrid(states, model)}</section>` : ""}
   <h2>Recent cases</h2>
   ${data.recentCases.length ? caseTable(ctx, data.recentCases, "The 10 most recent cases and warnings") : `<div class="empty-state"><strong>No cases yet.</strong> Cases and warnings appear here as moderators use /warn, /timeout, /kick and /ban.</div>`}
