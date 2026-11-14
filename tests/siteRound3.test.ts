@@ -136,3 +136,22 @@ test("structured data: richer featureList, BreadcrumbList on deeper pages, no ra
   assert.equal(home.flatMap(d => d["@graph"] ?? [d]).filter(x => x["@type"] === "BreadcrumbList").length, 1, "home keeps just its own");
   for (const html of [renderHome(cfg, stats, true), renderFeatures(cfg), renderWhy(cfg)]) assert.doesNotMatch(html, /aggregateRating|"review"/i);
 });
+
+test("Steel & Ink: no leftover teal in steel rules, bot avatars use the palette with AA contrast, Light stays default", async () => {
+  const { styles } = await import("../src/web/theme");
+  const { THEME_IDS } = await import("../src/web/assets");
+  const steelRules = [...styles.matchAll(/\[data-theme="steel"\][^{]*\{([^}]*)\}/g)].map(m => m[1]).join("\n");
+  assert.doesNotMatch(steelRules, /#17695a|#5ec2a6|#7dd3bb|#6fcbb1|#7fc8d8/i);
+  assert.match(styles, /\[data-theme="steel"\] \.dc-avatar\.bot \{ background: #c5cdc8; color: #0c0d0f; \}/);
+  assert.match(styles, /\[data-theme="steel"\] \.dcx \.dcx-av \{ background: #0c0d0f; color: #c5cdc8;/);
+  const lum = (hex: string) => {
+    const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  assert.ok(ratio("#0c0d0f", "#c5cdc8") >= 4.5);
+  assert.ok(ratio("#f2f0ea", "#0c0d0f") >= 4.5);
+  assert.ok(ratio("#8e908c", "#0c0d0f") >= 4.5);
+  assert.ok(THEME_IDS.includes("light"));
+  assert.match(styles, /:root \{\s*--bg: #fbfaf8;/, "Light is still the :root default");
+});

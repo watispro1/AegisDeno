@@ -21,7 +21,7 @@ export const cssShowcase = String.raw`
 .dcx-mini-av { display: inline-block; flex: none; width: 16px; height: 16px; border-radius: 50%; background: #6d6f78; }
 .dcx-mini-av.alt { width: 20px; height: 20px; background: #8a6d5b; margin-right: .45rem; vertical-align: -5px; }
 .dcx-msg { grid-template-columns: 40px minmax(0, 1fr); }
-.dcx-av { width: 40px; height: 40px; background: #111214; color: #7fc8d8; }
+.dcx .dcx-av { width: 40px; height: 40px; background: #111214; color: #7fc8d8; }
 .dcx-main { min-width: 0; }
 .dcx-content { color: var(--dc-text); margin-top: .1rem; overflow-wrap: anywhere; }
 .dcx-embed { max-width: 432px; padding: .7rem .9rem .75rem; color: var(--dc-text); }
@@ -97,7 +97,7 @@ export const cssShowcase = String.raw`
   .dcx { padding: .6rem .6rem .7rem; font-size: .84rem; }
   .dcx-reply { margin-left: 2.6rem; }
   .dcx-msg { grid-template-columns: 32px minmax(0, 1fr); gap: .5rem; }
-  .dcx-av { width: 32px; height: 32px; }
+  .dcx .dcx-av { width: 32px; height: 32px; }
   .dcx-embed { padding: .6rem .65rem; }
   .dcx-factors li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .45rem; align-items: baseline; }
 .dcx-siren { display: inline-block; vertical-align: -3px; margin-right: .3rem; }

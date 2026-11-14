@@ -142,4 +142,8 @@ html:not(.js) .theme-picker { display: none; }
 [data-theme="steel"] h1, [data-theme="steel"] h2 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.012em; }
 [data-theme="steel"] .nav-link[aria-current="page"] { box-shadow: inset 0 -1px 0 var(--accent); }
 [data-theme="steel"] ::selection { background: #c5cdc8; color: #0c0d0f; }
+/* Brand pieces inside the Discord mocks follow the palette: no leftover teal. */
+[data-theme="steel"] .dc-avatar.bot { background: #c5cdc8; color: #0c0d0f; }
+[data-theme="steel"] .dcx .dcx-av { background: #0c0d0f; color: #c5cdc8; box-shadow: inset 0 0 0 1px #3a3e43; }
+[data-theme="steel"] .home-assurances .f-icon { stroke: #c5cdc8; }
 `;
