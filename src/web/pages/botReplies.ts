@@ -51,6 +51,26 @@ export function showcaseIncidentSummary(): string[] {
 /** The 🚨 emoji as a small SVG, so it renders the same without an emoji font. */
 const SIREN = `<svg class="dcx-siren" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="15" width="14" height="3" rx="1" fill="#b9bbbe"/><path d="M5 15V10a5 5 0 0 1 10 0v5z" fill="#ed4245"/><path d="M10 7v5M8 9.5l4 0" stroke="#fff" stroke-width="1.4"/><path d="M10 1v2M3 4l1.4 1.4M17 4l-1.4 1.4" stroke="#ed4245" stroke-width="1.4"/></svg>`;
 
+/**
+ * The score bar exactly as the bot sends it: scoreBar() gives ten emoji
+ * squares (🟩 80+, 🟦 60+, 🟨 40+, 🟧 20+, 🟥 below, ⬛ empty) in the embed
+ * description, outside any code span. Each square is drawn as a small SVG in
+ * the Twemoji colour Discord uses, so it looks the same on machines without
+ * an emoji font. The emoji text itself stays in the aria-label.
+ */
+const SQUARE_FILL: Record<string, string> = {
+  "🟩": "#78b159", "🟦": "#55acee", "🟨": "#fdcb58", "🟧": "#f4900c", "🟥": "#dd2e44", "⬛": "#31373d",
+};
+
+export function barHtml(score: number): string {
+  const bar = scoreBar(score);
+  const squares = [...bar].map(ch => {
+    const fill = SQUARE_FILL[ch] ?? SQUARE_FILL["⬛"];
+    return `<svg class="dcx-sq" viewBox="0 0 36 36" width="18" height="18" aria-hidden="true" focusable="false"><rect x="1" y="1" width="34" height="34" rx="4" fill="${fill}"/></svg>`;
+  }).join("");
+  return `<div class="dcx-bar" role="img" aria-label="Score bar ${esc(bar)}, ${score} out of 100">${squares}</div>`;
+}
+
 const BAND_CLASS: Record<TrustBand, string> = {
   trusted: "green", established: "blurple", neutral: "yellow", low: "orange", "high-risk": "red",
 };
@@ -83,7 +103,7 @@ export function trustReply(): string {
   const embed = `<div class="dc-embed dcx-embed ${BAND_CLASS[r.band]}">
             <div class="dcx-author"><span class="dcx-mini-av alt" aria-hidden="true"></span>Trust Score — ${esc(SHOWCASE_NAMES.member)}</div>
             <div class="dcx-title">${r.score}/100 · ${esc(r.bandLabel)}</div>
-            <div><code class="dcx-code dcx-bar" aria-label="Score bar, ${r.score} out of 100">${esc(scoreBar(r.score))}</code></div>
+            ${barHtml(r.score)}
             <div class="dcx-field-name">Why</div>
             <ul class="dcx-factors">${rows}</ul>
             <div class="dcx-footer">Preset: ${esc(r.preset)} · counts and dates only, never message content</div>

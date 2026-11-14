@@ -35,7 +35,8 @@ export const cssShowcase = String.raw`
 .dcx-desc { margin-bottom: .55rem; }
 .dcx-desc strong, .dcx-factors strong { color: #f2f3f5; font-weight: 600; }
 .dcx-code { font: .8rem/1.35 var(--mono); background: #1e1f22; border: 1px solid #232428; border-radius: 4px; padding: 0 .25rem; color: #dbdee1; }
-.dcx-bar { letter-spacing: -.05em; }
+.dcx-bar { display: flex; gap: 2px; margin: .1rem 0 .2rem; line-height: 0; }
+.dcx-sq { display: block; flex: none; }
 .dcx-ts { background: rgba(255, 255, 255, .08); border-radius: 3px; padding: 0 .15rem; }
 .dcx-field-name { font-weight: 600; color: #f2f3f5; margin: .55rem 0 .15rem; font-size: .86rem; }
 .dcx-field-val { font-size: .86rem; }

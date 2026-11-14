@@ -9,7 +9,8 @@ import { clearCatalogCache } from "../src/web/catalog";
 import { renderHome, renderFeatures, type SiteConfig } from "../src/web/pages";
 import type { Stats } from "../src/web/pages/shared";
 import { renderWhy } from "../src/web/pages/why";
-import { botShowcase, showcaseTrust, showcaseIncidentSummary, SHOWCASE_NAMES } from "../src/web/pages/botReplies";
+import { barHtml, botShowcase, showcaseTrust, showcaseIncidentSummary, SHOWCASE_NAMES } from "../src/web/pages/botReplies";
+import { scoreBar } from "../src/services/trustScore";
 import { VERSION } from "../src/version";
 
 const cfg: SiteConfig = { inviteUrl: "https://discord.com/oauth2/authorize?client_id=1", supportUrl: "", version: VERSION, contactEmail: "", assetVersion: "t" };
@@ -24,6 +25,22 @@ test("Trust Score example is computed by the real engine and adds up", () => {
   const sum = r.factors.reduce((s, f) => s + f.points, 0);
   assert.equal(Math.round(sum), r.score);
   assert.equal(r.factors[r.factors.length - 1].label, "Starting score");
+});
+
+test("Trust Score mock bar matches the bot's scoreBar(): ten band-coloured squares, no code span", () => {
+  const html = botShowcase({ id: "x", title: "T", lead: "L" });
+  const bar = barHtml(80);
+  assert.ok(html.includes(bar), "the showcase renders barHtml(score)");
+  assert.equal((bar.match(/<svg class="dcx-sq"/g) ?? []).length, 10);
+  assert.ok(bar.includes(`Score bar ${scoreBar(80)}, 80 out of 100`), "emoji text from scoreBar() kept in the label");
+  assert.equal((bar.match(/#78b159/g) ?? []).length, 8, "80 → eight green squares");
+  assert.equal((bar.match(/#31373d/g) ?? []).length, 2, "and two empty ones");
+  assert.doesNotMatch(html, /dcx-code dcx-bar|<code[^>]*>[🟩🟦🟨🟧🟥⬛]/u, "no code span around the bar");
+  const low = barHtml(15);
+  assert.equal((low.match(/#dd2e44/g) ?? []).length, 2, "15 → two red");
+  for (const [score, colour] of [[65, "#55acee"], [45, "#fdcb58"], [25, "#f4900c"]] as const) {
+    assert.equal((barHtml(score).match(new RegExp(colour, "g")) ?? []).length, Math.round(score / 10), String(score));
+  }
 });
 
 test("Incident example summary uses the bot's own wording", () => {
@@ -112,10 +129,10 @@ test("self-hosting note repeats the Terms: public for review, own copies need wr
   const { faqs } = await import("../src/web/content");
   const terms = renderTerms(cfg);
   assert.match(terms, /id="source"/);
-  assert.match(terms, /running your own copy needs written permission from the maintainer/);
+  assert.match(terms, /running your own copy, public or private, needs written permission from the maintainer/);
   const why = renderWhy(cfg);
   assert.match(why, /id="source"/);
-  assert.match(why, /running your own copy needs written permission from the maintainer/);
+  assert.match(why, /running your own copy, public or private, needs written permission from the maintainer/);
   assert.ok(faqs.some(f => /written permission/.test(f.a) && /\/terms#source/.test(f.a)));
   assert.match(readFileSync("README.md", "utf8"), /Self-hosting and the source/);
 });
