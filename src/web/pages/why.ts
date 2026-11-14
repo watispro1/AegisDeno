@@ -7,6 +7,7 @@ import { UNDO_WINDOW_MS } from "../../services/moderationUndo";
 import { INCIDENT_MAX_MINUTES } from "../../services/incidentLogic";
 import { WHY_ROWS, type IconId } from "./featuresData";
 import { icon, iconSprite } from "./icons";
+import { botShowcase } from "./botReplies";
 import { type SiteConfig, breadcrumb, endNote, escapeHtml as esc, page } from "./shared";
 
 export interface WhyReason {
@@ -91,6 +92,7 @@ export function renderWhy(cfg: SiteConfig): string {
   <ul class="f-grid" aria-labelledby="reasons-title">
     ${cards}
   </ul>
+  ${botShowcase({ id: "proof", title: "See it for yourself", lead: "What a moderator actually sees, recreated from the real replies. The names are made up." })}
   ${table}
   ${endNote(cfg, `Questions first? The <a href="/docs#faq">FAQ</a> and the <a href="/security">security page</a> cover the details.`)}
 </div>`;

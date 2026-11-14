@@ -8,6 +8,7 @@ import { getCommand } from "../catalog";
 import { commandAnchor } from "./commands";
 import { FEATURE_CATEGORIES, HEADLINE, WHY_ROWS } from "./featuresData";
 import { dashboardExamples } from "./featuresExamples";
+import { botShowcase } from "./botReplies";
 import { icon, iconSprite } from "./icons";
 import { type SiteConfig, breadcrumb, escapeHtml as esc, page, safeUrl } from "./shared";
 
@@ -68,8 +69,9 @@ export function renderFeatures(cfg: SiteConfig): string {
     </div>
   </div>
   <ul class="f-hero" aria-label="Headline features">${hero}</ul>
-  <nav class="f-nav" aria-label="Feature categories"><ul>${nav}<li><a href="#examples">Examples</a></li><li><a href="#why">Why Aegis</a></li></ul></nav>
+  <nav class="f-nav" aria-label="Feature categories"><ul>${nav}<li><a href="#replies">Replies</a></li><li><a href="#examples">Examples</a></li><li><a href="#why">Why Aegis</a></li></ul></nav>
   ${sections}
+  ${botShowcase({ id: "replies", title: "What the replies look like", lead: "Two replies recreated from the real bot. The names are made up; the wording, fields and Trust Score maths are the bot's own." })}
   ${dashboardExamples()}
   ${why}
   <div class="end-note">

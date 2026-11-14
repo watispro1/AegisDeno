@@ -3,6 +3,7 @@ import { CHANGE_KINDS, getReleases, releaseCounts, sectionKind } from "../change
 import { features, faqs, quickstart } from "../content";
 import { HEADLINE } from "./featuresData";
 import { icon, iconSprite, type IconId } from "./icons";
+import { botShowcase } from "./botReplies";
 import { type SiteConfig, type Stats, cmdBlock, endNote, escapeHtml, faqBlock, fmtNum, fmtUptime, jsonLd, page, safeUrl, slashInput, statStrip, statusWord } from "./shared";
 
 /* Home */
@@ -163,6 +164,10 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
 
   ${strip}
 </div>
+
+<div class="section"><div class="wrap">
+  ${botShowcase({ id: "proof", title: "See what it actually says", lead: "Two real replies, recreated: a Trust Score with every point explained, and Incident Mode switched on during a raid. The names are made up." })}
+</div></div>
 
 <section class="section" aria-labelledby="highlights-title">
   <div class="wrap">
