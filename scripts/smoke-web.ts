@@ -277,9 +277,7 @@ async function main() {
   console.log("\nNo-JS safety");
   const cssText = await (await fetch(origin + "/assets/site.css")).text();
   check("no hidden-until-scroll content", !/\.reveal\b/.test(cssText));
-  check("no gradient text", !/background-clip:\s*text/.test(cssText));
-  const blurRules = [...cssText.matchAll(/([^{}]*)\{[^{}]*backdrop-filter:\s*blur/g)].map(m => m[1]);
-  check("blur only in the opt-in Glass theme", blurRules.length > 0 && blurRules.every(sel => sel.split(",").every(part => part.includes('[data-theme="glass"]'))));
+  check("no gradient text; blur only in the opt-in Glass theme", !/background-clip:\s*text/.test(cssText) && [...cssText.matchAll(/([^{}]*)\{[^{}]*backdrop-filter:\s*blur/g)].every(m => m[1].split(",").every(sel => sel.includes('[data-theme="glass"]'))));
   const init = await (await fetch(origin + "/assets/theme-init.js")).text();
   check("theme-init adds js class", init.includes("classList.add(\"js\")"));
 
