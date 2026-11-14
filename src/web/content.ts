@@ -295,6 +295,10 @@ export const faqs: { q: string; a: string }[] = [
     a: `<p>Commands are registered with Discord globally when the bot starts, and Discord usually shows changes within minutes. Your Discord client caches the list, so restart it (Ctrl+R on desktop) if a new or renamed command is missing. If no Aegis commands appear at all, re-invite with the <code class="inline">applications.commands</code> scope.</p>`,
   },
   {
+    q: "Can I run my own copy?",
+    a: `<p>Only with written permission. The source code is public so it can be read and reviewed, but it is not open source: copying, modifying, redistributing or running your own copy, public or private, needs written permission from the maintainer. Using the bot in your server does not give you any rights to the code, name or branding. See <a href="/terms#source">Source code and licence</a> in the terms.</p>`,
+  },
+  {
     q: "How long is data kept?",
     a: `<p>Warnings, moderation cases and staff notes are deleted after one year. Trust Score activity counters go after 180 days without a message, dashboard activity after 180 days and dashboard sessions after 7 days. Settings stay until staff change them or deletion is requested; removing Aegis does not delete a server's records automatically. The <a href="/privacy">privacy policy</a> has the full table.</p>`,
   },

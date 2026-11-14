@@ -86,8 +86,8 @@ This is the hierarchy guard working correctly. The _moderator_ running the comma
 ### Messages with banned words aren't deleted
 
 1. Run `/automod status` and check that the "Words" rule is **Enabled**.
-2. Run `/automod words list` and confirm the word is in the list.
-3. Check if the channel or the user's role is exempt: `/automod exempt list`.
+2. In the same `/automod status` hub, confirm the word is in the list (add it with `/automod words add`).
+3. Check whether the channel or the user's role is exempt (listed in `/automod status`; change it with `/automod exempt addrole|removerole|addchannel|removechannel`).
 4. Confirm the bot has **Manage Messages** permission in that channel.
 
 ### Spam detection isn't firing
@@ -164,7 +164,7 @@ The bot is still starting up (connecting to MongoDB, registering commands). Wait
 
 The web server sets `Cache-Control: no-cache` on HTML pages by default. If you're behind a CDN or Cloudflare, make sure HTML pages are not cached (only static assets should be cached).
 
-### `/stats` returns zeros for guild count
+### `/api/stats` returns zeros for guild count
 
 The bot is connected but hasn't joined any guilds yet. Invite it using the OAuth2 URL from `/diagnostics` or the invite link in `.env`.
 
@@ -193,7 +193,7 @@ for Create Private Threads, Send Messages in Threads and Manage Threads.
 
 ### "fly deploy" fails with "image build failed"
 
-Check the Dockerfile for correct Node version. The project requires Node 20+. Verify `node_modules` is listed in `.dockerignore`.
+Check the Dockerfile for correct Node version. The project requires Node 22+ (`engines` in `package.json`). Verify `node_modules` is listed in `.dockerignore`.
 
 ### Bot repeatedly restarts on Fly.io
 
@@ -224,6 +224,8 @@ Set `LOG_LEVEL=debug` in `.env` (or as a Fly.io secret) to see verbose output in
 
 ## Still stuck?
 
-1. Check `fly logs` or the console for the exact error message.
-2. Open an issue on the repository with the error, environment (local/fly), and steps to reproduce.
-3. Join the support server: `SUPPORT_SERVER_URL` in your `.env`.
+1. Run `/diagnostics` in the server and check `fly logs` or the console for the exact error message.
+2. Ask in the support server (https://discord.gg/HwTbCYC4PM, or `SUPPORT_SERVER_URL` if you set your own) with the `/diagnostics` output.
+3. Or open an issue on the repository with the error, environment (local/fly), and steps to reproduce. Security problems go through [SECURITY.md](./SECURITY.md) instead.
+
+The website has a shorter guide at https://aegisdeno.fly.dev/troubleshooting.

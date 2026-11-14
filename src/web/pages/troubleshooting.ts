@@ -1,4 +1,5 @@
 import { type SiteConfig, breadcrumb, endNote, escapeHtml, page, statStrip } from "./shared";
+import { needHelp, sideHelp, supportHref } from "./helpBlock";
 
 /* Troubleshooting */
 
@@ -177,6 +178,7 @@ export function renderTroubleshooting(cfg: SiteConfig): string {
       <ul>
         ${side}
       </ul>
+      ${sideHelp(cfg)}
       <p class="side-title">Elsewhere</p>
       <ul>
         <li><a href="/docs#permissions">Permissions</a></li>
@@ -216,7 +218,7 @@ export function renderTroubleshooting(cfg: SiteConfig): string {
       </div>
       <div id="help-empty" class="empty-state" hidden>
         <strong>Nothing matches.</strong>
-        Ask in the support server and include the output of /diagnostics.
+        Ask in the <a href="${supportHref(cfg)}" rel="noopener noreferrer">support server</a> and include the output of /diagnostics.
       </div>
 
       <section class="help-ask" aria-labelledby="ask-title">
@@ -227,6 +229,7 @@ export function renderTroubleshooting(cfg: SiteConfig): string {
           <li>Check the <a href="/status">status page</a> and the <a href="/changelog">changelog</a> for anything recent.</li>
         </ol>
       </section>
+      ${needHelp(cfg, "Then ask in the support server. Paste the /diagnostics output with the command and reply, and someone can usually point at the fix.")}
     </div>
   </div>
 

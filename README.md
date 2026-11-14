@@ -1,10 +1,10 @@
 # Aegis
 
 Aegis is a moderation bot for Discord, run from slash commands. It handles
-warnings, timeouts, bans and the case log behind them, plus automod, ban
-appeals, tickets, verification, logging, a staff watchlist and per-member trust
-scores. Server managers can also review cases and change settings in a web
-dashboard.
+warnings, timeouts, bans and the case log behind them, plus automod, Incident
+Mode for raids, ban appeals, ModMail, tickets, verification, logging, a staff
+watchlist and an explainable per-member Trust Score. Server managers can also
+review cases and change settings in a web dashboard.
 
 | | |
 | --- | --- |
@@ -12,8 +12,21 @@ dashboard.
 | Add to Discord | the **Add to Discord** button on the website |
 | Command reference | https://aegisdeno.fly.dev/commands |
 | Web dashboard | https://aegisdeno.fly.dev/dashboard |
+| Docs and FAQ | https://aegisdeno.fly.dev/docs |
 | Status | https://aegisdeno.fly.dev/status |
-| Current version | bot 3.12.1, dashboard 1.7.0 |
+| Why Aegis | https://aegisdeno.fly.dev/why |
+| Roadmap | https://aegisdeno.fly.dev/roadmap |
+| Support server | https://discord.gg/HwTbCYC4PM |
+| Security | https://aegisdeno.fly.dev/security (report privately, see [`SECURITY.md`](./SECURITY.md)) |
+| Current version | bot 3.13.0, dashboard 1.8.0 |
+
+> **Self-hosting and the source.** The source code is public so it can be read
+> and reviewed. It is not open source: copying, modifying, redistributing or
+> running your own copy, public or private, needs written permission from the
+> maintainer (see [Licence](#licence), the [`LICENSE`](./LICENSE) file and
+> section "Source code and licence" of the
+> [Terms](https://aegisdeno.fly.dev/terms#source)). Using the bot in your server
+> does not give you any rights to the code, name or branding.
 
 Despite the repository name, Aegis is a **Node.js** app (TypeScript,
 discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
@@ -44,7 +57,8 @@ temporary ban that Aegis lifts on its own, and `/timeout custom_duration:` takes
 any length up to 28 days (`90m`, `1d 12h`, `2 weeks`). Also `/purge` (filters for
 bots, humans, links, images, embeds, a user or a keyword, with a preview),
 `/lock` (a channel, a category or the whole server, optionally timed),
-`/slowmode`, `/nickname`, `/note`, `/case`, `/infractions` and `/modhistory`.
+`/slowmode` (optionally timed with `for:`, then restored), `/softban`,
+`/temprole`, `/nickname`, `/note`, `/case`, `/infractions` and `/modhistory`.
 `/case user` filters a member's cases by action or hides revoked ones.
 `/massban` bans up to 50 pasted user IDs at once for raid clean-up, with the
 same hierarchy checks as `/ban`, a confirmation and one case per ban (no DMs
@@ -60,11 +74,22 @@ automodded. After automod warns or times out a member, their further hits in
 the next 60 seconds are deleted without another penalty or log entry, so one
 burst counts once.
 
-**Trust score.** `/trustscore` gives a 0 to 100 number from account age, time
-in the server, a long-tenure bonus, active warnings, timeouts, kicks and bans
-that were not undone, and message activity. Only a message count and a
-last-active time are stored, never message content. The score is
-informational: nothing happens automatically when it is low.
+**Incident Mode.** `/incident start` handles a raid in one step: slowmode,
+lockdown, a join gate that times out or kicks brand-new accounts, and paused
+invites. Every change is recorded and restored exactly when it ends, by hand
+(`/incident end`) or on its timer, even across restarts, and a report goes to
+the mod log. `/incident auto` can start it when many accounts join at once.
+
+**Trust Score.** `/trust user` gives a member a 0 to 100 score with every
+factor explained: account age, time in the server, verification, active days,
+warnings and cases by severity and recency, automod hits and Incident Mode
+join-gate flags. The embed shows a ten-square bar coloured by band (Trusted
+80+, Established 60+, Neutral 40+, Low trust 20+, High risk below). Only counts
+and timestamps are inputs, never message content. `/trust config` picks a
+preset (strict, balanced, lenient) and a low-trust threshold, and can
+optionally give low-trust members a role on join, limit link filtering to them,
+or have Incident Mode gate them. `/trustscore` is a deprecated alias of
+`/trust user`.
 
 **Ban appeals.** `/ban` DMs the member a code like `AGS-K7X2`. They file an
 appeal with `/appeal submit` from any server Aegis shares with them; staff
@@ -78,9 +103,15 @@ staff channel. The member is not told. An alert only reaches a watcher who
 still has Moderate Members and can view the channel it came from, and copies
 posted to a staff channel leave out text from private channels.
 
+**ModMail.** Members DM Aegis to reach a server's staff; each conversation
+becomes a private thread (or forum post) where staff reply, anonymously if
+they like (`/modmail setup|reply|close|block|unblock|snippet`). Closed
+transcripts are kept for 90 days and can be read in the dashboard.
+
 **Mod reports.** `/modreport` shows the last 24 hours or 7 days in four views:
 overview, top offenders, moderator activity and automod hits. `/modstats` and
-`/activitysummary` give simpler counts.
+`/activitysummary` give simpler counts, and `/digest setup` posts a weekly staff
+digest.
 
 **Economy (opt-in).** Off until a server manager runs `/economy toggle`.
 Members earn coins with `/daily` (streak bonus), `/weekly`, `/work` (10 work
@@ -107,18 +138,21 @@ verification with optional auto-kick (`/verify`), role panels as buttons or a
 dropdown (`/rolepanel`), auto-responders, a starboard, giveaways with booster
 bonus entries, button polls that close on a timer, suggestions with
 Approve/Deny/Consider, welcome messages, personal reminders that can repeat
-(`/remindme`) and scheduled channel posts (`/automation`). Timed actions are
+(`/remindme`, or **Remind Me About This** on any message) and scheduled channel
+posts (`/automation`). Timed actions are
 stored in MongoDB and restored after a restart. Starboard posts, ModMail relays
 and ticket transcripts leave out media Discord flags as explicit, gore or
 self-harm unless the channel is age-restricted (`/config media-safety`).
 
 **Web dashboard.** At [`/dashboard`](https://aegisdeno.fly.dev/dashboard),
 people with Manage Server or Administrator log in with Discord (`identify` and
-`guilds` scopes only) to see a server overview, browse and filter cases, edit a
-reason or revoke a case, review ban appeals, post the ticket, verification and
-role panels, and change logging, escalation, automod, welcome, ticket,
-verification and starboard settings. An Activity page shows who changed what.
-Everything it does is also available as a slash command.
+`guilds` scopes only) to see a server overview with a first-run Get started
+checklist and recent activity, browse and filter cases, edit a reason or revoke
+a case, review ban appeals, read ModMail transcripts and Incident Mode reports,
+post the ticket, verification and role panels, and change logging, escalation,
+automod, Trust Score, welcome, ticket, verification, starboard, economy and
+community settings. An Activity page shows who changed what. Everything it does
+is also available as a slash command.
 
 What the bot and dashboard store, and for how long, is in the
 [privacy policy](https://aegisdeno.fly.dev/privacy). The rules for using them
@@ -151,10 +185,12 @@ anything Aegis is missing. The full table is on the
 ## Running it yourself
 
 The source is public so it can be read and reviewed, but it is **not open
-source** (see [Licence](#licence)). Ask the author before running your own copy.
-With permission, you need:
+source** (see [Licence](#licence)). Running your own copy, public or private,
+needs written permission from the maintainer; ask in the
+[support server](https://discord.gg/HwTbCYC4PM) or open an issue. With
+permission, you need:
 
-- Node.js 20 or newer (CI and the Docker image use Node 22).
+- Node.js 22 or newer (`engines` in `package.json`; CI and the Docker image use 22).
 - A MongoDB database (Atlas or local).
 - A Discord application with a bot user. Under **Bot** in the Developer Portal,
   turn on the Server Members, Message Content and Presence intents; the bot
@@ -182,9 +218,9 @@ Fill in `.env`. Every variable the code reads:
 | `SITE_URL` | in production | Public origin of the website, no trailing slash. Used for canonical URLs, Open Graph tags, `sitemap.xml` and `security.txt`. |
 | `PORT` | no | Website port. Defaults to 3000, which is what `fly.toml` exposes. |
 | `BOT_INVITE_URL` | no | Base invite URL (must be an https discord.com link, otherwise it is ignored); the client ID, computed permissions, scopes and `integration_type=0` are added to it. |
-| `SUPPORT_SERVER_URL` | no | Support server link shown on the website and legal pages. |
+| `SUPPORT_SERVER_URL` | no | Support server link shown on the website, legal pages and the bot's Support buttons. Defaults to https://discord.gg/HwTbCYC4PM. |
 | `JOIN_WELCOME` | no | Set to `off` to stop the one-time "Thanks for adding Aegis! Run /help" message Aegis posts when it joins a server. On by default. |
-| `CONTACT_EMAIL` | no | Email shown on the terms and privacy pages. Without it they point to GitHub issues only. |
+| `CONTACT_EMAIL` | no | Email shown on the terms and privacy pages. Without it they point to the support server and GitHub issues. |
 | `DISCORD_CLIENT_SECRET` | for the dashboard | OAuth2 client secret from the Developer Portal. |
 | `DASHBOARD_SESSION_SECRET` | for the dashboard | At least 32 characters; signs session cookies and CSRF tokens. Generate with `openssl rand -hex 32`. |
 | `DASHBOARD_REDIRECT_URI` | no | Must match a redirect under OAuth2 in the Developer Portal. Defaults to `https://aegisdeno.fly.dev/dashboard/callback`; locally use `http://localhost:3000/dashboard/callback`. |
@@ -263,13 +299,28 @@ by Express, with no framework and no build step for the front end.
   (https://aegisdeno.fly.dev/dashboard/changelog).
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md): setup, branches, sign-off, tests and
   changelog rules.
-- [`SECURITY.md`](./SECURITY.md): how to report a vulnerability privately.
+- [`SECURITY.md`](./SECURITY.md): how to report a vulnerability privately
+  (short version at https://aegisdeno.fly.dev/security).
 - [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md): Contributor Covenant 2.1.
+- [`DEPLOYMENT.md`](./DEPLOYMENT.md), [`OPERATIONAL.md`](./OPERATIONAL.md) and
+  [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md): deploying, running and fixing
+  the bot.
+- [`server.md`](./server.md): the setup playbook for the official support
+  server.
+- [`LICENSE`](./LICENSE): the proprietary licence.
 - [Terms of Service](https://aegisdeno.fly.dev/terms) and
   [Privacy Policy](https://aegisdeno.fly.dev/privacy).
 
 ## Licence
 
-Proprietary, all rights reserved (`"license": "UNLICENSED"` in `package.json`).
-You may read the code here, but copying, modifying, redistributing or running it
-requires written permission from the author.
+Proprietary, all rights reserved. The full text is in [`LICENSE`](./LICENSE),
+and `package.json` says `"license": "UNLICENSED"`, npm's marker for code that
+is not offered under any licence. The source is public so it can be read and
+reviewed, but copying, modifying, redistributing or running your own copy,
+public or private, needs written permission from the maintainer, as section
+"Source code and licence" of the [Terms](https://aegisdeno.fly.dev/terms#source)
+says. Ask in the [support server](https://discord.gg/HwTbCYC4PM) or open an
+issue.
+
+Versions before 3.13.0 were published under the MIT licence; from 3.13.0 the
+proprietary licence applies.

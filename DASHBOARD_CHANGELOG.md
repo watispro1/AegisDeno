@@ -8,6 +8,44 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.8.0] - 2026-11-14
+
+Dashboard 1.8.0. A first-run checklist and recent activity on the overview, and
+a third round on the public site: recreated bot replies, a clearer home page,
+better phones, support blocks, breadcrumbs and Steel & Ink polish. Released
+alongside bot version 3.13.0. No new environment variables or OAuth scopes.
+
+### Added
+- Get started checklist on a server's overview: setup steps worked out from the
+  server's settings, with a Dismiss button that works without JavaScript (CSRF
+  protected, stored in the server's settings).
+- Recent activity card on the overview, from the server's Activity log.
+- Showcase: recreated Trust Score and Incident Mode replies (made-up names,
+  real engine numbers) on the home page, `/features` and `/why`, with the
+  Trust Score bar drawn as ten band-coloured squares.
+- Home: differentiators and a managers/staff split above the feature list,
+  feature cards that link to their docs sections, a What's new strip from the
+  changelog and a roadmap link.
+- Need help? blocks with the support server on docs, troubleshooting and
+  status, and a support pointer in the docs and troubleshooting sidebars.
+- Breadcrumbs in the structured data of every indexable page below home, and a
+  `featureList` built from every feature card (no ratings).
+- Self-hosting and the source on `/why`, a docs FAQ entry and a README
+  callout, worded as the Terms say.
+
+### Changed
+- Sidebar: Activity moves to the top group, right after Overview.
+- Home on phones: tighter hero, smaller heading, full-width Add to Discord,
+  compact secondary buttons, and the status pill below the actions.
+- Steel & Ink: bot avatars in the Discord examples and the hero check marks use
+  the palette instead of teal.
+- Footer: "Source on GitHub" is marked proprietary, and the copyright line says
+  all rights reserved.
+
+### Fixed
+- Showcase avatar style specificity, the Need help title style, and leftover
+  unused home CSS.
+
 ## [1.7.0] - 2026-11-14
 
 Dashboard 1.7.0. A theme picker with two new opt-in themes, a new shield logo

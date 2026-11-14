@@ -245,14 +245,14 @@ ${o.body}
           <li><a href="/terms">Terms of Service</a></li>
           <li><a href="/privacy">Privacy Policy</a></li>
           <li><a href="/security">Security</a></li>
-          <li><a href="${REPO_URL}" rel="noopener noreferrer">Source on GitHub</a></li>
+          <li><a href="${REPO_URL}" rel="noopener noreferrer">Source on GitHub</a> <span class="faint">(proprietary)</span></li>
           <li><a href="${REPO_URL}/issues" rel="noopener noreferrer">Report a problem</a></li>
           <li><a href="${supportUrl}" rel="noopener noreferrer">Support server</a></li>
         </ul>
       </div>
     </div>
     <div class="footer-bottom">
-      <div>&copy; ${year} Aegis. Not affiliated with Discord Inc.</div>
+      <div>&copy; ${year} Aegis. All rights reserved. Not affiliated with Discord Inc.</div>
       <nav aria-label="Footer">
         <a class="back-to-top" href="#main">Back to top ↑</a>
         <a href="/features">Features</a>

@@ -3,6 +3,7 @@ import { faqs } from "../content";
 import { type SiteConfig, breadcrumb, cmdBlock, escapeHtml, faqBlock, fmtNum, page, safeUrl, statStrip } from "./shared";
 import { icon, iconSprite, type IconId } from "./icons";
 import { economyDocsSection } from "./docsEconomy";
+import { needHelp, sideHelp } from "./helpBlock";
 import { DOC_GROUPS, SUBCOMMAND_CHECKS, botPermissionTable, docAnchors, docHeading, docToc, linkCommandsInHtml, permissionTable } from "./docsData";
 
 export function renderDocs(cfg: SiteConfig): string {
@@ -250,9 +251,9 @@ export function renderDocs(cfg: SiteConfig): string {
       <p>Presets (Casual Server, Standard Community, Gaming Hub, Strict Security) apply a bundle of automod and escalation settings in one go. Run <code>/preset view</code> to see what one changes before applying it; applying needs Administrator. Most settings can also be changed on the dashboard's Settings page.</p>
 
       ${docHeading("self-hosting", "Self-hosting")}
-      <p>The source is on <a href="${REPO_URL}">GitHub</a>. It is readable, but it is not open source: the licence is proprietary and all rights are reserved, so ask the author before running your own copy. If you have the go-ahead, this is what it takes.</p>
+      <p>The source is on <a href="${REPO_URL}">GitHub</a>. It is readable, but it is not open source: the licence is proprietary and all rights are reserved, so running your own copy, public or private, needs written permission from the maintainer (see the <a href="/terms#source">terms</a>). If you have the go-ahead, this is what it takes.</p>
       <ul>
-        <li>Node.js 20 or newer (CI and the Docker image use 22) and a MongoDB database. Despite the repository name, it does not run on Deno.</li>
+        <li>Node.js 22 or newer (CI and the Docker image use 22) and a MongoDB database. Despite the repository name, it does not run on Deno.</li>
         <li>A Discord application with a bot user. Copy its token and application ID, and turn on the Server Members, Message Content and Presence intents under <strong>Bot</strong> in the Developer Portal; the bot asks for all three when it connects.</li>
       </ul>
       ${cmdBlock(`git clone ${REPO_URL}.git
@@ -279,7 +280,8 @@ npm run dev             # or: npm run build && npm start`)}
         <li><a href="/troubleshooting#cat-automation">Reminders and welcome messages</a>.</li>
         <li><a href="/troubleshooting#cat-hosting">Self-hosting</a>.</li>
       </ul>
-      <p>Still stuck? Run <code>/diagnostics</code> and include its output when you ask${cfg.supportUrl ? ` in the <a href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">support server</a>` : ""} or <a href="${REPO_URL}/issues" rel="noopener noreferrer">open an issue on GitHub</a>.</p>
+      <p>Still stuck? Run <code>/diagnostics</code> and include its output when you ask in the <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a> or <a href="${REPO_URL}/issues" rel="noopener noreferrer">open an issue on GitHub</a>.</p>
+      ${needHelp(cfg)}
 
       <nav class="doc-pager" data-doc-pager aria-label="Previous and next section">
         <a class="doc-pager-link prev" data-doc-prev hidden><span class="doc-pager-label">Previous section</span><strong></strong></a>
@@ -336,6 +338,7 @@ npm run dev             # or: npm run build && npm start`)}
       ${toc}
       </div>
       <p class="toc-empty" id="toc-empty" hidden>No section matches.</p>
+      ${sideHelp(cfg)}
       <p class="side-title">Elsewhere</p>
       <ul>
         <li><a href="/commands">Commands</a></li>

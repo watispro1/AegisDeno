@@ -23,7 +23,7 @@ export async function smokeLaterSections({ origin, csp, dashHtml, homeHtml, feed
   const termsHtml = await (await fetch(origin + "/terms")).text();
   const privacyHtml = await (await fetch(origin + "/privacy")).text();
   for (const [name, html] of [["terms", termsHtml], ["privacy", privacyHtml]] as [string, string][]) {
-    check(`${name} last updated November 2, 2026`, html.includes("Last updated: <time datetime=\"2026-11-02\">November 2, 2026</time>"));
+    check(`${name} last updated November 14, 2026`, html.includes("Last updated: <time datetime=\"2026-11-14\">November 14, 2026</time>"));
     check(`${name} uses CONTACT_EMAIL when set`, html.includes("mailto:legal@example.com"));
     check(`${name} has no invented fly.dev inbox`, !html.includes("support@aegisdeno.fly.dev"));
   }

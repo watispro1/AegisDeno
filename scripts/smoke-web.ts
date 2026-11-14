@@ -84,7 +84,7 @@ async function main() {
   const nfHtml = await nf.text();
   check("404 shows the escaped path", nf.status === 404 && nfHtml.includes("nf-path") && !nfHtml.includes("<b>page"));
   const rdHomeHtml = await (await fetch(origin + "/")).text();
-  check("home has the stats strip and latest release", rdHomeHtml.includes("stat-strip") && rdHomeHtml.includes('id="new-title"'));
+  check("home has the stats strip and the What's new strip", rdHomeHtml.includes("stat-strip") && rdHomeHtml.includes('class="whats-new"'));
   const rdDocsHtml = await (await fetch(origin + "/docs")).text();
   check("docs has the sticky TOC filter and start cards", rdDocsHtml.includes('id="toc-filter"') && rdDocsHtml.includes('class="doc-start"'));
   for (const [name, html] of [["/", rdHomeHtml], ["/commands?q=ban", filteredHtml], ["/docs", rdDocsHtml], ["404", nfHtml]] as const) {

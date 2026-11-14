@@ -1,21 +1,21 @@
-import { REPO_URL } from "../layout";
+import { REPO_URL, SUPPORT_SERVER_INVITE } from "../layout";
 import { type SiteConfig, breadcrumb, escapeHtml, page, safeUrl } from "./shared";
 
 /* Legal */
 
 /** Shown on /terms and /privacy. Change both pages together. */
-export const LEGAL_LAST_UPDATED = "November 2, 2026";
-const LEGAL_LAST_UPDATED_ISO = "2026-11-02";
+export const LEGAL_LAST_UPDATED = "November 14, 2026";
+const LEGAL_LAST_UPDATED_ISO = "2026-11-14";
 
 /** How to reach the maintainer, built only from what is actually configured. */
 function contactLine(cfg: SiteConfig, topic: string): string {
   const ways = [
+    `ask in the <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a>`,
     `open an issue on <a href="${REPO_URL}/issues" rel="noopener noreferrer">GitHub</a> (issues are public, so leave out personal details and ask for a private follow-up if you need one)`,
   ];
-  if (cfg.supportUrl) ways.push(`ask in the <a href="${safeUrl(cfg.supportUrl)}" rel="noopener noreferrer">support server</a>`);
   if (cfg.contactEmail) ways.push(`email <a href="mailto:${escapeHtml(cfg.contactEmail)}">${escapeHtml(cfg.contactEmail)}</a>`);
   const list = ways.length === 1 ? ways[0] : `${ways.slice(0, -1).join(", ")} or ${ways[ways.length - 1]}`;
-  return `<p>For ${topic}, ${list}. To report a security problem, follow the <a href="/security">security policy</a> instead of filing a public issue.</p>`;
+  return `<p>For ${topic}, ${list}. To report a security problem, follow the <a href="/security">security policy</a> (a private GitHub security advisory) instead of posting it in the support server or a public issue.</p>`;
 }
 
 function legalPage(cfg: SiteConfig, o: {
@@ -93,7 +93,7 @@ export function renderTerms(cfg: SiteConfig): string {
         title: "About these terms",
         html: `<p>These terms cover the Aegis bot on Discord, the web dashboard at <a href="/dashboard">/dashboard</a>, and this website (together, "Aegis"). Aegis is run by its maintainer ("we", "us"). It is not made, endorsed or sponsored by Discord Inc.</p>
       <p>By adding Aegis to a server, using its commands, logging in to the dashboard or using this website, you agree to these terms. If you do not agree, do not use Aegis, and remove it from any server you manage.</p>
-      <p>These terms apply to the copy of Aegis we run. Someone running their own copy from the source code is responsible for that copy.</p>`,
+      <p>These terms apply to the copy of Aegis we run. Running another copy needs written permission (see <a href="#source">Source code and licence</a>), and whoever runs it is responsible for it.</p>`,
       },
       {
         id: "eligibility",
@@ -108,7 +108,8 @@ export function renderTerms(cfg: SiteConfig): string {
         <li>Reviewing the permissions on Discord's authorization screen before inviting Aegis, and placing its role correctly in the role list.</li>
         <li>The rules you configure, such as automod filters, escalation thresholds, verification auto-kick and ticket auto-close, and the actions they take automatically.</li>
         <li>Moderation decisions: who is warned, timed out, kicked or banned, and why. Aegis is a tool; the decisions stay with your staff.</li>
-        <li>Using logging, ticket transcripts and the staff watchlist in line with Discord's policies, your own server rules and any law that applies to you. Logging can copy deleted and edited messages into a channel, and the watchlist sends staff alerts about a member without telling them.</li>
+        <li>Using logging, ticket and ModMail transcripts, Incident Mode and the staff watchlist in line with Discord's policies, your own server rules and any law that applies to you. Logging can copy deleted and edited messages into a channel, and the watchlist sends staff alerts about a member without telling them.</li>
+        <li>Any proof you attach to a warning, timeout, kick or ban. Only attach what you are allowed to share with your staff.</li>
       </ul>`,
       },
       {
@@ -138,7 +139,8 @@ export function renderTerms(cfg: SiteConfig): string {
       {
         id: "source",
         title: "Source code and licence",
-        html: `<p>The source code is published on <a href="${REPO_URL}" rel="noopener noreferrer">GitHub</a> so it can be read and reviewed. It is not open source: it is proprietary and all rights are reserved. Copying, modifying, redistributing or running your own copy needs written permission from the maintainer, as the README explains. Using the bot in your server does not give you any rights to the code, name or branding.</p>`,
+        html: `<p>The source code is published on <a href="${REPO_URL}" rel="noopener noreferrer">GitHub</a> so it can be read and reviewed. It is not open source: it is proprietary and all rights are reserved. Copying, modifying, redistributing or running your own copy, public or private, needs written permission from the maintainer, as the <a href="${REPO_URL}/blob/main/LICENSE" rel="noopener noreferrer">LICENSE</a> file and the README explain. Using the bot in your server does not give you any rights to the code, name or branding.</p>
+      <p>To ask for permission, use the contact options at the end of these terms. Versions before 3.13.0 were published under the MIT licence; from 3.13.0 the proprietary licence applies.</p>`,
       },
       {
         id: "third-parties",
@@ -195,8 +197,8 @@ export function renderPrivacy(cfg: SiteConfig): string {
     glance: [
       "Aegis stores what its features need, such as server settings, moderation records, tickets and appeals, keyed by server.",
       "It does not sell data, show ads, build profiles or train models on your messages.",
-      "Warnings, cases and staff notes are deleted automatically after one year; dashboard activity after 180 days; dashboard sessions after 7 days.",
-      "The public website has no analytics and no cookies. The dashboard sets two login cookies.",
+      "Warnings, cases and staff notes are deleted automatically after one year; member activity counters and dashboard activity after 180 days; economy transactions, closed ModMail transcripts and Incident Mode reports after 90 days; dashboard sessions after 7 days.",
+      "The public website has no analytics and no cookies, and the status badges have no tracking. Your theme is kept in your browser only. The dashboard sets two login cookies.",
       `You can ask for data to be deleted; see <a href="#deletion">how</a>.`,
     ],
     sections: [
@@ -208,13 +210,15 @@ export function renderPrivacy(cfg: SiteConfig): string {
       {
         id: "from-discord",
         title: "What Aegis receives from Discord",
-        html: `<p>Like any Discord bot, Aegis receives events from Discord for the servers it is in. It asks Discord for server, member, member presence, message, message content, reaction and voice state events. That means it can see:</p>
+        html: `<p>Like any Discord bot, Aegis receives events from Discord for the servers it is in. It asks Discord for server, member, member presence, message, message content, reaction, voice state and direct message events. That means it can see:</p>
       <ul>
         <li>Server, channel and role details, and member details such as user ID, username, roles, join date and account age.</li>
         <li>Messages and their content in channels it can view, plus edits, deletions and reactions.</li>
         <li>Voice channel joins and leaves.</li>
+        <li>Direct messages that people send to Aegis.</li>
       </ul>
-      <p>Most of this is used in memory as it arrives, for example to check a message against automod rules or auto-responders, to post a log entry, to send a watchlist alert, or to count messages for the trust score, and is not written to the database. Only the items listed in the next section are stored. Aegis does not ask Discord for direct message events, so it does not read DMs sent to it.</p>`,
+      <p>Most of this is used in memory as it arrives, for example to check a message against automod rules or auto-responders, to post a log entry, to send a watchlist alert, or to count messages for the trust score, and is not written to the database. Only the items listed in the next section are stored.</p>
+      <p>Direct messages to Aegis are used only for ModMail. If one of your servers has ModMail turned on and you message Aegis, your message is relayed to that server's staff and saved in the ticket transcript (see the table below). Otherwise Aegis may reply with a short help message, and nothing you sent is stored.</p>`,
       },
       {
         id: "stored",
@@ -224,20 +228,25 @@ export function renderPrivacy(cfg: SiteConfig): string {
       <table>
         <thead><tr><th>Data</th><th>What is in it</th><th>How long it is kept</th></tr></thead>
         <tbody>
-          ${row("Server settings", "Logging, welcome, escalation, ticket, verification, starboard, flagged media and automod settings, including blocked word lists and exempt roles and channels; auto-responders; role panels.", "Until staff change or remove them, or deletion is requested. Not removed automatically when Aegis leaves a server.")}
-          ${row("Warnings", "Member's user ID, moderator's user ID, reason, optional proof link, and whether it was revoked.", "Deleted automatically one year after it was issued, or earlier with <code class=\"inline\">/clearwarnings</code>.")}
-          ${row("Moderation cases", "Timeouts, kicks, bans, unbans and similar: member and moderator IDs, action, reason, details, optional proof link, revoked state.", "Deleted automatically after one year. Revoking a case keeps it, marked revoked.")}
+          ${row("Server settings", "Logging, welcome, escalation, ticket, verification, starboard, flagged media, automod, Trust Score, Incident Mode, ModMail (including blocked member IDs) and staff digest settings, including blocked word lists and exempt roles and channels; auto-responders; role panels; ModMail snippets; and whether staff dismissed the dashboard's Get started checklist (a yes/no flag).", "Until staff change or remove them, or deletion is requested. Not removed automatically when Aegis leaves a server.")}
+          ${row("Warnings", "Member's user ID, moderator's user ID, reason, optional proof (see below), and whether it was revoked.", "Deleted automatically one year after it was issued, or earlier with <code class=\"inline\">/clearwarnings</code>.")}
+          ${row("Moderation cases", "Timeouts, kicks, bans, unbans and similar: member and moderator IDs, action, reason, details, optional proof (see below), revoked state.", "Deleted automatically after one year. Revoking a case keeps it, marked revoked.")}
+          ${row("Proof attachments", "When staff attach proof to <code class=\"inline\">/warn</code>, <code class=\"inline\">/timeout</code>, <code class=\"inline\">/kick</code> or <code class=\"inline\">/ban</code>, Aegis stores the attachment's Discord link with the warning or case and shows it in the case and mod log. The file itself stays on Discord; Aegis does not copy it.", "With the warning or case it belongs to (one year). The file lasts as long as Discord keeps it.")}
           ${row("Staff notes", "Member and moderator IDs and the note text.", "Deleted automatically after one year, or earlier with <code class=\"inline\">/note delete</code> or <code class=\"inline\">/note clear</code>.")}
           ${row("Ban appeals", "Appeal code, member and moderator IDs, ban reason, the appeal text the member submits, and the staff decision and note.", "No automatic expiry.")}
           ${row("Automod hits", "Member and channel IDs, the rule and action, and the first 200 characters of the message that triggered it. Used for <code class=\"inline\">/modreport</code>.", "No automatic expiry.")}
           ${row("Tickets", "Opener's user ID, ticket channel, category, who claimed and closed it, close reason and timestamps.", "No automatic expiry. Transcripts are not stored in the database (see below).")}
           ${row("Watchlist entries", "Watched member's ID, moderator's ID, reason, chosen events, alert count and optional alert channel.", "Until staff remove the entry or its set expiry passes.")}
-          ${row("Member activity", "Per member and server: a message count and the time of their last message. No message content.", "No automatic expiry.")}
+          ${row("Member activity", "Per member and server: a message count, the time of their last message, and which UTC days in the last 30 had at least one message. Used for the Trust Score. No message content.", "Deleted automatically 180 days after the member's last message.")}
           ${row("Community features", "Suggestions (author ID, text, voter IDs, staff review); giveaways (host, entrant and winner IDs); polls (creator, question, and each voter's choice by user ID, including for anonymous polls, where votes are hidden from members but still stored to count them); starboard entries.", "No automatic expiry.")}
-          ${row("Economy (only if a server turns it on)", "Per member and server: wallet and bank balances, daily streak, the times of their last /daily, /weekly, /work, /crime and bet, and how much they sent and lost gambling that UTC day (for the daily limits); shop items (name, price, role, stock, limits); what each member bought; and a transaction log (type, amount, the other member for payments, and the staff member and reason for adjustments).", "Transactions: 90 days. Balances, items and inventories: until staff reset or remove them.")}
-          ${row("Reminders and scheduled posts", "Creator's user ID, channel, message text and timing.", "Until they run, or until cancelled if they repeat.")}
+          ${row("Economy (only if a server turns it on)", "Per member and server: wallet and bank balances, daily streak, the times of their last /daily, /weekly, /work, /crime and bet, and how much they sent and lost gambling that UTC day (for the daily limits); shop items (name, price, role, stock, limits); what each member bought; and a transaction history shown by <code class=\"inline\">/transactions</code>: the type (daily, weekly, work, interest, payments sent and received, gambling, shop buys, sales, uses and refunds, bank deposits and withdrawals, crime, robbery and fines, and staff gives, takes and resets), amount, balance afterwards, the other member for payments and robberies, and the staff member and note for staff changes.", "Transactions: deleted automatically after 90 days. Balances, items and inventories: until staff reset or remove them.")}
+          ${row("Personal reminders", "Set with <code class=\"inline\">/remindme</code> or the <strong>Remind Me About This</strong> message menu: your user ID, the server and channel you set it in, the reminder text (your note, or for a message its author's username and first line, up to 200 characters), a link back to that message, the due time, whether it repeats daily or weekly, and whether to also ping you in the channel.", "Until it is delivered, or until you cancel it with <code class=\"inline\">/remindme cancel</code> if it repeats.")}
+          ${row("Reminders, scheduled posts and timed actions", "Server reminders and scheduled posts (creator's user ID, channel, message text and timing), and timed actions waiting to run: timed slowmode (channel, the previous and new slowmode, the moderator's username and the end time), auto-unlocks, temporary bans and roles, verification kicks, ticket auto-close, poll closes and the weekly staff digest.", "Until they run, or until cancelled if they repeat.")}
+          ${row("ModMail (only if a server turns it on)", "Per ticket: the member's user ID and username, the server and staff thread, every message relayed in either direction (author ID and username, text including attachment links, whether a staff reply was anonymous, and time; up to the latest 500), and who closed it, why and when.", "While the ticket is open, then deleted automatically 90 days after it closes.")}
+          ${row("Incident Mode reports", "Who started and ended the incident, the reason, its settings, the channel changes it made so they can be restored, counts of joins, gated accounts, cases and deleted messages, related case IDs, and a timeline of events that can include member IDs.", "Deleted automatically 90 days after the incident ends.")}
+          ${row("Join and leave counts", "Per server and UTC day: how many members joined and left. No user IDs. Used for the dashboard's analytics.", "Deleted automatically after 120 days.")}
           ${row("Dashboard sessions", "Your Discord user ID, username, display name, the Discord access token for this login, and your server list with your permissions in each. Only a hash of the session ID is stored.", "7 days after login, or when you log out.")}
-          ${row("Dashboard activity", "Server ID, your user ID and username, what you changed, and when. Shown on the server's Activity page.", "Deleted automatically after 180 days.")}
+          ${row("Dashboard activity", "Server ID, your user ID and username, what you changed, and when. Shown on the server's Activity page and in the Recent activity card on the overview.", "Deleted automatically after 180 days.")}
           ${row("Dashboard rate limits", "A SHA-256 hash of your IP address and a request count for a one-minute window. The address itself is not stored.", "Deleted about a minute after the window ends.")}
         </tbody>
       </table>
@@ -246,16 +255,17 @@ export function renderPrivacy(cfg: SiteConfig): string {
       <ul>
         <li><strong>Log entries.</strong> With logging on, Aegis posts moderation actions, joins and leaves, role and channel changes, and the content of edited and deleted messages (up to 200 characters) to the server's log channel.</li>
         <li><strong>Ticket transcripts.</strong> When a ticket closes, Aegis builds an HTML transcript of the channel. It is posted to the ticket log channel if transcript logging is on, and sent to the ticket opener by DM. Aegis does not keep a copy.</li>
-        <li><strong>Direct messages.</strong> Aegis may DM members about a ban and how to appeal it, an appeal decision, a suggestion's status, their own reminders, or a ticket transcript. Watchlist alerts are DMed to the moderator who set the watch, and can include part of the watched member's messages.</li>
+        <li><strong>Direct messages.</strong> Aegis may DM members about a ban and how to appeal it, an appeal decision, a suggestion's status, their own reminders, ModMail replies from a server's staff, or a ticket transcript. Watchlist alerts are DMed to the moderator who set the watch, and can include part of the watched member's messages.</li>
       </ul>
       <p>Messages Aegis posts in Discord are kept by Discord and can be deleted by the server's staff. How long they last is up to the server.</p>
       <h3>Logs</h3>
-      <p>The bot writes operational logs, such as errors, startup messages and Top.gg vote notices, which can include server and user IDs. They are kept by our hosting provider's logging system and are not sent to any analytics service. Aegis itself does not log the IP addresses of website visitors. The public API's rate limit keeps addresses in memory for one minute and never writes them to the database.</p>`,
+      <p>The bot writes operational logs, such as errors, startup messages and Top.gg vote notices, which can include server and user IDs. They are kept by our hosting provider's logging system and are not sent to any analytics service. Aegis itself does not log the IP addresses of website visitors. The public API's rate limit keeps addresses in memory for one minute and never writes them to the database. For the status page, the bot saves a health sample every few minutes (whether Discord and the database were reachable, and the gateway ping), with no user or server data, kept for 8 days.</p>`,
       },
       {
         id: "website",
         title: "This website and cookies",
-        html: `<p>The public pages load no analytics, advertising or third-party scripts or fonts, and set no cookies. Your light or dark theme choice is saved in your browser's local storage under <code class="inline">aegis-theme</code> and never sent to us.</p>
+        html: `<p>The public pages load no analytics, advertising or third-party scripts or fonts, and set no cookies. Your light, dark or system theme choice, on the website and the dashboard, is saved only in your browser's local storage under <code class="inline">aegis-theme</code>, not in a cookie, and is never sent to us. The same goes for a few other display choices: pinned commands and recent searches on the website, and folded or collapsed sidebar sections in the dashboard.</p>
+      <p>The status badges at <code class="inline">/badge/status.svg</code> and <code class="inline">/badge/servers.svg</code> are plain images built from the public status totals. They set no cookies, contain no tracking, and Aegis does not record who loads them.</p>
       <p>The dashboard sets two cookies, both marked HttpOnly and SameSite=Lax. On the live site they carry the <code class="inline">__Host-</code> prefix, so the browser only accepts them over HTTPS from this exact host; a local test copy on plain http uses the names without the prefix, limited to <code class="inline">/dashboard</code>:</p>
       <ul>
         <li><code class="inline">__Host-aegis_dash</code> (<code class="inline">aegis_dash</code> locally): a signed, random session ID that keeps you logged in for up to 7 days. A new one is issued every time you log in.</li>
@@ -273,7 +283,8 @@ export function renderPrivacy(cfg: SiteConfig): string {
         id: "use",
         title: "How data is used",
         html: `<ul>
-        <li>To run the features a server has turned on: moderation, automod, escalation, appeals, tickets, verification, logging, the watchlist, reports and community tools.</li>
+        <li>To run the features a server has turned on: moderation, automod, escalation, appeals, tickets, ModMail, Incident Mode, verification, logging, the watchlist, the Trust Score, reports, the economy and community tools.</li>
+        <li>To deliver reminders you set for yourself.</li>
         <li>To show server staff their records, in Discord and in the dashboard.</li>
         <li>To protect Aegis from abuse, for example with rate limits.</li>
         <li>To show totals such as server and member counts on the home and status pages.</li>
@@ -300,13 +311,13 @@ export function renderPrivacy(cfg: SiteConfig): string {
       {
         id: "retention",
         title: "How long data is kept",
-        html: `<p>The table above gives the period for each kind of record. In short: warnings, cases and staff notes are deleted after one year, dashboard activity after 180 days, dashboard sessions after 7 days and rate-limit records within minutes. Other records are kept until server staff delete them, until deletion is requested, or until Aegis no longer needs them. Removing Aegis from a server does not delete that server's records automatically.</p>`,
+        html: `<p>The table above gives the period for each kind of record. In short: warnings, cases (with their proof links) and staff notes are deleted after one year; member activity counters 180 days after a member's last message; dashboard activity after 180 days; join and leave counts after 120 days; economy transactions, closed ModMail tickets and ended Incident Mode reports after 90 days; dashboard sessions after 7 days; and rate-limit records within minutes. Reminders and timed actions are removed once they have run. Other records are kept until server staff delete them, until deletion is requested, or until Aegis no longer needs them. Removing Aegis from a server does not delete that server's records automatically.</p>`,
       },
       {
         id: "deletion",
         title: "Deleting data and your choices",
         html: `<p><strong>Server staff</strong> can delete much of it directly: <code class="inline">/clearwarnings</code> for warnings, <code class="inline">/note delete</code> and <code class="inline">/note clear</code> for staff notes, the relevant commands or dashboard pages for settings, watchlist entries, auto-responders and role panels, and Discord itself for anything Aegis posted.</p>
-      <p><strong>Members</strong> should usually start with the staff of the server concerned, since they decide how Aegis is used there.</p>
+      <p><strong>Members</strong> can cancel their own reminders with <code class="inline">/remindme cancel</code>. For anything else, start with the staff of the server concerned, since they decide how Aegis is used there.</p>
       <p><strong>To ask us</strong> to delete a server's records, or records about you, use one of the contact options below. We will need to confirm that you manage the server or own the Discord account before deleting anything, and we will tell you if something cannot be deleted, for example because a server needs it to handle an open appeal. Depending on where you live, you may have other rights over your data, such as access or correction; ask the same way.</p>`,
       },
       {

@@ -2,7 +2,7 @@
 
 ## Stack
 
-- Runtime: Node.js
+- Runtime: Node.js 22+ (`engines` in `package.json`)
 - Language: TypeScript
 - Discord library: discord.js v14
 - Database: MongoDB / Mongoose
@@ -23,7 +23,15 @@ Commands live under `src/commands/` and are grouped by category:
 - `welcome` — welcome system configuration
 - `community` — community interaction commands
 - `automation` — scheduled and automated tasks
+- `autoresponder` — keyword auto-responses
+- `economy` — the opt-in server economy
+- `roles` — role panels
+- `tickets` — the ticket system
+- `verification` — member verification
 - `developer` — owner-only developer tools
+
+Message and user context-menu commands (Report Message, Remind Me About This,
+User Info, Avatar) live in `src/commands/contextMenus.ts`.
 
 Every command should implement the shared `Command` interface from `src/types/discord.ts`.
 
@@ -73,22 +81,26 @@ Developer commands are owner-only. The owner ID should be supplied through `DISC
 
 The web dashboard and public reference pages live under `src/web/`:
 
-- `theme/` — Unified CSS design system featuring high-performance solid surface styling, semantic tokens, and clean typography with zero GPU/render bottleneck from `backdrop-filter`.
+- `theme/` — The CSS design system, split by area and joined in `theme/index.ts`: semantic tokens and the selectable themes (System, Light, Dark, Steel & Ink, and Glass, the only one that uses `backdrop-filter`, with a solid fallback).
 - `layout.ts` — Global HTML layout scaffolding including responsive navigation (with direct Changelog link), search dialog modal, theme toggle (`data-theme`), and metadata.
-- `client/` — Client-side vanilla JavaScript controlling theme persistence (`aegis-theme`), global search (`Ctrl+K`), and quick clipboard copying. Note: NEVER include string template literals (`${...}`) in `clientScript` to preserve smoke test compliance.
+- `client/` — Client-side vanilla JavaScript controlling theme persistence (`aegis-theme` in localStorage, never a cookie), global search (`Ctrl+K`), and quick clipboard copying. Note: NEVER include string template literals (`${...}`) in `clientScript` to preserve smoke test compliance.
 - `assets.ts` — Inlined SVGs and synchronous `themeInitScript` executed before DOM paint to prevent styling flash.
 - `pages/` — Server-side rendered HTML generators for the public routes, one module per page (`pages/index.ts` re-exports them).
 - `server.ts` — Express server managing asset hashing, route registration, live telemetry streaming, and HTTP compression.
+- `dashboard/` — The web dashboard (Discord OAuth, sessions, CSRF, one view module per page under `views/` and one route module per group under `routes/`).
+- `pages/legal.ts` — Terms and Privacy. When a change starts or stops storing something, or changes how long it is kept, update the privacy table and the "Last updated" date there.
 
 ## Exclusive Proprietary Features (v3.4.0+)
 
 Aegis includes unique high-value moderation capabilities not found in standard public bots:
 
 - **Ghost Watch (`/watchlist`, `src/services/watchlistService.ts`):** Silent member surveillance tracking messages, edits, deletions, joins, leaves, and role changes via gateway events with direct DM alerts to staff.
-- **Trust Score (`/trustscore`):** Real-time 0–100 algorithmic risk scoring based on Discord account age, server tenure, warning penalties, active cases, and veteran longevity bonuses.
+- **Trust Score (`/trust user`, `src/services/trustEngine.ts`):** Explainable 0–100 score from account age, server tenure, verification, active days, warnings and cases by severity and recency, automod hits and Incident Mode join-gate flags, shown with a ten-square band-coloured bar (`scoreBar()` in `src/services/trustScore.ts`). `/trust config` sets the preset and low-trust integrations. `/trustscore` is a deprecated alias.
+- **Incident Mode (`/incident`, `src/services/incidentService.ts`):** One-step raid response (slowmode, lockdown, join gate, paused invites) that records every change and restores it exactly.
+- **ModMail (`/modmail`, `src/services/modmailService.ts`):** Members DM the bot; conversations become private staff threads, with transcripts kept 90 days after close.
 - **Ban Appeal Workflow (`/appeal`):** Automatic unique appeal code (`AGS-XXXX`) generation during `/ban`, direct delivery to appellant DMs, Discord modal submission, and staff triage with automated unban execution upon approval.
 - **Mod Report Digest (`/modreport`):** Multi-view interactive analytics digest aggregating 24h/7d metrics across moderation actions, repeat offenders, moderator team leaderboards, and AutoMod rule triggers.
 
 ## Project Direction & Distribution
 
-Aegis is a closed-source, proprietary enterprise-grade Discord bot. Do not add public open-source repository links, contribution guides, or copyleft licenses. Favor predictable behavior, strong typing, explicit permissions, safe moderation, and reusable services over unnecessary abstraction.
+Aegis is proprietary: all rights are reserved (see `LICENSE`, `"license": "UNLICENSED"` in `package.json`). The source is public on GitHub so it can be read and reviewed, but copying, modifying, redistributing or running a copy, public or private, needs the maintainer's written permission, as section "Source code and licence" of the Terms says. Do not describe it as open source anywhere, and do not add open-source or copyleft licences. Versions before 3.13.0 were MIT-licensed. Favor predictable behavior, strong typing, explicit permissions, safe moderation, and reusable services over unnecessary abstraction.

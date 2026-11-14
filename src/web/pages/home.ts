@@ -1,8 +1,11 @@
 import { catalogStats } from "../catalog";
-import { CHANGE_KINDS, getReleases, releaseCounts, sectionKind } from "../changelog";
+import { getReleases } from "../changelog";
 import { features, faqs, quickstart } from "../content";
-import { HEADLINE } from "./featuresData";
+import { FEATURE_CATEGORIES, HEADLINE } from "./featuresData";
 import { icon, iconSprite, type IconId } from "./icons";
+import { botShowcase } from "./botReplies";
+import { REPO_URL } from "../layout";
+import { audienceSplit, differentiators, whatsNewStrip } from "./homeSections";
 import { type SiteConfig, type Stats, cmdBlock, endNote, escapeHtml, faqBlock, fmtNum, fmtUptime, jsonLd, page, safeUrl, slashInput, statStrip, statusWord } from "./shared";
 
 /* Home */
@@ -29,38 +32,6 @@ function fmtDate(iso: string): string {
     : d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 }
 
-/** The newest released version, with its change tally and first few entries. */
-function latestRelease(): string {
-  const r = getReleases()[0];
-  if (!r || !r.date) return "";
-  const counts = releaseCounts(r);
-  const tally = CHANGE_KINDS.filter(k => counts.byKind[k]).map(k =>
-    `<li class="tally-item kc-${k}"><span class="tally-dot" aria-hidden="true"></span>${counts.byKind[k]} ${k}</li>`
-  ).join("");
-  // Changelog entries are rendered (and escaped) by the changelog parser from CHANGELOG.md.
-  const highlights = r.sections.flatMap(s => s.items.slice(0, 2).map(item => ({ kind: sectionKind(s.title), item }))).slice(0, 3);
-  return `<section class="section" aria-labelledby="new-title">
-  <div class="wrap">
-    <div class="section-head">
-      <h2 id="new-title">What's new</h2>
-      <p>From the <a href="/changelog">changelog</a>, which is built from the repository's CHANGELOG.md.</p>
-    </div>
-    <article class="home-release">
-      <header class="home-release-head">
-        <h3><a href="/changelog#${escapeHtml(r.id)}">v${escapeHtml(r.version)}</a></h3>
-        <span class="release-latest">Latest</span>
-        <time datetime="${escapeHtml(r.date)}">${escapeHtml(fmtDate(r.date))}</time>
-      </header>
-      ${tally ? `<ul class="release-tally" aria-label="Changes in this release">${tally}</ul>` : ""}
-      ${highlights.length ? `<ul class="home-release-items">
-        ${highlights.map(h => `<li><span class="kchip kc-${h.kind}">${h.kind}</span> <span>${h.item}</span></li>`).join("\n        ")}
-      </ul>` : ""}
-      <p class="home-release-more"><a class="text-link" href="/changelog#${escapeHtml(r.id)}">All ${counts.total} changes in v${escapeHtml(r.version)} &rarr;</a></p>
-    </article>
-  </div>
-</section>`;
-}
-
 export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): string {
   const st = statusWord(stats.ping, online);
   const cs = catalogStats();
@@ -77,14 +48,16 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
   const featureCards = features.map(f => {
     const link = HOME_FEATURE_LINKS[f.id] ?? { anchor: "", icon: "shield" as IconId };
     const href = link.anchor ? `/features#${link.anchor}` : "/features";
+    const docs = `/docs#${f.docs ?? f.id}`;
     return `<li class="home-feature">
-        <div class="home-feature-head">${icon(link.icon)}<h3><a href="${href}">${escapeHtml(f.title)}</a></h3></div>
+        <div class="home-feature-head">${icon(link.icon)}<h3><a href="${docs}">${escapeHtml(f.title)}</a></h3></div>
         <p><strong>${escapeHtml(f.outcome)}</strong> ${escapeHtml(f.short)}</p>
         <div class="home-feature-start">
           <span class="faint">Start with</span>
           <code>${escapeHtml(f.start)}</code>
           <button class="copy-btn sm-copy" type="button" data-js-only data-copy="${escapeHtml(f.start)}" aria-label="Copy ${escapeHtml(f.start)}">Copy</button>
         </div>
+        <p class="home-feature-links"><a href="${docs}">Docs<span class="visually-hidden"> for ${escapeHtml(f.title)}</span></a> <span aria-hidden="true">·</span> <a href="${href}">Features<span class="visually-hidden">: ${escapeHtml(f.title)}</span></a></p>
       </li>`;
   }).join("\n      ");
 
@@ -162,7 +135,16 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
   </section>
 
   ${strip}
+  ${whatsNewStrip()}
 </div>
+
+${differentiators()}
+
+<div class="section"><div class="wrap">
+  ${botShowcase({ id: "proof", title: "See what it actually says", lead: "Two real replies, recreated: a Trust Score with every point explained, and Incident Mode switched on during a raid. The names are made up." })}
+</div></div>
+
+${audienceSplit()}
 
 <section class="section" aria-labelledby="highlights-title">
   <div class="wrap">
@@ -180,7 +162,7 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
   <div class="wrap">
     <div class="section-head">
       <h2 id="what-title">Everything it does</h2>
-      <p>Each card links to the details on the <a href="/features">features page</a>. The command is where you would start.</p>
+      <p>Each card links to its section in the <a href="/docs">docs</a> and on the <a href="/features">features page</a>. The command is where you would start.</p>
     </div>
     <ul class="home-features">
       ${featureCards}
@@ -193,7 +175,7 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
     <div>
       <div class="section-head">
         <h2 id="setup-title">Set up in about five minutes</h2>
-        <p>The <a href="/docs#quickstart">quickstart</a> has the longer version.</p>
+        <p>The <a href="/docs#quickstart">quickstart</a> has the longer version. What's coming next is on the <a href="/roadmap">roadmap</a>.</p>
       </div>
       <ol class="home-steps">
       ${steps}
@@ -216,7 +198,6 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
   </div>
 </section>
 
-${latestRelease()}
 
 <section class="section" aria-labelledby="faq-title">
   <div class="wrap">
@@ -247,7 +228,9 @@ ${latestRelease()}
           softwareVersion: cfg.version,
           url: process.env.SITE_URL || "/",
           offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-          featureList: features.map(f => f.title),
+          // Proprietary, all rights reserved: the licence is the LICENSE file, not an open-source licence.
+          license: `${REPO_URL}/blob/main/LICENSE`,
+          featureList: [...new Set([...HEADLINE.map(h => h.title), ...features.map(f => f.title), ...FEATURE_CATEGORIES.flatMap(c => c.cards.map(card => card.title))])],
         },
         {
           "@type": "BreadcrumbList",

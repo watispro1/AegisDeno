@@ -28,6 +28,7 @@ import { cssDashboardTrustPages } from "./dashboardTrustPages";
 import { cssDashboardCommunityPages } from "./dashboardCommunityPages";
 import { cssThemeTokens, cssThemeSurfaces } from "./themes";
 import { cssGlass } from "./glass";
+import { cssShowcase } from "./showcase";
 
 /* Concatenated in this order; later rules override earlier ones. */
 export const styles =
@@ -47,6 +48,7 @@ export const styles =
   cssDashboardModulePages +
   cssDashboardTrustPages +
   cssDashboardCommunityPages +
+  cssShowcase +
   cssThemeSurfaces +
   cssGlass +
   cssResponsive;
