@@ -42,6 +42,8 @@ const ROUTES: [string, number][] = [
   ["/api/commands", 200],
   ["/api/status", 200],
   ["/assets/status.js", 200],
+  ["/badge/status.svg", 200],
+  ["/badge/servers.svg", 200],
   ["/api/plugins", 404],
   ["/api/commands/ban", 200],
   ["/api/commands/timeout", 200],

@@ -1,4 +1,6 @@
-import { breadcrumb, escapeHtml, fmtUptime, page, type SiteConfig } from "./shared";
+import { breadcrumb, cmdBlock, escapeHtml, fmtUptime, page, type SiteConfig } from "./shared";
+import { BADGES, BADGE_CACHE_SECONDS } from "../badges";
+import { siteBaseUrl } from "../../config/links";
 import type { ComponentState, HistoryWindow, OverallState, StatusPayload } from "../statusData";
 
 /* Status */
@@ -115,6 +117,7 @@ function glyph(state: ComponentState | "ok" | "warn" | "bad" | "info"): string {
 }
 
 export function renderStatus(cfg: SiteConfig, s: StatusPayload): string {
+  const badgeOrigin = siteBaseUrl();
   const metric = (key: string, label: string, value: string, hint: string) =>
     `<div class="metric"><span class="metric-label">${label}</span><strong class="metric-value" data-status-metric="${key}">${value}</strong><span class="metric-hint">${hint}</span></div>`;
   const m = s.metrics;
@@ -241,9 +244,14 @@ export function renderStatus(cfg: SiteConfig, s: StatusPayload): string {
           <tr><td><a href="/health"><code class="inline">/health</code></a></td><td>Up or down in one small response. Good for uptime checks.</td></tr>
           <tr><td><a href="/api/stats"><code class="inline">/api/stats</code></a></td><td>Server and command counts.</td></tr>
           <tr><td><a href="/changelog.xml"><code class="inline">/changelog.xml</code></a></td><td>Atom feed of releases.</td></tr>
+          ${BADGES.map(b => `<tr><td><a href="${b.path}"><code class="inline">${b.path}</code></a></td><td>${escapeHtml(b.what)} SVG, cached for ${BADGE_CACHE_SECONDS} seconds.</td></tr>`).join("\n          ")}
         </tbody>
       </table>
     </div>
+    <h3 id="badges">Status badges</h3>
+    <p class="muted st-explain">Show Aegis's status in a README or on your own site. Copy the Markdown, or use the image URL anywhere.</p>
+    ${BADGES.map(b => `<p><img src="${b.path}" alt="${escapeHtml(b.alt)}" height="20"></p>
+    ${cmdBlock(`[![${b.alt}](${badgeOrigin}${b.path})](${badgeOrigin}/status)`)}`).join("\n    ")}
     <p class="faint" data-status-note>Times are shown in UTC until the page script loads, then in your local time. Values refresh every ${STATUS_REFRESH_SECONDS} seconds while this tab is open.</p>
   </section>
 </div>`;

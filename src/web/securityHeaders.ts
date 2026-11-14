@@ -26,9 +26,9 @@ export const CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-/** Paths other sites may legitimately embed or fetch (share images, the public JSON API). */
+/** Paths other sites may legitimately embed or fetch (share images, status badges, the public JSON API). */
 export function isCrossOriginResource(path: string): boolean {
-  return path.startsWith("/api/") || path === "/api" || /^\/assets\/(og\.(png|svg)|favicon\.svg)$/.test(path);
+  return path.startsWith("/api/") || path === "/api" || path.startsWith("/badge/") || /^\/assets\/(og\.(png|svg)|favicon\.svg)$/.test(path);
 }
 
 export function securityHeaders(path: string): Record<string, string> {
