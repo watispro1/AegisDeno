@@ -81,7 +81,7 @@ Developer commands are owner-only. The owner ID should be supplied through `DISC
 
 The web dashboard and public reference pages live under `src/web/`:
 
-- `theme/` — The CSS design system, split by area and joined in `theme/index.ts`: semantic tokens and the selectable themes (System, Light, Dark, Steel & Ink, and Glass, the only one that uses `backdrop-filter`, with a solid fallback).
+- `theme/` — The CSS design system, split by area and joined in `theme/index.ts`: semantic tokens and the selectable themes (System, Light, Dark, Steel & Ink, and Glass, the only one that uses `backdrop-filter`, with a solid fallback; `glass.ts` holds the shared and site Glass rules, `glassDashboard.ts` the dashboard surfaces, and blur is kept to floating chrome, not repeated cards or tables).
 - `layout.ts` — Global HTML layout scaffolding including responsive navigation (with direct Changelog link), search dialog modal, theme toggle (`data-theme`), and metadata.
 - `client/` — Client-side vanilla JavaScript controlling theme persistence (`aegis-theme` in localStorage, never a cookie), global search (`Ctrl+K`), and quick clipboard copying. Note: NEVER include string template literals (`${...}`) in `clientScript` to preserve smoke test compliance.
 - `assets.ts` — Inlined SVGs and synchronous `themeInitScript` executed before DOM paint to prevent styling flash.
