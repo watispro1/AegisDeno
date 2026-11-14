@@ -56,6 +56,6 @@ test("dashboard pages keep the phone layout: labelled table cells and wrap-safe 
 });
 
 test("header folds into the menu button before seven nav links and the theme picker overflow", () => {
-  assert.ok(/@media \(max-width: 1080px\) \{\s*\.nav-toggle \{ display: inline-flex; \}/.test(styles), "nav collapses below 1080px");
-  assert.ok(/@media \(max-width: 1080px\) \{[^@]*\.nav-links \{\s*display: none;/.test(styles), "links move into the menu");
+  assert.ok(/@media \(max-width: 1040px\) \{\s*\.nav-toggle \{ display: inline-flex; \}/.test(styles), "nav collapses below 1040px");
+  assert.ok(/@media \(max-width: 1040px\) \{[^@]*\.nav-links \{\s*display: none;/.test(styles), "links move into the menu");
 });

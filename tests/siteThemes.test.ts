@@ -86,7 +86,7 @@ for (const id of THEME_IDS) {
     if (btn < AA) failures.push(`--accent-ink on --accent: ${btn.toFixed(2)}`);
     /* Danger buttons, required-option pills and check icons put text on a status fill:
        white in light themes, the page ink in dark ones (see themes.ts). */
-    const onFill = id === "dark" || id === "steel" ? resolve(t, t["--bg"]) : "#ffffff";
+    const onFill = id === "dark" || id === "steel" || id === "glass" ? resolve(t, t["--bg"]) : "#ffffff";
     for (const fill of ["--danger", "--warn", "--accent"]) {
       const r = ratio(over(onFill, "#000000"), over(resolve(t, t[fill]), "#000000"));
       if (r < AA) failures.push(`on-fill text on ${fill}: ${r.toFixed(2)}`);
@@ -95,18 +95,42 @@ for (const id of THEME_IDS) {
   });
 }
 
-test("contrast (glass): text stays AA on the frosted surface over every gradient stop", () => {
+test("contrast (glass): text stays AA on the frosted surfaces over every glow colour", () => {
   const t = theme("glass");
-  for (const stop of ["--glass-a", "--glass-b", "--glass-c", "--bg"]) {
+  for (const stop of ["--glass-a", "--glass-b", "--glass-c", "--glass-d", "--bg"]) {
     const under = resolve(t, t[stop]);
-    const surface = over(t["--glass-surface"], under);
+    for (const layer of ["--glass-surface", "--glass-strong"]) {
+      const surface = over(t[layer], under);
+      for (const fg of TEXT) {
+        const r = ratio(over(resolve(t, t[fg]), "#000000"), surface);
+        assert.ok(r >= AA, `${fg} on ${layer} over ${stop}: ${r.toFixed(2)}`);
+      }
+      /* Ghost pills and sunk fields add a faint white wash on top. */
+      for (const wash of ["rgba(255, 255, 255, .13)"]) {
+        const washed = over(wash, `rgb(${surface.join(",")})`);
+        for (const fg of TEXT) {
+          const r = ratio(over(resolve(t, t[fg]), "#000000"), washed);
+          assert.ok(r >= AA, `${fg} on ${layer} + ${wash} over ${stop}: ${r.toFixed(2)}`);
+        }
+      }
+    }
     for (const fg of TEXT) {
-      const r = ratio(over(resolve(t, t[fg]), "#000000"), surface);
-      assert.ok(r >= AA, `${fg} on glass surface over ${stop}: ${r.toFixed(2)}`);
       const bare = ratio(over(resolve(t, t[fg]), "#000000"), rgb(under).slice(0, 3) as [number, number, number]);
       assert.ok(bare >= AA, `${fg} directly on ${stop}: ${bare.toFixed(2)}`);
     }
   }
+});
+
+test("glass: dark base, drifting glows that stop under reduced motion", () => {
+  const t = theme("glass");
+  assert.ok(luminance(rgb(t["--bg"]).slice(0, 3) as [number, number, number]) < 0.02, "glass is a dark theme");
+  assert.ok(luminance(rgb(t["--text"]).slice(0, 3) as [number, number, number]) > 0.8, "light text");
+  assert.match(styles, /\[data-theme="glass"\] body::before \{[^}]*animation: glass-drift/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\) \{\s*\[data-theme="glass"\] body::before \{ animation: none;/);
+  assert.match(styles, /@media \(prefers-reduced-transparency: reduce\) \{[^@]*\[data-theme="glass"\] body::before \{ display: none; \}/);
+  const [, , , a] = rgb(t["--glass-surface"]);
+  assert.ok(a >= 0.45 && a <= 0.6, "frosted surface is translucent, not white");
+  assert.ok(rgb(t["--glass-surface"]).slice(0, 3).every(c => c <= 40), "frosted surface is dark");
 });
 
 test("glass: blur only where supported, solid under prefers-reduced-transparency", () => {
@@ -162,7 +186,7 @@ test("theme-init: applies every saved theme before paint and falls back to the s
     return { ...attrs, meta: meta.content };
   };
   assert.deepEqual(run("steel"), { "data-theme": "steel", "data-theme-setting": "steel", meta: "#0c0d0f" });
-  assert.deepEqual(run("glass"), { "data-theme": "glass", "data-theme-setting": "glass", meta: "#e7eae8" });
+  assert.deepEqual(run("glass"), { "data-theme": "glass", "data-theme-setting": "glass", meta: "#0b0d12" });
   assert.deepEqual(run(null, true), { "data-theme": "dark", "data-theme-setting": "system", meta: "#161716" });
   assert.deepEqual(run("bogus"), { "data-theme": "light", "data-theme-setting": "system", meta: "#fbfaf8" });
 });

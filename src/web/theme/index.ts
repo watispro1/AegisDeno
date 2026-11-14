@@ -6,7 +6,8 @@
  * you would type into Discord (IBM Plex is used if it is installed locally; no
  * web fonts are downloaded). Thin borders instead of shadows, 4px corners, no gradients,
  * no blur, no scroll animations. Light is the default; Dark, Steel & Ink and
- * Glass (beta) are opt-in via the theme picker in the header (themes.ts) and
+ * Glass (beta, glass.ts: the one theme with blur and a drifting background)
+ * are opt-in via the theme picker in the header (themes.ts) and
  * the choice is remembered in localStorage.
  */
 import { cssBase } from "./base";
@@ -26,6 +27,7 @@ import { cssDashboardModulePages } from "./dashboardModulePages";
 import { cssDashboardTrustPages } from "./dashboardTrustPages";
 import { cssDashboardCommunityPages } from "./dashboardCommunityPages";
 import { cssThemeTokens, cssThemeSurfaces } from "./themes";
+import { cssGlass } from "./glass";
 
 /* Concatenated in this order; later rules override earlier ones. */
 export const styles =
@@ -46,4 +48,5 @@ export const styles =
   cssDashboardTrustPages +
   cssDashboardCommunityPages +
   cssThemeSurfaces +
+  cssGlass +
   cssResponsive;

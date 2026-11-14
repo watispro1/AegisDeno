@@ -38,9 +38,16 @@ export const cssChrome = String.raw`/* ── Header ─────────
 :not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 :not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
 
-/* Seven nav links plus the theme picker, search and CTA need ~1040px, so the
-   header folds into the menu button below 1080px rather than overflowing. */
-@media (max-width: 1080px) {
+/* Seven nav links plus the theme picker, search and CTA need ~975px once the
+   spacing is tightened (1041-1200px; measured headless at 1040-1200px), so
+   the header only folds into the menu button below 1040px. */
+@media (min-width: 1041px) and (max-width: 1200px) {
+  .nav-inner { gap: 1rem; }
+  .nav-links { gap: 0; }
+  .nav-link { padding: 0 .5rem; }
+  .nav-actions .btn { margin-left: .25rem; }
+}
+@media (max-width: 1040px) {
   .nav-toggle { display: inline-flex; }
   .site-search-trigger { width: 44px; padding: 0; border-color: transparent; }
   .site-search-trigger kbd { display: none; }

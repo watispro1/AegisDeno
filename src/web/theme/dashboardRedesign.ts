@@ -142,6 +142,8 @@ export const cssDashboardRedesign = `
   .dash-error-code { flex-direction: row; gap: .75rem; justify-content: flex-start; min-width: 0; }
   .dash-error-code span { font-size: 1.8rem; }
   .dash-head { align-items: flex-start; flex-direction: column; }
+  /* In a column the 22rem flex-basis would become a 22rem-tall gap. */
+  .dash-head-text { flex: 0 1 auto; width: 100%; }
 }
 @media (max-width: 560px) {
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
