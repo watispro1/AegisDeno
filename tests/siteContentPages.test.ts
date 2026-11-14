@@ -16,6 +16,8 @@ import { OAUTH_SCOPES } from "../src/web/dashboard/discordOAuth";
 import { serializeCookie } from "../src/web/dashboard/security";
 import { WHY_REASONS } from "../src/web/pages/why";
 import { ROADMAP } from "../src/web/pages/roadmap";
+import { renderFeatures } from "../src/web/pages/features";
+import { EXAMPLE_CASES, exampleTrust } from "../src/web/pages/featuresExamples";
 import { layout } from "../src/web/layout";
 import { UNDO_WINDOW_MS } from "../src/services/moderationUndo";
 import { INCIDENT_MAX_MINUTES } from "../src/services/incidentLogic";
@@ -137,4 +139,19 @@ test("footer and docs: support server, public GitHub repo and a visible changelo
   const docs = renderDocs(cfg);
   for (const href of ["https://discord.gg/HwTbCYC4PM", "https://github.com/watispro1/AegisDeno", "/changelog.xml"]) assert.ok(docs.includes(`href="${href}"`), href);
   assert.ok(renderChangelog(cfg).includes("Subscribe with the Atom/RSS feed"));
+});
+
+test("features: dashboard examples are labelled as made up and the Trust Score example adds up", () => {
+  const html = renderFeatures(cfg);
+  cspClean(html, "features");
+  for (const id of ["examples", "example-cases", "example-trust", "example-incident"]) assert.ok(html.includes(`id="${id}"`), id);
+  assert.ok(html.includes('href="#examples"'));
+  assert.equal((html.match(/<span class="f-badge">Example data<\/span>/g) ?? []).length, 3);
+  assert.ok(html.includes("Every name, number and time here is made up"));
+  for (const [id] of EXAMPLE_CASES) assert.ok(html.includes(id));
+  const t = exampleTrust();
+  const b = t.breakdown;
+  assert.equal(b.accountAge + b.serverTenure + b.bonus + b.activity + b.warningPenalty + b.casePenalty, b.total);
+  assert.ok(html.includes(`${b.total} / 100`));
+  assert.equal(renderFeatures(cfg), html, "examples are stable between renders");
 });
