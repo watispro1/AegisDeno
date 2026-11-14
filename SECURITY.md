@@ -1,6 +1,7 @@
 # Security policy
 
-Thank you for helping keep Aegis and the servers that use it safe.
+Thank you for helping keep Aegis and the servers that use it safe. A short
+version of this policy is on the website at https://aegisdeno.fly.dev/security.
 
 ## Supported versions
 
@@ -8,8 +9,8 @@ Only the latest release gets security fixes.
 
 | Component | Supported | Not supported |
 | --- | --- | --- |
-| Bot | 3.6.x | 3.5.x and older |
-| Web dashboard | 1.2.x | none older (1.2.0 was the first release) |
+| Bot | 3.13.x | 3.12.x and older |
+| Web dashboard | 1.8.x | 1.7.x and older |
 
 The running versions are shown in the website footer, at the bottom of every
 dashboard page, and in `/about`.
@@ -17,7 +18,7 @@ dashboard page, and in `/about`.
 ## Reporting a vulnerability
 
 **Please do not report security problems in public issues, pull requests,
-discussions or Discord.**
+discussions or Discord, including the support server.**
 
 Report them privately through GitHub:
 

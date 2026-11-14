@@ -2,11 +2,15 @@
 
 A step-by-step guide for deploying Aegis to production on Fly.io with MongoDB Atlas.
 
+> Aegis is proprietary (see [`LICENSE`](./LICENSE)). This guide is for the
+> maintainer's deployment and for anyone the maintainer has given written
+> permission to run a copy. Using the hosted bot needs none of this.
+
 ---
 
 ## Prerequisites
 
-- [ ] Node.js 20+ installed locally
+- [ ] Node.js 22+ installed locally
 - [ ] [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) installed and authenticated (`fly auth login`)
 - [ ] A [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) cluster created (M0 free tier is fine)
 - [ ] A Discord application created at [discord.com/developers](https://discord.com/developers/applications)
@@ -21,9 +25,11 @@ A step-by-step guide for deploying Aegis to production on Fly.io with MongoDB At
 - [ ] Under **Privileged Gateway Intents**, enable:
   - [x] **Server Members Intent** (required for welcome messages and hierarchy checks)
   - [x] **Message Content Intent** (required for automod)
-  - [ ] **Presence Intent** (optional, only for rich presence)
-  - The bot also requests the message reactions intent for the starboard. It is
-    not privileged, so there is nothing to enable for it.
+  - [x] **Presence Intent** (the bot requests it, so Discord refuses the
+    connection if it is off)
+  - The bot also requests the message reactions intent (starboard) and the
+    direct messages intent (ModMail). Neither is privileged, so there is
+    nothing to enable for them.
 - [ ] Under **OAuth2 → URL Generator**, select scopes: `bot`, `applications.commands`
 - [ ] Nothing to pick by hand: the site's `/invite` adds the computed permissions
   (`1460691659798`: View Channel, Send Messages, Embed Links, Read Message
@@ -188,11 +194,14 @@ fly secrets list      # List set secret names (values are hidden)
 
 After inviting Aegis to a server:
 
-1. **Set up a logging channel**: run `/logging setup #your-log-channel` so mod actions, member join/leave, and automod triggers are recorded
-2. **Configure welcome messages** (optional): `/welcome setup #welcome-channel`
+1. **Set up a logging channel**: run `/logging channel` and pick your log channel so mod actions, member join/leave, and automod triggers are recorded
+2. **Configure welcome messages** (optional): `/welcome channel`, then `/welcome toggle`
 3. **Enable automod**: `/automod status` to see defaults, then configure rules as needed
 4. **Test moderation**: try `/warn`, `/timeout`, `/modhistory` in a private channel first
 5. **Check bot permissions**: run `/diagnostics`; it lists every invite permission Aegis is missing and what it is for. Locks need **Manage Roles** (not Manage Channels)
+6. **Use the dashboard's Get started checklist**: the overview at `/dashboard` lists the setup steps still to do, worked out from the server's settings
+
+Questions go to the support server: https://discord.gg/HwTbCYC4PM.
 
 ---
 
@@ -210,12 +219,14 @@ After inviting Aegis to a server:
 | `PORT`                    | Optional | HTTP port for web server (default: `3000`)                      |
 | `SITE_URL`                | Optional | Public site URL, used for SEO and canonical links               |
 | `BOT_INVITE_URL`          | Optional | Custom OAuth2 invite URL                                        |
-| `SUPPORT_SERVER_URL`      | Optional | Discord support server invite                                   |
+| `SUPPORT_SERVER_URL`      | Optional | Discord support server invite (default: `https://discord.gg/HwTbCYC4PM`) |
 | `JOIN_WELCOME`            | Optional | `off` disables the one-time welcome posted on server join     |
-| `CONTACT_EMAIL`           | Optional | Contact email shown in web footer                               |
+| `CONTACT_EMAIL`           | Optional | Contact email shown on the terms and privacy pages              |
 | `DISCORD_CLIENT_SECRET`   | Dashboard | OAuth2 client secret; the dashboard is off without it          |
 | `DASHBOARD_SESSION_SECRET`| Dashboard | Signs session cookies and CSRF tokens; 32+ characters          |
 | `DASHBOARD_REDIRECT_URI`  | Optional | OAuth2 redirect (default: `https://aegisdeno.fly.dev/dashboard/callback`) |
+| `TOPGG_TOKEN`             | Optional | Posts the server count to Top.gg every 30 minutes               |
+| `TOPGG_WEBHOOK_AUTH`      | Optional | Shared secret for the Top.gg vote webhook                       |
 
 ## Web dashboard
 

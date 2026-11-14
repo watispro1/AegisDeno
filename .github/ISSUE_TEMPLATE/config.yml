@@ -3,6 +3,9 @@ contact_links:
   - name: Report a security vulnerability
     url: https://github.com/watispro1/AegisDeno/security/advisories/new
     about: Please report security problems privately, not in a public issue.
+  - name: Ask in the support server
+    url: https://discord.gg/HwTbCYC4PM
+    about: Questions and setup help from the Aegis team and community.
   - name: Command reference and docs
     url: https://aegisdeno.fly.dev/docs
     about: Setup steps, permissions and troubleshooting.

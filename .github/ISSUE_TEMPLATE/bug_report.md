@@ -4,7 +4,8 @@ about: Something in the bot, website or dashboard does not work as described
 labels: bug
 ---
 
-<!-- Security problem? Do not file it here. See SECURITY.md. -->
+<!-- Security problem? Do not file it here. See SECURITY.md or https://aegisdeno.fly.dev/security. -->
+<!-- Just a question? Ask in the support server: https://discord.gg/HwTbCYC4PM -->
 <!-- Issues are public: leave out tokens, personal data and server invite links. -->
 
 **What happened**
