@@ -16,7 +16,7 @@ import {
 } from "../src/web/pages";
 import { styles } from "../src/web/theme";
 import { clientScript } from "../src/web/client";
-import { faviconSvg, ogImageSvg, manifest, themeInitScript } from "../src/web/assets";
+import { faviconSvg, markSvg, ogImageSvg, manifest, themeInitScript } from "../src/web/assets";
 import { loadCommands } from "../src/commands/loader";
 import { atomFeed as buildAtomFeed } from "../src/web/changelog";
 
@@ -70,6 +70,7 @@ async function main() {
     ["assets/site.js", clientScript],
     ["assets/theme-init.js", themeInitScript],
     ["assets/favicon.svg", faviconSvg],
+    ["assets/mark.svg", markSvg],
     ["assets/og.svg", ogImageSvg],
     ["manifest.webmanifest", manifest],
     ["changelog.xml", atomFeed()],
