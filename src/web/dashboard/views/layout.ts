@@ -49,6 +49,7 @@ interface NavItem { key: GuildSection; label: string; href: string; icon: string
 export const MODULE_NAV: ReadonlyArray<{ group: string; items: ReadonlyArray<NavItem> }> = [
   { group: "General", items: [
     { key: "overview", label: "Overview", href: "", icon: "◎" },
+    { key: "activity", label: "Activity", href: "/activity", icon: "⟲" },
     { key: "settings", label: "Settings", href: "/settings", icon: "⚙" },
     { key: "tools", label: "Modules & backup", href: "/tools", icon: "⇄" },
   ] },
@@ -82,7 +83,6 @@ export const MODULE_NAV: ReadonlyArray<{ group: string; items: ReadonlyArray<Nav
     { key: "announce", label: "Announcements", href: "/announce", icon: "✺" },
   ] },
   { group: "Records", items: [
-    { key: "activity", label: "Activity", href: "/activity", icon: "⟲" },
     { key: "analytics", label: "Analytics", href: "/analytics", icon: "▥" },
   ] },
 ];

@@ -14,6 +14,7 @@ import type { DashboardData, OverviewData, SettingsSnapshot } from "../src/web/d
 import { normalizeGuildConfig, guildConfigSetPaths } from "../src/services/guildConfigNormalize";
 import { normalizeAutomodConfig } from "../src/services/automod";
 import { onboardingSteps, showGettingStarted, recentActivityCard } from "../src/web/dashboard/views/gettingStarted";
+import { MODULE_NAV } from "../src/web/dashboard/views/layout";
 import type { SiteConfig } from "../src/web/pages";
 
 const GUILD = "800000000000000001";
@@ -72,6 +73,12 @@ test("recent activity card: five newest, escaped, links to the full log; handles
   assert.match(html, new RegExp(`href="/dashboard/${GUILD}/activity"`));
   assert.match(recentActivityCard(GUILD, []), /No dashboard changes yet/);
   assert.match(recentActivityCard(GUILD, null), /couldn't be loaded/);
+});
+
+test("sidebar: Activity sits in the first group, right after Overview", () => {
+  const first = MODULE_NAV[0].items.map(i => i.key);
+  assert.deepEqual(first.slice(0, 2), ["overview", "activity"]);
+  assert.equal(MODULE_NAV.flatMap(g => g.items).filter(i => i.key === "activity").length, 1);
 });
 
 /* Routes */
