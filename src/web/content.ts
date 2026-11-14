@@ -279,6 +279,26 @@ export const faqs: { q: string; a: string }[] = [
     a: `<p>No. Settings, warnings, cases, tickets and rules are stored per server ID. Warnings, cases and staff notes are deleted automatically after a year. Details are in the <a href="/privacy">privacy policy</a>.</p>`,
   },
   {
+    q: "Why does Aegis not ask for Administrator?",
+    a: `<p>Administrator lets a bot do anything in your server, so a bug or a leaked token would have no limit. Aegis asks only for the permissions its commands declare, and Administrator is removed from the invite even if one asked for it. You can see exactly what each permission is for in the <a href="/docs#permissions">permissions table</a>, and <a href="/why#permissions">why that matters</a>.</p>`,
+  },
+  {
+    q: "Why can't Aegis act on some members?",
+    a: `<p>Role order. Discord does not let a bot change anyone whose highest role is level with or above the bot's own, and Aegis applies the same rule to moderators: you can only act on members whose top role is below yours (the server owner is the exception). Drag the Aegis role above the roles it should moderate in Server Settings, then run <code class="inline">/diagnostics</code> to check.</p>`,
+  },
+  {
+    q: "Does Aegis work in private or hidden channels?",
+    a: `<p>Only where its role can see them. Automod, logging, purges and locks need View Channel (and the usual send or manage permissions) in that channel. For a private channel, add the Aegis role to the channel's permissions. <code class="inline">/diagnostics</code> lists channels Aegis can't view or post in. Watchlist alerts from a private channel only reach watchers who can see it, and staff-channel copies leave the message text out.</p>`,
+  },
+  {
+    q: "I just added Aegis. Why is a command missing or out of date?",
+    a: `<p>Commands are registered with Discord globally when the bot starts, and Discord usually shows changes within minutes. Your Discord client caches the list, so restart it (Ctrl+R on desktop) if a new or renamed command is missing. If no Aegis commands appear at all, re-invite with the <code class="inline">applications.commands</code> scope.</p>`,
+  },
+  {
+    q: "How long is data kept?",
+    a: `<p>Warnings, moderation cases and staff notes are deleted after one year. Trust Score activity counters go after 180 days without a message, dashboard activity after 180 days and dashboard sessions after 7 days. Settings stay until staff change them or deletion is requested; removing Aegis does not delete a server's records automatically. The <a href="/privacy">privacy policy</a> has the full table.</p>`,
+  },
+  {
     q: "Commands are not showing up. What now?",
     a: `<p>Check that the bot was invited with the <code class="inline">applications.commands</code> scope, then restart your Discord client. The <a href="/troubleshooting">troubleshooting page</a> covers the other usual causes.</p>`,
   },

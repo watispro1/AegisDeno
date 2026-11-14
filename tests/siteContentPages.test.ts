@@ -7,9 +7,9 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { loadCommands } from "../src/commands/loader";
 import { clearCatalogCache } from "../src/web/catalog";
-import { features } from "../src/web/content";
+import { faqs, features } from "../src/web/content";
 import { HEADLINE } from "../src/web/pages/featuresData";
-import { renderChangelog, renderRoadmap, renderHome, renderPrivacy, renderSecurity, renderWhy, type SiteConfig } from "../src/web/pages";
+import { renderDocs, renderChangelog, renderRoadmap, renderHome, renderPrivacy, renderSecurity, renderWhy, type SiteConfig } from "../src/web/pages";
 import { CONTENT_SECURITY_POLICY, securityHeaders } from "../src/web/securityHeaders";
 import { SECRET_ENV_KEYS } from "../src/utils/logger";
 import { OAUTH_SCOPES } from "../src/web/dashboard/discordOAuth";
@@ -114,4 +114,15 @@ test("roadmap: the known open items, marked as plans, linked from the changelog 
   assert.ok(renderChangelog(cfg).includes('href="/roadmap"'), "changelog links the roadmap");
   const shell = layout({ title: "t", description: "d", path: "/", body: "", inviteUrl: "#", supportUrl: "", version: "1" });
   assert.ok(shell.includes('href="/roadmap"'), "footer links the roadmap");
+});
+
+test("FAQ: role order, hidden channels, registration delays, no Administrator and retention, on home and docs", () => {
+  const qs = faqs.map(f => f.q);
+  for (const q of ["Why does Aegis not ask for Administrator?", "Why can't Aegis act on some members?", "Does Aegis work in private or hidden channels?", "I just added Aegis. Why is a command missing or out of date?", "How long is data kept?"]) assert.ok(qs.includes(q), q);
+  for (const html of [renderHome(cfg, stats, true), renderDocs(cfg)]) {
+    for (const f of faqs) assert.ok(html.includes(f.q.replace(/'/g, "&#39;")), f.q);
+  }
+  const retention = faqs.find(f => f.q === "How long is data kept?")!.a;
+  assert.ok(retention.includes("one year") && retention.includes("180 days") && retention.includes("7 days"));
+  assert.ok(renderWhy(cfg).includes('id="permissions"'), "FAQ deep link target exists");
 });
