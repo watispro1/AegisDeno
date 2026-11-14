@@ -105,3 +105,17 @@ test("support server is visible on docs (sidebar and block), troubleshooting and
   assert.ok(renderDocs(cfg).includes(`href="${SUPPORT_SERVER_INVITE}"`), "falls back to the default invite");
   assert.equal(SUPPORT_SERVER_INVITE, "https://discord.gg/HwTbCYC4PM");
 });
+
+test("self-hosting note repeats the Terms: public for review, own copies need written permission", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { renderTerms } = await import("../src/web/pages");
+  const { faqs } = await import("../src/web/content");
+  const terms = renderTerms(cfg);
+  assert.match(terms, /id="source"/);
+  assert.match(terms, /running your own copy needs written permission from the maintainer/);
+  const why = renderWhy(cfg);
+  assert.match(why, /id="source"/);
+  assert.match(why, /running your own copy needs written permission from the maintainer/);
+  assert.ok(faqs.some(f => /written permission/.test(f.a) && /\/terms#source/.test(f.a)));
+  assert.match(readFileSync("README.md", "utf8"), /Self-hosting and the source/);
+});

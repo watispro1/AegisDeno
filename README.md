@@ -15,6 +15,13 @@ dashboard.
 | Status | https://aegisdeno.fly.dev/status |
 | Current version | bot 3.12.1, dashboard 1.7.0 |
 
+> **Self-hosting and the source.** The source code is public so it can be read
+> and reviewed. It is not open source: copying, modifying, redistributing or
+> running your own copy needs written permission from the maintainer (see
+> [Licence](#licence) and section "Source code and licence" of the
+> [Terms](https://aegisdeno.fly.dev/terms#source)). Using the bot in your server
+> does not give you any rights to the code, name or branding.
+
 Despite the repository name, Aegis is a **Node.js** app (TypeScript,
 discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
 

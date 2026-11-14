@@ -8,6 +8,7 @@ import { INCIDENT_MAX_MINUTES } from "../../services/incidentLogic";
 import { WHY_ROWS, type IconId } from "./featuresData";
 import { icon, iconSprite } from "./icons";
 import { botShowcase } from "./botReplies";
+import { REPO_URL } from "../layout";
 import { type SiteConfig, breadcrumb, endNote, escapeHtml as esc, page } from "./shared";
 
 export interface WhyReason {
@@ -94,6 +95,10 @@ export function renderWhy(cfg: SiteConfig): string {
   </ul>
   ${botShowcase({ id: "proof", title: "See it for yourself", lead: "What a moderator actually sees, recreated from the real replies. The names are made up." })}
   ${table}
+  <section class="f-cat" id="source" aria-labelledby="source-title">
+    <h2 id="source-title"><a class="group-anchor" href="#source">Self-hosting and the source</a></h2>
+    <p class="f-lead">The source code is public on <a href="${REPO_URL}" rel="noopener noreferrer">GitHub</a> so anyone can read and review how Aegis works. It is not open source: copying, modifying, redistributing or running your own copy needs written permission from the maintainer. Using the bot in your server does not give you any rights to the code, name or branding. The exact wording is in the <a href="/terms#source">terms</a>.</p>
+  </section>
   ${endNote(cfg, `Questions first? The <a href="/docs#faq">FAQ</a> and the <a href="/security">security page</a> cover the details.`)}
 </div>`;
   return page(cfg, {
