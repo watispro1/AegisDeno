@@ -133,7 +133,7 @@ export const cssGlassDashboard = String.raw`
   transition: background-color .2s var(--ease-glass), border-color .2s var(--ease-glass), color .2s var(--ease-glass);
 }
 [data-theme="glass"] .chip:hover, [data-theme="glass"] .mod-chip:hover { background: rgba(255, 255, 255, .09); border-color: rgba(255, 255, 255, .26); color: var(--text); }
-[data-theme="glass"] .chip[aria-pressed="true"], [data-theme="glass"] .quick-filters a[aria-current="true"] { color: var(--text); background: rgba(169, 200, 255, .2); border-color: rgba(169, 200, 255, .55); box-shadow: inset 0 1px 0 var(--glass-hi); }
+[data-theme="glass"] .chip[aria-pressed="true"], [data-theme="glass"] .mod-chip[aria-pressed="true"], [data-theme="glass"] .quick-filters a[aria-current="true"] { color: var(--text); background: rgba(169, 200, 255, .2); border-color: rgba(169, 200, 255, .55); box-shadow: inset 0 1px 0 var(--glass-hi); }
 [data-theme="glass"] .pick-chip { border-radius: 999px; background: rgba(169, 200, 255, .16); }
 
 /* Checklist, activity feed, charts. */
