@@ -7,6 +7,8 @@
 export const cssDashboardModules = `
 /* Overview: module board */
 .mod-section { margin: 2rem 0; }
+.mod-board { display: block; min-width: 0; }
+.mod-count { font: 500 .8rem/1.4 var(--mono); white-space: nowrap; }
 .mod-board-head { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: center; justify-content: space-between; margin: 0 0 1rem; }
 .mod-summary { margin: 0; font: 500 .85rem/1.4 var(--mono); color: var(--muted); }
 .mod-tools { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: center; }
@@ -31,6 +33,7 @@ export const cssDashboardModules = `
 .mod-card .status-pill { flex: none; font-size: .72rem; padding: .1rem .5rem; }
 .mod-desc { margin: 0; font-size: .86rem; color: var(--muted); line-height: 1.4; }
 .mod-state { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .45rem; margin: 0; font: 500 .78rem/1.4 var(--mono); }
+.mod-state-label { font-weight: 600; }
 .mod-state-dot { width: .45rem; height: .45rem; border-radius: 50%; background: currentColor; }
 .mod-state.ready { color: var(--ok); }
 .mod-state.setup { color: var(--warn); }

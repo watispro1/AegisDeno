@@ -119,7 +119,7 @@ export const cssDashboardRedesign = `
 .guild-list-invite .guild-item { border-style: dashed; background: transparent; }
 
 /* Footer */
-.dash-foot-links { white-space: nowrap; }
+.dash-foot-links, .dash-foot-v { white-space: nowrap; }
 
 /* Focus rings */
 .side-link:focus-visible, .side-brand:focus-visible, .guild-item:focus-visible, .side-foot-link:focus-visible,
