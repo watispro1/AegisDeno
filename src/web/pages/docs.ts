@@ -1,4 +1,4 @@
-import { REPO_URL } from "../layout";
+import { REPO_URL, SUPPORT_SERVER_INVITE } from "../layout";
 import { faqs } from "../content";
 import { type SiteConfig, breadcrumb, cmdBlock, escapeHtml, faqBlock, fmtNum, page, safeUrl, statStrip } from "./shared";
 import { icon, iconSprite, type IconId } from "./icons";
@@ -341,6 +341,9 @@ npm run dev             # or: npm run build && npm start`)}
         <li><a href="/commands">Commands</a></li>
         <li><a href="/troubleshooting">Troubleshooting</a></li>
         <li><a href="/changelog">Changelog</a></li>
+        <li><a href="/changelog.xml">Changelog feed (Atom/RSS)</a></li>
+        <li><a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">Support server</a></li>
+        <li><a href="${REPO_URL}" rel="noopener noreferrer">Source on GitHub</a></li>
       </ul>
       <a class="cl-top" href="#main">Back to top &uarr;</a>
     </aside>

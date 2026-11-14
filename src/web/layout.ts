@@ -78,7 +78,7 @@ export function layout(o: LayoutOptions): string {
   const title = esc(o.title);
   const description = esc(o.description);
   const inviteUrl = safeUrl(o.inviteUrl);
-  const supportUrl = safeUrl(o.supportUrl);
+  const supportUrl = safeUrl(o.supportUrl || SUPPORT_SERVER_INVITE);
   const v = o.assetVersion ? `?v=${encodeURIComponent(o.assetVersion)}` : "";
 
   const navItems = NAV.map((l) => {
@@ -184,7 +184,7 @@ ${o.body}
           <span>Aegis</span>
         </a>
         <p>A Discord moderation bot, run from slash commands, with a web dashboard for cases and settings.</p>
-        <p class="footer-meta"><a href="/changelog#v${esc(o.version)}">Version ${esc(o.version)}</a> · <a href="/dashboard/changelog">Dashboard changelog</a></p>
+        <p class="footer-meta"><a href="/changelog#v${esc(o.version)}">Version ${esc(o.version)}</a> · <a href="/dashboard/changelog">Dashboard changelog</a> · <a href="/changelog.xml">Subscribe to updates (Atom/RSS)</a></p>
       </div>
       <div class="footer-col">
         <h2 class="footer-title">Site</h2>
@@ -219,7 +219,7 @@ ${o.body}
           <li><a href="/security">Security</a></li>
           <li><a href="${REPO_URL}" rel="noopener noreferrer">Source on GitHub</a></li>
           <li><a href="${REPO_URL}/issues" rel="noopener noreferrer">Report a problem</a></li>
-          ${o.supportUrl ? `<li><a href="${supportUrl}" rel="noopener noreferrer">Support server</a></li>` : ""}
+          <li><a href="${supportUrl}" rel="noopener noreferrer">Support server</a></li>
         </ul>
       </div>
     </div>
@@ -235,7 +235,7 @@ ${o.body}
         <a href="/security">Security</a>
         <a href="/status">Status</a>
         <a href="/api/stats">API</a>
-        <a href="/changelog.xml">Feed</a>
+        <a href="/changelog.xml">RSS feed</a>
       </nav>
     </div>
   </div>

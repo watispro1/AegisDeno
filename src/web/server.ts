@@ -28,6 +28,7 @@ import {
   Stats,
 } from "./pages";
 import { buildInviteUrl } from "./invite";
+import { SUPPORT_SERVER_INVITE } from "./layout";
 import { suggestPages } from "./notFound";
 import { commands } from "../commands/loader";
 import { VERSION } from "../version";
@@ -72,7 +73,8 @@ function siteConfig(): SiteConfig {
 
   return {
     inviteUrl,
-    supportUrl: process.env.SUPPORT_SERVER_URL || "",
+    // The public support server unless the deployment points somewhere else.
+    supportUrl: process.env.SUPPORT_SERVER_URL?.trim() || SUPPORT_SERVER_INVITE,
     version: SITE_VERSION,
     // Optional. Without it the legal pages point to GitHub instead of an inbox.
     contactEmail: process.env.CONTACT_EMAIL?.trim() || "",

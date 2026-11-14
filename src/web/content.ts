@@ -288,7 +288,7 @@ export const faqs: { q: string; a: string }[] = [
   },
   {
     q: "Does Aegis work in private or hidden channels?",
-    a: `<p>Only where its role can see them. Automod, logging, purges and locks need View Channel (and the usual send or manage permissions) in that channel. For a private channel, add the Aegis role to the channel's permissions. <code class="inline">/diagnostics</code> lists channels Aegis can't view or post in. Watchlist alerts from a private channel only reach watchers who can see it, and staff-channel copies leave the message text out.</p>`,
+    a: `<p>Only where its role can see them. Automod, logging, purges and locks need View Channel (and the usual send or manage permissions) in that channel. For a private channel, add the Aegis role to the channel's permissions; the <a href="/docs#hidden-channels">hidden channels guide</a> walks through it. <code class="inline">/diagnostics</code> lists channels Aegis can't view or post in. Watchlist alerts from a private channel only reach watchers who can see it, and staff-channel copies leave the message text out.</p>`,
   },
   {
     q: "I just added Aegis. Why is a command missing or out of date?",

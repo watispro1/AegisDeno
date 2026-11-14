@@ -126,3 +126,15 @@ test("FAQ: role order, hidden channels, registration delays, no Administrator an
   assert.ok(retention.includes("one year") && retention.includes("180 days") && retention.includes("7 days"));
   assert.ok(renderWhy(cfg).includes('id="permissions"'), "FAQ deep link target exists");
 });
+
+test("footer and docs: support server, public GitHub repo and a visible changelog feed", () => {
+  const shell = layout({ title: "t", description: "d", path: "/", body: "", inviteUrl: "#", supportUrl: "", version: "1" });
+  assert.match(shell, /<a href="https:\/\/discord\.gg\/HwTbCYC4PM" rel="noopener noreferrer">Support server<\/a>/, "default support server");
+  assert.ok(shell.includes('href="https://github.com/watispro1/AegisDeno"'));
+  assert.ok(shell.includes('<a href="/changelog.xml">Subscribe to updates (Atom/RSS)</a>'));
+  const custom = layout({ title: "t", description: "d", path: "/", body: "", inviteUrl: "#", supportUrl: "https://discord.gg/other", version: "1" });
+  assert.ok(custom.includes('href="https://discord.gg/other"') && !custom.includes("HwTbCYC4PM"), "SUPPORT_SERVER_URL wins");
+  const docs = renderDocs(cfg);
+  for (const href of ["https://discord.gg/HwTbCYC4PM", "https://github.com/watispro1/AegisDeno", "/changelog.xml"]) assert.ok(docs.includes(`href="${href}"`), href);
+  assert.ok(renderChangelog(cfg).includes("Subscribe with the Atom/RSS feed"));
+});

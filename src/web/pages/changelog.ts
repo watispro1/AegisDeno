@@ -229,7 +229,7 @@ function renderLog(cfg: SiteConfig, product: Product): string {
 
   const feeds = [
     product === "bot" ? `<a href="/roadmap">What's next</a>` : "",
-    product === "bot" ? `<a href="/changelog.xml">Atom feed</a>` : "",
+    product === "bot" ? `<a href="/changelog.xml">Subscribe with the Atom/RSS feed</a>` : "",
     `<a href="/changelog.json">JSON</a>`,
     `<a href="${REPO_URL}/blob/main/${info.file}">${info.file} on GitHub</a>`,
   ].filter(Boolean).join(`<span class="sep" aria-hidden="true">·</span>`);
