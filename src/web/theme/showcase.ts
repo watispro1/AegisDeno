@@ -67,9 +67,9 @@ export const cssShowcase = String.raw`
 .whats-new ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .3rem 1rem; }
 .whats-new li { color: var(--text-2); }
 .home-feature-links { margin: .5rem 0 0; font-size: .85rem; color: var(--faint); }
-.home-links { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin: 1rem 0 0; font-size: .93rem; }
 .help-block { margin: 1.5rem 0; padding: 1rem 1.15rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--r); background: var(--surface); }
 .help-block h2, .help-block h3 { margin: 0 0 .35rem; font-size: 1.05rem; }
+.help-block .help-block-title { margin-bottom: .3rem; color: var(--text); }
 .help-block p { margin: 0 0 .6rem; color: var(--text-2); font-size: .93rem; }
 .help-block .btn-row { margin: 0; }
 .doc-help { margin-top: 1rem; padding: .75rem; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); font-size: .88rem; }
