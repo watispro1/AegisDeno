@@ -7,7 +7,7 @@ import { clientScript } from "./client";
 import { statusScript } from "./client/status";
 import { type StatusPayload } from "./statusData";
 import { registerStatusRoutes } from "./statusRoutes";
-import { faviconSvg, ogImageSvg, ogImagePng, manifest, themeInitScript } from "./assets";
+import { faviconSvg, markSvg, ogImageSvg, ogImagePng, manifest, themeInitScript } from "./assets";
 import { botPermissionBitfield } from "./catalog";
 import {
   renderHome,
@@ -189,6 +189,7 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   app.get("/assets/status.js", (_req, res) => asset(res, "text/javascript", statusScript, 31536000));
   app.get("/assets/theme-init.js", (_req, res) => asset(res, "text/javascript", themeInitScript, 31536000));
   app.get("/assets/favicon.svg", (_req, res) => asset(res, "image/svg+xml", faviconSvg, 31536000));
+  app.get("/assets/mark.svg", (_req, res) => asset(res, "image/svg+xml", markSvg, 86400));
   app.get("/assets/og.svg", (_req, res) => asset(res, "image/svg+xml", ogImageSvg, 31536000));
   app.get("/assets/og.png", (_req, res) => asset(res, "image/png", ogImagePng, 31536000));
   app.get("/manifest.webmanifest", (_req, res) => asset(res, "application/manifest+json", manifest, 3600));
