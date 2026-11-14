@@ -26,7 +26,7 @@ export function trustEmbed(tag: string, avatar: string | null, r: TrustResult, c
     .setColor(BAND_COLOR[r.band])
     .setAuthor({ name: `Trust Score — ${tag}`, iconURL: avatar ?? undefined })
     .setTitle(`${r.score}/100 · ${r.bandLabel}`)
-    .setDescription(`\`${scoreBar(r.score)}\`${isLowTrust(r.score, config) ? `\n⚠️ Below this server's low-trust threshold (${config.lowThreshold}).` : ""}`)
+    .setDescription(`${scoreBar(r.score)}${isLowTrust(r.score, config) ? `\n⚠️ Below this server's low-trust threshold (${config.lowThreshold}).` : ""}`)
     .addFields({ name: "Why", value: lines.join("\n").slice(0, 1024) })
     .setFooter({ text: `Preset: ${r.preset} · counts and dates only, never message content` });
 }
