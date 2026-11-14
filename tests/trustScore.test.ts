@@ -49,7 +49,14 @@ test("fmtAge and scoreBar format as expected", () => {
   assert.equal(fmtAge(65 * DAY), "2mo");
   assert.equal(fmtAge(365 * DAY), "1y");
   assert.equal(fmtAge(430 * DAY), "1y 2mo");
-  assert.equal(scoreBar(0), "░░░░░░░░░░");
-  assert.equal(scoreBar(70), "███████░░░");
-  assert.equal(scoreBar(100), "██████████");
+  assert.equal(scoreBar(0), "⬛".repeat(10));
+  assert.equal(scoreBar(70), "🟦".repeat(7) + "⬛".repeat(3));
+  assert.equal(scoreBar(80), "🟩".repeat(8) + "⬛".repeat(2));
+  assert.equal(scoreBar(100), "🟩".repeat(10));
+  assert.equal(scoreBar(45), "🟨".repeat(5) + "⬛".repeat(5));
+  assert.equal(scoreBar(10), "🟥" + "⬛".repeat(9));
+  assert.equal(scoreBar(150), "🟩".repeat(10), "clamped high");
+  assert.equal(scoreBar(-5), "⬛".repeat(10), "clamped low");
+  assert.equal(scoreBar(NaN), "⬛".repeat(10));
+  assert.ok(!/[█░▒]/.test(scoreBar(55)), "no block glyphs");
 });

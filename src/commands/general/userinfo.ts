@@ -168,7 +168,7 @@ export async function showUserInfo(interaction: UserInfoInteraction, user: User,
     embed.addFields(
       { name: "⚠️ Warnings", value: warningSummary(warnings), inline: true },
       { name: "📂 Cases", value: `**${cases.filter(c => c.action !== "warn").length}** recent`, inline: true },
-      ...(trust ? [{ name: "🧠 Trust Score", value: `**${trust.score}**/100 · ${trust.bandLabel}\n\`${scoreBar(trust.score)}\`\nDetails: \`/trust user\``, inline: true }] : []),
+      ...(trust ? [{ name: "🧠 Trust Score", value: `**${trust.score}**/100 · ${trust.bandLabel}\n${scoreBar(trust.score)}\nDetails: \`/trust user\``, inline: true }] : []),
     );
   }
 
