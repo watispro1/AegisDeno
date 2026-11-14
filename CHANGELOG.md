@@ -9,6 +9,46 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.13.0] - 2026-11-14
+
+Trust Score bar, licence change and updated Terms and Privacy. **From this
+version Aegis is proprietary: the licence changed from MIT to "all rights
+reserved".** The source stays public so it can be read and reviewed, but
+copying, modifying, redistributing or running your own copy, public or private,
+needs the maintainer's written permission. Versions before 3.13.0 were
+published under MIT. No command changes, so no re-registration is needed. No
+migration, new permissions or environment variables. Released alongside
+dashboard 1.8.0.
+
+### Changed
+- Trust Score bar in `/trust user` and `/userinfo`: ten emoji squares coloured
+  by band (🟩 80+, 🟦 60+, 🟨 40+, 🟧 20+, 🟥 below 20, ⬛ empty), outside a
+  code span, so it renders cleanly on desktop and mobile in both Discord
+  themes. The examples on the website draw the same bar from the same
+  `scoreBar()`.
+- Licence: `LICENSE` is now a proprietary, all-rights-reserved licence worded
+  like section "Source code and licence" of the Terms, and `package.json` says
+  `"license": "UNLICENSED"`. The README, contributing guide, docs, `/why`, FAQ,
+  footer and structured data say the same.
+- Terms of Service (updated 2026-11-14): the licence wording matches `LICENSE`,
+  the support server (https://discord.gg/HwTbCYC4PM) is listed as a contact,
+  and security problems go through `/security`.
+- Privacy Policy (updated 2026-11-14) now covers personal reminders
+  (`/remindme` and Remind Me About This: message link, note, due time), timed
+  slowmode and other timed actions, proof attachment links stored with
+  warnings and cases, ModMail transcripts (90 days after closing), Incident
+  Mode reports (90 days), economy transaction history (types, 90 days), join
+  and leave counts (120 days), the Get started checklist flag, the dashboard
+  activity log, a theme choice kept only in the browser (no cookie) and status
+  badges with no tracking. It also says that direct messages to Aegis are read
+  for ModMail.
+
+### Fixed
+- Privacy Policy: member activity counters are deleted 180 days after a
+  member's last message (it said they never expired), and direct messages are
+  received for ModMail (it said Aegis did not read DMs).
+- Setup docs ask for Node.js 22, which `package.json` requires (they said 20).
+
 ## [3.12.1] - 2026-11-14
 
 Support server link update. The bot's Support server buttons (`/help` and the
