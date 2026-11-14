@@ -7,29 +7,49 @@ import { CASES_PER_PAGE, type RouteKit, type GuildLocals } from "./context";
 import { CASE_EXPORT_MAX, casesToCsv } from "../casesCsv";
 import { casesQuery } from "../views/cases";
 
+/** Dashboard changes read for the overview: five are shown, the rest only feed "invite staff". */
+const OVERVIEW_AUDIT_READ = 25;
+
 export function registerCaseRoutes(router: Router, k: RouteKit): void {
-  const { deps, send, fail, missingPermission, actorOf, logAudit, noticeParam, guildGet, guildPost, exportLimit } = k;
+  const { deps, audit, send, fail, missingPermission, actorOf, logAudit, noticeParam, guildGet, guildPost, exportLimit } = k;
 
   /* Guild pages */
 
-  router.get("/:guildId", ...guildGet, async (_req, res, next) => {
+  router.get("/:guildId", ...guildGet, async (req, res, next) => {
     try {
       const { ctx } = res.locals.dash as GuildLocals;
       const id = ctx.guild.id;
       // The extra panels are best-effort: a failure in one never blocks the overview.
       const soft = <T>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
-      const [data, extras, snapshot, panels] = await Promise.all([
+      const [data, extras, snapshot, panels, recent] = await Promise.all([
         deps.data.overview(id),
         soft(k.modules.overviewExtras(id)),
         soft(deps.data.loadSettings(id)),
         soft(deps.data.listRolePanels(id)),
+        soft(audit.list(id, { page: 1, perPage: OVERVIEW_AUDIT_READ })),
       ]);
       send(res, renderOverview(deps.site, ctx, data, {
         extras, snapshot, rolePanels: panels?.length ?? 0,
         hidden: deps.bot.hiddenChannelIds(id),
         missingBotPermissions: deps.bot.botMissingPermissions?.(id) ?? [],
         pingMs: deps.bot.pingMs?.() ?? null,
+        audit: recent ? recent.items : null,
+        canDismissOnboarding: typeof deps.data.dismissOnboarding === "function",
+        noticeCode: noticeParam(req),
       }));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Hides the overview's "Get started" card for this server (CSRF + Manage Server via guildPost).
+  router.post("/:guildId/onboarding/dismiss", ...guildPost, async (_req, res, next) => {
+    try {
+      const { ctx } = res.locals.dash as GuildLocals;
+      if (!deps.data.dismissOnboarding) return res.redirect(303, `/dashboard/${ctx.guild.id}`);
+      await deps.data.dismissOnboarding(ctx.guild.id);
+      await logAudit(ctx, "onboarding.dismiss", null, "Hid the Get started checklist");
+      res.redirect(303, `/dashboard/${ctx.guild.id}?notice=onboarding-dismissed`);
     } catch (err) {
       next(err);
     }
