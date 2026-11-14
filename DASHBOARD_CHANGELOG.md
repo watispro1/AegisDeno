@@ -8,6 +8,48 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.7.0] - 2026-11-14
+
+Dashboard 1.7.0. A theme picker with two new opt-in themes, a new shield logo
+and social preview, and a content pass on the public site: Why Aegis, an
+expanded security page, a roadmap, an FAQ, status badges and a support server
+link. Released alongside bot version 3.12.1. No new environment variables or
+OAuth scopes.
+
+### Added
+- Theme picker in the site and dashboard headers: System, Light, Dark, Steel &
+  Ink and Glass (beta). The choice is saved in the browser and applied before
+  the page paints.
+- Steel & Ink theme: a dark editorial palette with ink background, paper text,
+  steel accents and serif headings.
+- Glass theme (beta): a soft gradient background with frosted panels. It falls
+  back to solid panels where blur is unsupported or reduced transparency is
+  requested.
+- Shield logo in the header, footer and favicon, and a new Steel & Ink social
+  preview image (`/assets/og.png`, `/assets/og.svg`).
+- `/why` page: reversible actions, an explainable Trust Score, exact Incident
+  Mode restore, minimal permissions, nothing locked, and records that expire.
+- `/roadmap` "What's next" page, linked from the changelog and the footer.
+- FAQ on the home page and in the docs: role order, hidden channels, command
+  registration, why Aegis does not ask for Administrator, and data retention.
+- `/badge/status.svg` and `/badge/servers.svg` status badges for READMEs,
+  documented on the status page.
+- Example Cases, Trust Score and Incident Mode views on `/features`.
+- Support server link (discord.gg/HwTbCYC4PM) and the GitHub repository in the
+  footer and docs, and the changelog feed in the footer, changelog and docs.
+
+### Changed
+- `/security` expanded with data handling, the content security policy and
+  headers, secrets, and how to report a vulnerability.
+- Home feature cards each name the outcome they deliver; Add to Discord is the
+  only primary button.
+- The header folds into the menu button below 1080px wide, so the seven nav
+  links and the theme picker no longer crowd it.
+
+### Fixed
+- Dark theme contrast: danger buttons, required-option pills and check icons
+  now use dark text on their light fills instead of white (about 2.4:1 before).
+
 ## [1.6.0] - 2026-11-12
 
 Dashboard 1.6.0. The module page layout from 1.5.0 now reaches the Trust,

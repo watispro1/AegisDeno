@@ -9,6 +9,17 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.12.1] - 2026-11-14
+
+Support server link update. The bot's Support server buttons (`/help` and the
+welcome message) now open the new invite when `SUPPORT_SERVER_URL` is not set.
+No command changes, so no re-registration is needed. No migration, new
+permissions or environment variables.
+
+### Changed
+- Default support server invite is now https://discord.gg/HwTbCYC4PM. A
+  configured `SUPPORT_SERVER_URL` still takes precedence.
+
 ## [3.12.0] - 2026-11-12
 
 Moderation, utility and economy commands overhaul: quick purges, a Remind Me
