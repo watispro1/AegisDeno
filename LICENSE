@@ -1,21 +1,45 @@
-MIT License
+Aegis - Proprietary Licence
 
-Copyright (c) 2026 AegisDeno Contributors
+Copyright (c) 2026 the Aegis maintainer (watispro1). All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This repository contains the source code of Aegis, a Discord moderation bot,
+its web dashboard and its website (the "Software").
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Source published for review
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   The source code is published on GitHub so it can be read and reviewed. It
+   is not open source. Publishing it does not grant any licence to it, except
+   as stated here.
+
+2. What needs written permission
+
+   Without prior written permission from the maintainer, you may not copy,
+   modify, redistribute, sublicense or sell the Software or any part of it, or
+   run your own copy (instance) of it, whether public or private.
+
+3. Using the hosted bot
+
+   Adding the Aegis bot that the maintainer runs to your Discord server, or
+   using its web dashboard or website, is covered by the Terms of Service at
+   https://aegisdeno.fly.dev/terms, not by this file. Using the bot in your
+   server does not give you any rights to the code, the Aegis name or its
+   branding.
+
+4. Asking for permission
+
+   To ask for permission, contact the maintainer through the support server
+   (https://discord.gg/HwTbCYC4PM) or by opening an issue at
+   https://github.com/watispro1/AegisDeno/issues. Permission counts only if it
+   is given in writing by the maintainer.
+
+5. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   MAINTAINER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+   AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Versions of Aegis before 3.13.0 were published under the MIT licence. This
+licence applies from version 3.13.0 onwards.

@@ -21,7 +21,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "commonjs",
   "dependencies": {
     "discord.js": "^14.28.0",

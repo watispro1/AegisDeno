@@ -251,7 +251,7 @@ export function renderDocs(cfg: SiteConfig): string {
       <p>Presets (Casual Server, Standard Community, Gaming Hub, Strict Security) apply a bundle of automod and escalation settings in one go. Run <code>/preset view</code> to see what one changes before applying it; applying needs Administrator. Most settings can also be changed on the dashboard's Settings page.</p>
 
       ${docHeading("self-hosting", "Self-hosting")}
-      <p>The source is on <a href="${REPO_URL}">GitHub</a>. It is readable, but it is not open source: the licence is proprietary and all rights are reserved, so ask the author before running your own copy. If you have the go-ahead, this is what it takes.</p>
+      <p>The source is on <a href="${REPO_URL}">GitHub</a>. It is readable, but it is not open source: the licence is proprietary and all rights are reserved, so running your own copy, public or private, needs written permission from the maintainer (see the <a href="/terms#source">terms</a>). If you have the go-ahead, this is what it takes.</p>
       <ul>
         <li>Node.js 20 or newer (CI and the Docker image use 22) and a MongoDB database. Despite the repository name, it does not run on Deno.</li>
         <li>A Discord application with a bot user. Copy its token and application ID, and turn on the Server Members, Message Content and Presence intents under <strong>Bot</strong> in the Developer Portal; the bot asks for all three when it connects.</li>

@@ -296,7 +296,7 @@ export const faqs: { q: string; a: string }[] = [
   },
   {
     q: "Can I run my own copy?",
-    a: `<p>Only with written permission. The source code is public so it can be read and reviewed, but it is not open source: copying, modifying, redistributing or running your own copy needs written permission from the maintainer. Using the bot in your server does not give you any rights to the code, name or branding. See <a href="/terms#source">Source code and licence</a> in the terms.</p>`,
+    a: `<p>Only with written permission. The source code is public so it can be read and reviewed, but it is not open source: copying, modifying, redistributing or running your own copy, public or private, needs written permission from the maintainer. Using the bot in your server does not give you any rights to the code, name or branding. See <a href="/terms#source">Source code and licence</a> in the terms.</p>`,
   },
   {
     q: "How long is data kept?",

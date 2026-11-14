@@ -4,6 +4,7 @@ import { features, faqs, quickstart } from "../content";
 import { FEATURE_CATEGORIES, HEADLINE } from "./featuresData";
 import { icon, iconSprite, type IconId } from "./icons";
 import { botShowcase } from "./botReplies";
+import { REPO_URL } from "../layout";
 import { audienceSplit, differentiators, whatsNewStrip } from "./homeSections";
 import { type SiteConfig, type Stats, cmdBlock, endNote, escapeHtml, faqBlock, fmtNum, fmtUptime, jsonLd, page, safeUrl, slashInput, statStrip, statusWord } from "./shared";
 
@@ -227,6 +228,8 @@ ${audienceSplit()}
           softwareVersion: cfg.version,
           url: process.env.SITE_URL || "/",
           offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+          // Proprietary, all rights reserved: the licence is the LICENSE file, not an open-source licence.
+          license: `${REPO_URL}/blob/main/LICENSE`,
           featureList: [...new Set([...HEADLINE.map(h => h.title), ...features.map(f => f.title), ...FEATURE_CATEGORIES.flatMap(c => c.cards.map(card => card.title))])],
         },
         {
