@@ -13,6 +13,7 @@ html.js .nojs-only { display: none; }
 .ph-head .lead { margin-bottom: 0; }
 .stat-strip.stat-n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .stat-strip.stat-n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stat-strip.stat-n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .stat-strip strong a { color: inherit; }
 .stat-strip strong span { font: inherit; color: inherit; }
 .f-icon.sm { width: 1rem; height: 1rem; stroke-width: 2.2; }
@@ -219,8 +220,8 @@ html.js .nojs-only { display: none; }
   .cmd-jump { display: none; }
 }
 @media (max-width: 640px) {
-  .stat-strip.stat-n4, .stat-strip.stat-n3 { grid-template-columns: minmax(0, 1fr); }
-  .stat-strip.stat-n4 .cl-stat { border-left: 0; }
+  .stat-strip.stat-n4, .stat-strip.stat-n3, .stat-strip.stat-n2 { grid-template-columns: minmax(0, 1fr); }
+  .stat-strip.stat-n4 .cl-stat, .stat-strip.stat-n2 .cl-stat { border-left: 0; }
   .nf-head { grid-template-columns: minmax(0, 1fr); padding-top: 2rem; gap: .5rem; }
   .home-hero ~ .stat-strip { margin-bottom: 2rem; }
   .live-pill { border-radius: var(--r-lg); }

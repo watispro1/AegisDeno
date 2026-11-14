@@ -194,7 +194,9 @@ form[aria-busy="true"] [data-save-button]::after { content: " …"; }
 @media (max-width: 820px) {
   .app { display: block; }
   .app-main { padding: 0 1rem 2rem; }
-  .app-top-switcher { max-width: 10rem; }
+  .app-top-switcher { max-width: 10rem; min-width: 4.75rem; }
+  .top-switcher .g-icon, .top-switcher .caret { flex: none; }
+  .drawer-toggle { flex: none; }
   .drawer-close { display: inline-flex; }
   .drawer-backdrop { display: block; }
   .app[data-drawer-open] .drawer-backdrop { opacity: 1; pointer-events: auto; }
@@ -204,6 +206,11 @@ form[aria-busy="true"] [data-save-button]::after { content: " …"; }
   html:not(.js) .app-side { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--border); }
   .log-row, .field-row.two { grid-template-columns: minmax(0, 1fr); }
   .user-name { display: none; }
+}
+@media (max-width: 480px) {
+  .top-switcher .g-name { display: none; }
+  .app-top-switcher { min-width: 0; flex: none; }
+  .app-top { gap: .5rem; }
 }
 @media (prefers-reduced-motion: reduce) { .js .app-side { transition: none; } }
 `;
