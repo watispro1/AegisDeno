@@ -70,7 +70,7 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
         <a href="/features${escapeHtml(h.href)}">
           ${icon(h.icon, "f-icon lg")}
           <strong>${escapeHtml(h.title)}</strong>
-          <span>${escapeHtml(h.text)}</span>
+          <span><b>${escapeHtml(h.outcome)}</b> ${escapeHtml(h.text)}</span>
         </a>
       </li>`).join("\n      ");
 
@@ -79,7 +79,7 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
     const href = link.anchor ? `/features#${link.anchor}` : "/features";
     return `<li class="home-feature">
         <div class="home-feature-head">${icon(link.icon)}<h3><a href="${href}">${escapeHtml(f.title)}</a></h3></div>
-        <p>${escapeHtml(f.short)}</p>
+        <p><strong>${escapeHtml(f.outcome)}</strong> ${escapeHtml(f.short)}</p>
         <div class="home-feature-start">
           <span class="faint">Start with</span>
           <code>${escapeHtml(f.start)}</code>
@@ -119,12 +119,13 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
         <span class="live-pill-sep" aria-hidden="true">·</span>
         <span>up <span data-uptime-from="${Math.max(0, Math.floor(stats.uptime))}">${escapeHtml(fmtUptime(stats.uptime))}</span></span>
       </a>
+      <p class="eyebrow">Moderation that keeps up with your community</p>
       <h1 id="hero-title">Moderation for Discord that shows its work.</h1>
       <p class="lead">Aegis handles warnings, timeouts, bans and the case log behind them, plus automod, raid response, ban appeals, tickets, verification and logging. You run it with slash commands in your server, and server managers can review cases and change settings in the <a href="/dashboard">web dashboard</a>.</p>
       <div class="btn-row">
         <a class="btn" href="${safeUrl(cfg.inviteUrl)}">Add to Discord</a>
         <a class="btn ghost" href="/dashboard">Open the dashboard</a>
-        <a class="text-link" href="/commands">Browse ${cs.commands} commands &rarr;</a>
+        <a class="btn ghost" href="/commands">Browse ${cs.commands} commands</a>
       </div>
       <ul class="home-assurances" aria-label="Good to know">
         <li>${icon("check", "f-icon sm")}No Administrator permission</li>

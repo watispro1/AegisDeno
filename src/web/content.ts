@@ -7,6 +7,8 @@ export interface Feature {
   title: string;
   /** One line used in the home page reference table. */
   short: string;
+  /** What a server gets out of it, in one plain line (home page cards). */
+  outcome: string;
   /** Paragraph shown at the top of the feature's section. */
   text: string;
   points: string[];
@@ -21,6 +23,7 @@ export interface Feature {
 export const features: Feature[] = [
   {
     id: "moderation",
+    outcome: "Act fast, and undo it within five minutes if you got it wrong.",
     start: "/warn",
     title: "Moderation and cases",
     short: "Warn, timeout, kick and ban. Every action becomes a numbered case you can look up later.",
@@ -53,6 +56,7 @@ export const features: Feature[] = [
   },
   {
     id: "automod",
+    outcome: "Catch spam and invite links before your moderators have to.",
     start: "/automod status",
     title: "Automod",
     short: "Filters for blocked words, links, invites, mention spam, message spam, repeats, caps, emoji walls and zalgo.",
@@ -76,6 +80,7 @@ export const features: Feature[] = [
   },
   {
     id: "trustscore",
+    outcome: "See where a member stands before you hand out a role.",
     start: "/trust user",
     title: "Trust score",
     short: "A 0 to 100 number for a member, from account age, time in the server, their record and how active they are.",
@@ -97,6 +102,7 @@ export const features: Feature[] = [
   },
   {
     id: "appeal",
+    outcome: "Handle ban appeals without a separate form or inbox.",
     start: "/appeal review",
     title: "Ban appeals",
     short: "Banned members get a code by DM and can appeal from Discord. Approving one lifts the ban.",
@@ -115,6 +121,7 @@ export const features: Feature[] = [
   },
   {
     id: "watchlist",
+    outcome: "Keep an eye on a member without tipping them off.",
     start: "/watchlist add",
     title: "Watchlist",
     short: "Quietly watch a member. You get a DM when they post, edit, delete, join voice, join, leave or change roles.",
@@ -135,6 +142,7 @@ export const features: Feature[] = [
   },
   {
     id: "modreport",
+    outcome: "See how last week actually went, in one embed.",
     start: "/modreport",
     title: "Mod reports",
     short: "A digest of the last day or week: actions taken, repeat offenders, staff activity, automod hits.",
@@ -151,6 +159,7 @@ export const features: Feature[] = [
   },
   {
     id: "logging",
+    outcome: "Keep a record of joins, leaves and deletions in your own server.",
     start: "/logging channel",
     title: "Logging",
     short: "Joins, leaves, deleted messages and every moderation action, posted to a channel you choose.",
@@ -168,6 +177,7 @@ export const features: Feature[] = [
   },
   {
     id: "tickets",
+    outcome: "Give members a private line to staff, with a transcript at the end.",
     start: "/ticket setup",
     title: "Tickets",
     short: "A button that opens a private channel between a member and your staff.",
@@ -189,6 +199,7 @@ export const features: Feature[] = [
   },
   {
     id: "verification",
+    outcome: "Slow down raids and throwaway accounts at the door.",
     start: "/verify setup",
     title: "Verification",
     short: "New members press a button or solve a captcha before they get the verified role.",
@@ -208,6 +219,7 @@ export const features: Feature[] = [
   },
   {
     id: "community",
+    outcome: "Run giveaways, polls and role panels without another bot.",
     start: "/starboard setup",
     title: "Community tools",
     short: "Starboard, giveaways, polls, suggestions, welcome messages and role panels.",
@@ -230,6 +242,7 @@ export const features: Feature[] = [
   },
   {
     id: "automation",
+    outcome: "Schedule posts and reminders that survive a restart.",
     start: "/remindme",
     title: "Reminders and schedules",
     short: "Personal reminders, one-off posts and repeating messages that survive restarts.",

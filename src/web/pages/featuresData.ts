@@ -50,10 +50,11 @@ export const FEATURE_ICONS: Record<IconId, string> = {
 };
 
 /** Headline features for the hero strip. */
-export const HEADLINE: Array<{ icon: IconId; title: string; text: string; href: string }> = [
-  { icon: "alert", title: "Incident Mode", text: "One switch for raids: slowmode, lockdown, a join gate and paused invites, all undone exactly when it ends.", href: "#incident" },
-  { icon: "gauge", title: "Trust Score", text: "An explainable 0–100 score per member, with every factor shown. Opt-in integrations for automod and the join gate.", href: "#trust" },
-  { icon: "layout", title: "Web dashboard", text: "Cases, members, settings, analytics and Incident Mode in your browser, with the same permission checks as the commands.", href: "#dashboard" },
+/** `outcome` is the one-line result shown on the home page. */
+export const HEADLINE: Array<{ icon: IconId; title: string; outcome: string; text: string; href: string }> = [
+  { icon: "alert", title: "Incident Mode", outcome: "Restore a lockdown with one command.", text: "One switch for raids: slowmode, lockdown, a join gate and paused invites, all undone exactly when it ends.", href: "#incident" },
+  { icon: "gauge", title: "Trust Score", outcome: "Know exactly why a member was flagged.", text: "An explainable 0–100 score per member, with every factor shown. Opt-in integrations for automod and the join gate.", href: "#trust" },
+  { icon: "layout", title: "Web dashboard", outcome: "Review cases and change settings from your browser.", text: "Cases, members, settings, analytics and Incident Mode in your browser, with the same permission checks as the commands.", href: "#dashboard" },
 ];
 
 export const FEATURE_CATEGORIES: FeatureCategory[] = [
