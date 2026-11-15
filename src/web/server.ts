@@ -24,6 +24,7 @@ import {
   renderNotFound,
   renderWhy,
   renderRoadmap,
+  renderPremium,
   SiteConfig,
   Stats,
 } from "./pages";
@@ -47,7 +48,7 @@ import { startAegisBackend } from "../database/aegisDb";
 import { databaseConnected } from "../services/statusMonitor";
 import { registerApiRoutes } from "./apiRoutes";
 import { registerPaddleWebhook } from "./paddleWebhook";
-import { missingPaddleSettings, readPaddleConfig } from "../config/paddle";
+import { missingPaddleSettings, premiumOffered, readPaddleConfig } from "../config/paddle";
 import { registerSiteRoutes } from "./siteRoutes";
 import { apiRateLimit, compression, siteErrorHandler } from "./serverMiddleware";
 
@@ -130,6 +131,7 @@ const ROUTES: RouteDef[] = [
   // Registered before the /dashboard router, which would otherwise treat it as a server ID.
   { path: "/dashboard/changelog", render: c => renderDashboardChangelog(c), priority: "0.4" },
   { path: "/status", render: async (c, x) => renderStatus(c, await x.status()), priority: "0.6", live: true },
+  { path: "/premium", render: c => renderPremium(c, premiumOffered()), priority: "0.5" },
   { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },
   { path: "/terms", render: c => renderTerms(c), priority: "0.4" },
   { path: "/security", render: c => renderSecurity(c), priority: "0.3" },
@@ -145,6 +147,7 @@ const SUGGESTABLE = [
   { href: "/changelog", label: "Changelog" },
   { href: "/roadmap", label: "What's next" },
   { href: "/status", label: "Status" },
+  { href: "/premium", label: "Premium" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
   { href: "/security", label: "Security" },
