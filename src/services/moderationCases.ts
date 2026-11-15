@@ -4,20 +4,10 @@ import { noteIncidentCase } from "./incidentHooks";
 import { noteTrustChange } from "./trustHooks";
 import { logger } from "../utils/logger";
 import { getRustClient } from "../database/rustClient";
+import { MODERATION_ACTIONS } from "../database/aegisDb/validation";
+import { mirrorToAegis } from "./aegisMirror";
 
-export type ModerationAction =
-  | "warn"
-  | "kick"
-  | "ban"
-  | "softban"
-  | "temprole"
-  | "timeout"
-  | "untimeout"
-  | "unban"
-  | "clearwarnings"
-  | "purge"
-  | "lock"
-  | "unlock";
+export type ModerationAction = (typeof MODERATION_ACTIONS)[number];
 
 export interface ModerationCase {
   _id: string;
@@ -32,7 +22,7 @@ export interface ModerationCase {
   createdAt: Date;
 }
 
-export async function addModerationCase(input: {
+export interface ModerationCaseInput {
   guildId: string;
   userId: string;
   moderatorId: string;
@@ -40,20 +30,51 @@ export async function addModerationCase(input: {
   reason: string;
   details?: string;
   proofUrl?: string | null;
-}): Promise<string | null> {
+  /** Display names and duration are mirrored to AegisDB only (Mongo keeps them in `details`). */
+  targetTag?: string;
+  modTag?: string;
+  durationMs?: number;
+}
+
+/**
+ * Mirrors a case already saved in Mongo into AegisDB, keyed by its Mongo _id
+ * (`case_ref`) so later revokes and edits from the bot find the same case and
+ * a retried create is a no-op. Never throws; failures are logged and retried.
+ */
+function mirrorCase(id: string, input: ModerationCaseInput): Promise<void> {
+  return mirrorToAegis({
+    key: `case:${input.guildId}`,
+    label: `createCase ${input.guildId}/${id}`,
+    run: () => getRustClient().createCase(input.guildId, {
+      case_ref: id,
+      target_id: input.userId,
+      target_tag: input.targetTag,
+      mod_id: input.moderatorId,
+      mod_tag: input.modTag,
+      action: input.action,
+      reason: input.reason,
+      duration_ms: input.durationMs,
+    }),
+  });
+}
+
+function mirrorCasePatch(guildId: string, caseId: string, payload: Record<string, unknown>, what: string): Promise<void> {
+  return mirrorToAegis({
+    key: `case:${guildId}`,
+    label: `${what} ${guildId}/${caseId}`,
+    run: async () => {
+      const updated = await getRustClient().patchCase(guildId, caseId, payload);
+      if (!updated) throw new Error("case not in AegisDB yet");
+    },
+  });
+}
+
+export async function addModerationCase(input: ModerationCaseInput): Promise<string | null> {
   try {
-    const doc = await ModerationCaseModel.create(input);
+    const { targetTag: _t, modTag: _m, durationMs: _d, ...stored } = input;
+    const doc = await ModerationCaseModel.create(stored);
     const id = String(doc._id);
-    // Best-effort dual-write to AegisDB; never blocks or throws on failure
-    getRustClient()
-      .createCase(input.guildId, {
-        target_id: input.userId,
-        mod_id: input.moderatorId,
-        action: input.action,
-        reason: input.reason,
-        duration_ms: undefined,
-      })
-      .catch(() => null);
+    void mirrorCase(id, input);
     noteIncidentCase(input.guildId, id, input.action, input.userId);
     noteTrustChange(input.guildId, input.userId);
     return id;
@@ -68,13 +89,17 @@ export async function addModerationCase(input: {
  * /massban), instead of one insert per member. Returns the new case IDs in
  * input order, or an empty list when the write failed.
  */
-export async function addModerationCases(inputs: ReadonlyArray<Parameters<typeof addModerationCase>[0]>): Promise<string[]> {
+export async function addModerationCases(inputs: ReadonlyArray<ModerationCaseInput>): Promise<string[]> {
   if (!inputs.length) return [];
   try {
-    const docs = await ModerationCaseModel.insertMany(inputs.map(i => ({ ...i })), { ordered: false });
+    const docs = await ModerationCaseModel.insertMany(
+      inputs.map(({ targetTag: _t, modTag: _m, durationMs: _d, ...stored }) => stored),
+      { ordered: false },
+    );
     const ids = docs.map(d => String(d._id));
     docs.forEach((doc, n) => {
       const input = inputs[n];
+      void mirrorCase(String(doc._id), input);
       noteIncidentCase(input.guildId, String(doc._id), input.action, input.userId);
       noteTrustChange(input.guildId, input.userId);
     });
@@ -96,7 +121,7 @@ export async function revokeModerationCase(guildId: string, caseId: string, revo
       { $set: { revoked: true, revokedBy, revokedAt: new Date() } },
     );
     if (result) noteTrustChange(guildId, String((result as { userId?: unknown }).userId ?? ""));
-    if (result) getRustClient().patchCase(guildId, caseId, { revoked: true, revoked_by: revokedBy }).catch(() => null);
+    if (result) void mirrorCasePatch(guildId, caseId, { revoked: true, revoked_by: revokedBy }, "revokeCase");
     return result !== null;
   } catch (error) {
     logger.error(`Failed to revoke case ${caseId} in guild ${guildId}:`, error);
@@ -122,7 +147,7 @@ export async function editCaseReason(
     { returnDocument: "before" },
   ).catch(() => null);
   if (record) {
-    getRustClient().patchCase(guildId, caseId, { reason }).catch(() => null);
+    void mirrorCasePatch(guildId, caseId, { reason }, "editCase");
     return { kind: "case", userId: record.userId, previousReason: record.reason };
   }
 

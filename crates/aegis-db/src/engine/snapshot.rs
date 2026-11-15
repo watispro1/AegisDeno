@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
 use std::fs::{self, File};
-use std::io::{self, BufReader, BufWriter};
+use std::io::{self, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use super::wal::sync_dir;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SnapshotData {
@@ -38,20 +40,24 @@ impl SnapshotManager {
         Ok(Some(data))
     }
 
+    /// Writes the snapshot to a temp file, fsyncs it, renames it over the old
+    /// snapshot, then fsyncs the directory so the rename itself is durable.
     pub fn save(&self, data: &SnapshotData) -> io::Result<()> {
-        if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent)?;
-        }
+        let parent = self.path.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+        fs::create_dir_all(&parent)?;
 
         let tmp_path = self.path.with_extension("tmp");
         {
             let file = File::create(&tmp_path)?;
-            let writer = BufWriter::new(file);
-            serde_json::to_writer_pretty(writer, data)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            let mut writer = BufWriter::new(file);
+            serde_json::to_writer(&mut writer, data).map_err(io::Error::other)?;
+            writer.flush()?;
+            let file = writer.into_inner().map_err(|e| e.into_error())?;
+            file.sync_all()?;
         }
 
-        fs::rename(tmp_path, &self.path)?;
+        fs::rename(&tmp_path, &self.path)?;
+        sync_dir(&parent)?;
         Ok(())
     }
 }

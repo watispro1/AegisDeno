@@ -223,6 +223,8 @@ export const command: Command = {
             reason: finalReason,
             details: `Silent: ${silent}`,
             proofUrl: proof?.url ?? null,
+            targetTag: target.user.tag,
+            modTag: interaction.user.tag,
           });
 
           const resultEmbed = new EmbedBuilder()

@@ -6,6 +6,7 @@ import { createClient, setupEvents } from "./bot/client";
 import { initScheduler, shutdownScheduler } from "./services/schedulerRunner";
 import { connectDatabase, closeDatabase } from "./database/mongo";
 import { startAegisBackend, stopAegisBackend } from "./database/aegisDb";
+import { drainMirrorQueue } from "./services/aegisMirror";
 import { logger } from "./utils/logger";
 import { startWebServer } from "./web/server";
 import { flushMemberActivity } from "./services/memberActivity";
@@ -122,6 +123,8 @@ async function main(): Promise<void> {
       { name: "discord client", run: () => client.destroy() },
       { name: "activity flush", run: () => flushMemberActivity() },
       { name: "database", run: () => closeDatabase() },
+      // One last retry of queued AegisDB mirror writes before the engine closes.
+      { name: "aegis-db mirror", run: () => drainMirrorQueue({ force: true }) },
       { name: "aegis-db", run: () => stopAegisBackend() },
     ],
   });

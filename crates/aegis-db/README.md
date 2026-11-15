@@ -37,9 +37,15 @@ cargo run --manifest-path crates/aegis-db/Cargo.toml
 |---|---|---|
 | `AEGIS_DB_HOST` | `127.0.0.1` | Host interface to bind |
 | `AEGIS_DB_PORT` | `4000` | Port for REST API server |
-| `AEGIS_DB_PATH` | `./data/aegis-db` | Directory for WAL and snapshots |
-| `AEGIS_DB_SECRET` | `""` | Optional auth secret key |
+| `AEGIS_DB_PATH` | `./data/aegis-db` | Directory for WAL and snapshots (locked by `aegis-db.lock` while running) |
+| `AEGIS_BACKEND_SECRET` | `""` | Admin secret (same variable the bot uses). Required unless `BOT_ENV`/`NODE_ENV` is `development` or `test`; the server refuses to start without it otherwise |
 | `AEGIS_DB_AUTO_COMPACT_SECS` | `300` | Periodic snapshot compaction interval (seconds) |
+
+`/health` is public. `/metrics` returns `{ "healthy": true }` without the secret and full stats with it.
+Everything under `/api` needs the secret in `x-aegis-secret` or `Authorization: Bearer`. No CORS headers are sent.
+
+The embedded TypeScript engine (`src/database/aegisDb`) uses its own file names (`ts-wal.jsonl`,
+`ts-snapshot.json`, `ts-aegis-db.lock`), so the two engines never share files even in one directory.
 
 ## TypeScript Client
 

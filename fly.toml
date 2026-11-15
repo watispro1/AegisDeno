@@ -4,6 +4,13 @@ primary_region = "dfw"
 [build]
   dockerfile = 'Dockerfile'
 
+# Persistent disk for AegisDB (WAL + snapshots). Create it once before deploying:
+#   fly volumes create aegis_data --region dfw --size 1
+# A volume attaches to one machine, so this app runs a single machine.
+[mounts]
+  source = 'aegis_data'
+  destination = '/data'
+
 [http_service]
   internal_port = 3000
   force_https = true

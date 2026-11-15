@@ -11,7 +11,6 @@ use axum::{
 };
 use std::sync::Arc;
 use std::time::Instant;
-use tower_http::cors::{Any, CorsLayer};
 
 use crate::config::Config;
 use crate::engine::AegisDatabase;
@@ -22,12 +21,11 @@ pub fn create_router(db: Arc<AegisDatabase>, config: Arc<Config>) -> Router {
         db,
         start_time: Instant::now(),
         version: env!("CARGO_PKG_VERSION"),
+        secret: config.secret.clone(),
     });
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    // No CORS layer: this is a server-to-server API, so browsers on other
+    // origins get the default same-origin refusal.
 
     // Protected API routes
     let api_routes = Router::new()
@@ -56,8 +54,8 @@ pub fn create_router(db: Arc<AegisDatabase>, config: Arc<Config>) -> Router {
     Router::new()
         // Public health routes
         .route("/health", get(routes_health::health_handler))
-        .route("/metrics", get(routes_health::stats_handler))
+        // Full metrics with the admin secret, only `{ "healthy": true }` without it.
+        .route("/metrics", get(routes_health::metrics_handler))
         .nest("/api", api_routes)
-        .layer(cors)
         .with_state(app_state)
 }

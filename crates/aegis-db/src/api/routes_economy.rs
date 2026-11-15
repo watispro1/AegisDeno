@@ -41,6 +41,9 @@ pub async fn transact_economy(
     Json(payload): Json<TransactPayload>,
 ) -> impl IntoResponse {
     let key = format!("eco:{}:{}", guild_id, user_id);
+    // Read-modify-write on the balance: serialize per account so two concurrent
+    // transactions can never both read the same starting balance.
+    let _guard = state.db.scope_lock(&key);
     let mut record: EconomyRecord = state
         .db
         .get("economy", &key)
