@@ -90,13 +90,13 @@ export const cssGlassDashboard = String.raw`
 /* Panels, fieldsets and cards that only the dashboard has. */
 [data-theme="glass"] .dash-form fieldset, [data-theme="glass"] .mod-settings > fieldset, [data-theme="glass"] .item-card,
 [data-theme="glass"] .help-panel, [data-theme="glass"] .guild-item, [data-theme="glass"] .panel-item, [data-theme="glass"] .dash-error,
-[data-theme="glass"] .dash-landing-preview, [data-theme="glass"] .confirm-form, [data-theme="glass"] .mod-head,
+[data-theme="glass"] .confirm-form, [data-theme="glass"] .mod-head,
 [data-theme="glass"] .notice, [data-theme="glass"] .error-summary, [data-theme="glass"] .stat {
   border-radius: var(--r-lg); border-color: var(--border);
 }
 [data-theme="glass"] .dash-form fieldset, [data-theme="glass"] .mod-settings > fieldset, [data-theme="glass"] .item-card,
 [data-theme="glass"] .help-panel, [data-theme="glass"] .guild-item, [data-theme="glass"] .panel-item, [data-theme="glass"] .dash-error,
-[data-theme="glass"] .dash-landing-preview, [data-theme="glass"] .confirm-form, [data-theme="glass"] .mod-head {
+[data-theme="glass"] .confirm-form, [data-theme="glass"] .mod-head {
   background-image: var(--glass-sheen); box-shadow: var(--glass-rim), var(--shadow-glass);
 }
 [data-theme="glass"] .item-card, [data-theme="glass"] .guild-item {
