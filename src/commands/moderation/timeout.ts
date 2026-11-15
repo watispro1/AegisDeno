@@ -16,31 +16,32 @@ import { Command } from "../../types/discord";
 import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { hierarchyRefusalText } from "../../permissions/hierarchyExplain";
-import { addModerationCase, revokeModerationCase } from "../../services/moderationCases";
+import { addModerationCase } from "../../services/moderationCases";
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
-import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
+import { buildUndoButton } from "../../services/moderationUndo";
 import { caseLinkButton, modLogRow } from "../../services/modLogLinks";
-import { ModerationCaseModel } from "../../database/mongo";
 import { buildDurationSuggestions } from "../../utils/moderationPresets";
 import { formatDurationLong } from "../../utils/duration";
-import { auditReason, truncate } from "../../utils/safeText";
+import { auditReason } from "../../utils/safeText";
 import type { AutocompleteInteraction } from "discord.js";
-import { CUSTOM_DURATION_PRESETS, DURATION_CHOICES, MAX_TIMEOUT_SECONDS, extendedTimeout, formatDuration, resolveTimeoutSeconds } from "./timeout/logic";
+import { CUSTOM_DURATION_PRESETS, DURATION_CHOICES, MAX_TIMEOUT_SECONDS, formatDuration, resolveTimeoutSeconds } from "./timeout/logic";
 import { softFail } from "../../utils/softFail";
 import { dmOutcome, dmSentLabel } from "../../services/dmNotice";
+import { attachTimeoutActions } from "./timeout/actions";
+import { replyEphemeralPrompt } from "./lib/prompt";
 export { MAX_TIMEOUT_SECONDS, resolveTimeoutSeconds, extendedTimeout } from "./timeout/logic";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("timeout")
-    .setDescription("Temporarily mute a member with an interactive confirmation.")
+    .setDescription("Temporarily stop a member from chatting, reacting or joining voice (up to 28 days).")
     .addUserOption(opt =>
       opt.setName("user").setDescription("The member to timeout").setRequired(true)
     )
     .addIntegerOption(opt =>
       opt
         .setName("duration")
-        .setDescription("Timeout duration (or type any length in custom_duration)")
+        .setDescription("Timeout length preset (or type any length in custom_duration)")
         .setRequired(false)
         .addChoices(...DURATION_CHOICES)
     )
@@ -61,7 +62,7 @@ export const command: Command = {
       opt.setName("reason").setDescription("Reason: pick a preset or type your own").setAutocomplete(true).setMaxLength(512).setRequired(false)
     )
     .addBooleanOption(opt =>
-      opt.setName("silent").setDescription("Skip DM notification to the member (default: false)").setRequired(false)
+      opt.setName("silent").setDescription("Don't DM the member about the timeout (default: they get a DM)").setRequired(false)
     )
     .addAttachmentOption(opt =>
       opt.setName("proof").setDescription("Optional screenshot or proof, stored with the case").setRequired(false)
@@ -165,12 +166,7 @@ export const command: Command = {
         .setEmoji("✖️"),
     );
 
-    const prompt = await interaction.reply({
-      embeds: [confirmEmbed],
-      components: [confirmRow],
-      flags: MessageFlags.Ephemeral,
-      fetchReply: true,
-    });
+    const prompt = await replyEphemeralPrompt(interaction, { embeds: [confirmEmbed], components: [confirmRow] });
 
     const collector = prompt.createMessageComponentCollector({
       componentType: ComponentType.Button,
@@ -259,119 +255,10 @@ export const command: Command = {
         await sendGuildLog(interaction.client, guildId, {
           title: "⏱️ Member Timed Out",
           color: 0xFEE75C,
-          description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Duration:** ${durationLabel}\n**Until:** <t:${Math.floor(until.getTime() / 1000)}:R>\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
+          description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Duration:** ${durationLabel}\n**Until:** <t:${Math.floor(until.getTime() / 1000)}:R>\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}${proof ? `\n**Proof:** ${proof.url}` : ""}`,
         }, "modActions", [modLogRow(guildId, target.id, caseId)]);
 
-        const actionCollector = resultMsg.createMessageComponentCollector({
-          componentType: ComponentType.Button,
-          time: UNDO_WINDOW_MS,
-        });
-
-        actionCollector.on("collect", async (bi) => {
-          if (!canPressUndo("timeout", bi.memberPermissions)) {
-            await bi.reply({ content: "❌ Only moderators can use these buttons.", flags: MessageFlags.Ephemeral });
-            return;
-          }
-          const hierarchyOk = await isRoleHierarchyValid(
-            interaction.client,
-            guildId,
-            bi.user.id,
-            target.id,
-          );
-          if (!hierarchyOk) {
-            await bi.reply({
-              content: "❌ You cannot change this timeout because the member has an equal or higher role.",
-              flags: MessageFlags.Ephemeral,
-            });
-            return;
-          }
-
-          if (bi.customId === `timeout_undo_${target.id}`) {
-            if (!isUndoWindowOpen(appliedAt, Date.now())) {
-              await bi.reply({ content: "⏱️ The 5-minute undo window has passed. Use `/removetimeout` instead.", flags: MessageFlags.Ephemeral });
-              return;
-            }
-            await bi.deferUpdate();
-            const refreshedMember = await interaction.guild!.members.fetch(target.id).catch(() => null);
-            if (!refreshedMember) {
-              await bi.followUp({ content: "❌ Member no longer found in the server.", flags: MessageFlags.Ephemeral });
-              return;
-            }
-            try {
-              await refreshedMember.timeout(null, auditReason(`Timeout undone by ${bi.user.tag}`));
-            } catch (undoErr) {
-              logger.warn(`Undo timeout failed for ${target.id} in ${guildId}`, undoErr);
-              await bi.followUp({ content: "❌ Could not lift the timeout. Check my permissions.", flags: MessageFlags.Ephemeral });
-              return;
-            }
-            const revoked = caseId ? await revokeModerationCase(guildId, caseId, bi.user.id) : false;
-            await sendGuildLog(interaction.client, guildId, {
-              title: "↩️ Timeout Undone",
-              color: 0x57F287,
-              description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Undone by:** ${bi.user.tag}${caseId ? `\n**Case:** \`${caseId}\`${revoked ? " (marked revoked)" : ""}` : ""}`,
-            }, "modActions", caseId ? [modLogRow(guildId, target.id, caseId)] : undefined);
-            actionCollector.stop("undone");
-            await bi.editReply({
-              embeds: [resultEmbed.setColor(0x57F287).setTitle("↩️ Timeout Undone")],
-              components: [new ActionRowBuilder<ButtonBuilder>().addComponents(buildUndoButton(`timeout_undo_${target.id}`, "done"))],
-            });
-          } else if (bi.customId === `timeout_extend_${target.id}`) {
-            await bi.deferUpdate();
-            const refreshedMember = await interaction.guild!.members.fetch(target.id).catch(() => null);
-            if (!refreshedMember) {
-              await bi.followUp({ content: "❌ Member no longer found in the server.", flags: MessageFlags.Ephemeral });
-              return;
-            }
-            const { untilMs, durationMs } = extendedTimeout(refreshedMember.communicationDisabledUntil, Date.now());
-            const newUntil = new Date(untilMs);
-
-            const extended = (await refreshedMember.timeout(durationMs, auditReason(`Timeout extended +1h by ${bi.user.tag}`))
-              .catch(softFail(`Timeout extension for ${target.id} in ${guildId}`))) !== null;
-            if (!extended) {
-              // Don't record or log an extension that did not happen.
-              await bi.followUp({ content: "❌ Could not extend the timeout. Check my permissions and role position.", flags: MessageFlags.Ephemeral });
-              return;
-            }
-            const extendCaseId = await addModerationCase({
-              guildId,
-              userId: target.id,
-              moderatorId: bi.user.id,
-              action: "timeout",
-              reason: `Timeout extended by +1h via quick action by ${bi.user.tag}`,
-              details: `Extended until ${newUntil.toISOString()}`,
-            });
-            await sendGuildLog(interaction.client, guildId, {
-              title: "⏱️ Timeout Extended (+1h)",
-              color: 0xFEE75C,
-              description: `**User:** ${target.user.tag} (<@${target.user.id}>)\n**Extended by:** ${bi.user.tag}\n**New Expiry:** <t:${Math.floor(newUntil.getTime() / 1000)}:R>`,
-            }, "modActions", [modLogRow(guildId, target.id, extendCaseId)]);
-            await bi.followUp({
-              content: `⏩ Timeout extended. New expiry: <t:${Math.floor(newUntil.getTime() / 1000)}:R>`,
-              flags: MessageFlags.Ephemeral,
-            });
-          } else if (bi.customId === `timeout_cases_${target.id}`) {
-            const cases = await ModerationCaseModel.find({ guildId, userId: target.id })
-              .sort({ createdAt: -1 })
-              .limit(5)
-              .lean();
-            if (cases.length === 0) {
-              await bi.reply({ content: `✅ <@${target.id}> has no prior moderation cases recorded.`, flags: MessageFlags.Ephemeral });
-            } else {
-              const lines = cases.map((c, idx) =>
-                `**${idx + 1}.** \`${c.action.toUpperCase()}\`${c.revoked ? " *(revoked)*" : ""} — ${truncate(String(c.reason ?? ""), 250)} (<t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>)`
-              );
-              await bi.reply({
-                content: `📜 **Recent Moderation Cases for <@${target.id}> (${cases.length}):**\n${lines.join("\n")}`,
-                flags: MessageFlags.Ephemeral,
-              });
-            }
-          }
-        });
-
-        actionCollector.on("end", async (_c, endReason) => {
-          if (endReason === "undone") return;
-          await interaction.editReply({ components: [] }).catch(() => null);
-        });
+        attachTimeoutActions({ interaction, resultMsg, target, guildId, caseId, appliedAt, resultEmbed });
       } catch (err) {
         logger.error(`Failed to timeout user ${target.user.id} in guild ${guildId}`, err);
         await i.editReply({ content: "❌ Failed to timeout the member. Check my permissions.", embeds: [], components: [] });

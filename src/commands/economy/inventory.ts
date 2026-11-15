@@ -6,7 +6,7 @@ import { runInventory } from "../../services/economyInventoryView";
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("inventory")
-    .setDescription("Items you (or another member) bought from the shop, with what they sell for.")
+    .setDescription("Shop items you (or another member) own and what they sell for. Use or sell them from the menus.")
     .setContexts(InteractionContextType.Guild)
     .addUserOption(o => o.setName("user").setDescription("Whose inventory to show (default: you)")),
   category: "economy",

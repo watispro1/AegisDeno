@@ -12,6 +12,7 @@ import {
   topTitle,
   type StarboardTopPeriod,
 } from "../../services/starboardTop";
+import { footer } from "../../utils/embedStyle";
 import { fillMissingExcerpts, findTopStarboardAuthors, findTopStarboardEntries } from "../../services/starboardTopQuery";
 
 export async function runStarboardTop(interaction: ChatInputCommandInteraction, guildId: string): Promise<void> {
@@ -31,7 +32,9 @@ export async function runStarboardTop(interaction: ChatInputCommandInteraction, 
   if (!entries.length) {
     const who = user ? ` by <@${user.id}>` : "";
     await interaction.editReply({
-      content: `${config.emoji} No starred posts${who} in the ${PERIOD_LABELS[period]} yet.`,
+      content: period === "all"
+        ? `${config.emoji} No starred posts${who} yet.`
+        : `${config.emoji} No starred posts${who} in the ${PERIOD_LABELS[period]}. Try \`period: All time\`.`,
       allowedMentions: { parse: [] },
     });
     return;
@@ -48,7 +51,7 @@ export async function runStarboardTop(interaction: ChatInputCommandInteraction, 
     .setColor(0xffd700)
     .setTitle(`${config.emoji} ${topTitle(period, Boolean(user))}`)
     .setDescription(formatTopDescription(lines, authorsLine))
-    .setFooter({ text: user ? `${user.username} · top ${entries.length}` : `Top ${entries.length} by star count` });
+    .setFooter(footer(`${user ? `${user.username} · top ${entries.length}` : `Top ${entries.length} by star count`} · ${PERIOD_LABELS[period]}`));
 
   await interaction.editReply({ embeds: [embed], allowedMentions: { parse: [] } });
 }

@@ -15,6 +15,7 @@ import { createPersonalReminder, MAX_PENDING_PER_USER, REMINDER_BOUNDS, REMINDER
 import { buildDurationSuggestions } from "../../utils/moderationPresets";
 import { replyPagedList } from "../../utils/listPager";
 import { COLORS, footer } from "../../utils/embedStyle";
+import { reminderControlRow, reminderJumpUrl, runReminderControls } from "./remindme/controls";
 
 function reminderText(payload: string): string {
   return decodePersonalReminder(payload)?.text ?? "(unreadable reminder)";
@@ -27,7 +28,7 @@ function preview(text: string, max = 60): string {
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("remindme")
-    .setDescription("Personal reminders that Aegis will DM you, even across restarts.")
+    .setDescription("Personal reminders Aegis DMs you, with snooze and a link back, even across restarts.")
     .addSubcommand(sub =>
       sub
         .setName("set")
@@ -147,6 +148,8 @@ export const command: Command = {
     // cancel
     if (sub === "cancel") {
       const id = interaction.options.getString("id", true).trim();
+      // Read first so the confirmation can say which reminder went.
+      const reminders = await getTasksForCreator(interaction.user.id, "personal_reminder").catch(() => []);
       const deleted = await deleteTaskForCreator(interaction.user.id, "personal_reminder", id);
       if (!deleted) {
         return interaction.reply({
@@ -155,7 +158,12 @@ export const command: Command = {
         });
       }
       cancelTask(id);
-      return interaction.reply({ content: `✅ Reminder \`${id}\` cancelled.`, flags: MessageFlags.Ephemeral });
+      const was = reminders.find(t => t.id === id);
+      return interaction.reply({
+        content: `✅ Reminder \`${id}\` cancelled.${was ? `\n-# ${preview(reminderText(was.payload)).replace(/\n/g, " ")}` : ""}`,
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] },
+      });
     }
 
     // set
@@ -165,6 +173,8 @@ export const command: Command = {
     const repeatRaw   = interaction.options.getString("repeat");
     const repeat: ReminderRepeat | undefined = repeatRaw === "daily" || repeatRaw === "weekly" ? repeatRaw : undefined;
     const durationSec = parseFriendlyDuration(durationRaw) ?? 0;
+    // A link back to the conversation it was set in, shown as a button on the DM.
+    const jumpUrl = reminderJumpUrl(interaction.guildId, interaction.channelId, interaction.channel?.lastMessageId);
 
     let result: Awaited<ReturnType<typeof createPersonalReminder>>;
     try {
@@ -177,6 +187,7 @@ export const command: Command = {
         durationSec,
         inChannel,
         repeat,
+        jumpUrl,
       });
     } catch (err) {
       logger.error(`Failed to save reminder for user ${interaction.user.id}`, err);
@@ -195,10 +206,17 @@ export const command: Command = {
         { name: "🔔 Delivery",  value: inChannel ? "DM + Channel Ping" : "DM only", inline: true },
         { name: "🔁 Repeats",   value: repeat ? (repeat === "daily" ? "Daily" : "Weekly") : "Once", inline: true },
       )
-      .setFooter(footer(`ID: ${result.task.id} · You can close this. I'll DM you when the time comes.`))
+      .setFooter(footer(`ID: ${result.task.id} · I'll DM you when the time comes, with snooze buttons.`))
       .setTimestamp();
 
-    await interaction.reply({ embeds: [confirmEmbed], flags: MessageFlags.Ephemeral });
+    const response = await interaction.reply({
+      embeds: [confirmEmbed],
+      components: [reminderControlRow(result.task.id!, jumpUrl)],
+      flags: MessageFlags.Ephemeral,
+      withResponse: true,
+    });
+    const message = response?.resource?.message;
+    if (message) runReminderControls(interaction, message, result.task.id!, result.fireAt, jumpUrl);
   },
 
   async autocomplete(interaction) {

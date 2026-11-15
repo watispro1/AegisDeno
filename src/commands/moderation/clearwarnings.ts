@@ -12,6 +12,8 @@ import { sendGuildLog } from "../../services/logging";
 import { isRoleHierarchyValid } from "../../permissions/hierarchy";
 import { addModerationCase } from "../../services/moderationCases";
 import { requestConfirmation } from "../../utils/confirmation";
+import type { AutocompleteInteraction } from "discord.js";
+import { CLEARWARNINGS_REASON_PRESETS, presetSuggestions } from "./lib/presets";
 
 /**
  * Who may clear whose warnings. Members still in the server go through the
@@ -39,17 +41,26 @@ export function clearedSummary(counts: WarningRecordCounts, deleted: number): st
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("clearwarnings")
-    .setDescription("Clear all warnings for a user.")
+    .setDescription("Delete all of a member's warnings for a fresh start, after a confirmation.")
     .addUserOption(opt =>
       opt.setName("user").setDescription("The user whose warnings to clear").setRequired(true)
+    )
+    .addStringOption(opt =>
+      opt.setName("reason").setDescription("Why the warnings are cleared, for the case and mod log").setMaxLength(512).setAutocomplete(true).setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
   guildOnly: true,
   userPermissions: [PermissionFlagsBits.ModerateMembers],
 
+  autocomplete: async (interaction: AutocompleteInteraction) => {
+    const focused = interaction.options.getFocused(true);
+    await interaction.respond(focused.name === "reason" ? presetSuggestions(String(focused.value ?? ""), CLEARWARNINGS_REASON_PRESETS) : []);
+  },
+
   execute: async (interaction: ChatInputCommandInteraction) => {
     const target  = interaction.options.getUser("user", true);
+    const reason  = interaction.options.getString("reason")?.trim() || "Warnings cleared by moderator.";
     const guildId = interaction.guildId!;
 
     // The member, hierarchy and warning lookups can take longer than Discord's
@@ -94,7 +105,7 @@ export const command: Command = {
         userId: target.id,
         moderatorId: interaction.user.id,
         action: "clearwarnings",
-        reason: "Warnings cleared by moderator.",
+        reason,
         details: `Cleared ${summary}.`,
       });
 
@@ -104,6 +115,7 @@ export const command: Command = {
         .addFields(
           { name: "User",      value: `${target.tag} (<@${target.id}>)` },
           { name: "Cleared",   value: summary },
+          { name: "Reason",    value: reason },
           { name: "Moderator", value: interaction.user.tag, inline: true },
         )
         .setTimestamp();
@@ -112,7 +124,7 @@ export const command: Command = {
       await sendGuildLog(interaction.client, guildId, {
         title: "✅ Warnings Cleared",
         color: 0x57F287,
-        description: `**User:** ${target.tag} (<@${target.id}>)\n**Cleared:** ${summary}\n**Moderator:** ${interaction.user.tag}`,
+        description: `**User:** ${target.tag} (<@${target.id}>)\n**Cleared:** ${summary}\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
       }, "modActions");
     } catch (err) {
       logger.error(`Failed to clear warnings for user ${target.id} in guild ${guildId}`, err);

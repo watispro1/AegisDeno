@@ -3,7 +3,9 @@
  * missing something it needs) and the server-wide permissions Aegis lacks.
  * Per-channel checks stay in /diagnostics.
  */
-import { EmbedBuilder, MessageFlags, type ChatInputCommandInteraction } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, type ChatInputCommandInteraction } from "discord.js";
+import { dashboardUrl } from "../../config/links";
+import { COLORS, footer } from "../../utils/embedStyle";
 import type { GuildConfig } from "../../services/configuration";
 import type { AutomodConfig } from "../../services/automod";
 import { AUTOMOD_RULE_KEYS, enabledAutomodRules, getAutomodConfig } from "../../services/automod";
@@ -79,7 +81,7 @@ export async function runConfigOverview(interaction: ChatInputCommandInteraction
   const on = lines.filter(l => l.state === "on").length;
   const attention = lines.filter(l => l.state === "attention").length;
   const embed = new EmbedBuilder()
-    .setColor(attention || missing.length ? 0xfee75c : 0x57f287)
+    .setColor(attention || missing.length ? COLORS.warn : COLORS.ok)
     .setTitle(`⚙️ ${interaction.guild?.name ?? "Server"} at a glance`)
     .setDescription(renderModuleLines(lines).slice(0, 4000))
     .addFields({
@@ -87,6 +89,9 @@ export async function runConfigOverview(interaction: ChatInputCommandInteraction
       value: !me ? "Couldn't read Aegis's permissions here."
         : missing.length ? `Missing ${missing.map(f => `**${permissionName(f)}**`).join(", ")}`.slice(0, 1024) : "✅ Every permission the invite asks for.",
     })
-    .setFooter({ text: `${on} of ${lines.length} on${attention ? `, ${attention} need attention` : ""}. Run /diagnostics for per-channel checks.` });
-  await interaction.editReply({ embeds: [embed], allowedMentions: { parse: [] } });
+    .setFooter(footer(`${on} of ${lines.length} on${attention ? `, ${attention} need attention` : ""}. Run /diagnostics for per-channel checks.`));
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setLabel("Open the web dashboard").setStyle(ButtonStyle.Link).setURL(dashboardUrl(guildId)).setEmoji("🌐"),
+  );
+  await interaction.editReply({ embeds: [embed], components: [row], allowedMentions: { parse: [] } });
 }

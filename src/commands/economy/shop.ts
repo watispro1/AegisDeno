@@ -5,11 +5,15 @@ import {
 import type { Command } from "../../types/discord";
 import { economy } from "../../services/economyService";
 import { economyGate, inventoryAutocomplete, shopItemAutocomplete, shopRoleRefusal, NO_PINGS } from "../../services/economyDiscord";
-import { MAX_BALANCE, SHOP_LIMITS, formatCoins } from "../../services/economyLogic";
+import { MAX_BALANCE, SHOP_LIMITS, formatCoins, needsPayConfirmation } from "../../services/economyLogic";
 import { EFFECT_LIMITS, isItemEffect } from "../../services/economyProgress";
-import { buyAction, sellAction } from "../../services/economyItemActions";
 import { isShopShow, isShopSort, shopItemLine, SHOP_SHOW_LABEL, SHOP_SORT_LABEL } from "../../services/economyShopView";
 import { runShopView } from "../../services/economyShopPager";
+import { requestConfirmation } from "../../utils/confirmation";
+import { MAX_TRADE_QUANTITY, buyItemAutocomplete, buyPlanned, planBuy, quantityAutocomplete, sellMany, type TradeReply } from "./lib/shopTrade";
+import { withMemberLock } from "./lib/memberLock";
+import { STILL_RUNNING, sayPrivately } from "./lib/ui";
+import { editConflict } from "./lib/shopEdit";
 
 export { roleSummary } from "../../services/economyShopView";
 
@@ -26,10 +30,29 @@ function firstError(errors: Record<string, string | undefined>): string {
   return Object.values(errors).find(Boolean) ?? "That item isn't valid.";
 }
 
+/** Send a buy/sell result: public results as a new message, private ones in place. */
+async function sendTrade(interaction: ChatInputCommandInteraction, r: TradeReply, confirmed: boolean): Promise<void> {
+  const payload = { content: r.content ?? "", embeds: r.embed ? [r.embed] : [], allowedMentions: NO_PINGS };
+  if (confirmed) {
+    // The private prompt becomes the private result; a public result is posted for everyone.
+    if (r.ephemeral || !r.ok) return void await interaction.editReply({ ...payload, components: [] });
+    await interaction.editReply({ content: "✅ Done.", embeds: [], components: [] });
+    await interaction.followUp(payload);
+    return;
+  }
+  if (interaction.deferred) {
+    if (r.ok || !r.ephemeral) return void await interaction.editReply(payload);
+    // A refusal stays private even though the reply was deferred in public.
+    await interaction.deleteReply().catch(() => null);
+    return void await interaction.followUp({ ...payload, flags: MessageFlags.Ephemeral });
+  }
+  await interaction.reply({ ...payload, ...(r.ephemeral ? { flags: MessageFlags.Ephemeral } : {}) });
+}
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("shop")
-    .setDescription("Browse and buy items with coins. Staff can manage the shop.")
+    .setDescription("Browse, buy and sell shop items with coins. Staff can add, edit and remove items.")
     .setContexts(InteractionContextType.Guild)
     .addSubcommand(s => s.setName("view").setDescription("See what's for sale, a page at a time, and buy from the menu.")
       .addStringOption(o => o.setName("sort").setDescription("Order items by (default: price, low to high)")
@@ -37,8 +60,9 @@ export const command: Command = {
       .addStringOption(o => o.setName("show").setDescription("Which items to list (default: all)")
         .addChoices(...(Object.keys(SHOP_SHOW_LABEL) as Array<keyof typeof SHOP_SHOW_LABEL>).map(v => ({ name: SHOP_SHOW_LABEL[v], value: v }))))
       .addBooleanOption(o => o.setName("affordable").setDescription("Only list items you can afford right now")))
-    .addSubcommand(s => s.setName("buy").setDescription("Buy an item.")
-      .addStringOption(o => o.setName("item").setDescription("Item to buy").setRequired(true).setAutocomplete(true)))
+    .addSubcommand(s => s.setName("buy").setDescription("Buy an item (or several) with coins from your wallet.")
+      .addStringOption(o => o.setName("item").setDescription("Item to buy; the list shows price, stock and what you can afford").setRequired(true).setAutocomplete(true))
+      .addIntegerOption(o => o.setName("quantity").setDescription(`How many to buy (default 1, up to ${MAX_TRADE_QUANTITY})`).setMinValue(1).setMaxValue(MAX_TRADE_QUANTITY).setAutocomplete(true)))
     .addSubcommand(s => s.setName("add").setDescription("Staff: add an item (Manage Server).")
       .addStringOption(o => o.setName("name").setDescription("Item name").setRequired(true).setMaxLength(SHOP_LIMITS.name))
       .addIntegerOption(o => o.setName("price").setDescription("Price in coins").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE))
@@ -70,8 +94,9 @@ export const command: Command = {
       .addStringOption(o => o.setName("effect").setDescription("New effect on /use (No effect clears it)").addChoices(...EFFECT_CHOICES))
       .addIntegerOption(o => o.setName("effect_hours").setDescription("New effect length in hours").setMinValue(1).setMaxValue(EFFECT_LIMITS.maxHours))
       .addIntegerOption(o => o.setName("boost_percent").setDescription("New work boost percent").setMinValue(1).setMaxValue(EFFECT_LIMITS.maxPercent)))
-    .addSubcommand(s => s.setName("sell").setDescription("Sell an item from your inventory back to the shop at a reduced rate.")
-      .addStringOption(o => o.setName("item").setDescription("Item to sell").setRequired(true).setAutocomplete(true))),
+    .addSubcommand(s => s.setName("sell").setDescription("Sell items from your inventory back to the shop at a reduced rate.")
+      .addStringOption(o => o.setName("item").setDescription("Item to sell, from your inventory").setRequired(true).setAutocomplete(true))
+      .addIntegerOption(o => o.setName("quantity").setDescription(`How many to sell (default 1, up to ${MAX_TRADE_QUANTITY})`).setMinValue(1).setMaxValue(MAX_TRADE_QUANTITY).setAutocomplete(true))),
   category: "economy",
   guildOnly: true,
   // Used by subcommands, buttons or background work; requested on the invite, checked where used.
@@ -97,13 +122,32 @@ export const command: Command = {
     }
 
     if (sub === "buy") {
-      const r = await buyAction(guild, interaction.user.id, interaction.channelId, interaction.options.getString("item", true), cfg);
-      return interaction.reply({ content: r.content, ...(r.ephemeral ? { flags: MessageFlags.Ephemeral } : {}), allowedMentions: NO_PINGS });
+      const quantity = interaction.options.getInteger("quantity") ?? 1;
+      const [item, acct] = await Promise.all([svc.item(guild.id, interaction.options.getString("item", true)), svc.balance(guild.id, interaction.user.id)]);
+      const plan = planBuy(cfg, item, quantity, acct);
+      if (!plan.ok) return ephemeral(interaction, plan.content);
+      // Several units at once, for a large total, ask first like a large /pay does.
+      let confirmed = false;
+      if (plan.quantity > 1 && needsPayConfirmation(plan.total, cfg)) {
+        const answer = await requestConfirmation(interaction, {
+          content: `Buy **${plan.quantity}× ${plan.item.name}** for ${formatCoins(cfg, plan.total)}? You'll have ${formatCoins(cfg, plan.wallet - plan.total)} left.`,
+          confirmLabel: `Buy ${plan.quantity}`,
+        });
+        if (answer !== "confirmed") return;
+        confirmed = true;
+      } else if (plan.quantity > 1) {
+        await interaction.deferReply();
+      }
+      const r = await withMemberLock(guild.id, interaction.user.id, () => buyPlanned(guild, interaction.user.id, interaction.channelId, cfg, plan));
+      if (!r.ok) return sendTrade(interaction, { ok: false, ephemeral: true, content: STILL_RUNNING }, confirmed);
+      return sendTrade(interaction, r.value, confirmed);
     }
 
     if (sub === "sell") {
-      const r = await sellAction(guild.id, interaction.user.id, interaction.options.getString("item", true), cfg);
-      return ephemeral(interaction, r.content);
+      const quantity = interaction.options.getInteger("quantity") ?? 1;
+      const r = await withMemberLock(guild.id, interaction.user.id, () => sellMany(guild.id, interaction.user.id, interaction.options.getString("item", true), quantity, cfg));
+      if (!r.ok) return ephemeral(interaction, STILL_RUNNING);
+      return sendTrade(interaction, r.value, false);
     }
 
     if (sub === "add") {
@@ -134,11 +178,21 @@ export const command: Command = {
     if (!item) return ephemeral(interaction, "❌ That item isn't in the shop. Pick one from the list.");
 
     if (sub === "remove") {
-      await svc.removeItem(guild.id, item.id);
-      return ephemeral(interaction, `🗑️ Removed **${item.name}**. Members who bought it keep it.`);
+      const answer = await requestConfirmation(interaction, { content: `Remove **${item.name}** (${formatCoins(cfg, item.price)}) from the shop? Members who bought it keep it.`, confirmLabel: "Remove item" });
+      if (answer !== "confirmed") return;
+      const removed = await svc.removeItem(guild.id, item.id);
+      return sayPrivately(interaction, removed ? `🗑️ Removed **${item.name}**. Members who bought it keep it.` : "❌ That item was already removed.");
     }
 
     // edit
+    const conflict = editConflict({
+      role: interaction.options.getRole("role") !== null, clearRole: interaction.options.getBoolean("clear_role") === true,
+      stock: interaction.options.getInteger("stock") !== null, unlimited: interaction.options.getBoolean("unlimited") === true,
+      perUser: interaction.options.getInteger("per_user_limit") !== null, noUserLimit: interaction.options.getBoolean("no_user_limit") === true,
+      roleHours: interaction.options.getInteger("role_hours") !== null, permanentRole: interaction.options.getBoolean("permanent_role") === true,
+      changes: interaction.options.data[0]?.options?.filter(o => o.name !== "item").length ?? 0,
+    });
+    if (conflict) return ephemeral(interaction, `❌ ${conflict}`);
     const role = interaction.options.getRole("role");
     if (role) {
       const refusal = await shopRoleRefusal(guild, role.id, interaction.user.id);
@@ -166,7 +220,11 @@ export const command: Command = {
   },
 
   async autocomplete(interaction: AutocompleteInteraction) {
-    if (interaction.options.getSubcommand() === "sell") return inventoryAutocomplete(interaction);
+    const sub = interaction.options.getSubcommand();
+    const focused = interaction.options.getFocused(true).name;
+    if (focused === "quantity") return quantityAutocomplete(interaction, sub === "sell" ? "sell" : "buy");
+    if (sub === "sell") return inventoryAutocomplete(interaction);
+    if (sub === "buy") return buyItemAutocomplete(interaction);
     await shopItemAutocomplete(interaction);
   },
 };

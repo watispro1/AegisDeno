@@ -8,7 +8,10 @@ import {
   ButtonStyle,
   ComponentType,
   Colors,
+  MessageFlags,
 } from "discord.js";
+import { footer } from "../../utils/embedStyle";
+import { ownsComponent } from "../shared/componentOwner";
 import { Command } from "../../types/discord";
 import { dashboardUrl, siteUrl } from "../../config/links";
 import mongoose from "mongoose";
@@ -44,7 +47,8 @@ function getHealthTier(ping: number) {
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("ping")
-    .setDescription("Check real-time gateway heartbeat, round-trip message latency, and database performance."),
+    .setDescription("Check Aegis's response time: round-trip, gateway heartbeat and database latency.")
+    .addBooleanOption(o => o.setName("private").setDescription("Only you can see the reply (default: false)").setRequired(false)),
 
   botPermissions: ["EmbedLinks"],
 
@@ -82,7 +86,7 @@ export const command: Command = {
           { name: "📈 24h uptime", value: `\`${uptime24h()}\``, inline: true },
         )
         .setFooter({
-          text: `Aegis • Latency Probe • ${tier.label}`,
+          ...footer(`Latency probe · ${tier.label}`),
           iconURL: interaction.client.user?.displayAvatarURL(),
         })
         .setTimestamp();
@@ -109,7 +113,12 @@ export const command: Command = {
       );
     };
 
-    const initialSent = await interaction.reply({ content: "🏓 Pinging gateway and database...", fetchReply: true });
+    const isPrivate = interaction.options.getBoolean("private") ?? false;
+    const initialSent = await interaction.reply({
+      content: "🏓 Pinging gateway and database...",
+      fetchReply: true,
+      ...(isPrivate ? { flags: MessageFlags.Ephemeral as const } : {}),
+    });
     const initialRoundtrip = Math.max(1, initialSent.createdTimestamp - interaction.createdTimestamp);
     const initialDb = await measureDb();
     const initialWs = Math.round(interaction.client.ws.ping);
@@ -122,11 +131,12 @@ export const command: Command = {
 
     const collector = initialSent.createMessageComponentCollector({
       componentType: ComponentType.Button,
-      time: 90_000,
-      filter: (i) => i.customId === "ping_refresh" && i.user.id === interaction.user.id,
+      idle: 90_000,
+      filter: (i) => i.customId === "ping_refresh",
     });
 
     collector.on("collect", (i) => guardCollect("ping", i, async () => {
+      if (!(await ownsComponent(i, interaction.user.id, "ping"))) return;
       const clickStart = Date.now();
       await i.deferUpdate();
       const dbPing = await measureDb();
