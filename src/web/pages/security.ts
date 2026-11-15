@@ -28,13 +28,15 @@ export function renderSecurity(cfg: SiteConfig): string {
   const body = `
 <div class="wrap">
   ${breadcrumb("Security")}
-  <div class="page-head">
+  <div class="page-head sec-head">
+    <span class="eyebrow">Trust and safety</span>
     <h1>Security</h1>
     <p class="lead">How Aegis handles data, what the website does to protect you, how secrets are kept, and how to report a vulnerability. The full policy is <a href="${REPO_URL}/blob/main/SECURITY.md" rel="noopener noreferrer">SECURITY.md</a> in the repository.</p>
+    <div class="btn-row"><a class="btn" href="#report">Report a vulnerability</a><a class="btn ghost" href="#data">How data is handled</a></div>
   </div>
-  <section class="at-a-glance" aria-labelledby="glance-title">
+  <section class="at-a-glance sec-glance" aria-labelledby="glance-title">
     <h2 id="glance-title">At a glance</h2>
-    <ul>
+    <ul class="sec-glance-list">
       <li>Report vulnerabilities privately through GitHub's <strong>Report a vulnerability</strong> button, not in public.</li>
       <li>A strict content security policy: no inline scripts or styles, no framing, no third-party scripts.</li>
       <li>Dashboard session IDs are stored only as hashes; Discord access tokens never reach your browser.</li>
@@ -49,25 +51,27 @@ export function renderSecurity(cfg: SiteConfig): string {
     </ul>
   </details>
 
-  <div class="split">
+  <div class="split sec-split">
     <aside class="toc" aria-label="Sections">
       <p class="side-title">On this page</p>
       <ul>
         ${toc}
       </ul>
     </aside>
-    <div class="legal">
+    <div class="legal sec-body">
+      <section class="sec-report" aria-labelledby="report">
       <h2 id="report">Reporting a vulnerability</h2>
       <p>Please report it privately, not in a public issue, Discord message or pull request.</p>
-      <ol>
+      <ol class="sec-steps">
         <li>Open the repository's <a href="${REPO_URL}/security" rel="noopener noreferrer">Security tab</a> on GitHub.</li>
         <li>Choose <strong>Report a vulnerability</strong>. This opens a private advisory that only the maintainers can see.</li>
         <li>Describe the problem, the steps to reproduce it, the version (shown in the site footer and in <code class="inline">/about</code>) and what an attacker could do with it.</li>
       </ol>
       <p>If the Report a vulnerability button is not available, open a <a href="${REPO_URL}/issues" rel="noopener noreferrer">GitHub issue</a> that says only that you have a security report and would like a private way to send it, or ask for a private channel in the <a href="${support}" rel="noopener noreferrer">support server</a>. Do not include any details in public.</p>
+      </section>
 
       <h2 id="data">How data is handled</h2>
-      <ul>
+      <ul class="sec-points">
         <li><strong>Per server.</strong> Settings, warnings, cases, tickets and rules are stored by server ID in MongoDB and never shared between servers.</li>
         <li><strong>Expiry.</strong> Warnings, cases and staff notes are deleted after one year, dashboard activity after 180 days and dashboard sessions after 7 days. The <a href="/privacy">privacy policy</a> lists every record and its period.</li>
         <li><strong>Trust Score.</strong> Only message counts and last-active times are kept, never message content.</li>
@@ -77,7 +81,7 @@ export function renderSecurity(cfg: SiteConfig): string {
 
       <h2 id="browser">Browser protections and CSP</h2>
       <p>Every page, including the dashboard, is sent with this content security policy. All CSS and JavaScript load from <code class="inline">/assets</code>; no element carries an inline script, style or event handler.</p>
-      <ul>
+      <ul class="csp-list" aria-label="Content security policy directives">
           ${csp}
       </ul>
       <p>Alongside it: HSTS for two years, <code class="inline">X-Frame-Options: DENY</code>, <code class="inline">X-Content-Type-Options: nosniff</code>, a strict referrer policy, a permissions policy that turns off the camera, microphone and location, and cross-origin isolation headers. The public API under <code class="inline">/api</code> is rate limited, and request bodies are capped.</p>

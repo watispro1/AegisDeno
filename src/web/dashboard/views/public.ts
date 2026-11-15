@@ -33,30 +33,34 @@ export function renderLanding(cfg: SiteConfig, error: string | null): string {
     ["⛨", "Checked on every page", "Every page checks that you have Manage Server or Administrator in that server, using a server list re-read from Discord at least every 10 minutes."],
     ["⟲", "Every change is logged", "Changes you make are recorded on the server's Activity page for 180 days."],
   ];
+  const steps: Array<[string, string]> = [
+    ["Log in with Discord", "Discord shows what Aegis asks for before you agree. Nothing is posted as you."],
+    ["Pick a server", "Servers where you have Manage Server or Administrator and Aegis is a member are listed first; the rest can add Aegis."],
+    ["Review and change", "Cases, appeals, automod, logging, welcome messages and the other modules, each on its own page with an on/off switch where the bot supports one."],
+  ];
   return shell(cfg, {
     title: "Dashboard",
     path: "/dashboard",
     scripts: false,
-    body: `<section class="dash-landing">
+    body: `<section class="dash-landing dash-landing-v2">
     <div class="dash-landing-text">
       <span class="eyebrow">Aegis dashboard</span>
       <h1>Run your server's moderation from a browser</h1>
       <p class="lead">Look through moderation cases and change server settings from a browser. You need Manage Server or Administrator in the server.</p>
       ${message}
       <div class="btn-row"><a class="btn" href="/dashboard/login">Log in with Discord</a><a class="btn ghost" href="/docs">Read the docs</a></div>
+      <p class="faint landing-fine">Details are in the <a href="/privacy#discord-login">privacy policy</a>. By logging in you accept the <a href="/terms">terms</a>.</p>
     </div>
-    <ul class="dash-landing-preview" aria-hidden="true">
-      <li><span class="lp-dot on"></span>Automod <span class="lp-n">6 of 8 rules on</span></li>
-      <li><span class="lp-dot on"></span>Logging <span class="lp-n">Log channel set</span></li>
-      <li><span class="lp-dot"></span>Escalation <span class="lp-n">3 steps</span></li>
-      <li><span class="lp-dot on"></span>Tickets <span class="lp-n">2 open</span></li>
-    </ul>
+    <ol class="landing-steps" aria-label="How it works">
+      ${steps.map(([title, text], i) => `<li class="landing-step"><span class="landing-step-n" aria-hidden="true">${i + 1}</span><span class="landing-step-text"><strong>${esc(title)}</strong><span>${text}</span></span></li>`).join("\n      ")}
+    </ol>
   </section>
-  <h2 class="section-title">What it can see</h2>
-  <ul class="notes dash-facts">
-    ${facts.map(([icon, title, text]) => `<li class="dash-fact"><span class="dash-fact-icon" aria-hidden="true">${icon}</span><strong>${esc(title)}</strong><span>${text}</span></li>`).join("\n    ")}
-  </ul>
-  <p class="muted">Details are in the <a href="/privacy#discord-login">privacy policy</a>. By logging in you accept the <a href="/terms">terms</a>.</p>`,
+  <section class="landing-facts" aria-labelledby="landing-facts-h">
+    <h2 class="section-title" id="landing-facts-h">What it can see</h2>
+    <ul class="notes dash-facts">
+      ${facts.map(([icon, title, text]) => `<li class="dash-fact"><span class="dash-fact-icon" aria-hidden="true">${icon}</span><strong>${esc(title)}</strong><span>${text}</span></li>`).join("\n      ")}
+    </ul>
+  </section>`,
   });
 }
 
@@ -152,15 +156,18 @@ export function renderPicker(
     title: "Your servers",
     path: "/dashboard",
     viewer,
-    body: `${head("Your servers", "Servers where you have Manage Server or Administrator and Aegis is a member.", [], { eyebrow: "Dashboard" })}
+    body: `${head("Your servers", "Servers where you have Manage Server or Administrator and Aegis is a member.", [], { eyebrow: "Dashboard", actions: `<form class="dash-action picker-refresh" method="post" action="/dashboard/refresh">
+    ${csrfField(viewer)}
+    <button class="btn ghost sm" type="submit" title="Added Aegis somewhere or got a new role? Re-read your servers from Discord">↻ Refresh the list</button>
+  </form>` })}
   ${notice(noticeCode)}
   ${manageable.length + invitable.length > 0 ? strip : ""}
-  ${list}
-  ${invites}
-  <form class="dash-action" method="post" action="/dashboard/refresh">
-    ${csrfField(viewer)}
-    <p class="muted">Added Aegis somewhere or got a new role? <button class="btn ghost sm" type="submit">Refresh the list</button></p>
-  </form>`,
+  <section class="picker-section" aria-labelledby="picker-manage-h">
+    <h2 class="section-title" id="picker-manage-h">Ready to manage</h2>
+    ${list}
+  </section>
+  ${invites ? `<section class="picker-section picker-invite" aria-label="Servers without Aegis">${invites}</section>` : ""}
+  <p class="muted picker-foot">Added Aegis somewhere or got a new role? Use <strong>Refresh the list</strong> at the top; the dashboard also re-reads it from Discord at least every 10 minutes.</p>`,
   });
 }
 

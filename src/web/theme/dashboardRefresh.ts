@@ -8,7 +8,7 @@
 export const cssDashboardRefresh = String.raw`/* ── Dashboard refresh ───────────────────────────────────────────── */
 /* Empty states. Older markup without the icon/body wrapper stacks as one block
    instead of turning every text node into a flex column. */
-.empty-state:not(:has(> .empty-body)) { display: block; }
+.empty-state:not([hidden]):not(:has(> .empty-body)) { display: block; }
 .empty-body { flex: 1; min-width: 0; }
 .empty-body > strong:first-child { display: block; margin-bottom: .2rem; }
 .empty-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
@@ -66,8 +66,33 @@ body:has(.unsaved-bar:not([hidden])) .toast-region { bottom: 5.5rem; }
   .app-top [data-shortcuts-open] { display: none; }
 }
 
+/* Dashboard sign-in page */
+.dash-landing-v2 { align-items: center; padding: 1rem 0 2.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+.dash-landing-v2 h1 { font-size: clamp(2rem, 4vw, 2.8rem); line-height: 1.1; }
+.landing-fine { margin: 1rem 0 0; font-size: .85rem; }
+.landing-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border: 1px solid var(--border); border-radius: var(--r-lg, var(--r)); background: var(--surface); counter-reset: none; }
+.landing-step { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: .8rem; padding: 1rem 1.1rem; border-top: 1px solid var(--border); }
+.landing-step:first-child { border-top: 0; }
+.landing-step-n { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--accent-soft); color: var(--text); font: 600 .9rem var(--mono); }
+.landing-step-text { display: grid; gap: .15rem; }
+.landing-step-text span { color: var(--muted); font-size: .9rem; }
+.landing-facts .dash-facts { gap: .75rem; border: 0; }
+.landing-facts .dash-fact { margin: 0; border: 1px solid var(--border); border-radius: var(--r); }
+
+/* Server picker */
+.dash-head-actions .picker-refresh { margin: 0; }
+.picker-section { margin: 0 0 2rem; }
+.picker-section .section-title { margin-top: 0; }
+.picker-invite { padding: 1.1rem 1.25rem; border: 1px dashed var(--border-strong); border-radius: var(--r-lg, var(--r)); }
+.picker-invite .guild-list { margin-bottom: 1rem; }
+.picker-invite .invite-help { margin-bottom: 0; font-size: .88rem; }
+.picker-foot { font-size: .88rem; }
+
 /* Glass (beta) */
 [data-theme="glass"] .quick-tile { border-color: rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .03); border-radius: var(--r); }
 [data-theme="glass"] .quick-tile:hover { border-color: var(--accent); background: rgba(255, 255, 255, .06); }
+[data-theme="glass"] .landing-steps { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .12); }
+[data-theme="glass"] .landing-facts .dash-fact { border-color: rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .025); }
+[data-theme="glass"] .picker-invite { border-color: rgba(255, 255, 255, .18); }
 [data-theme="glass"] .filter-panel-summary { border-color: rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .04); }
 `;

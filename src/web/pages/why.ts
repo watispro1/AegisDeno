@@ -70,17 +70,18 @@ export const WHY_REASONS: WhyReason[] = [
 ];
 
 export function renderWhy(cfg: SiteConfig): string {
-  const cards = WHY_REASONS.map(r => `<li class="f-card" id="${r.id}">
-      <div class="f-card-head">${icon(r.icon)}<h3>${esc(r.title)}</h3></div>
-      ${r.html}
-      <p class="faint">${r.proof}</p>
+  const cards = WHY_REASONS.map((r, i) => `<li class="f-card why-card" id="${r.id}">
+      <div class="f-card-head">${icon(r.icon)}<h3><span class="why-n" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span>${esc(r.title)}</h3></div>
+      <div class="why-text">${r.html}</div>
+      <p class="faint why-proof"><span class="why-proof-label">Check it</span> ${r.proof}</p>
     </li>`).join("\n    ");
+  const jump = `<nav class="why-jump" aria-label="Reasons on this page"><ul>${WHY_REASONS.map(r => `<li><a href="#${r.id}">${icon(r.icon, "f-icon why-jump-icon")}<span>${esc(r.title)}</span></a></li>`).join("")}<li><a href="#compare"><span>Side by side</span></a></li></ul></nav>`;
   const table = `<section class="f-cat" id="compare" aria-labelledby="compare-title">
     <h2 id="compare-title"><a class="group-anchor" href="#compare">Side by side</a></h2>
     <p class="f-lead">How these compare with doing it by hand or with a typical moderation bot.</p>
-    <div class="table-wrap"><table class="f-why"><caption class="visually-hidden">Aegis compared with doing it by hand or other bots</caption>
+    <div class="table-wrap why-table"><table class="f-why"><caption class="visually-hidden">Aegis compared with doing it by hand or other bots</caption>
       <thead><tr><th scope="col">What matters</th><th scope="col">Aegis</th><th scope="col">Elsewhere</th></tr></thead>
-      <tbody>${WHY_ROWS.map(([a, b, c]) => `<tr><th scope="row">${esc(a)}</th><td>${esc(b)}</td><td>${esc(c)}</td></tr>`).join("")}</tbody></table></div>
+      <tbody>${WHY_ROWS.map(([a, b, c]) => `<tr><th scope="row">${esc(a)}</th><td data-label="Aegis">${esc(b)}</td><td data-label="Elsewhere">${esc(c)}</td></tr>`).join("")}</tbody></table></div>
   </section>`;
   const body = `${iconSprite(WHY_REASONS.map(r => r.icon))}
 <div class="wrap">
@@ -89,8 +90,9 @@ export function renderWhy(cfg: SiteConfig): string {
     <h1>Why Aegis</h1>
     <p class="lead">Moderation that keeps up with your community and shows its work. Each reason below says where to check it for yourself.</p>
   </div>
+  ${jump}
   <h2 class="visually-hidden" id="reasons-title">Reasons</h2>
-  <ul class="f-grid" aria-labelledby="reasons-title">
+  <ul class="f-grid why-grid" aria-labelledby="reasons-title">
     ${cards}
   </ul>
   ${botShowcase({ id: "proof", title: "See it for yourself", lead: "What a moderator actually sees, recreated from the real replies. The names are made up." })}
