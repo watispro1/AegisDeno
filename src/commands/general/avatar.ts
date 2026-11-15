@@ -16,6 +16,7 @@ import type { Command } from "../../types/discord";
 import { avatarLinkLine } from "../../services/lookupFormat";
 import { guardCollect } from "../../utils/collectorGuard";
 import { COLORS, footer } from "../../utils/embedStyle";
+import { ownsComponent } from "../shared/componentOwner";
 
 export type AvatarView = "main" | "server" | "banner";
 
@@ -32,6 +33,11 @@ export function pickAvatarView(requested: AvatarView, available: readonly Avatar
   if (available.includes(requested)) return { view: requested, note: null };
   const note = requested === "server" ? "No server avatar set, so this is their main avatar." : requested === "banner" ? "They have no profile banner, so this is their avatar." : null;
   return { view: "main", note };
+}
+
+/** What stays on the reply once the view switcher expires: a link to the image on screen. */
+export function expiredAvatarRow(url: string): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Open full size").setURL(url));
 }
 
 interface AvatarTarget {
@@ -89,27 +95,29 @@ export async function showAvatar(
   const sent = await interaction.editReply(render(target, picked.view, views, picked.note, idPrefix));
   if (views.length < 2) return;
 
+  // The view on screen, so the button left behind when the switcher expires opens that image.
+  let current = picked.view;
   const collector = sent.createMessageComponentCollector({
     componentType: ComponentType.Button,
-    time: 120_000,
+    idle: 120_000,
     filter: (i) => i.customId.startsWith(idPrefix),
   });
   collector.on("collect", (i) => guardCollect("avatar", i, async () => {
+    if (!(await ownsComponent(i, interaction.user.id, "avatar"))) return;
     const view = i.customId.slice(idPrefix.length) as AvatarView;
     if (!views.includes(view)) return;
+    current = view;
     await i.update(render(target, view, views, null, idPrefix));
   }));
   collector.on("end", () => {
-    interaction.editReply({ components: [render(target, picked.view, views, null, idPrefix).components[0].setComponents(
-      new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Open full size").setURL(imageFor(target, picked.view) ?? full.displayAvatarURL({ size: 4096 })),
-    )] }).catch(() => null);
+    interaction.editReply({ components: [expiredAvatarRow(imageFor(target, current) ?? full.displayAvatarURL({ size: 4096 }))] }).catch(() => null);
   });
 }
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("avatar")
-    .setDescription("Show a member's avatar, server avatar or banner in full size, with download links.")
+    .setDescription("Show anyone's avatar, server avatar or profile banner in full size, with download links.")
     .addUserOption(o => o.setName("user").setDescription("Whose avatar (defaults to you)").setRequired(false))
     .addBooleanOption(o => o.setName("server").setDescription("Open their server avatar first, when they set one").setRequired(false))
     .addBooleanOption(o => o.setName("banner").setDescription("Open their profile banner first, when they have one").setRequired(false))
