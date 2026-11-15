@@ -21,6 +21,8 @@ import { commands, COMMAND_CATEGORIES } from "../loader";
 import { canUseCommand, searchCommands } from "../../services/commandAccess";
 import { commandUrl, docsUrl, inviteUrl, siteUrl, supportServerUrl } from "../../config/links";
 import { contextMenus } from "../contextMenus";
+import { isPremiumQuick } from "../../services/premium";
+import { PREMIUM_BADGE } from "../../config/premium";
 import {
   APPS_PAGE, CATEGORIES, CATEGORY_ICONS, accessLabel, appsSectionText, categoryDocsUrl, formatCooldown, formatPermissions, subcommandNames, truncate,
 } from "../../services/helpFormat";
@@ -82,7 +84,7 @@ function linkRow(): ActionRowBuilder<ButtonBuilder> {
 }
 
 /** The category hub: Home, one page per category (split when long), and Apps. */
-function createHub(interaction: ChatInputCommandInteraction, allCmds: Command[]) {
+function createHub(interaction: ChatInputCommandInteraction, allCmds: Command[], premium = false) {
   const visibleNames = new Set(allCmds.map(c => c.data.name));
   const categories = COMMAND_CATEGORIES.filter(cat => allCmds.some(c => c.category === cat));
   const order = helpPageOrder(categories, APPS_PAGE);
@@ -99,7 +101,7 @@ function createHub(interaction: ChatInputCommandInteraction, allCmds: Command[])
     if (!category || category === "all") {
       return { pages: 1, embed: new EmbedBuilder()
         .setColor(COLORS.brand)
-        .setTitle("🛡️ Aegis — Command Hub")
+        .setTitle(premium ? `🛡️ Aegis — Command Hub · ${PREMIUM_BADGE}` : "🛡️ Aegis — Command Hub")
         .setDescription(
           `Select a category from the dropdown below, or use ◀ ▶ to step through them.\n\n` +
           `💡 *Tip: Type \`/help command:name\` (e.g. \`/help command:warn\`) for detailed options & permission rules.*`,
@@ -209,7 +211,7 @@ export const command: Command = {
     // Only commands this member can actually use here.
     const allCmds = visibleCommands(interaction);
     const visibleNames = new Set(allCmds.map(c => c.data.name));
-    const hub = createHub(interaction, allCmds);
+    const hub = createHub(interaction, allCmds, interaction.inGuild() ? await isPremiumQuick(interaction.guildId) : false);
 
     // Specific command lookup
     if (targetCommandName) {

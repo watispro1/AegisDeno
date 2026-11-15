@@ -93,3 +93,14 @@ export async function handlePaddleEvent(event: PaddleEvent, s: PremiumStore = pr
   clearPremiumCache(t.entitlement.guildId);
   return { outcome: "applied", guildId: t.entitlement.guildId };
 }
+
+/** isPremium bounded in time, for replies that must go out within Discord's 3 seconds. Slow means "no" for this reply. */
+export async function isPremiumQuick(guildId: string | null | undefined, timeoutMs = 750): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<boolean>(resolve => { timer = setTimeout(() => resolve(false), timeoutMs); });
+  try {
+    return await Promise.race([isPremium(guildId), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
