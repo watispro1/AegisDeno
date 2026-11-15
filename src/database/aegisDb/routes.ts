@@ -1,9 +1,41 @@
 /**
  * REST API route dispatcher for AegisDB.
+ *
+ * Server-to-server only: no CORS headers are sent, so browsers on other
+ * origins cannot call it. Everything except `/health` and the redacted
+ * `/metrics` needs the admin secret. Bodies are capped at 64 KB and every id,
+ * action, and amount is validated (400 on failure).
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AegisDbEngine } from "./engine";
-import type { AegisDbConfig, CaseRecord, EconomyRecord, WarningRecord } from "./types";
+import type { AegisDbConfig, CaseRecord, WarningRecord } from "./types";
+import { isAuthorized, isDevEnvironment } from "./auth";
+import { handleEconomyRoute } from "./routesEconomy";
+import {
+  HttpError,
+  isCaseRef,
+  isModerationAction,
+  isSnowflake,
+  queryInt,
+  readJsonObject,
+  validateCaseInput,
+  validateCasePatch,
+  validateWarningInput,
+} from "./validation";
+
+/** Finds a case by numeric AegisDB id or by the bot's own case reference (Mongo _id). */
+function resolveCase(db: AegisDbEngine, guildId: string, caseId: string): [string, CaseRecord] | null {
+  if (/^\d+$/.test(caseId)) {
+    const key = `case:${guildId}:${Number(caseId)}`;
+    const val = db.get("cases", key) as CaseRecord | null;
+    return val ? [key, val] : null;
+  }
+  if (!isCaseRef(caseId)) return null;
+  for (const [key, val] of db.prefixScan("cases", `case:${guildId}:`)) {
+    if ((val as CaseRecord).case_ref === caseId) return [key, val as CaseRecord];
+  }
+  return null;
+}
 
 export function handleAegisDbRequest(
   req: IncomingMessage,
@@ -11,28 +43,19 @@ export function handleAegisDbRequest(
   db: AegisDbEngine,
   config: AegisDbConfig,
 ): void {
-  // CORS
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-aegis-secret");
-
-  if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
-    return;
-  }
-
   const rawUrl = req.url ?? "/";
   const [pathname, search] = rawUrl.split("?");
   const query = new URLSearchParams(search ?? "");
+  const authorized = isAuthorized(req.headers, config.secret, isDevEnvironment());
 
   const sendJson = (status: number, data: unknown) => {
+    if (res.headersSent) return;
     res.statusCode = status;
     res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "no-store");
     res.end(JSON.stringify(data));
   };
 
-  // Public Health
   if (pathname === "/health" && req.method === "GET") {
     sendJson(200, {
       status: "ok",
@@ -43,51 +66,40 @@ export function handleAegisDbRequest(
     return;
   }
 
-  if ((pathname === "/metrics" || pathname === "/api/db/stats") && req.method === "GET") {
-    sendJson(200, db.stats());
+  // Public callers learn only that the service is up; full metrics need the secret.
+  if (pathname === "/metrics" && req.method === "GET") {
+    sendJson(200, authorized ? db.stats() : { healthy: true });
     return;
   }
 
-  // Auth check for /api/ routes
-  if (config.secret) {
-    const provided = (req.headers["x-aegis-secret"] as string) ||
-      (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : "");
-    if (provided !== config.secret) {
-      sendJson(401, { error: "unauthorized" });
-      return;
-    }
+  if (!authorized) {
+    req.resume();
+    sendJson(401, { error: "unauthorized" });
+    return;
   }
-
-  // Parse JSON body helper
-  const readBody = async <T>(): Promise<T> => {
-    return new Promise((resolve, reject) => {
-      let body = "";
-      req.on("data", (chunk) => { body += chunk; });
-      req.on("end", () => {
-        try {
-          resolve(body ? JSON.parse(body) as T : {} as T);
-        } catch (err) {
-          reject(err);
-        }
-      });
-      req.on("error", reject);
-    });
-  };
 
   void (async () => {
     try {
-      // 1. POST /api/db/compact
+      if (pathname === "/api/db/stats" && req.method === "GET") {
+        sendJson(200, db.stats());
+        return;
+      }
       if (pathname === "/api/db/compact" && req.method === "POST") {
         sendJson(200, db.compact());
         return;
       }
 
-      // 2. Guild Config: /api/guilds/:guildId/config
+      const guildMatch = pathname.match(/^\/api\/guilds\/([^/]+)\//);
+      if (guildMatch && !isSnowflake(decodeURIComponent(guildMatch[1]))) {
+        sendJson(400, { error: "guild id must be a Discord snowflake" });
+        return;
+      }
+
+      // Guild config: /api/guilds/:guildId/config
       const guildCfgMatch = pathname.match(/^\/api\/guilds\/([^/]+)\/config$/);
       if (guildCfgMatch) {
         const guildId = decodeURIComponent(guildCfgMatch[1]);
         const key = `cfg:${guildId}`;
-
         if (req.method === "GET") {
           const val = db.get("guild_configs", key);
           if (val) sendJson(200, val);
@@ -95,7 +107,7 @@ export function handleAegisDbRequest(
           return;
         }
         if (req.method === "PUT") {
-          const body = await readBody<Record<string, unknown>>();
+          const body = await readJsonObject(req);
           db.put("guild_configs", key, body);
           sendJson(200, body);
           return;
@@ -107,213 +119,124 @@ export function handleAegisDbRequest(
         }
       }
 
-      // 3. Moderation Cases
-      // List cases: GET /api/guilds/:guildId/cases
+      // Cases list / create: /api/guilds/:guildId/cases
       const casesListMatch = pathname.match(/^\/api\/guilds\/([^/]+)\/cases$/);
       if (casesListMatch && req.method === "GET") {
         const guildId = decodeURIComponent(casesListMatch[1]);
-        const prefix = `case:${guildId}:`;
-        const all = db.prefixScan("cases", prefix);
-        let list = all.map(([, val]) => val as CaseRecord);
-
         const uid = query.get("user_id");
-        if (uid) list = list.filter((c) => c.target_id === uid);
-
         const act = query.get("action");
+        if (uid !== null && !isSnowflake(uid)) return sendJson(400, { error: "user_id must be a Discord snowflake" });
+        if (act !== null && !isModerationAction(act.toLowerCase())) return sendJson(400, { error: "unknown action" });
+        const skip = queryInt(query.get("skip"), "skip", 0, 0);
+        const limit = queryInt(query.get("limit"), "limit", 50, 1, 200);
+        if (!skip.ok) return sendJson(400, { error: skip.error });
+        if (!limit.ok) return sendJson(400, { error: limit.error });
+
+        let list = db.prefixScan("cases", `case:${guildId}:`).map(([, val]) => val as CaseRecord);
+        if (uid) list = list.filter((c) => c.target_id === uid);
         if (act) list = list.filter((c) => c.action.toLowerCase() === act.toLowerCase());
-
         list.sort((a, b) => b.case_id - a.case_id);
-
-        const total = list.length;
-        const skip = Number(query.get("skip")) || 0;
-        const limit = Math.min(200, Math.max(1, Number(query.get("limit")) || 50));
-        const paginated = list.slice(skip, skip + limit);
-
-        sendJson(200, { guild_id: guildId, total, skip, limit, cases: paginated });
+        const cases = list.slice(skip.value, skip.value + limit.value);
+        sendJson(200, { guild_id: guildId, total: list.length, skip: skip.value, limit: limit.value, cases });
         return;
       }
 
-      // Create case: POST /api/guilds/:guildId/cases
       if (casesListMatch && req.method === "POST") {
         const guildId = decodeURIComponent(casesListMatch[1]);
-        const body = await readBody<Record<string, unknown>>();
-        const prefix = `case:${guildId}:`;
-        const existing = db.prefixScan("cases", prefix);
-        const maxId = existing.reduce((max, [, v]) => Math.max(max, (v as CaseRecord).case_id || 0), 0);
-        const nextId = maxId + 1;
-        const key = `case:${guildId}:${nextId}`;
+        const check = validateCaseInput(await readJsonObject(req));
+        if (!check.ok) return sendJson(400, { error: check.error });
+        const input = check.value;
 
+        // From here to the put is synchronous: no other request can allocate
+        // the same id in between.
+        const existing = db.prefixScan("cases", `case:${guildId}:`).map(([, v]) => v as CaseRecord);
+        if (input.case_ref) {
+          const dup = existing.find((c) => c.case_ref === input.case_ref);
+          if (dup) return sendJson(200, dup); // idempotent retry
+        }
+        const nextId = existing.reduce((max, c) => Math.max(max, c.case_id || 0), 0) + 1;
         const record: CaseRecord = {
           case_id: nextId,
+          ...(input.case_ref ? { case_ref: input.case_ref } : {}),
           guild_id: guildId,
-          target_id: String(body.target_id ?? ""),
-          target_tag: typeof body.target_tag === "string" ? body.target_tag : undefined,
-          mod_id: String(body.mod_id ?? ""),
-          mod_tag: typeof body.mod_tag === "string" ? body.mod_tag : undefined,
-          action: String(body.action ?? "warn"),
-          reason: String(body.reason ?? ""),
+          target_id: input.target_id,
+          target_tag: input.target_tag,
+          mod_id: input.mod_id,
+          mod_tag: input.mod_tag,
+          action: input.action,
+          reason: input.reason,
           created_at: Date.now(),
-          duration_ms: typeof body.duration_ms === "number" ? body.duration_ms : undefined,
+          duration_ms: input.duration_ms,
           revoked: false,
         };
-
-        db.put("cases", key, record);
+        db.put("cases", `case:${guildId}:${nextId}`, record);
         sendJson(201, record);
         return;
       }
 
-      // Single case: GET / PATCH /api/guilds/:guildId/cases/:caseId
+      // Single case: GET / PATCH /api/guilds/:guildId/cases/:caseId (number or case_ref)
       const singleCaseMatch = pathname.match(/^\/api\/guilds\/([^/]+)\/cases\/([^/]+)$/);
-      if (singleCaseMatch) {
+      if (singleCaseMatch && (req.method === "GET" || req.method === "PATCH")) {
         const guildId = decodeURIComponent(singleCaseMatch[1]);
         const caseId = decodeURIComponent(singleCaseMatch[2]);
-        const key = `case:${guildId}:${caseId}`;
+        if (!/^\d+$/.test(caseId) && !isCaseRef(caseId)) return sendJson(400, { error: "invalid case id" });
 
         if (req.method === "GET") {
-          const val = db.get("cases", key);
-          if (val) sendJson(200, val);
+          const found = resolveCase(db, guildId, caseId);
+          if (found) sendJson(200, found[1]);
           else sendJson(404, { error: "Case not found" });
           return;
         }
 
-        if (req.method === "PATCH") {
-          const val = db.get("cases", key) as CaseRecord | null;
-          if (!val) {
-            sendJson(404, { error: "Case not found" });
-            return;
-          }
-          const body = await readBody<Record<string, unknown>>();
-          if (typeof body.reason === "string") val.reason = body.reason;
-          if (typeof body.revoked === "boolean") {
-            val.revoked = body.revoked;
-            val.revoked_by = typeof body.revoked_by === "string" ? body.revoked_by : undefined;
-            val.revoked_reason = typeof body.revoked_reason === "string" ? body.revoked_reason : undefined;
-          }
-          db.put("cases", key, val);
-          sendJson(200, val);
-          return;
+        // Read the body first, then resolve + modify + write synchronously.
+        const check = validateCasePatch(await readJsonObject(req));
+        if (!check.ok) return sendJson(400, { error: check.error });
+        const found = resolveCase(db, guildId, caseId);
+        if (!found) return sendJson(404, { error: "Case not found" });
+        const [key, current] = found;
+        const patch = check.value;
+        const next: CaseRecord = { ...current };
+        if (patch.reason !== undefined) next.reason = patch.reason;
+        if (patch.revoked !== undefined) {
+          next.revoked = patch.revoked;
+          next.revoked_by = patch.revoked_by;
+          next.revoked_reason = patch.revoked_reason;
         }
+        db.put("cases", key, next);
+        sendJson(200, next);
+        return;
       }
 
-      // 4. Warnings: /api/guilds/:guildId/warnings
+      // Warnings: POST /api/guilds/:guildId/warnings
       const warningsPostMatch = pathname.match(/^\/api\/guilds\/([^/]+)\/warnings$/);
       if (warningsPostMatch && req.method === "POST") {
         const guildId = decodeURIComponent(warningsPostMatch[1]);
-        const body = await readBody<Record<string, unknown>>();
-        const warnId = `w_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-        const userId = String(body.user_id ?? "");
-        const key = `warn:${guildId}:${userId}:${warnId}`;
-
+        const check = validateWarningInput(await readJsonObject(req));
+        if (!check.ok) return sendJson(400, { error: check.error });
+        const input = check.value;
+        const warnId = `w_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
         const record: WarningRecord = {
           warn_id: warnId,
           guild_id: guildId,
-          user_id: userId,
-          mod_id: String(body.mod_id ?? ""),
-          reason: String(body.reason ?? ""),
-          severity: String(body.severity ?? "standard"),
+          ...input,
           created_at: Date.now(),
           active: true,
-          proof_url: typeof body.proof_url === "string" ? body.proof_url : null,
         };
-
-        db.put("warnings", key, record);
+        db.put("warnings", `warn:${guildId}:${input.user_id}:${warnId}`, record);
         sendJson(201, record);
         return;
       }
 
-      // 5. Economy Leaderboard: /api/guilds/:guildId/economy/leaderboard
-      const ecoLbMatch = pathname.match(/^\/api\/guilds\/([^/]+)\/economy\/leaderboard$/);
-      if (ecoLbMatch && req.method === "GET") {
-        const guildId = decodeURIComponent(ecoLbMatch[1]);
-        const prefix = `eco:${guildId}:`;
-        const all = db.prefixScan("economy", prefix);
-        const limit = Math.min(100, Math.max(1, Number(query.get("limit")) || 10));
-
-        const list = all.map(([, val]) => {
-          const rec = val as EconomyRecord;
-          return {
-            user_id: rec.user_id,
-            wallet: rec.wallet || 0,
-            bank: rec.bank || 0,
-            net_worth: (rec.wallet || 0) + (rec.bank || 0),
-          };
-        });
-
-        list.sort((a, b) => b.net_worth - a.net_worth);
-        const leaderboard = list.slice(0, limit).map((item, idx) => ({ rank: idx + 1, ...item }));
-
-        sendJson(200, { guild_id: guildId, count: leaderboard.length, leaderboard });
-        return;
-      }
-
-      // Economy Account: /api/guilds/:guildId/economy/:userId
-      const ecoMatch = pathname.match(/^\/api\/guilds\/([^/]+)\/economy\/([^/]+)$/);
-      if (ecoMatch && req.method === "GET") {
-        const guildId = decodeURIComponent(ecoMatch[1]);
-        const userId = decodeURIComponent(ecoMatch[2]);
-        const key = `eco:${guildId}:${userId}`;
-        const val = db.get("economy", key) as EconomyRecord | null;
-        if (val) {
-          sendJson(200, val);
-        } else {
-          sendJson(200, {
-            guild_id: guildId,
-            user_id: userId,
-            wallet: 0,
-            bank: 0,
-            bank_capacity: 5000,
-            daily_streak: 0,
-          });
-        }
-        return;
-      }
-
-      // Economy transact: /api/guilds/:guildId/economy/:userId/transact
-      const ecoTransactMatch = pathname.match(/^\/api\/guilds\/([^/]+)\/economy\/([^/]+)\/transact$/);
-      if (ecoTransactMatch && req.method === "POST") {
-        const guildId = decodeURIComponent(ecoTransactMatch[1]);
-        const userId = decodeURIComponent(ecoTransactMatch[2]);
-        const key = `eco:${guildId}:${userId}`;
-        const body = await readBody<{ kind: string; amount: number; description?: string }>();
-
-        let record = (db.get("economy", key) as EconomyRecord | null) ?? {
-          guild_id: guildId,
-          user_id: userId,
-          wallet: 0,
-          bank: 0,
-          bank_capacity: 5000,
-          daily_streak: 0,
-        };
-
-        const amt = Number(body.amount) || 0;
-        if (body.kind === "deposit") {
-          if (amt <= 0) return sendJson(400, { error: "Amount must be positive" });
-          if (record.wallet < amt) return sendJson(400, { error: "Insufficient wallet funds" });
-          const space = Math.max(0, record.bank_capacity - record.bank);
-          if (amt > space) return sendJson(400, { error: "Exceeds bank capacity" });
-          record.wallet -= amt;
-          record.bank += amt;
-        } else if (body.kind === "withdraw") {
-          if (amt <= 0) return sendJson(400, { error: "Amount must be positive" });
-          if (record.bank < amt) return sendJson(400, { error: "Insufficient bank funds" });
-          record.bank -= amt;
-          record.wallet += amt;
-        } else if (body.kind === "add_wallet") {
-          record.wallet = Math.max(0, record.wallet + amt);
-        } else if (body.kind === "set_wallet") {
-          record.wallet = Math.max(0, amt);
-        } else if (body.kind === "add_bank") {
-          record.bank = Math.max(0, record.bank + amt);
-        }
-
-        db.put("economy", key, record);
-        sendJson(200, record);
-        return;
-      }
+      if (await handleEconomyRoute(req, pathname, query, db, sendJson)) return;
 
       sendJson(404, { error: "Not found" });
     } catch (err) {
-      sendJson(500, { error: String(err) });
+      if (err instanceof HttpError) {
+        if (err.status === 413) res.setHeader("Connection", "close");
+        sendJson(err.status, { error: err.message });
+        return;
+      }
+      sendJson(500, { error: "internal_error" });
     }
   })();
 }

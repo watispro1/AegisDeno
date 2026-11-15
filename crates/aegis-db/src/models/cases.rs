@@ -3,6 +3,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaseRecord {
     pub case_id: u64,
+    /// The bot's own id for this case (the MongoDB `_id`), so later edits and
+    /// revokes from the bot can find it. Absent for cases created directly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub case_ref: Option<String>,
     pub guild_id: String,
     pub target_id: String,
     pub target_tag: Option<String>,

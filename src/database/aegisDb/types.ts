@@ -4,6 +4,8 @@
 
 export interface CaseRecord {
   case_id: number;
+  /** The bot's id for the case (MongoDB _id), used to find it for edits and revokes. */
+  case_ref?: string;
   guild_id: string;
   target_id: string;
   target_tag?: string;

@@ -1,5 +1,3 @@
-import { getAegisDbEngine, startAegisBackend } from "./aegisDb";
-
 /**
  * Client for Aegis's database & backend service (AegisDB).
  * Communicates over high-performance HTTP REST with Write-Ahead Log (WAL) durability.
@@ -20,6 +18,7 @@ export interface RustHealthResponse {
 
 export interface RustCaseRecord {
   case_id: number;
+  case_ref?: string;
   guild_id: string;
   target_id: string;
   target_tag?: string;
@@ -141,6 +140,8 @@ export class AegisRustClient {
   async createCase(
     guildId: string,
     data: {
+      /** The bot's own case id (MongoDB _id); makes retries idempotent and lets edits find the case. */
+      case_ref?: string;
       target_id: string;
       target_tag?: string;
       mod_id: string;
@@ -214,24 +215,15 @@ export class AegisRustClient {
     );
   }
 
-  /** Ping AegisDB – returns true if reachable, false otherwise */
+  /**
+   * Ping AegisDB: true if `/health` answers, false otherwise. Side-effect free;
+   * starting the embedded backend is main()'s job, not a health probe's.
+   */
   async ping(): Promise<boolean> {
     try {
-      await this.health();
-      return true;
+      const h = await this.health();
+      return h?.status === "ok";
     } catch {
-      if (getAegisDbEngine()) return true;
-
-      // Auto-start native backend if using local default endpoint
-      if (this.baseUrl.includes("127.0.0.1:4000") || this.baseUrl.includes("localhost:4000")) {
-        try {
-          await startAegisBackend();
-          await this.health();
-          return true;
-        } catch {
-          return getAegisDbEngine() !== null;
-        }
-      }
       return false;
     }
   }

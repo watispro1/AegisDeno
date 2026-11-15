@@ -1,14 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import express from "express";
 import { AegisDbEngine } from "../src/database/aegisDb/engine";
 import { AegisDbServer } from "../src/database/aegisDb/server";
+import { startAegisBackend, stopAegisBackend } from "../src/database/aegisDb";
 import { AegisRustClient } from "../src/database/rustClient";
 import { registerApiRoutes } from "../src/web/apiRoutes";
 
-const TEST_DB_DIR = "./data/test-aegis-db";
+const TEST_DB_DIR = path.join(os.tmpdir(), `aegis-ts-db-${process.pid}`);
+const G = "100000000000000101";
+const U = "100000000000000501";
+const M = "100000000000000999";
 
 function cleanTestDir(): void {
   if (fs.existsSync(TEST_DB_DIR)) {
@@ -55,11 +60,11 @@ test("AegisDbEngine: put, get, delete, prefixScan and persistence", () => {
 
 test("AegisDbServer: full REST API endpoints", async () => {
   cleanTestDir();
-  const server = new AegisDbServer({ port: 4099, secret: "secret99", dataPath: TEST_DB_DIR });
-  await server.start();
+  const server = new AegisDbServer({ port: 0, secret: "secret99", dataPath: TEST_DB_DIR });
+  assert.equal(await server.start(), "serving");
 
   try {
-    const client = new AegisRustClient({ baseUrl: "http://127.0.0.1:4099", secret: "secret99" });
+    const client = new AegisRustClient({ baseUrl: `http://127.0.0.1:${server.port()}`, secret: "secret99" });
 
     // Health
     const health = await client.health();
@@ -74,16 +79,20 @@ test("AegisDbServer: full REST API endpoints", async () => {
     const stats = await client.stats();
     assert.equal(stats.status, "ok");
 
+    // Wrong secret is refused on the protected API
+    const intruder = new AegisRustClient({ baseUrl: `http://127.0.0.1:${server.port()}`, secret: "nope" });
+    await assert.rejects(() => intruder.stats(), /401/);
+
     // Guild Config
-    assert.equal(await client.getGuildConfig("g101"), null);
-    await client.saveGuildConfig("g101", { welcome: { enabled: true } });
-    const fetchedCfg = await client.getGuildConfig("g101");
+    assert.equal(await client.getGuildConfig(G), null);
+    await client.saveGuildConfig(G, { welcome: { enabled: true } });
+    const fetchedCfg = await client.getGuildConfig(G);
     assert.deepEqual(fetchedCfg, { welcome: { enabled: true } });
 
     // Moderation Cases
-    const createdCase = await client.createCase("g101", {
-      target_id: "u501",
-      mod_id: "m999",
+    const createdCase = await client.createCase(G, {
+      target_id: U,
+      mod_id: M,
       action: "timeout",
       reason: "Spam",
       duration_ms: 60000,
@@ -91,32 +100,32 @@ test("AegisDbServer: full REST API endpoints", async () => {
     assert.equal(createdCase.case_id, 1);
     assert.equal(createdCase.action, "timeout");
 
-    const cases = await client.getCases("g101");
+    const cases = await client.getCases(G);
     assert.equal(cases.total, 1);
     assert.equal(cases.cases[0].reason, "Spam");
 
     // Patch case
-    const patched = await client.patchCase("g101", "1", { reason: "Spamming emotes" });
+    const patched = await client.patchCase(G, "1", { reason: "Spamming emotes" });
     assert.equal(patched?.reason, "Spamming emotes");
 
     // Warnings
-    const warnRes = await client.createWarning("g101", {
-      user_id: "u501",
-      mod_id: "m999",
+    const warnRes = await client.createWarning(G, {
+      user_id: U,
+      mod_id: M,
       reason: "Zalgo text",
     });
     assert.ok(warnRes);
 
     // Economy
-    const initialEco = await client.getEconomy("g101", "u501");
+    const initialEco = await client.getEconomy(G, U);
     assert.equal(initialEco.wallet, 0);
 
-    const transacted = await client.transactEconomy("g101", "u501", { kind: "add_wallet", amount: 250 });
+    const transacted = await client.transactEconomy(G, U, { kind: "add_wallet", amount: 250 });
     assert.equal(transacted.wallet, 250);
 
-    const lb = await client.getLeaderboard("g101", 10);
+    const lb = await client.getLeaderboard(G, 10);
     assert.equal(lb.count, 1);
-    assert.equal(lb.leaderboard[0].user_id, "u501");
+    assert.equal(lb.leaderboard[0].user_id, U);
     assert.equal(lb.leaderboard[0].net_worth, 250);
   } finally {
     await server.stop();
@@ -126,8 +135,7 @@ test("AegisDbServer: full REST API endpoints", async () => {
 
 test("Website endpoints report rustBackend as healthy when native backend is present", async () => {
   cleanTestDir();
-  const server = new AegisDbServer({ port: 4098, dataPath: TEST_DB_DIR });
-  await server.start();
+  await startAegisBackend({ port: 0, secret: "secret98", dataPath: TEST_DB_DIR });
 
   const app = express();
   registerApiRoutes(app, {
@@ -153,14 +161,30 @@ test("Website endpoints report rustBackend as healthy when native backend is pre
     const statsJson = await statsRes.json() as { rustBackend?: { healthy: boolean } };
     assert.equal(statsJson.rustBackend?.healthy, true);
 
+    // Without the admin secret only a yes/no health answer comes back.
     const backendStatsRes = await fetch(`http://127.0.0.1:${port}/api/backend/stats`);
     assert.equal(backendStatsRes.status, 200);
-    const backendStatsJson = await backendStatsRes.json() as { ok: boolean; status?: string };
-    assert.equal(backendStatsJson.ok, true);
-    assert.equal(backendStatsJson.status, "ok");
+    assert.equal(backendStatsRes.headers.get("access-control-allow-origin"), null);
+    const publicJson = await backendStatsRes.json() as Record<string, unknown>;
+    assert.deepEqual(publicJson, { ok: true, healthy: true });
+
+    const prev = process.env.AEGIS_BACKEND_SECRET;
+    process.env.AEGIS_BACKEND_SECRET = "admin-secret";
+    try {
+      const authed = await fetch(`http://127.0.0.1:${port}/api/backend/stats`, { headers: { "x-aegis-secret": "admin-secret" } });
+      const authedJson = await authed.json() as { ok: boolean; status?: string; total_documents?: number };
+      assert.equal(authedJson.ok, true);
+      assert.equal(authedJson.status, "ok");
+      assert.equal(typeof authedJson.total_documents, "number");
+      const wrong = await (await fetch(`http://127.0.0.1:${port}/api/backend/stats`, { headers: { "x-aegis-secret": "admin-secreT" } })).json();
+      assert.deepEqual(wrong, { ok: true, healthy: true });
+    } finally {
+      if (prev === undefined) delete process.env.AEGIS_BACKEND_SECRET;
+      else process.env.AEGIS_BACKEND_SECRET = prev;
+    }
   } finally {
     webServer.close();
-    await server.stop();
+    await stopAegisBackend();
     cleanTestDir();
   }
 });
