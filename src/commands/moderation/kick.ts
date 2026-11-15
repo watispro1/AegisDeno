@@ -26,11 +26,12 @@ import { addModerationCase } from "../../services/moderationCases";
 import { caseActionsRow, modLogRow } from "../../services/modLogLinks";
 import { softFail } from "../../utils/softFail";
 import { dmOutcome, dmSentLabel, dmSentText } from "../../services/dmNotice";
+import { replyEphemeralPrompt } from "./lib/prompt";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("kick")
-    .setDescription("Kick a member from the server with confirmation.")
+    .setDescription("Remove a member from the server (they can rejoin with an invite), after a confirmation.")
     .addUserOption(opt =>
       opt.setName("user").setDescription("The member to kick").setRequired(true)
     )
@@ -38,7 +39,7 @@ export const command: Command = {
       opt.setName("reason").setDescription("Reason for the kick (suggestions as you type)").setMaxLength(512).setRequired(false).setAutocomplete(true)
     )
     .addBooleanOption(opt =>
-      opt.setName("silent").setDescription("Skip DM notification to the member (default: false)").setRequired(false)
+      opt.setName("silent").setDescription("Don't DM the member about the kick (default: they get a DM)").setRequired(false)
     )
     .addAttachmentOption(opt =>
       opt.setName("proof").setDescription("Optional screenshot or proof, stored with the case").setRequired(false)
@@ -128,12 +129,7 @@ export const command: Command = {
         .setEmoji("✖️"),
     );
 
-    const prompt = await interaction.reply({
-      embeds: [confirmEmbed],
-      components: [confirmRow],
-      flags: MessageFlags.Ephemeral,
-      fetchReply: true,
-    });
+    const prompt = await replyEphemeralPrompt(interaction, { embeds: [confirmEmbed], components: [confirmRow] });
 
     let finalReason = reason;
     let handled = false;
@@ -185,6 +181,22 @@ export const command: Command = {
         await i.deferUpdate().catch(() => null);
 
         try {
+          // The member may have left, or roles changed, during the prompt. Check
+          // before the DM so nobody is told they were kicked when they weren't.
+          const fresh = await interaction.guild!.members.fetch(target.id).catch(() => null);
+          if (!fresh) {
+            await i.editReply({ content: `ℹ️ ${target.user.tag} left the server while you were confirming. Nothing was done.`, embeds: [], components: [] }).catch(() => null);
+            return;
+          }
+          const [stillOk, botStillOk] = await Promise.all([
+            isRoleHierarchyValid(interaction.client, guildId, interaction.user.id, target.id),
+            isBotHierarchyValid(interaction.client, guildId, target.id),
+          ]);
+          if (!stillOk || !botStillOk || !fresh.kickable) {
+            await i.editReply({ content: `❌ ${stillOk ? "I" : "You"} can no longer kick this member: their roles changed while you were confirming. Nothing was done.`, embeds: [], components: [] }).catch(() => null);
+            return;
+          }
+
           // DM before kicking so message can still be delivered
           let delivered = false;
           if (!silent) {
@@ -201,7 +213,7 @@ export const command: Command = {
           }
 
           const dm = dmOutcome(silent, delivered);
-          await target.kick(auditReason(`${finalReason} | Kicked by ${interaction.user.tag}`));
+          await fresh.kick(auditReason(`${finalReason} | Kicked by ${interaction.user.tag}`));
 
           const caseId = await addModerationCase({
             guildId,
