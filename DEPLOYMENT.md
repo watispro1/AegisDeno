@@ -305,6 +305,8 @@ URL as a redirect in the portal. The two must match character for character.
 
 Premium is $5/month per server, sold through Paddle as merchant of record. It stays hidden (no dashboard page, no sidebar link, `/premium` says it isn't offered, the webhook answers 503) until all five secrets below are set. Benefits live in `src/config/premium.ts`.
 
+Billing and refund policy (shown in the Terms "Aegis Premium and payments" section and on the public `/premium` page; keep all three in sync): Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (paddle.net) or our support server; refunds after 14 days are not given except where required by law. Paddle processes all refunds.
+
 1. In Paddle (start in a sandbox account): **Catalog > Products**: create "Aegis Premium" (tax category: standard/SaaS) with a recurring price of USD 5.00 every 1 month. Copy the price ID (`pri_...`).
 2. **Developer tools > Authentication**: create a client-side token (`test_...` in sandbox, `live_...` in production) and an API key with at least `customer_portal_session.write`.
 3. **Developer tools > Notifications > New destination**: URL `https://aegisdeno.fly.dev/api/paddle/webhook`, type webhook, events `subscription.created`, `subscription.updated`, `subscription.activated`, `subscription.canceled`, `subscription.past_due`, `subscription.paused`, `subscription.resumed`, `subscription.trialing`, `transaction.completed`. Copy the destination's secret key (`pdl_ntfset_...`).

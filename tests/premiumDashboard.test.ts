@@ -15,7 +15,7 @@ import { cookieNames, csrfToken, signSessionId } from "../src/web/dashboard/secu
 import type { BotView } from "../src/web/dashboard/botView";
 import type { DashboardData, SettingsSnapshot } from "../src/web/dashboard/data";
 import type { SiteConfig } from "../src/web/pages";
-import { renderPremium } from "../src/web/pages";
+import { renderPremium, renderTerms } from "../src/web/pages";
 import { normalizeGuildConfig } from "../src/services/guildConfigNormalize";
 import { memoryPremiumStore } from "../src/services/premiumStore";
 import type { Entitlement } from "../src/services/premiumState";
@@ -190,4 +190,17 @@ test("public /premium page shows the price and limits, and says when it is not o
   assert.ok(on.includes("merchant of record"));
   assert.ok(renderPremium(site, false).includes("Not on sale yet"));
   assert.doesNotMatch(on, /\sstyle=|\son[a-z]+=/i);
+});
+
+test("refund policy: the same 14-day policy is on /premium (on sale or not) and in the Terms Premium section", () => {
+  const policy = "Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (paddle.net) or our support server; refunds after 14 days are not given except where required by law. Paddle processes all refunds.";
+  const text = (html: string) => html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
+  for (const html of [renderPremium(site, true), renderPremium(site, false)]) {
+    assert.ok(text(html).includes(policy), "policy on /premium");
+    assert.ok(html.includes('href="https://paddle.net"'));
+  }
+  const terms = renderTerms(site);
+  const premiumSection = terms.slice(terms.indexOf('id="premium"'), terms.indexOf('id="acceptable-use"'));
+  assert.ok(text(premiumSection).includes(policy), "policy in the Terms Premium section");
+  assert.doesNotMatch(premiumSection, /handled by Paddle under its buyer terms/);
 });
