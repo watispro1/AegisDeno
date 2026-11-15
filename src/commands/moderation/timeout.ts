@@ -203,6 +203,9 @@ export const command: Command = {
           reason,
           details: `Duration: ${durationLabel} | Until ${until.toISOString()}`,
           proofUrl: proof?.url ?? null,
+          targetTag: target.user.tag,
+          modTag: interaction.user.tag,
+          durationMs,
         });
 
         let delivered = false;

@@ -1,7 +1,8 @@
 /**
  * In-memory BTreeMap/Map database engine with WAL durability.
  */
-import { WalStorage } from "./wal";
+import { TS_LOCK_FILE, WalStorage } from "./wal";
+import { DirLock } from "./dirLock";
 import type { CollectionName, WalEntry } from "./types";
 import { logger } from "../../utils/logger";
 
@@ -20,13 +21,22 @@ export class AegisDbEngine {
   private wal: WalStorage;
   private startedAt = Date.now();
   private autoCompactTimer: ReturnType<typeof setInterval> | null = null;
+  private lock: DirLock;
+  private closed = false;
 
+  /** Throws DirLockError when another live engine holds `dataPath`. */
   constructor(dataPath = "./data/aegis-db") {
-    this.wal = new WalStorage(dataPath);
-    for (const name of VALID_COLLECTIONS) {
-      this.collections.set(name, new Map());
+    this.lock = DirLock.acquire(dataPath, TS_LOCK_FILE);
+    try {
+      this.wal = new WalStorage(dataPath);
+      for (const name of VALID_COLLECTIONS) {
+        this.collections.set(name, new Map());
+      }
+      this.recover();
+    } catch (err) {
+      this.lock.release();
+      throw err;
     }
-    this.recover();
     this.startAutoCompact();
   }
 
@@ -77,6 +87,7 @@ export class AegisDbEngine {
   }
 
   put(colName: CollectionName, key: string, val: unknown): void {
+    if (this.closed) throw new Error("AegisDB engine is closed");
     const col = this.collections.get(colName);
     if (!col) throw new Error(`Unknown collection: ${colName}`);
     col.set(key, val);
@@ -85,6 +96,7 @@ export class AegisDbEngine {
   }
 
   delete(colName: CollectionName, key: string): boolean {
+    if (this.closed) throw new Error("AegisDB engine is closed");
     const col = this.collections.get(colName);
     if (!col) return false;
     const deleted = col.delete(key);
@@ -145,15 +157,24 @@ export class AegisDbEngine {
     };
   }
 
+  isClosed(): boolean {
+    return this.closed;
+  }
+
+  /** Checkpoints, closes the WAL, and releases the data-directory lock. Idempotent. */
   close(): void {
+    if (this.closed) return;
     if (this.autoCompactTimer) {
       clearInterval(this.autoCompactTimer);
       this.autoCompactTimer = null;
     }
     try {
       this.compact();
-    } catch {
-      // ignore
+    } catch (err) {
+      logger.error("AegisDB final compaction failed (WAL kept for replay):", err);
     }
+    this.closed = true;
+    this.wal.close();
+    this.lock.release();
   }
 }

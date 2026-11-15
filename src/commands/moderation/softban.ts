@@ -156,6 +156,8 @@ export const command: Command = {
         action: "softban",
         reason,
         details: `Deleted messages: ${deleteDays} day(s)${unbanned ? "" : " | Unban failed, still banned"}`,
+        targetTag: target.tag,
+        modTag: interaction.user.tag,
       });
 
       const unbanNote = unbanned ? "Lifted, they can rejoin" : "⚠️ Could not lift the ban. Run `/unban` for them.";

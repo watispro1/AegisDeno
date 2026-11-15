@@ -6,6 +6,7 @@ import { secretMatches } from "./securityHeaders";
 import { createHealthCheck } from "./health";
 import { getRustClient } from "../database/rustClient";
 import { getAegisDbEngine } from "../database/aegisDb";
+import { isAuthorized } from "../database/aegisDb/auth";
 import type { Stats } from "./pages";
 
 export interface ApiRouteDeps {
@@ -16,31 +17,39 @@ export interface ApiRouteDeps {
   startedAt: number;
 }
 
-/** Cached AegisDB health probe: updated every 15 s, never blocks a request. */
+/**
+ * Cached AegisDB health probe: updated every 15 s, never blocks a request.
+ * Started by the web server (startWebServer), not by route registration, so
+ * registering routes in tests leaves no timers or network calls behind.
+ */
 let rustBackendUp = false;
 let rustProbeTimer: ReturnType<typeof setInterval> | null = null;
 
-function startRustProbe(): void {
+export function startBackendProbe(): void {
   if (rustProbeTimer) return;
   const probe = async () => {
-    try {
-      rustBackendUp = await getRustClient().ping();
-    } catch {
-      rustBackendUp = false;
-    }
+    rustBackendUp = await getRustClient().ping().catch(() => false);
   };
   void probe();
   rustProbeTimer = setInterval(() => void probe(), 15_000);
-  if (rustProbeTimer.unref) rustProbeTimer.unref();
+  rustProbeTimer.unref?.();
+}
+
+export function stopBackendProbe(): void {
+  if (rustProbeTimer) clearInterval(rustProbeTimer);
+  rustProbeTimer = null;
+}
+
+function backendHealthy(): boolean {
+  return rustBackendUp || getAegisDbEngine() !== null;
 }
 
 export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
-  startRustProbe();
   const health = createHealthCheck({ startedAt: deps.startedAt });
 
   app.get("/health", (_req, res) => {
     const stats = deps.stats();
-    const isUp = rustBackendUp || getAegisDbEngine() !== null;
+    const isUp = backendHealthy();
     const reading = health(deps.online(), deps.databaseReady(), isUp);
     res.setHeader("Cache-Control", "no-store");
     res.status(reading.httpStatus).json({
@@ -60,7 +69,7 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
   app.get("/api/stats", (_req, res) => {
     const stats = deps.stats();
     const cs = catalogStats();
-    const isUp = rustBackendUp || getAegisDbEngine() !== null;
+    const isUp = backendHealthy();
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("X-Robots-Tag", "noindex");
@@ -77,21 +86,28 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
     });
   });
 
-  app.get("/api/backend/stats", async (_req, res) => {
+  // Public callers get only { ok, healthy }; the full engine stats need the
+  // admin secret (AEGIS_BACKEND_SECRET) in x-aegis-secret or a Bearer header.
+  // No CORS header: this is not meant to be read from other origins.
+  app.get("/api/backend/stats", async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("X-Robots-Tag", "noindex");
+    const secret = process.env.AEGIS_BACKEND_SECRET ?? "";
+    if (!isAuthorized(req.headers, secret)) {
+      res.json({ ok: true, healthy: backendHealthy() });
+      return;
+    }
+    const engine = getAegisDbEngine();
+    if (engine) {
+      res.json({ ok: true, healthy: true, ...engine.stats() });
+      return;
+    }
     try {
       const data = await getRustClient().stats();
-      res.json({ ok: true, ...data });
+      res.json({ ok: true, healthy: true, ...data });
     } catch (err) {
-      const engine = getAegisDbEngine();
-      if (engine) {
-        res.json({ ok: true, ...engine.stats() });
-      } else {
-        logger.debug("AegisDB stats probe failed:", err);
-        res.status(503).json({ ok: false, error: "backend_unavailable" });
-      }
+      logger.debug("AegisDB stats probe failed:", err);
+      res.status(503).json({ ok: false, healthy: false, error: "backend_unavailable" });
     }
   });
 

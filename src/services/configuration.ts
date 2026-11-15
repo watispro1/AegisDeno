@@ -2,6 +2,7 @@ import { GuildConfigModel, LegacyPluginSettingsModel } from "../database/mongo";
 import { TtlCache } from "../utils/ttlCache";
 import { logger } from "../utils/logger";
 import { getRustClient } from "../database/rustClient";
+import { mirrorToAegis } from "./aegisMirror";
 import {
   DISCORD_ID, asRecord, guildConfigSetPaths, normalizeGuildConfig, normalizeMaxRolesPerPanel,
   type GuildConfig, type GuildConfigUpdate, type StoredGuildConfig,
@@ -144,7 +145,12 @@ export function createGuildConfigService(store: GuildConfigStore, ttlMs = GUILD_
     cache.delete(guildId);
     const config = normalizeGuildConfig(guildId, saved ?? applySetPaths({}, set));
     cache.set(guildId, config);
-    getRustClient().saveGuildConfig(guildId, config as unknown as Record<string, unknown>).catch(() => null);
+    const snapshot = structuredClone(config) as unknown as Record<string, unknown>;
+    void mirrorToAegis({
+      key: `cfg:${guildId}`,
+      label: `saveGuildConfig ${guildId}`,
+      run: () => getRustClient().saveGuildConfig(guildId, snapshot),
+    });
     return structuredClone(config);
   }
 

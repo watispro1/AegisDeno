@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, http::{HeaderMap, StatusCode}, response::IntoResponse, Json};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Instant;
@@ -9,6 +9,8 @@ pub struct AppState {
     pub db: Arc<AegisDatabase>,
     pub start_time: Instant,
     pub version: &'static str,
+    /// Admin secret, used by the public `/metrics` route to decide how much to show.
+    pub secret: String,
 }
 
 pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -24,6 +26,14 @@ pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResp
 pub async fn stats_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let stats = state.db.stats();
     Json(stats)
+}
+
+pub async fn metrics_handler(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
+    if super::middleware::is_authorized(&headers, &state.secret) {
+        Json(state.db.stats())
+    } else {
+        Json(json!({ "healthy": true }))
+    }
 }
 
 pub async fn compact_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {

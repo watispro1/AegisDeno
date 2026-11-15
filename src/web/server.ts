@@ -45,9 +45,8 @@ import { mongoDashboardExtras } from "./dashboard/extrasMongo";
 import { dashboardScript } from "./dashboard/client";
 import { premiumScript } from "./dashboard/clientPremium";
 import { securityHeaders } from "./securityHeaders";
-import { startAegisBackend } from "../database/aegisDb";
 import { databaseConnected } from "../services/statusMonitor";
-import { registerApiRoutes } from "./apiRoutes";
+import { registerApiRoutes, startBackendProbe } from "./apiRoutes";
 import { registerPaddleWebhook } from "./paddleWebhook";
 import { missingPaddleSettings, premiumOffered, readPaddleConfig } from "../config/paddle";
 import { registerSiteRoutes } from "./siteRoutes";
@@ -163,7 +162,8 @@ export interface WebServerOptions {
 }
 
 export function startWebServer(client: Client, opts: WebServerOptions = {}) {
-  void startAegisBackend().catch(() => null);
+  // main() starts AegisDB before the web server; here we only watch its health.
+  startBackendProbe();
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
   const cfg = siteConfig();

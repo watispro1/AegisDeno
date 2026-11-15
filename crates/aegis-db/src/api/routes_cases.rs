@@ -66,6 +66,8 @@ pub async fn list_cases(
 
 #[derive(Debug, Deserialize)]
 pub struct CreateCasePayload {
+    /// The caller's id for the case (the bot sends the MongoDB `_id`).
+    pub case_ref: Option<String>,
     pub target_id: String,
     pub target_tag: Option<String>,
     pub mod_id: String,
@@ -75,27 +77,53 @@ pub struct CreateCasePayload {
     pub duration_ms: Option<u64>,
 }
 
+fn case_records(state: &AppState, guild_id: &str) -> Vec<(String, CaseRecord)> {
+    state
+        .db
+        .collection("cases")
+        .prefix_scan(&format!("case:{}:", guild_id))
+        .into_iter()
+        .filter_map(|(k, val)| serde_json::from_value::<CaseRecord>(val).ok().map(|c| (k, c)))
+        .collect()
+}
+
+/// Resolves a case path segment: a numeric AegisDB case id, or the bot's own
+/// case reference (MongoDB `_id`) recorded at creation.
+fn resolve_case(state: &AppState, guild_id: &str, case_id: &str) -> Option<(String, CaseRecord)> {
+    if let Ok(n) = case_id.parse::<u64>() {
+        let key = format!("case:{}:{}", guild_id, n);
+        let val = state.db.get("cases", &key)?;
+        return serde_json::from_value::<CaseRecord>(val).ok().map(|c| (key, c));
+    }
+    case_records(state, guild_id)
+        .into_iter()
+        .find(|(_, c)| c.case_ref.as_deref() == Some(case_id))
+}
+
 pub async fn create_case(
     State(state): State<Arc<AppState>>,
     Path(guild_id): Path<String>,
     Json(payload): Json<CreateCasePayload>,
 ) -> impl IntoResponse {
-    let col = state.db.collection("cases");
-    let prefix = format!("case:{}:", guild_id);
-    let existing = col.prefix_scan(&prefix);
+    // Allocating the next id is read-modify-write: serialize it per guild.
+    let _guard = state.db.scope_lock(&format!("cases:{}", guild_id));
+    let existing = case_records(&state, &guild_id);
 
-    let max_id = existing
-        .iter()
-        .filter_map(|(_, val)| serde_json::from_value::<CaseRecord>(val.clone()).ok())
-        .map(|c| c.case_id)
-        .max()
-        .unwrap_or(0);
+    // Idempotent on the caller's reference, so a retried dual-write never
+    // creates the same case twice.
+    if let Some(r) = payload.case_ref.as_deref() {
+        if let Some((_, found)) = existing.iter().find(|(_, c)| c.case_ref.as_deref() == Some(r)) {
+            return (StatusCode::OK, Json(json!(found))).into_response();
+        }
+    }
 
+    let max_id = existing.iter().map(|(_, c)| c.case_id).max().unwrap_or(0);
     let next_id = max_id + 1;
     let key = format!("case:{}:{}", guild_id, next_id);
 
     let record = CaseRecord {
         case_id: next_id,
+        case_ref: payload.case_ref,
         guild_id: guild_id.clone(),
         target_id: payload.target_id,
         target_tag: payload.target_tag,
@@ -124,11 +152,10 @@ pub async fn create_case(
 
 pub async fn get_case(
     State(state): State<Arc<AppState>>,
-    Path((guild_id, case_id)): Path<(String, u64)>,
+    Path((guild_id, case_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let key = format!("case:{}:{}", guild_id, case_id);
-    if let Some(val) = state.db.get("cases", &key) {
-        (StatusCode::OK, Json(val)).into_response()
+    if let Some((_, record)) = resolve_case(&state, &guild_id, &case_id) {
+        (StatusCode::OK, Json(json!(record))).into_response()
     } else {
         (StatusCode::NOT_FOUND, Json(json!({ "error": "Case not found" }))).into_response()
     }
@@ -144,18 +171,13 @@ pub struct PatchCasePayload {
 
 pub async fn patch_case(
     State(state): State<Arc<AppState>>,
-    Path((guild_id, case_id)): Path<(String, u64)>,
+    Path((guild_id, case_id)): Path<(String, String)>,
     Json(payload): Json<PatchCasePayload>,
 ) -> impl IntoResponse {
-    let key = format!("case:{}:{}", guild_id, case_id);
-    let existing_val = match state.db.get("cases", &key) {
-        Some(v) => v,
+    let _guard = state.db.scope_lock(&format!("cases:{}", guild_id));
+    let (key, mut record) = match resolve_case(&state, &guild_id, &case_id) {
+        Some(found) => found,
         None => return (StatusCode::NOT_FOUND, Json(json!({ "error": "Case not found" }))).into_response(),
-    };
-
-    let mut record: CaseRecord = match serde_json::from_value(existing_val) {
-        Ok(r) => r,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))).into_response(),
     };
 
     if let Some(r) = payload.reason {
@@ -203,6 +225,9 @@ pub async fn list_warnings(
 
 #[derive(Debug, Deserialize)]
 pub struct CreateWarningPayload {
+    /// Caller's stable id for the warning; makes a retried create overwrite
+    /// the same record instead of adding a duplicate.
+    pub warn_ref: Option<String>,
     pub user_id: String,
     pub mod_id: String,
     pub reason: String,
@@ -214,7 +239,11 @@ pub async fn create_warning(
     Path(guild_id): Path<String>,
     Json(payload): Json<CreateWarningPayload>,
 ) -> impl IntoResponse {
-    let warn_id = format!("w_{}", chrono::Utc::now().timestamp_micros());
+    let warn_id = match payload.warn_ref.as_deref() {
+        Some(r) if !r.is_empty() && r.len() <= 64 && r.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-') => r.to_string(),
+        Some(_) => return (StatusCode::BAD_REQUEST, Json(json!({ "error": "warn_ref is invalid" }))).into_response(),
+        None => format!("w_{}", chrono::Utc::now().timestamp_micros()),
+    };
     let key = format!("warn:{}:{}:{}", guild_id, payload.user_id, warn_id);
 
     let record = WarningRecord {
@@ -244,6 +273,7 @@ pub async fn clear_warnings(
     State(state): State<Arc<AppState>>,
     Path((guild_id, user_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
+    let _guard = state.db.scope_lock(&format!("warn:{}:{}", guild_id, user_id));
     let col = state.db.collection("warnings");
     let prefix = format!("warn:{}:{}:", guild_id, user_id);
     let keys: Vec<String> = col.prefix_scan(&prefix).into_iter().map(|(k, _)| k).collect();
