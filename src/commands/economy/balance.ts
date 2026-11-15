@@ -8,11 +8,19 @@ import { INTEREST_COOLDOWN_MS, activeBoost, earnedBadges, workLevel } from "../.
 import { levelLine } from "./work";
 import { nextDailyAmount, rankLine, streakLine } from "../../services/economyStatus";
 import { COLORS, footer } from "../../utils/embedStyle";
+import { readyText } from "./lib/ui";
+import type { EconomyConfig } from "../../services/economyLogic";
+
+/** The footer tip on your own balance: what the bank protects in this server. */
+export function bankTip(cfg: Pick<EconomyConfig, "robEnabled" | "crimeEnabled">): string {
+  const safe = [cfg.robEnabled ? "/rob" : null, cfg.crimeEnabled ? "/crime fines" : null].filter(Boolean).join(" and ");
+  return `${safe ? `Coins in the bank are safe from ${safe}. ` : ""}Move them with /deposit and /withdraw.`;
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("balance")
-    .setDescription("Show your coins (or another member's) in this server's economy.")
+    .setDescription("Show your wallet, bank, rank and cooldowns (or another member's coins).")
     .setContexts(InteractionContextType.Guild)
     .addUserOption(o => o.setName("user").setDescription("Whose balance to show (default: you)")),
   category: "economy",
@@ -42,12 +50,12 @@ export const command: Command = {
         `**Work:** ${levelLine(level, acct.workXp)}`,
         badges.length ? `**Badges:** ${badges.map(b => `${b.emoji} ${b.name}`).join(" · ")}` : null,
       ].filter(Boolean).join("\n"))
-      .setFooter(footer(self ? "Coins in the bank are safe from /crime fines. Move them with /deposit and /withdraw." : null));
+      .setFooter(footer(self ? bankTip(cfg) : null));
     let effects: string[] = [];
     if (self) {
       const d = dailyClaim(acct.lastDaily, acct.dailyStreak, now, cfg);
       const w = workClaim(acct.lastWork, now, cfg, () => 0);
-      const ready = (cmd: string, at: number | null) => (at === null ? `✅ Ready, run \`/${cmd}\`` : `⏳ ${relativeTimestamp(at)}`);
+      const ready = (cmd: string, at: number | null) => readyText(at, cmd, now);
       embed.addFields(
         { name: "Daily", value: `${ready("daily", d.ok ? null : d.retryAt)}\nPays ${formatCoins(cfg, nextDailyAmount(acct.lastDaily, acct.dailyStreak, now, cfg))}`, inline: true },
         { name: "Work", value: ready("work", w.ok ? null : w.retryAt), inline: true },

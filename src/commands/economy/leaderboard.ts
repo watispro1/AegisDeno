@@ -37,7 +37,7 @@ const SORT_LABEL: Record<LeaderboardSort, string> = { total: "wallet + bank", wa
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("leaderboard")
-    .setDescription("The richest members in this server's economy.")
+    .setDescription("The richest members in this server's economy, by wallet + bank, wallet or bank.")
     .setContexts(InteractionContextType.Guild)
     .addIntegerOption(o => o.setName("page").setDescription("Page to open (default 1)").setMinValue(1).setMaxValue(1000))
     .addStringOption(o => o.setName("sort").setDescription("Rank by (default: wallet + bank)")

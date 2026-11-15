@@ -1,18 +1,21 @@
-import { SlashCommandBuilder, InteractionContextType, MessageFlags, type ChatInputCommandInteraction } from "discord.js";
+import { SlashCommandBuilder, InteractionContextType, MessageFlags, type AutocompleteInteraction, type ChatInputCommandInteraction } from "discord.js";
 import type { Command } from "../../types/discord";
 import { economy } from "../../services/economyService";
 import { economyGate } from "../../services/economyDiscord";
-import { MAX_BALANCE, formatCoins, needsPayConfirmation, payRefusal, relativeTimestamp } from "../../services/economyLogic";
-import { payTax, payTenureRefusal } from "../../services/economyRules";
+import { MAX_BALANCE, formatCoins, needsPayConfirmation, payRefusal } from "../../services/economyLogic";
+import { payRoomToday, payTax, payTenureRefusal, utcDay } from "../../services/economyRules";
 import { requestConfirmation } from "../../utils/confirmation";
+import { integerAmountChoices } from "./lib/amounts";
+import { withMemberLock } from "./lib/memberLock";
+import { STILL_RUNNING, economyEmbed, waitText } from "./lib/ui";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("pay")
-    .setDescription("Send some of your coins to another member (daily limit and tax may apply).")
+    .setDescription("Send coins from your wallet to another member (this server's daily limit and tax may apply).")
     .setContexts(InteractionContextType.Guild)
     .addUserOption(o => o.setName("user").setDescription("Who to pay").setRequired(true))
-    .addIntegerOption(o => o.setName("amount").setDescription("How many coins").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE)),
+    .addIntegerOption(o => o.setName("amount").setDescription("How many coins; suggestions show all, half and a quarter of your wallet").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE).setAutocomplete(true)),
   category: "economy",
   guildOnly: true,
   cooldownMs: 3000,
@@ -34,7 +37,7 @@ export const command: Command = {
     const sender = await interaction.guild!.members.fetch(interaction.user.id).catch(() => null);
     const tenure = payTenureRefusal(sender?.joinedTimestamp ?? null, Date.now(), cfg.payMinMemberHours);
     if (tenure) {
-      return interaction.reply({ content: `❌ New members can send coins ${cfg.payMinMemberHours}h after joining. You can pay ${relativeTimestamp(tenure.readyAt)}.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `❌ New members can send coins ${cfg.payMinMemberHours}h after joining. You can pay ${waitText(tenure.readyAt)}.`, flags: MessageFlags.Ephemeral });
     }
     const tax = payTax(amount, cfg.payTaxPercent);
     const taxNote = tax > 0 ? ` They get ${formatCoins(cfg, amount - tax)} after the ${cfg.payTaxPercent}% tax.` : "";
@@ -49,29 +52,51 @@ export const command: Command = {
       confirmed = true;
     }
 
-    const r = await economy().pay(guildId, interaction.user.id, to.id, amount);
     const fail = async (content: string) => { await (confirmed
       ? interaction.editReply({ content, embeds: [], components: [] })
       : interaction.reply({ content, flags: MessageFlags.Ephemeral })); };
+    const locked = await withMemberLock(guildId, interaction.user.id, () => economy().pay(guildId, interaction.user.id, to.id, amount));
+    if (!locked.ok) return fail(STILL_RUNNING);
+    const r = locked.value;
     if (!r.ok) {
       return fail(r.reason === "insufficient"
         ? `❌ You only have ${formatCoins(cfg, r.balance)} in your wallet, not enough to send ${formatCoins(cfg, amount)}.`
         : r.reason === "limit"
-          ? `❌ That's over today's sending limit of ${formatCoins(cfg, cfg.payDailyLimit)}. You can send ${formatCoins(cfg, r.room)} more until it resets ${relativeTimestamp(r.resetsAt)}.`
+          ? `❌ That's over today's sending limit of ${formatCoins(cfg, cfg.payDailyLimit)}. ${r.room > 0 ? `You can send ${formatCoins(cfg, r.room)} more today.` : "You've used it all today."} It resets ${waitText(r.resetsAt)}.`
           : r.reason === "busy" ? "❌ Your balance changed while that was running. Run it again."
           : `❌ ${to.username}'s balance is at the maximum, so nothing was sent.`);
     }
     const taxed = r.tax > 0 ? ` (${formatCoins(cfg, r.tax)} tax, ${formatCoins(cfg, r.sent)} received)` : "";
-    const announcement = `💸 ${interaction.user} paid ${to} **${formatCoins(cfg, amount)}**${taxed}. Your balance: ${formatCoins(cfg, r.from.balance)}.`;
+    const embed = economyEmbed(cfg, {
+      tone: "ok",
+      title: "💸 Payment sent",
+      description: `${interaction.user} paid ${to} **${formatCoins(cfg, amount)}**${taxed}.`,
+      balance: { wallet: r.from.balance },
+      fields: cfg.payDailyLimit > 0 ? [{ name: "Left to send today", value: formatCoins(cfg, sendRoomAfter(cfg.payDailyLimit, r.from.payDay, r.from.payTotal, Date.now())), inline: true }] : [],
+    });
     // Only the recipient is pinged, so they notice the payment.
     const mentions = { parse: [] as never[], users: [to.id] };
+    const announcement = { content: `${to}`, embeds: [embed], allowedMentions: mentions };
     if (confirmed) {
-      await interaction.editReply({ content: `✅ Sent. Your balance: ${formatCoins(cfg, r.from.balance)}.`, components: [] });
-      await interaction.followUp({ content: announcement, allowedMentions: mentions });
+      await interaction.editReply({ content: `✅ Sent. Your wallet: ${formatCoins(cfg, r.from.balance)}.`, components: [] });
+      await interaction.followUp(announcement);
     } else {
-      await interaction.reply({ content: announcement, allowedMentions: mentions });
+      await interaction.reply(announcement);
     }
   },
+  async autocomplete(interaction: AutocompleteInteraction) {
+    if (!interaction.guildId) return interaction.respond([]);
+    const [cfg, acct] = await Promise.all([economy().config(interaction.guildId).catch(() => null), economy().balance(interaction.guildId, interaction.user.id).catch(() => null)]);
+    if (!cfg || !acct) return interaction.respond([]).catch(() => undefined);
+    const room = sendRoomAfter(cfg.payDailyLimit, acct.payDay, acct.payTotal, Date.now());
+    const max = Math.min(MAX_BALANCE, Number.isFinite(room) ? room : MAX_BALANCE);
+    await interaction.respond(integerAmountChoices(cfg, { available: acct.balance, min: 1, max: Math.max(1, max), typed: String(interaction.options.getFocused() ?? ""), noun: cfg.currencyName })).catch(() => undefined);
+  },
 };
+
+/** How much more a member can send today after a payment (UTC day; Infinity with no limit). */
+export function sendRoomAfter(limit: number, payDay: string | null, payTotal: number, now: number): number {
+  return payRoomToday(limit, payDay, payTotal, utcDay(now));
+}
 
 export default command;
