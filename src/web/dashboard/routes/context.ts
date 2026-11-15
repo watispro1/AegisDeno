@@ -20,6 +20,9 @@ import { guildIconUrl, userAvatarUrl } from "../cdn";
 import type { SessionData, SessionStore } from "../sessions";
 import { type FormBody, type ValidationContext } from "../validation";
 import { renderError, type GuildContext, type Viewer } from "../views";
+import { isPremium } from "../../../services/premium";
+import { entitlementActive } from "../../../services/premiumState";
+import type { PremiumDeps } from "./premium";
 
 export const CASES_PER_PAGE = 25;
 /** Cookie holding the last server opened (an ID only; access is re-checked on every request). */
@@ -59,6 +62,8 @@ export interface DashboardDeps {
   modules?: ModuleData;
   /** Members, search, analytics, Incident Mode and settings transfer. Defaults to in-memory; production passes the Mongo version. */
   extras?: DashboardExtras;
+  /** Aegis Premium: entitlement store, Paddle settings and API fetch. Defaults to Mongo and the environment. */
+  premium?: PremiumDeps;
 }
 
 export interface Authed {
@@ -276,7 +281,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
       const roleLimit = await deps.bot.viewerRoleLimit(guildId, authed.session.userId).catch(() => ({ ownerId: null, topPosition: null }));
       // The switcher lists servers from the login's list that Aegis is in and the viewer may manage (each is re-checked on open).
       const servers = partitionGuilds(authed.session.guilds ?? [], (id) => deps.bot.hasGuild(id)).manageable.map(s => ({ id: s.id, name: s.name, iconUrl: guildIconUrl(s.id, s.icon) }));
-      const ctx: GuildContext = { guild, viewer: authed.viewer, nameOf: (id) => deps.bot.userName(id), roleLimit, servers };
+      const ctx: GuildContext = { guild, viewer: authed.viewer, nameOf: (id) => deps.bot.userName(id), roleLimit, servers, premium: await premiumFlag(guildId) };
       res.locals.dash = { ...authed, ctx } satisfies GuildLocals;
       // Remember the last server opened, so the picker can offer it first. Only an ID, never trusted for access.
       if (req.method === "GET") res.append("Set-Cookie", serializeCookie(LAST_GUILD_COOKIE, guildId, { maxAgeSeconds: 30 * 86_400, secure: cfg.secureCookies, path: "/dashboard" }));
@@ -285,6 +290,14 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
       next(err);
     }
   };
+
+  /** Whether the server has Premium, for the sidebar badge. Never throws. */
+  async function premiumFlag(guildId: string): Promise<boolean> {
+    const store = deps.premium?.store;
+    if (!store) return isPremium(guildId, now());
+    const at = new Date(now());
+    return (await store.forGuild(guildId).catch(() => [])).some(e => entitlementActive(e, at));
+  }
 
   /** Whether the viewer lacks an extra permission an action needs; returns its label, or null when they have it. */
   async function missingPermission(ctx: GuildContext, permission: DashboardPermission): Promise<string | null> {

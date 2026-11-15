@@ -5,13 +5,16 @@
  * the service and the dashboard.
  */
 
+import { PREMIUM_LIMITS, maxLimitValue } from "../config/premium";
 import { MAX_BALANCE, intIn, type EconomyConfig } from "./economyConfig";
 import { EFFECT_LIMITS, isItemEffect, type ItemEffect } from "./economyProgress";
 
 export * from "./economyConfig";
 
-/** Most shop items a server may list. */
-export const MAX_SHOP_ITEMS = 50;
+/** Free cap on shop items; Aegis Premium raises it (src/config/premium.ts). */
+export const MAX_SHOP_ITEMS: number = PREMIUM_LIMITS.shopItems.free;
+/** Largest cap any server can have, for listing what exists. */
+export const MAX_SHOP_ITEMS_ANY: number = maxLimitValue("shopItems");
 /** Transactions are kept this long (Mongo TTL). */
 export const TRANSACTION_TTL_DAYS = 90;
 

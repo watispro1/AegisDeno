@@ -10,6 +10,9 @@ import { rankChoices, type AutocompleteItem } from "../../utils/autocomplete";
 import { requestConfirmation } from "../../utils/confirmation";
 import { replyPagedList } from "../../utils/listPager";
 import { dashboardRow } from "../config/kit/setupKit";
+import { premiumLimit } from "../../services/premium";
+import { PREMIUM_LIMITS } from "../../config/premium";
+import { premiumOffered } from "../../config/paddle";
 
 export const MAX_TRIGGER_LENGTH = 100;
 /** Discord's message limit; a longer response could never be sent. */
@@ -17,7 +20,7 @@ export const MAX_RESPONSE_LENGTH = 2000;
 /** Lines shown by /autoresponder list before "and N more", to stay inside one embed. */
 export const LIST_LIMIT = 20;
 /** Most autoresponders one server keeps (the dashboard uses the same cap). */
-export const MAX_AUTORESPONDERS = 50;
+export const MAX_AUTORESPONDERS: number = PREMIUM_LIMITS.autoresponders.free;
 
 const MATCH_LABELS: Record<string, string> = { contains: "contains", exact: "exact", startsWith: "starts with" };
 
@@ -26,10 +29,11 @@ export function validateTrigger(
   trigger: string,
   matchType: string,
   existing: Pick<AutoResponder, "trigger" | "matchType">[],
+  max: number = MAX_AUTORESPONDERS,
 ): string | null {
   const t = trigger.trim().toLowerCase();
   if (!t) return "❌ The trigger can't be empty.";
-  if (existing.length >= MAX_AUTORESPONDERS) return `❌ This server already has ${MAX_AUTORESPONDERS} autoresponders, the most Aegis keeps. Remove one first.`;
+  if (existing.length >= max) return `❌ This server already has ${max} autoresponders, the most Aegis keeps${max < PREMIUM_LIMITS.autoresponders.premium && premiumOffered() ? ` (Aegis Premium raises it to ${PREMIUM_LIMITS.autoresponders.premium}; see /premium)` : ""}. Remove one first.`;
   if (t.length > MAX_TRIGGER_LENGTH) return `❌ Keep the trigger under ${MAX_TRIGGER_LENGTH} characters.`;
   if (existing.some(ar => ar.trigger.toLowerCase() === t && ar.matchType === matchType)) {
     return `❌ There is already a \`${MATCH_LABELS[matchType] ?? matchType}\` autoresponder for \`${t}\`. Remove it first or pick another trigger.`;
@@ -186,7 +190,8 @@ export const command: Command = {
         return;
       }
       const existing = await getAutoResponders(interaction.guild.id);
-      const problem = validateTrigger(trigger, matchType, existing);
+      const max = await premiumLimit(interaction.guild.id, "autoresponders");
+      const problem = validateTrigger(trigger, matchType, existing, max);
       if (problem) {
         await interaction.reply({ content: problem, flags: MessageFlags.Ephemeral });
         return;
@@ -209,7 +214,7 @@ export const command: Command = {
         ].filter(Boolean);
         await interaction.reply({
           content: [`✅ Autoresponder created. Aegis now replies when a message ${matchType === "exact" ? "is exactly" : matchType === "startsWith" ? "starts with" : "contains"} \`${ar.trigger}\`.`,
-            `**ID:** \`${ar.id}\` · ${existing.length + 1} of ${MAX_AUTORESPONDERS} used`, ...notes].join("\n"),
+            `**ID:** \`${ar.id}\` · ${existing.length + 1} of ${max} used`, ...notes].join("\n"),
           components: [dashboardRow(interaction.guild.id, "autoresponders")],
           flags: MessageFlags.Ephemeral,
           allowedMentions: { parse: [] },
@@ -288,7 +293,7 @@ export const command: Command = {
         perPage: 10,
         color: 0x34495E,
         ephemeral: true,
-        note: `${list.length} of ${MAX_AUTORESPONDERS} autoresponder(s)${serverOff ? " · switched off server-wide" : ""}`,
+        note: `${list.length} of ${await premiumLimit(interaction.guild.id, "autoresponders")} autoresponder(s)${serverOff ? " · switched off server-wide" : ""}`,
       });
       return;
     }

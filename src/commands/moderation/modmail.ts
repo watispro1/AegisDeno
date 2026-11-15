@@ -9,7 +9,7 @@ import {
 import type { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 import {
-  MODMAIL_MAX_SNIPPETS, MODMAIL_REPLY_MAX, MODMAIL_SNIPPET_MAX, isModmailStaff, normalizeModmailConfig, snippetNameProblem, withBlocked,
+  MODMAIL_REPLY_MAX, MODMAIL_SNIPPET_MAX, isModmailStaff, normalizeModmailConfig, snippetNameProblem, withBlocked,
   type ModmailConfig,
 } from "../../services/modmailLogic";
 import { closeTicket, staffReply } from "../../services/modmailService";
@@ -19,6 +19,8 @@ import { rankChoices } from "../../utils/autocomplete";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { sendGuildLog } from "../../services/logging";
 import { footer } from "../../utils/embedStyle";
+import { premiumLimit } from "../../services/premium";
+import { maxLimitValue } from "../../config/premium";
 
 const err = (i: ChatInputCommandInteraction, content: string) =>
   (i.deferred || i.replied ? i.editReply({ content }) : i.reply({ content, flags: MessageFlags.Ephemeral })).then(() => undefined);
@@ -73,7 +75,7 @@ export const command: Command = {
 
   async autocomplete(interaction: AutocompleteInteraction) {
     if (!interaction.guildId) return interaction.respond([]);
-    const rows = await ModmailSnippetModel.find({ guildId: interaction.guildId }).select("name content").limit(MODMAIL_MAX_SNIPPETS).lean();
+    const rows = await ModmailSnippetModel.find({ guildId: interaction.guildId }).select("name content").limit(maxLimitValue("modmailSnippets")).lean();
     await interaction.respond(rankChoices(rows.map(r => ({ name: `${r.name} — ${String(r.content).slice(0, 60)}`, value: String(r.name) })), String(interaction.options.getFocused())));
   },
 
@@ -119,14 +121,15 @@ export const command: Command = {
     if (group === "snippet") {
       const name = (interaction.options.getString("name") ?? "").trim().toLowerCase();
       if (sub === "list") {
-        const rows = await ModmailSnippetModel.find({ guildId: guild.id }).sort({ name: 1 }).limit(MODMAIL_MAX_SNIPPETS).lean();
+        const rows = await ModmailSnippetModel.find({ guildId: guild.id }).sort({ name: 1 }).limit(maxLimitValue("modmailSnippets")).lean();
         const text = rows.length ? rows.map(r => `• \`${r.name}\` — ${String(r.content).slice(0, 80).replace(/\n/g, " ")}`).join("\n") : "No snippets yet. Add one with `/modmail snippet add`.";
-        return void (await interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5865f2).setTitle("ModMail snippets").setDescription(text.slice(0, 4000)).setFooter(footer(`${rows.length}/${MODMAIL_MAX_SNIPPETS}`))], flags: MessageFlags.Ephemeral }));
+        return void (await interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5865f2).setTitle("ModMail snippets").setDescription(text.slice(0, 4000)).setFooter(footer(`${rows.length}/${await premiumLimit(guild.id, "modmailSnippets")}`))], flags: MessageFlags.Ephemeral }));
       }
       const problem = snippetNameProblem(name);
       if (problem) return err(interaction, `❌ ${problem}`);
       if (sub === "add") {
-        if (await ModmailSnippetModel.countDocuments({ guildId: guild.id }) >= MODMAIL_MAX_SNIPPETS) return err(interaction, `❌ This server has the most snippets allowed (${MODMAIL_MAX_SNIPPETS}). Remove one first.`);
+        const maxSnippets = await premiumLimit(guild.id, "modmailSnippets");
+        if (await ModmailSnippetModel.countDocuments({ guildId: guild.id }) >= maxSnippets) return err(interaction, `❌ This server has the most snippets allowed (${maxSnippets}). Remove one first.`);
         try {
           await ModmailSnippetModel.create({ guildId: guild.id, name, content: interaction.options.getString("content", true), createdBy: interaction.user.id });
         } catch (e) {

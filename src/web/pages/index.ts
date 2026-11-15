@@ -16,3 +16,4 @@ export { LEGAL_LAST_UPDATED, renderTerms, renderPrivacy, renderSecurity } from "
 export { renderNotFound, renderPlayground } from "./fallback";
 export { renderWhy } from "./why";
 export { renderRoadmap } from "./roadmap";
+export { renderPremium } from "./premium";

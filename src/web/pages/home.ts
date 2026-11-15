@@ -191,7 +191,7 @@ ${audienceSplit()}
         <li><strong>Role order matters.</strong> Discord will not let a bot act on someone whose top role is above its own. Drag the Aegis role above the roles it should moderate.</li>
         <li><strong>Records expire.</strong> Warnings, cases and staff notes are deleted after a year.</li>
         <li><strong>Per-server data.</strong> Nothing is shared between servers. See the <a href="/privacy">privacy policy</a>.</li>
-        <li><strong>Free.</strong> No paid tier, no locked features.</li>
+        <li><strong>Free.</strong> No locked features; optional <a href="/premium">Premium</a> only raises a few limits.</li>
         <li><strong>Open to read.</strong> Every command on the <a href="/commands">commands page</a> is generated from the bot's own definitions.</li>
       </ul>
     </div>

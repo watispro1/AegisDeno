@@ -26,19 +26,55 @@ export const CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+/**
+ * The dashboard's Premium page (and its portal form) only: the same policy
+ * plus exactly what Paddle.js needs for the overlay checkout. Still no
+ * 'unsafe-inline' anywhere. Paddle.js tries to set inline style attributes on
+ * its overlay frame; those are refused, and site.css positions the frame
+ * instead (theme/premium.ts).
+ */
+export const PREMIUM_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' https://cdn.paddle.com",
+  "style-src 'self' https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+  "img-src 'self' data: https://cdn.discordapp.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+  "font-src 'self'",
+  "connect-src 'self' https://*.paddle.com",
+  "manifest-src 'self'",
+  "media-src 'none'",
+  "worker-src 'none'",
+  "object-src 'none'",
+  // The checkout frame, and Paddle's error page if the checkout cannot load.
+  "frame-src https://buy.paddle.com https://sandbox-buy.paddle.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+  "base-uri 'none'",
+  // The portal form posts here and is redirected to Paddle's customer portal.
+  "form-action 'self' https://customer-portal.paddle.com https://sandbox-customer-portal.paddle.com",
+  "frame-ancestors 'none'",
+].join("; ");
+
+/** /dashboard/<server ID>/premium and /dashboard/<server ID>/premium/portal. */
+export function isPremiumCheckoutPath(path: string): boolean {
+  return /^\/dashboard\/\d{17,20}\/premium(\/portal)?\/?$/.test(path);
+}
+
+const PERMISSIONS_POLICY = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()";
+/** Apple Pay and Google Pay inside Paddle's checkout frame need the payment feature delegated to it. */
+const PREMIUM_PERMISSIONS_POLICY = PERMISSIONS_POLICY.replace("payment=()", 'payment=(self "https://buy.paddle.com" "https://sandbox-buy.paddle.com")');
+
 /** Paths other sites may legitimately embed or fetch (share images, status badges, the public JSON API). */
 export function isCrossOriginResource(path: string): boolean {
   return path.startsWith("/api/") || path === "/api" || path.startsWith("/badge/") || /^\/assets\/(og\.(png|svg)|favicon\.svg)$/.test(path);
 }
 
 export function securityHeaders(path: string): Record<string, string> {
+  const premium = isPremiumCheckoutPath(path);
   return {
-    "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+    "Content-Security-Policy": premium ? PREMIUM_CONTENT_SECURITY_POLICY : CONTENT_SECURITY_POLICY,
     "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()",
+    "Permissions-Policy": premium ? PREMIUM_PERMISSIONS_POLICY : PERMISSIONS_POLICY,
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Resource-Policy": isCrossOriginResource(path) ? "cross-origin" : "same-origin",
     "X-Permitted-Cross-Domain-Policies": "none",
