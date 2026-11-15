@@ -8,6 +8,7 @@ import {
   ButtonStyle,
   ComponentType,
   Colors,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { dashboardUrl, siteUrl } from "../../config/links";
@@ -44,11 +45,13 @@ function getHealthTier(ping: number) {
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("ping")
-    .setDescription("Check real-time gateway heartbeat, round-trip message latency, and database performance."),
+    .setDescription("Check real-time gateway heartbeat, round-trip message latency, and database performance.")
+    .addBooleanOption(opt => opt.setName("ephemeral").setDescription("Only show the response to you (default: false)")),
 
   botPermissions: ["EmbedLinks"],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
+    const ephemeral = interaction.options.getBoolean("ephemeral") ?? false;
     // Bounded at 2 s, so a stalled database can't leave the command hanging.
     const measureDb = async (): Promise<string> => {
       if (mongoose.connection.readyState !== 1) return "Disconnected";
@@ -109,7 +112,11 @@ export const command: Command = {
       );
     };
 
-    const initialSent = await interaction.reply({ content: "🏓 Pinging gateway and database...", fetchReply: true });
+    const initialSent = await interaction.reply({
+      content: "🏓 Pinging gateway and database...",
+      fetchReply: true,
+      ...(ephemeral ? { flags: MessageFlags.Ephemeral as const } : {}),
+    });
     const initialRoundtrip = Math.max(1, initialSent.createdTimestamp - interaction.createdTimestamp);
     const initialDb = await measureDb();
     const initialWs = Math.round(interaction.client.ws.ping);

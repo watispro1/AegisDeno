@@ -9,10 +9,13 @@ import { MODULE_CATEGORIES, READINESS_LABEL, type ModuleCategory, type Readiness
 
 function actionBadgeClass(action: string): string {
   const act = action.toLowerCase();
+  if (act.includes("softban")) return "tag softban";
   if (act.includes("ban")) return "tag ban";
   if (act.includes("kick")) return "tag kick";
-  if (act.includes("timeout")) return "tag timeout";
+  if (act.includes("timeout") || act.includes("untimeout")) return "tag timeout";
   if (act.includes("warn")) return "tag warning";
+  if (act.includes("note")) return "tag note";
+  if (act.includes("unban")) return "tag ok";
   return "tag";
 }
 

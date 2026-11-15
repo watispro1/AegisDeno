@@ -80,6 +80,8 @@ form[aria-busy="true"] .btn:disabled { cursor: progress; }
 .tag.kick { color: var(--warn); border-color: currentColor; }
 .tag.timeout { color: var(--warn); border-color: currentColor; }
 .tag.warning { color: var(--muted); border-color: currentColor; }
+.tag.softban { color: var(--warn); border-color: currentColor; }
+.tag.note { color: var(--muted); border-color: currentColor; }
 .prewrap { white-space: pre-wrap; }
 .pick-list .pick-scroll { max-height: 18rem; overflow-y: auto; margin: 0 -.35rem .75rem; padding: 0 .35rem; }
 .pick-group { margin: 0 0 .5rem; }

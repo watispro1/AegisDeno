@@ -15,6 +15,7 @@ import { Command } from "../../types/discord";
 import { getWarningsForUser } from "../../services/warnings";
 import { ModerationCaseModel } from "../../database/mongo";
 import { truncate } from "../../utils/safeText";
+import { memberPageUrl } from "../../config/links";
 
 const CASES_PER_PAGE = 5;
 const WARNS_PER_PAGE = 5;
@@ -164,7 +165,7 @@ export const command: Command = {
           .setTimestamp();
       }
 
-      function buildNavRow(view: InfractionsView, wPage: number, cPage: number): ActionRowBuilder<ButtonBuilder> {
+      function buildNavRow(view: InfractionsView, wPage: number, cPage: number, disabled = false): ActionRowBuilder<ButtonBuilder> {
         const warnPages = Math.max(1, Math.ceil(warnings.length / WARNS_PER_PAGE));
         const casePages = Math.max(1, Math.ceil(cases.length / CASES_PER_PAGE));
 
@@ -173,22 +174,26 @@ export const command: Command = {
             .setCustomId("inf_overview")
             .setLabel("Overview")
             .setStyle(view === "overview" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-            .setEmoji("📂"),
+            .setEmoji("📂")
+            .setDisabled(disabled),
           new ButtonBuilder()
             .setCustomId("inf_warns")
             .setLabel(`Warnings (${warnings.length})`)
             .setStyle(view === "warnings" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-            .setEmoji("⚠️"),
+            .setEmoji("⚠️")
+            .setDisabled(disabled),
           new ButtonBuilder()
             .setCustomId("inf_cases")
             .setLabel(`Cases (${caseTotal})`)
             .setStyle(view === "cases" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-            .setEmoji("📋"),
+            .setEmoji("📋")
+            .setDisabled(disabled),
           new ButtonBuilder()
             .setCustomId("inf_prev")
             .setLabel("◀")
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(
+              disabled ||
               view === "overview" ||
               (view === "warnings" && wPage === 0) ||
               (view === "cases" && cPage === 0)
@@ -198,6 +203,7 @@ export const command: Command = {
             .setLabel("▶")
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(
+              disabled ||
               view === "overview" ||
               (view === "warnings" && wPage >= warnPages - 1) ||
               (view === "cases" && cPage >= casePages - 1)
@@ -205,9 +211,23 @@ export const command: Command = {
         );
       }
 
+      function buildComponents(view: InfractionsView, wPage: number, cPage: number, disabled = false): ActionRowBuilder<ButtonBuilder>[] {
+        const rows = [buildNavRow(view, wPage, cPage, disabled)];
+        if (guildId) {
+          rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setLabel("Member on Dashboard")
+              .setStyle(ButtonStyle.Link)
+              .setURL(memberPageUrl(guildId, target.id))
+              .setEmoji("👤"),
+          ));
+        }
+        return rows;
+      }
+
       const sent = await interaction.editReply({
         embeds: [buildOverviewEmbed()],
-        components: [buildNavRow("overview", warnPage, casePage)],
+        components: buildComponents("overview", warnPage, casePage),
       });
 
       const collector = sent.createMessageComponentCollector({
@@ -245,7 +265,7 @@ export const command: Command = {
 
           await interaction.editReply({
             embeds: [embed],
-            components: [buildNavRow(currentView, warnPage, casePage)],
+            components: buildComponents(currentView, warnPage, casePage),
           }).catch(() => null);
         } catch (colErr) {
           logger.warn("Infractions collector error", colErr);
@@ -253,7 +273,7 @@ export const command: Command = {
       }));
 
       collector.on("end", async () => {
-        await interaction.editReply({ components: [] }).catch(() => null);
+        await interaction.editReply({ components: buildComponents(currentView, warnPage, casePage, true) }).catch(() => null);
       });
 
     } catch (err) {

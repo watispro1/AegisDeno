@@ -32,6 +32,10 @@ export const CURATED_EXAMPLES: Record<string, string[]> = {
     "/timeout user:@member custom_duration:1d 12h reason:Repeated spam",
   ],
   warn: ["/warn user:@member reason:Spam in #general severity:Low"],
+  massban: [
+    "/massban user_ids:123456789012345678 reason:Raid cleanup",
+    "/massban user_ids:123456789012345678,987654321098765432 reason:Compromised bots delete_messages:7",
+  ],
   unban: ["/unban user_id:123456789012345678 reason:Appeal approved"],
   warnings: ["/warnings user:@member", "/warnings user:@member ephemeral:false"],
   clearwarnings: ["/clearwarnings user:@member"],

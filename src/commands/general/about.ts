@@ -10,6 +10,7 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   Colors,
+  MessageFlags,
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { VERSION } from "../../version";
@@ -47,12 +48,14 @@ function memMB(bytes: number): string {
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("about")
-    .setDescription("Show live system status, runtime telemetry, and bot information for Aegis."),
+    .setDescription("Show live system status, runtime telemetry, and bot information for Aegis.")
+    .addBooleanOption(opt => opt.setName("ephemeral").setDescription("Only show the response to you (default: false)")),
 
   botPermissions: ["EmbedLinks"],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const client = interaction.client;
+    const ephemeral = interaction.options.getBoolean("ephemeral") ?? false;
 
     const buildOverviewEmbed = () => {
       const mem  = process.memoryUsage();
@@ -226,6 +229,7 @@ export const command: Command = {
       embeds: [buildOverviewEmbed()],
       components: [buildSelectMenu(view), buildButtonRow()],
       fetchReply: true,
+      ...(ephemeral ? { flags: MessageFlags.Ephemeral as const } : {}),
     });
 
     const collector = sent.createMessageComponentCollector({

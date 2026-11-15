@@ -1,4 +1,7 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ChannelType,
   EmbedBuilder,
   MessageFlags,
@@ -12,6 +15,7 @@ import { dateAndAgo } from "../../services/infoFormat";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { truncate } from "../../utils/safeText";
 import { postAccessLabel } from "../../services/infoAccess";
+import { dashboardUrl } from "../../config/links";
 
 /** Type-specific lines: topic and slowmode for text, bitrate and limit for voice. */
 function detailFields(channel: GuildBasedChannel): Array<{ name: string; value: string; inline: boolean }> {
@@ -40,12 +44,14 @@ export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("channelinfo")
     .setDescription("Show a channel's type, category, topic, slowmode and creation date.")
-    .addChannelOption(o => o.setName("channel").setDescription("The channel to look up (defaults to this one)").setRequired(false)),
+    .addChannelOption(o => o.setName("channel").setDescription("The channel to look up (defaults to this one)").setRequired(false))
+    .addBooleanOption(o => o.setName("ephemeral").setDescription("Only show the response to you (default: false)").setRequired(false)),
   guildOnly: true,
   cooldownMs: 2000,
 
   async execute(interaction: ChatInputCommandInteraction) {
     const guild = interaction.guild!;
+    const ephemeral = interaction.options.getBoolean("ephemeral") ?? false;
     const picked = interaction.options.getChannel("channel") ?? interaction.channel;
     const channel = picked ? (guild.channels.cache.get(picked.id) ?? await guild.channels.fetch(picked.id).catch(() => null)) : null;
     if (!channel) {
@@ -83,7 +89,21 @@ export const command: Command = {
         { name: "Created", value: dateAndAgo(channel.createdTimestamp ?? Date.now()), inline: true },
       );
     if (isObfuscatedChannel(channel)) embed.setFooter({ text: "Aegis can't view this channel, so some details may be missing." });
-    await interaction.reply({ embeds: [embed], allowedMentions: { parse: [] } });
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setLabel("Dashboard")
+        .setStyle(ButtonStyle.Link)
+        .setURL(dashboardUrl(guild.id))
+        .setEmoji("⚙️"),
+    );
+
+    await interaction.reply({
+      embeds: [embed],
+      components: [row],
+      allowedMentions: { parse: [] },
+      ...(ephemeral ? { flags: MessageFlags.Ephemeral as const } : {}),
+    });
   },
 };
 
