@@ -44,7 +44,7 @@ test("links: defaults and SITE_URL override", () => {
     assert.equal(siteBaseUrl(), "https://aegisdeno.fly.dev");
     assert.equal(siteUrl(), "https://aegisdeno.fly.dev/");
     assert.equal(docsUrl(), "https://aegisdeno.fly.dev/docs");
-    assert.equal(supportServerUrl(), "https://discord.gg/DkZUgm3q4F");
+    assert.equal(supportServerUrl(), "https://discord.gg/HwTbCYC4PM");
     assert.equal(inviteUrl(), "https://aegisdeno.fly.dev/invite");
   });
 
@@ -59,7 +59,7 @@ test("links: defaults and SITE_URL override", () => {
 test("links: malformed values fall back instead of producing broken buttons", () => {
   withEnv({ SITE_URL: "javascript:alert(1)", SUPPORT_SERVER_URL: "not a url" }, () => {
     assert.equal(siteBaseUrl(), "https://aegisdeno.fly.dev");
-    assert.equal(supportServerUrl(), "https://discord.gg/DkZUgm3q4F");
+    assert.equal(supportServerUrl(), "https://discord.gg/HwTbCYC4PM");
   });
 });
 

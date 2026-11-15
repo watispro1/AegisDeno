@@ -7,7 +7,7 @@
  */
 
 const DEFAULT_SITE_URL = "https://aegisdeno.fly.dev";
-const DEFAULT_SUPPORT_URL = "https://discord.gg/DkZUgm3q4F";
+const DEFAULT_SUPPORT_URL = "https://discord.gg/HwTbCYC4PM";
 
 /** Accept only http(s) URLs; anything malformed falls back instead of shipping a broken button. */
 function normalizeHttpUrl(value: string | undefined, fallback: string): string {

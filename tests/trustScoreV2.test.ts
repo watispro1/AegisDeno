@@ -16,7 +16,7 @@ import { factsFromRows, isGateCase } from "../src/services/trustService";
 import { joinGateDecision } from "../src/services/incidentLogic";
 import { activityUpdate } from "../src/services/memberActivity";
 import { normalizeGuildConfig, guildConfigSetPaths } from "../src/services/guildConfigNormalize";
-import { lowTrustRoleProblem, describeTrustConfig, command as trustCommand } from "../src/commands/moderation/trust";
+import { lowTrustRoleProblem, describeTrustConfig, trustEmbed, command as trustCommand } from "../src/commands/moderation/trust";
 import { trustHistogram } from "../src/web/dashboard/views/trust";
 import { createDashboardRouter } from "../src/web/dashboard/router";
 import { readDashboardConfig } from "../src/web/dashboard/config";
@@ -86,6 +86,15 @@ test("engine: presets change weights in the expected direction; bots are not sco
   assert.equal(computeTrust(base({ isBot: true, accountCreatedAt: ago(0) }), "balanced", NOW).bandLabel, "Bot (not scored)");
   assert.equal(formatPoints(-4.5), "−4.5");
   assert.equal(formatPoints(0), "±0");
+});
+
+test("embed: score bar is emoji squares outside a code span (no broken block glyphs)", () => {
+  const r = computeTrust(base(), "balanced", NOW);
+  const desc = trustEmbed("member", null, r, normalizeTrustConfig({})).toJSON().description ?? "";
+  const bar = desc.split("\n")[0];
+  assert.ok(!bar.includes("`"), "bar is not inside inline code");
+  assert.ok(!/[█░▒]/.test(bar), "no block glyphs");
+  assert.equal([...bar.matchAll(/🟩|🟦|🟨|🟧|🟥|⬛/gu)].length, 10, "ten segments");
 });
 
 test("config: defaults are off, values are clamped, junk is dropped, and it round-trips through guild config", () => {

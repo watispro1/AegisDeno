@@ -17,6 +17,17 @@ import { VERSION } from "../../version";
 import { dashboardUrl, docsUrl, inviteUrl, siteUrl } from "../../config/links";
 import mongoose from "mongoose";
 import { isObfuscatedChannel } from "../../utils/channels";
+import { databaseLatency } from "../../services/statusMonitor";
+import { footer } from "../../utils/embedStyle";
+import { ownsComponent } from "../shared/componentOwner";
+
+export type AboutView = "overview" | "runtime" | "network" | "database";
+export const ABOUT_VIEWS: readonly AboutView[] = ["overview", "runtime", "network", "database"];
+
+/** A view picked in the menu, or the overview for anything else. Pure. */
+export function aboutView(value: string | null | undefined): AboutView {
+  return (ABOUT_VIEWS as readonly string[]).includes(value ?? "") ? value as AboutView : "overview";
+}
 
 /** Formats a millisecond uptime into a human-readable string. */
 function fmtUptime(ms: number): string {
@@ -48,14 +59,20 @@ function memMB(bytes: number): string {
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("about")
-    .setDescription("Show live system status, runtime telemetry, and bot information for Aegis.")
-    .addBooleanOption(opt => opt.setName("ephemeral").setDescription("Only show the response to you (default: false)")),
+    .setDescription("About Aegis: version, uptime, servers, memory and database health.")
+    .addStringOption(o => o.setName("view").setDescription("Which page to open first (default: overview)").setRequired(false)
+      .addChoices(
+        { name: "System overview", value: "overview" },
+        { name: "Runtime telemetry", value: "runtime" },
+        { name: "Network & servers", value: "network" },
+        { name: "Database diagnostics", value: "database" },
+      ))
+    .addBooleanOption(o => o.setName("private").setDescription("Only you can see the reply (default: false)").setRequired(false)),
 
   botPermissions: ["EmbedLinks"],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const client = interaction.client;
-    const ephemeral = interaction.options.getBoolean("ephemeral") ?? false;
 
     const buildOverviewEmbed = () => {
       const mem  = process.memoryUsage();
@@ -85,7 +102,7 @@ export const command: Command = {
           { name: "🗄️ Database",    value: dbState,                                            inline: true },
           { name: "💾 Heap Used",    value: `\`${memMB(mem.heapUsed)}\``,                       inline: true },
         )
-        .setFooter({ text: `Aegis • ${pingLabel} • v${VERSION}`, iconURL: client.user?.displayAvatarURL() })
+        .setFooter({ ...footer(`${pingLabel} · v${VERSION}`), iconURL: client.user?.displayAvatarURL() })
         .setTimestamp();
     };
 
@@ -114,7 +131,7 @@ export const command: Command = {
           { name: "🔧 Node Version",   value: `\`${process.version}\``,                               inline: true },
           { name: "📝 PID",            value: `\`${process.pid}\``,                                   inline: true },
         )
-        .setFooter({ text: "Runtime metrics • refreshed on demand", iconURL: client.user?.displayAvatarURL() })
+        .setFooter({ ...footer("Runtime metrics · press Refresh for new numbers"), iconURL: client.user?.displayAvatarURL() })
         .setTimestamp();
     };
 
@@ -141,7 +158,7 @@ export const command: Command = {
           { name: "🔗 WebSocket",       value: `${pingEmoji} \`${pingLabel}\` (\`${ping}ms\`)`,    inline: false },
           { name: "🏆 Largest Servers", value: topField,                                             inline: false },
         )
-        .setFooter({ text: "Network telemetry • Aegis", iconURL: client.user?.displayAvatarURL() })
+        .setFooter({ ...footer("Network telemetry"), iconURL: client.user?.displayAvatarURL() })
         .setTimestamp();
     };
 
@@ -158,13 +175,9 @@ export const command: Command = {
       const dbStateLabel = stateLabels[dbReady] ?? "❓ Unknown";
       let dbLatency = "N/A";
       if (dbReady === 1) {
-        try {
-          const before = Date.now();
-          await mongoose.connection.db?.admin().ping();
-          dbLatency = `${Date.now() - before}ms`;
-        } catch {
-          dbLatency = "Error";
-        }
+        // Bounded (2 s) like /ping, so a stalled database can't hang the menu.
+        const ms = await databaseLatency().catch(() => null);
+        dbLatency = ms === null ? "Timed out" : `${ms}ms`;
       }
       const dbName      = mongoose.connection.name || mongoose.connection.db?.databaseName || "unknown";
       const collections = mongoose.connection.modelNames();
@@ -180,7 +193,7 @@ export const command: Command = {
               ? collections.map(c => `\`${c}\``).join(", ")
               : "None registered",                                                               inline: false },
         )
-        .setFooter({ text: "Database telemetry • Aegis", iconURL: client.user?.displayAvatarURL() })
+        .setFooter({ ...footer("Database telemetry"), iconURL: client.user?.displayAvatarURL() })
         .setTimestamp();
     };
 
@@ -224,31 +237,38 @@ export const command: Command = {
           .setURL(inviteUrl()),
       );
 
-    let view = "overview";
-    const sent = await interaction.reply({
-      embeds: [buildOverviewEmbed()],
+    const buildView = async (v: AboutView): Promise<EmbedBuilder> => {
+      switch (v) {
+        case "runtime":  return buildRuntimeEmbed();
+        case "network":  return buildNetworkEmbed();
+        case "database": return buildDatabaseEmbed();
+        default:         return buildOverviewEmbed();
+      }
+    };
+
+    let view: AboutView = aboutView(interaction.options.getString("view"));
+    const isPrivate = interaction.options.getBoolean("private") ?? false;
+    const response = await interaction.reply({
+      embeds: [await buildView(view)],
       components: [buildSelectMenu(view), buildButtonRow()],
-      fetchReply: true,
-      ...(ephemeral ? { flags: MessageFlags.Ephemeral as const } : {}),
+      withResponse: true,
+      ...(isPrivate ? { flags: MessageFlags.Ephemeral as const } : {}),
     });
+    const sent = response.resource?.message;
+    if (!sent) return;
 
     const collector = sent.createMessageComponentCollector({
-      time: 120_000,
-      filter: (i) => i.user.id === interaction.user.id,
+      idle: 120_000,
+      filter: (i) => i.customId === "about_view" || i.customId === "about_refresh",
     });
 
     collector.on("collect", (i) => guardCollect("about", i, async () => {
+      if (!(await ownsComponent(i, interaction.user.id, "about"))) return;
       await i.deferUpdate();
       if (i.componentType === ComponentType.StringSelect && i.customId === "about_view") {
-        view = i.values[0] ?? "overview";
+        view = aboutView(i.values[0]);
       }
-      let embed: EmbedBuilder;
-      switch (view) {
-        case "runtime":  embed = buildRuntimeEmbed();           break;
-        case "network":  embed = buildNetworkEmbed();           break;
-        case "database": embed = await buildDatabaseEmbed();    break;
-        default:         embed = buildOverviewEmbed();          break;
-      }
+      const embed = await buildView(view);
       await interaction.editReply({ embeds: [embed], components: [buildSelectMenu(view), buildButtonRow()] });
     }));
 

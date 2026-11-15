@@ -139,6 +139,8 @@ export interface DashboardData {
   loadSettings(guildId: string): Promise<SettingsSnapshot>;
   /** Saves one section. Resolves false when the section cannot be saved yet (verification not set up). */
   saveSettings(guildId: string, input: SettingsValue, actor: Actor): Promise<boolean>;
+  /** Hides the overview's "Get started" card for everyone. Optional: without it the card hides once every step is done. */
+  dismissOnboarding?(guildId: string): Promise<void>;
   /** The ten most-starred posts of all time, as /starboard top shows them. */
   topStarboard?(guildId: string): Promise<StarboardTopEntry[]>;
 }

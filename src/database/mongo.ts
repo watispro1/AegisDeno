@@ -47,6 +47,7 @@ const GuildConfigSchema = new mongoose.Schema({
   goodbyeMessage: { type: String, maxlength: 1000 },
   goodbyeEmbed: { type: mongoose.Schema.Types.Mixed, default: null },
   autorespondersEnabled: { type: Boolean, default: true },
+  onboardingDismissed: { type: Boolean, default: false },
   // Incident Mode defaults and auto-trigger; module switches. Normalised in guildConfigNormalize.ts.
   incident: { type: mongoose.Schema.Types.Mixed, default: null },
   modules: { type: mongoose.Schema.Types.Mixed, default: null },

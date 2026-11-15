@@ -28,15 +28,26 @@ export const cssChrome = String.raw`/* ── Header ─────────
 .nav-actions { display: flex; align-items: center; gap: .25rem; margin-left: auto; }
 .nav-actions .btn { margin-left: .5rem; }
 .nav-toggle { display: none; }
-.theme-toggle .icon-moon, .theme-toggle .icon-sun, .theme-toggle .icon-system { display: none; }
+.theme-toggle .icon-moon, .theme-toggle .icon-sun, .theme-toggle .icon-system, .theme-toggle .icon-steel, .theme-toggle .icon-glass { display: none; }
 [data-theme-setting="system"] .theme-toggle .icon-system { display: block; }
 [data-theme-setting="light"] .theme-toggle .icon-sun { display: block; }
 [data-theme-setting="dark"] .theme-toggle .icon-moon { display: block; }
+[data-theme-setting="steel"] .theme-toggle .icon-steel { display: block; }
+[data-theme-setting="glass"] .theme-toggle .icon-glass { display: block; }
 :not([data-theme-setting]) .theme-toggle .icon-sun { display: block; }
 :not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 :not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
 
-@media (max-width: 860px) {
+/* Seven nav links plus the theme picker, search and CTA need ~975px once the
+   spacing is tightened (1041-1200px; measured headless at 1040-1200px), so
+   the header only folds into the menu button below 1040px. */
+@media (min-width: 1041px) and (max-width: 1200px) {
+  .nav-inner { gap: 1rem; }
+  .nav-links { gap: 0; }
+  .nav-link { padding: 0 .5rem; }
+  .nav-actions .btn { margin-left: .25rem; }
+}
+@media (max-width: 1040px) {
   .nav-toggle { display: inline-flex; }
   .site-search-trigger { width: 44px; padding: 0; border-color: transparent; }
   .site-search-trigger kbd { display: none; }

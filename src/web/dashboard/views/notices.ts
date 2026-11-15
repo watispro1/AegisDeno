@@ -54,6 +54,7 @@ export const NOTICES: Record<string, { text: string; bad?: boolean }> = {
   "modmail-blocked": { text: "Blocked. They can no longer open ModMail here." },
   "modmail-unblocked": { text: "Unblocked. They can use ModMail again." },
   "digest-saved": { text: "Digest settings saved. The next digest is scheduled." },
+  "onboarding-dismissed": { text: "Get started checklist hidden. Everything it linked to is still in the sidebar." },
   "trust-saved": { text: "Trust Score settings saved. Scores refresh within a few minutes." },
   "incident-saved": { text: "Incident Mode defaults saved." },
   "member-done": { text: "Done. The action was recorded as a case and posted to your log channel." },

@@ -22,7 +22,8 @@ import { checkEscalation } from "../../services/escalation";
 import { combineReason, handleReasonAutocomplete } from "../../utils/moderationPresets";
 import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
 import { caseLinkButton, modLogRow } from "../../services/modLogLinks";
-import { softFail } from "../../utils/softFail";
+import { replyPagedList } from "../../utils/listPager";
+import { wouldShortenTimeout } from "./lib/prompt";
 
 const SEVERITY_CONFIG: Record<string, { color: number; label: string; emoji: string }> = {
   low:    { color: 0xFEE75C, label: "Low",    emoji: "🟡" },
@@ -33,7 +34,7 @@ const SEVERITY_CONFIG: Record<string, { color: number; label: string; emoji: str
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("warn")
-    .setDescription("Issue a formal warning to a member.")
+    .setDescription("Give a member a formal warning; it counts toward auto-escalation.")
     .addUserOption(opt =>
       opt.setName("user").setDescription("The member to warn").setRequired(true)
     )
@@ -68,7 +69,7 @@ export const command: Command = {
         )
     )
     .addBooleanOption(opt =>
-      opt.setName("silent").setDescription("Send warning silently without DM-ing the user (default: false)").setRequired(false)
+      opt.setName("silent").setDescription("Don't DM the member about the warning (default: they get a DM)").setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
@@ -187,16 +188,16 @@ export const command: Command = {
         }
         if (i.customId.startsWith("warn_hist_")) {
           const userWarns = await getWarningsForUser(guildId, target.id);
-          if (userWarns.length === 0) {
-            await i.reply({ content: `✅ <@${target.id}> has zero warnings on record.`, flags: MessageFlags.Ephemeral });
-          } else {
-            // Ten 512-character reasons overflowed the 2000-character message limit.
-            const historyText = userWarns
-              .slice(0, 10)
-              .map((w, idx) => `**${idx + 1}.** \`${truncate(String(w.reason).replace(/`/g, "'"), 120)}\` — Mod: <@${w.moderatorId}> (<t:${Math.floor(new Date(w.createdAt).getTime() / 1000)}:R>)`)
-              .join("\n");
-            await i.reply({ content: truncate(`📜 **Warning History for <@${target.id}> (${userWarns.length}):**\n${historyText}`, 2000), flags: MessageFlags.Ephemeral });
-          }
+          // Every active warning, paged (it used to stop at 10).
+          await replyPagedList(i, {
+            title: `📜 Warning history for ${target.tag} (${userWarns.length})`,
+            lines: userWarns.map((w, idx) => `**${idx + 1}.** \`${truncate(String(w.reason).replace(/`/g, "'"), 120)}\` — Mod: <@${w.moderatorId}> (<t:${Math.floor(new Date(w.createdAt).getTime() / 1000)}:R>)`),
+            empty: `✅ <@${target.id}> has zero active warnings.`,
+            perPage: 10,
+            color: 0xFEE75C,
+            note: "Newest first",
+            ephemeral: true,
+          });
         } else if (i.customId.startsWith("warn_undo_")) {
           if (!isUndoWindowOpen(issuedAt, Date.now())) {
             await i.reply({ content: "⏱️ The 5-minute undo window has passed. Use `/clearwarnings` or `/infractions` instead.", flags: MessageFlags.Ephemeral });
@@ -236,8 +237,20 @@ export const command: Command = {
             await i.reply({ content: "⏱️ This member was already given the 10-minute timeout.", flags: MessageFlags.Ephemeral });
             return;
           }
+          // Don't cut a longer timeout someone already gave them down to 10 minutes.
+          if (wouldShortenTimeout(member.communicationDisabledUntil, 10 * 60 * 1000)) {
+            await i.reply({ content: `ℹ️ <@${target.id}> is already timed out until <t:${Math.floor(member.communicationDisabledUntil!.getTime() / 1000)}:f>, longer than 10 minutes. Nothing changed.`, flags: MessageFlags.Ephemeral });
+            return;
+          }
           quickTimedOut = true;
-          await member.timeout(10 * 60 * 1000, auditReason(`Quick escalation from warn: ${reason} (by ${i.user.tag})`));
+          try {
+            await member.timeout(10 * 60 * 1000, auditReason(`Quick escalation from warn: ${reason} (by ${i.user.tag})`));
+          } catch (err) {
+            quickTimedOut = false;
+            logger.warn(`Quick timeout from warn failed for ${target.id} in ${guildId}`, err);
+            await i.reply({ content: "❌ I couldn't time them out. Check my **Timeout Members** permission and role position.", flags: MessageFlags.Ephemeral });
+            return;
+          }
           // The quick timeout left no case or log entry before.
           await addModerationCase({ guildId, userId: target.id, moderatorId: i.user.id, action: "timeout", reason: `Quick timeout from warning: ${reason}`, details: "Duration: 10m" }).catch(err => logger.warn("Quick timeout case failed:", err));
           await sendGuildLog(interaction.client, guildId, { title: "⏱️ Quick Timeout (10m)", color: 0xFFA500, description: `**User:** ${target.tag} (<@${target.id}>)\n**Reason:** ${reason}\n**By:** ${i.user.tag}` }, "modActions");

@@ -11,27 +11,33 @@ The bot relies on several environment variables that must be configured correctl
 - `PORT` (Optional): The port on which the web dashboard runs (defaults to 3000).
 - `SITE_URL` (Optional): The base URL for the web dashboard, used for sitemap generation.
 - `BOT_INVITE_URL` (Optional): A custom invite URL if you don't want to use the auto-generated one.
-- `SUPPORT_SERVER_URL` (Optional): A link to the bot's support server.
+- `SUPPORT_SERVER_URL` (Optional): A link to the bot's support server. Defaults to https://discord.gg/HwTbCYC4PM.
+
+The full list, with the dashboard and Top.gg variables, is in the README and `DEPLOYMENT.md`.
 
 ## Admin Commands
 
 The main admin commands:
 - `/automod`: Configure automoderation settings (requires `ManageGuild` permission).
   - `/automod words toggle|add|remove|action`: Manage blocked words filter.
-  - `/automod links toggle|action`: Manage link filtering.
+  - `/automod links toggle|action|allow|unallow`: Manage link filtering and allowed domains.
   - `/automod mentions toggle|limit|action`: Manage mention-spam filter.
-  - `/automod caps toggle|threshold|action`: Manage uppercase and character flood detection.
+  - `/automod caps toggle|limit|action`: Manage uppercase flood detection.
   - `/automod status`: Interactive status hub with toggle buttons.
 - `/warn`, `/timeout`, `/ban`, `/kick`: Preset reasons, a confirmation step, and quick actions afterwards (Timeout 10m, +1h Extend, Undo, Revoke Ban).
 - `/case`: Case lookup (`/case view`, `/case user` with `action:` and `hide_revoked:` filters), search (`/case search`), reason updates (`/case edit`), and JSON audit exports (`/case export`).
 - `/massban`: Ban up to 50 user IDs at once (Ban Members). Same hierarchy rules as `/ban`, confirmation, re-check before acting, one case per ban, one mod-log entry. No DMs or appeal codes. 30-second cooldown per moderator.
 - `/purge`: Filtered bulk message deletion with preview prompt, audit reason logging, and progress bar.
+- `/incident start|end|status|auto`: Incident Mode for raids (slowmode, lockdown, join gate, paused invites), restored exactly when it ends.
+- `/trust user|config`: the explainable Trust Score and its server settings (preset, low-trust threshold, low-trust role, link filter and Incident gate). `/trustscore` is a deprecated alias of `/trust user`.
+- `/modmail setup`, `/digest setup`: ModMail via DMs and the weekly staff digest.
 - `/developer`: Restricted bot-owner diagnostics for live heap memory, cached guilds, and loaded commands.
 - `/sync`: Live slash command re-registration without process restarts.
 
 ## Web Portal Operations & Visual Performance
 
-- `/status` shows uptime, gateway latency and incident notices; `/api/status` returns the same as JSON.
+- `/status` shows uptime, gateway latency and incident notices; `/api/status` returns the same as JSON, and `/badge/status.svg` and `/badge/servers.svg` are embeddable badges.
+- `/terms`, `/privacy` and `/security` are the legal and security pages; `/why` and `/roadmap` are linked from the footer.
 - `/playground` is retired and redirects to `/features`.
 
 ## Deployment Checks

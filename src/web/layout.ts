@@ -29,9 +29,13 @@ export interface LayoutOptions {
 /** Public source repository. */
 export const REPO_URL = "https://github.com/watispro1/AegisDeno";
 
+/** Public support server, used when SUPPORT_SERVER_URL is not set. */
+export const SUPPORT_SERVER_INVITE = "https://discord.gg/HwTbCYC4PM";
+
 export const NAV: NavLink[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Features", href: "/features" },
+  { label: "Why Aegis", href: "/why" },
   { label: "Commands", href: "/commands" },
   { label: "Docs", href: "/docs" },
   { label: "Changelog", href: "/changelog" },
@@ -65,6 +69,36 @@ function activeFor(current: string | undefined, href: string): string | null {
 export const sunIcon = `<svg class="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>`;
 export const moonIcon = `<svg class="icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
 export const systemIcon = `<svg class="icon-system" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`;
+export const steelIcon = `<svg class="icon-steel" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>`;
+export const glassIcon = `<svg class="icon-glass" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="13" height="13" rx="2"/><rect x="8" y="8" width="13" height="13" rx="2"/></svg>`;
+
+/** Picker options: [setting, label]. "system" follows the OS light/dark preference. */
+export const THEME_OPTIONS: ReadonlyArray<readonly [string, string]> = [
+  ["system", "System"],
+  ["light", "Light"],
+  ["dark", "Dark"],
+  ["steel", "Steel &amp; Ink"],
+  ["glass", "Glass"],
+];
+
+/**
+ * Header theme picker, shared by the site and the dashboard. A native
+ * <details> menu; site.js applies the choice and keeps aria-pressed in sync.
+ */
+export function themePicker(): string {
+  const options = THEME_OPTIONS.map(([id, label]) =>
+    `<button class="theme-opt" type="button" data-set-theme="${id}" aria-pressed="false"><span class="theme-swatch" data-swatch="${id}" aria-hidden="true"></span>${label}${id === "glass" ? ' <span class="theme-beta">Beta</span>' : ""}</button>`
+  ).join("\n          ");
+  return `<details class="theme-picker">
+        <summary class="icon-btn theme-toggle" aria-label="Choose theme" title="Theme">
+          ${sunIcon}${moonIcon}${systemIcon}${steelIcon}${glassIcon}
+        </summary>
+        <div class="theme-menu" role="group" aria-label="Theme">
+          <p class="theme-menu-title" aria-hidden="true">Theme</p>
+          ${options}
+        </div>
+      </details>`;
+}
 export const menuIcon = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`;
 
 export function layout(o: LayoutOptions): string {
@@ -74,7 +108,7 @@ export function layout(o: LayoutOptions): string {
   const title = esc(o.title);
   const description = esc(o.description);
   const inviteUrl = safeUrl(o.inviteUrl);
-  const supportUrl = safeUrl(o.supportUrl);
+  const supportUrl = safeUrl(o.supportUrl || SUPPORT_SERVER_INVITE);
   const v = o.assetVersion ? `?v=${encodeURIComponent(o.assetVersion)}` : "";
 
   const navItems = NAV.map((l) => {
@@ -133,9 +167,7 @@ ${o.headExtra || ""}
         <li class="nav-mobile-cta"><a class="btn block" href="${inviteUrl}">Add Aegis to Discord</a></li>
     </ul>
     <div class="nav-actions">
-      <button class="icon-btn theme-toggle" type="button" aria-label="Switch theme">
-        ${sunIcon}${moonIcon}${systemIcon}
-      </button>
+      ${themePicker()}
       <button class="icon-btn site-search-trigger" type="button" aria-label="Search pages and commands (Ctrl K)" aria-haspopup="dialog" aria-controls="site-search-dialog" title="Search (Ctrl K)">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
         <kbd>Ctrl K</kbd>
@@ -180,15 +212,17 @@ ${o.body}
           <span>Aegis</span>
         </a>
         <p>A Discord moderation bot, run from slash commands, with a web dashboard for cases and settings.</p>
-        <p class="footer-meta"><a href="/changelog#v${esc(o.version)}">Version ${esc(o.version)}</a> · <a href="/dashboard/changelog">Dashboard changelog</a></p>
+        <p class="footer-meta"><a href="/changelog#v${esc(o.version)}">Version ${esc(o.version)}</a> · <a href="/dashboard/changelog">Dashboard changelog</a> · <a href="/changelog.xml">Subscribe to updates (Atom/RSS)</a></p>
       </div>
       <div class="footer-col">
         <h2 class="footer-title">Site</h2>
         <ul>
           <li><a href="/features">Features</a></li>
+          <li><a href="/why">Why Aegis</a></li>
           <li><a href="/commands">Commands</a></li>
           <li><a href="/docs">Documentation</a></li>
           <li><a href="/changelog">Changelog</a></li>
+          <li><a href="/roadmap">What's next</a></li>
           <li><a href="/status">Status</a></li>
           <li><a href="/dashboard">Dashboard</a></li>
         </ul>
@@ -211,14 +245,14 @@ ${o.body}
           <li><a href="/terms">Terms of Service</a></li>
           <li><a href="/privacy">Privacy Policy</a></li>
           <li><a href="/security">Security</a></li>
-          <li><a href="${REPO_URL}" rel="noopener noreferrer">Source on GitHub</a></li>
+          <li><a href="${REPO_URL}" rel="noopener noreferrer">Source on GitHub</a> <span class="faint">(proprietary)</span></li>
           <li><a href="${REPO_URL}/issues" rel="noopener noreferrer">Report a problem</a></li>
-          ${o.supportUrl ? `<li><a href="${supportUrl}" rel="noopener noreferrer">Support server</a></li>` : ""}
+          <li><a href="${supportUrl}" rel="noopener noreferrer">Support server</a></li>
         </ul>
       </div>
     </div>
     <div class="footer-bottom">
-      <div>&copy; ${year} Aegis. Not affiliated with Discord Inc.</div>
+      <div>&copy; ${year} Aegis. All rights reserved. Not affiliated with Discord Inc.</div>
       <nav aria-label="Footer">
         <a class="back-to-top" href="#main">Back to top ↑</a>
         <a href="/features">Features</a>
@@ -229,7 +263,7 @@ ${o.body}
         <a href="/security">Security</a>
         <a href="/status">Status</a>
         <a href="/api/stats">API</a>
-        <a href="/changelog.xml">Feed</a>
+        <a href="/changelog.xml">RSS feed</a>
       </nav>
     </div>
   </div>

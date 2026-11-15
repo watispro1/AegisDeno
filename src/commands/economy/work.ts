@@ -1,11 +1,11 @@
-import { SlashCommandBuilder, EmbedBuilder, InteractionContextType, MessageFlags, type ChatInputCommandInteraction } from "discord.js";
+import { SlashCommandBuilder, InteractionContextType, MessageFlags, type ChatInputCommandInteraction } from "discord.js";
 import { randomInt } from "node:crypto";
 import type { Command } from "../../types/discord";
 import { economy } from "../../services/economyService";
 import { economyGate, NO_PINGS } from "../../services/economyDiscord";
 import { formatCoins, relativeTimestamp } from "../../services/economyLogic";
 import { WORK_MAX_LEVEL, pickJob, workTitle, xpForLevel } from "../../services/economyProgress";
-import { COLORS, footer } from "../../utils/embedStyle";
+import { economyEmbed, waitText } from "./lib/ui";
 
 /** "Level 3 · Regular · 18/30 XP" (or "max level"). */
 export function levelLine(level: number, xp: number): string {
@@ -16,7 +16,7 @@ export function levelLine(level: number, xp: number): string {
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("work")
-    .setDescription("Do a quick job for some coins. Working levels you up for better pay (cooldown applies).")
+    .setDescription("Do a quick job for coins. Each job earns XP, and higher work levels pay more.")
     .setContexts(InteractionContextType.Guild),
   category: "economy",
   guildOnly: true,
@@ -26,8 +26,8 @@ export const command: Command = {
     const r = await economy().work(interaction.guildId!, interaction.user.id);
     if (!r.ok) {
       const content = r.reason === "cooldown"
-        ? `⏳ You're still tired from your last job. Try again ${relativeTimestamp(r.retryAt)}.`
-        : "❌ Your balance is at the maximum, so nothing was added.";
+        ? `⏳ You're still tired from your last job. Try again ${waitText(r.retryAt)}.`
+        : "❌ Your wallet is at the maximum, so nothing was added. `/deposit` some coins first.";
       return interaction.reply({ content, flags: MessageFlags.Ephemeral });
     }
     const job = pickJob(r.level, max => randomInt(max));
@@ -35,18 +35,19 @@ export const command: Command = {
       r.levelBonus > 0 ? `+${r.levelBonus}% level bonus` : null,
       r.boost > 0 ? `+${r.boost}% boost` : null,
     ].filter(Boolean).join(", ");
-    const embed = new EmbedBuilder()
-      .setColor(COLORS.ok)
-      .setTitle(r.leveledUp ? `🎉 Level up! You're now a ${workTitle(r.level)}` : "💼 Work done")
-      .setDescription(`You ${job} and earned **${formatCoins(cfg, r.amount)}**${extras ? ` (${extras})` : ""}.`)
-      .addFields(
-        { name: "Balance", value: formatCoins(cfg, r.balance), inline: true },
+    const embed = economyEmbed(cfg, {
+      tone: "ok",
+      title: r.leveledUp ? `🎉 Level up! You're now a ${workTitle(r.level)}` : "💼 Work done",
+      description: `You ${job} and earned **${formatCoins(cfg, r.amount)}**${extras ? ` (${extras})` : ""}.`,
+      balance: { wallet: r.balance },
+      fields: [
         { name: "Work again", value: relativeTimestamp(Date.now() + cfg.workCooldownMinutes * 60_000), inline: true },
         { name: "Career", value: levelLine(r.level, r.xp), inline: false },
-      );
-    if (cfg.workLevelBonusPercent > 0 && r.level < WORK_MAX_LEVEL) {
-      embed.setFooter(footer(`Each level adds ${cfg.workLevelBonusPercent}% to your pay, up to level ${WORK_MAX_LEVEL}.`));
-    }
+      ],
+      footer: cfg.workLevelBonusPercent > 0 && r.level < WORK_MAX_LEVEL
+        ? `Each level adds ${cfg.workLevelBonusPercent}% to your pay, up to level ${WORK_MAX_LEVEL}.`
+        : undefined,
+    });
     await interaction.reply({ embeds: [embed], allowedMentions: NO_PINGS });
   },
 };

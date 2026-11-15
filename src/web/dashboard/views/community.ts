@@ -240,7 +240,8 @@ export function renderGeneralSettings(cfg: SiteConfig, ctx: GuildContext, o: { s
     title: "Settings",
     lead: "Every module in one place. Open one to change it; each page has its own on/off switch where the bot supports one.",
     path: `/dashboard/${g}/settings`,
-    body: `${moduleGrid(o.states)}
+    body: `<h2 class="visually-hidden">Modules</h2>
+  ${moduleGrid(o.states)}
   <section class="panel-card" aria-labelledby="perm-h">
     <h2 id="perm-h">Aegis's permissions</h2>
     ${o.missingBotPermissions.length

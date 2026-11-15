@@ -12,6 +12,13 @@ import { BOT_OWNER_IDS } from "../../config/env";
 import { loadCommands, commands } from "../loader";
 import { commandRegistrationData } from "../registration";
 import { logger } from "../../utils/logger";
+import { requestConfirmation } from "../../utils/confirmation";
+
+/** What a sync will register and clear, for the confirmation prompt. Pure. */
+export function syncPlan(guildOnly: boolean, targetGuildId: string | null | undefined): { register: string; clear: string } {
+  if (guildOnly && targetGuildId) return { register: `guild \`${targetGuildId}\` (instant)`, clear: "all **global** commands (so they don't show twice)" };
+  return { register: "global (up to 1 hour to appear)", clear: targetGuildId ? `the commands registered to guild \`${targetGuildId}\`` : "nothing" };
+}
 
 const TOKEN          = process.env.DISCORD_TOKEN!;
 const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID!;
@@ -20,7 +27,7 @@ const TEST_GUILD_ID  = process.env.DISCORD_TEST_GUILD_ID;
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("sync")
-    .setDescription("Force re-register all slash commands without restarting the bot. (Developer only)")
+    .setDescription("Reload and re-register every slash command without a restart (bot owners only; asks to confirm).")
     .addBooleanOption(opt =>
       opt
         .setName("guild_only")
@@ -40,6 +47,22 @@ export const command: Command = {
 
     const guildOnly = interaction.options.getBoolean("guild_only") ?? false;
     const targetGuildId = TEST_GUILD_ID || interaction.guildId;
+
+    if (!TOKEN || !APPLICATION_ID) {
+      await interaction.editReply("❌ `DISCORD_TOKEN` or `DISCORD_APPLICATION_ID` isn't set, so commands can't be registered from here.");
+      return;
+    }
+    if (guildOnly && !targetGuildId) {
+      await interaction.editReply("❌ `guild_only` needs a server: run this in one, or set `DISCORD_TEST_GUILD_ID`.");
+      return;
+    }
+    // Registering also clears the other scope, which can make commands vanish for a while.
+    const plan = syncPlan(guildOnly, targetGuildId);
+    const answer = await requestConfirmation(interaction, {
+      content: `🔄 Reload commands from disk and register them to **${plan.register}**?\nThis also clears ${plan.clear}.`,
+      confirmLabel: "Sync commands",
+    });
+    if (answer !== "confirmed") return;
 
     try {
       // Reload all commands from disk, clearing module cache
@@ -97,7 +120,7 @@ export const command: Command = {
         .setFooter({ text: `Synced by ${interaction.user.tag}` })
         .setTimestamp();
 
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ content: "", embeds: [embed] });
 
     } catch (error) {
       logger.error("[SYNC] Failed to sync commands:", error);

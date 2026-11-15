@@ -5,8 +5,10 @@
  * accent, the system sans-serif for text and the system monospace for anything
  * you would type into Discord (IBM Plex is used if it is installed locally; no
  * web fonts are downloaded). Thin borders instead of shadows, 4px corners, no gradients,
- * no blur, no scroll animations. Light is the default; dark is opt-in via the
- * toggle in the header and is remembered in localStorage.
+ * no blur, no scroll animations. Light is the default; Dark, Steel & Ink and
+ * Glass (beta, glass.ts and glassDashboard.ts: the one theme with blur and a drifting background)
+ * are opt-in via the theme picker in the header (themes.ts) and
+ * the choice is remembered in localStorage.
  */
 import { cssBase } from "./base";
 import { cssChrome } from "./chrome";
@@ -24,10 +26,15 @@ import { cssDashboardModules } from "./dashboardModules";
 import { cssDashboardModulePages } from "./dashboardModulePages";
 import { cssDashboardTrustPages } from "./dashboardTrustPages";
 import { cssDashboardCommunityPages } from "./dashboardCommunityPages";
+import { cssThemeTokens, cssThemeSurfaces } from "./themes";
+import { cssGlass } from "./glass";
+import { cssGlassDashboard } from "./glassDashboard";
+import { cssShowcase } from "./showcase";
 
 /* Concatenated in this order; later rules override earlier ones. */
 export const styles =
   cssBase +
+  cssThemeTokens +
   cssChrome +
   cssPages +
   cssChangelog +
@@ -42,4 +49,8 @@ export const styles =
   cssDashboardModulePages +
   cssDashboardTrustPages +
   cssDashboardCommunityPages +
+  cssShowcase +
+  cssThemeSurfaces +
+  cssGlass +
+  cssGlassDashboard +
   cssResponsive;

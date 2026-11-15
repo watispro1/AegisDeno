@@ -14,3 +14,5 @@ export { renderChangelog, renderDashboardChangelog } from "./changelog";
 export { renderStatus } from "./status";
 export { LEGAL_LAST_UPDATED, renderTerms, renderPrivacy, renderSecurity } from "./legal";
 export { renderNotFound, renderPlayground } from "./fallback";
+export { renderWhy } from "./why";
+export { renderRoadmap } from "./roadmap";

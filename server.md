@@ -74,7 +74,7 @@ Roles must be arranged in the exact order shown below (highest position first) t
 | **5** | `Support Specialist` | `#2ECC71` (Emerald) | Yes | Yes | Technical support staff answering tickets and community questions. |
 | **6** | `Aegis Bot` | `#5865F2` (Blurple) | Yes | Yes | The official production Aegis bot instance. Elevated permissions. |
 | **7** | `System Bots` | `#7289DA` (Steel Blue) | Yes | No | Auxiliary utility bots (GitHub webhooks, uptime monitor, audio test). |
-| **8** | `Contributor / Dev` | `#1ABC9C` (Turquoise) | Yes | No | Open-source contributors with accepted PRs or code contributions. |
+| **8** | `Contributor / Dev` | `#1ABC9C` (Turquoise) | Yes | No | Contributors with accepted PRs or code contributions. |
 | **9** | `Bug Hunter` | `#F1C40F` (Gold) | Yes | No | Members who discover and verify critical bugs or security flaws. |
 | **10** | `Server Booster` | `#F47FFF` (Nitro Pink) | Yes | No | Nitro boosters supporting the community (auto-managed by Discord). |
 | **11** | `VIP / Partner` | `#E91E63` (Magenta) | Yes | No | Verified server owners running Aegis in 1,000+ member guilds or sponsors. |
@@ -173,7 +173,12 @@ The shared official web links used across topics are:
 - Dashboard: https://aegisdeno.fly.dev/dashboard
 - Changelog: https://aegisdeno.fly.dev/changelog
 - Invite: https://aegisdeno.fly.dev/invite
-- Source: https://github.com/watispro1/AegisDeno
+- Why Aegis: https://aegisdeno.fly.dev/why
+- Roadmap: https://aegisdeno.fly.dev/roadmap
+- Security (how to report a vulnerability privately): https://aegisdeno.fly.dev/security
+- Terms and Privacy: https://aegisdeno.fly.dev/terms and https://aegisdeno.fly.dev/privacy
+- Support server invite: https://discord.gg/HwTbCYC4PM
+- Source (public for review; proprietary, all rights reserved): https://github.com/watispro1/AegisDeno
 
 ---
 
@@ -215,7 +220,7 @@ Outages, degraded service and planned maintenance, with an all-clear when it is 
 
 `#official-links`
 ```text
-The only trusted Aegis links. Invite: https://aegisdeno.fly.dev/invite - Dashboard: https://aegisdeno.fly.dev/dashboard - Docs: https://aegisdeno.fly.dev/docs - Status: https://aegisdeno.fly.dev/status - Source: https://github.com/watispro1/AegisDeno - Anyone posting other "Aegis" links is not us.
+The only trusted Aegis links. Invite: https://aegisdeno.fly.dev/invite - Dashboard: https://aegisdeno.fly.dev/dashboard - Docs: https://aegisdeno.fly.dev/docs - Status: https://aegisdeno.fly.dev/status - Security: https://aegisdeno.fly.dev/security - Support server: https://discord.gg/HwTbCYC4PM - Source (for review, all rights reserved): https://github.com/watispro1/AegisDeno - Anyone posting other "Aegis" links is not us.
 ```
 
 ---
@@ -322,7 +327,7 @@ Quick answers: missing slash commands, permissions Aegis needs, hidden channels,
 
 `#self-hosting`
 ```text
-Help running your own Aegis: Node.js, MongoDB, Docker, Fly.io and environment variables. One problem per post, pick a tag, include your error with secrets removed. Source and setup: https://github.com/watispro1/AegisDeno
+Help running your own Aegis: Node.js, MongoDB, Docker, Fly.io and environment variables. Aegis is proprietary: running your own copy needs the maintainer's written permission first (https://aegisdeno.fly.dev/terms#source). One problem per post, pick a tag, include your error with secrets removed. Source and setup: https://github.com/watispro1/AegisDeno
 ```
 
 `#api-and-dev-help`
@@ -827,4 +832,4 @@ The economy is off by default. Turn it on here so visitors can try it in `#bot-p
 
 ---
 
-*Document version: 3.12.0 (2026-11-12) • Maintained by the Aegis team • Source: https://github.com/watispro1/AegisDeno*
+*Document version: 3.13.0 (2026-11-14) • Maintained by the Aegis team • Source (proprietary, for review): https://github.com/watispro1/AegisDeno*

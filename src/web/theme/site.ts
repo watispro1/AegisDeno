@@ -13,6 +13,7 @@ html.js .nojs-only { display: none; }
 .ph-head .lead { margin-bottom: 0; }
 .stat-strip.stat-n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .stat-strip.stat-n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stat-strip.stat-n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .stat-strip strong a { color: inherit; }
 .stat-strip strong span { font: inherit; color: inherit; }
 .f-icon.sm { width: 1rem; height: 1rem; stroke-width: 2.2; }
@@ -86,17 +87,6 @@ html.js .nojs-only { display: none; }
 .home-step p { margin: 0 0 .5rem; color: var(--text-2); font-size: .95rem; }
 .home-step .code-block { margin: .4rem 0 0; }
 
-.home-release { border: 1px solid var(--accent); border-radius: var(--r-lg); background: var(--surface); padding: 1.1rem 1.25rem; max-width: 52rem; }
-.home-release-head { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; margin-bottom: .6rem; }
-.home-release-head h3 { margin: 0; font: 600 1.35rem/1.3 var(--mono); }
-.home-release-head h3 a { color: var(--text); text-decoration: none; }
-.home-release-head h3 a:hover { color: var(--accent); text-decoration: underline; }
-.home-release-head time { font: 400 .82rem var(--mono); color: var(--faint); }
-.home-release-items { list-style: none; padding: 0; margin: 0 0 .75rem; display: grid; gap: .45rem; }
-.home-release-items li { margin: 0; display: flex; gap: .6rem; align-items: baseline; color: var(--text-2); font-size: .93rem; }
-.home-release-items .kchip { flex: none; }
-.home-release-items li ul { display: none; }
-.home-release-more { margin: 0; }
 
 /* ── Commands ──────────────────────────────────────────────────────── */
 .cmd-split { grid-template-columns: 12rem minmax(0, 1fr); gap: 2.5rem; }
@@ -219,8 +209,8 @@ html.js .nojs-only { display: none; }
   .cmd-jump { display: none; }
 }
 @media (max-width: 640px) {
-  .stat-strip.stat-n4, .stat-strip.stat-n3 { grid-template-columns: minmax(0, 1fr); }
-  .stat-strip.stat-n4 .cl-stat { border-left: 0; }
+  .stat-strip.stat-n4, .stat-strip.stat-n3, .stat-strip.stat-n2 { grid-template-columns: minmax(0, 1fr); }
+  .stat-strip.stat-n4 .cl-stat, .stat-strip.stat-n2 .cl-stat { border-left: 0; }
   .nf-head { grid-template-columns: minmax(0, 1fr); padding-top: 2rem; gap: .5rem; }
   .home-hero ~ .stat-strip { margin-bottom: 2rem; }
   .live-pill { border-radius: var(--r-lg); }

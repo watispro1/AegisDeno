@@ -8,6 +8,7 @@ import {
   ChannelType,
   TextChannel,
   MessageFlags,
+  type AutocompleteInteraction,
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import {
@@ -17,6 +18,10 @@ import {
 } from "../../services/starboard";
 import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
 import { runStarboardTop } from "../shared/starboardTop";
+import { checkReactionEmoji } from "../shared/inputChecks";
+import { applyIgnoreChange, clippedMentions, ignoreChangeMessage, starboardListLine, starEmojiChoices } from "../shared/starboardSettings";
+import { replyPagedList } from "../../utils/listPager";
+import { footer } from "../../utils/embedStyle";
 
 /** What Aegis needs in the starboard channel to post there. */
 const STARBOARD_CHANNEL_PERMISSIONS: ReadonlyArray<[bigint, string]> = [
@@ -33,7 +38,7 @@ export function missingStarboardPermissions(has: (flag: bigint) => boolean): str
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("starboard")
-    .setDescription("Configure or inspect the server's starboard.")
+    .setDescription("Set up the starboard (channel, emoji, threshold, ignores) and browse starred posts.")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
 
     // setup
@@ -73,8 +78,10 @@ export const command: Command = {
         .addStringOption((opt) =>
           opt
             .setName("emoji")
-            .setDescription("Emoji to use (e.g. ⭐, 🌟, or a custom emoji)")
-            .setRequired(true),
+            .setDescription("One emoji (e.g. ⭐, 🌟), or pick a server emoji from the list")
+            .setRequired(true)
+            .setMaxLength(64)
+            .setAutocomplete(true),
         ),
     )
 
@@ -128,9 +135,9 @@ export const command: Command = {
         .addIntegerOption((opt) =>
           opt
             .setName("limit")
-            .setDescription("How many to show (1–20, default 10)")
+            .setDescription("How many to show (1–50, default 10), paged")
             .setMinValue(1)
-            .setMaxValue(20)
+            .setMaxValue(50)
             .setRequired(false),
         ),
     )
@@ -187,6 +194,14 @@ export const command: Command = {
   ],
   category: "community",
 
+  /** `emoji`: what was typed, a few common choices, then this server's emojis. */
+  async autocomplete(interaction: AutocompleteInteraction) {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== "emoji") return interaction.respond([]);
+    const emojis = [...(interaction.guild?.emojis.cache.values() ?? [])].map(e => ({ id: e.id, name: e.name, animated: e.animated }));
+    await interaction.respond(starEmojiChoices(String(focused.value ?? ""), emojis));
+  },
+
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guildId) {
       await interaction.reply({ content: "❌ This command can only be used in a server.", flags: MessageFlags.Ephemeral });
@@ -229,9 +244,12 @@ export const command: Command = {
     // /starboard threshold
     if (sub === "threshold") {
       const count = interaction.options.getInteger("count", true);
+      const before = await getStarboardConfig(guildId);
       await updateStarboardConfig(guildId, { threshold: count });
       await interaction.reply({
-        content: `⭐ Starboard threshold updated to **${count}** reaction(s).`,
+        content: before.threshold === count
+          ? `⭐ The threshold was already **${count}** ${before.emoji}.`
+          : `⭐ Starboard threshold changed from **${before.threshold}** to **${count}** ${before.emoji}. Posts already on the starboard stay.`,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -239,7 +257,18 @@ export const command: Command = {
 
     // /starboard emoji
     if (sub === "emoji") {
-      const emoji = interaction.options.getString("emoji", true).trim();
+      // Any text used to be saved, so a typo left the starboard waiting on an emoji nobody can react with.
+      const checked = checkReactionEmoji(interaction.options.getString("emoji", true));
+      if (!checked.ok) {
+        await interaction.reply({ content: `❌ ${checked.error}`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const emoji = checked.value;
+      const customId = /^<a?:\w+:(\d+)>$/.exec(emoji)?.[1];
+      if (customId && interaction.guild && !interaction.guild.emojis.cache.has(customId)) {
+        await interaction.reply({ content: "❌ That emoji isn't from this server, so members may not be able to react with it. Pick one of this server's emojis or a standard one.", flags: MessageFlags.Ephemeral });
+        return;
+      }
       await updateStarboardConfig(guildId, { emoji });
       await interaction.reply({
         content: `⭐ Starboard trigger emoji set to **${emoji}**.`,
@@ -274,31 +303,9 @@ export const command: Command = {
       }
 
       const config = await getStarboardConfig(guildId);
-      let ignoredChannels = [...config.ignoredChannels];
-      let ignoredRoles = [...config.ignoredRoles];
-
-      if (channel) {
-        if (action === "add" && !ignoredChannels.includes(channel.id)) {
-          ignoredChannels.push(channel.id);
-        } else if (action === "remove") {
-          ignoredChannels = ignoredChannels.filter((id) => id !== channel.id);
-        }
-      }
-      if (role) {
-        if (action === "add" && !ignoredRoles.includes(role.id)) {
-          ignoredRoles.push(role.id);
-        } else if (action === "remove") {
-          ignoredRoles = ignoredRoles.filter((id) => id !== role.id);
-        }
-      }
-
-      await updateStarboardConfig(guildId, { ignoredChannels, ignoredRoles });
-
-      const what = [channel && `<#${channel.id}>`, role && `<@&${role.id}>`].filter(Boolean).join(" and ");
-      await interaction.reply({
-        content: `⭐ ${action === "add" ? "Added" : "Removed"} ${what} ${action === "add" ? "to" : "from"} the starboard ignore list.`,
-        flags: MessageFlags.Ephemeral,
-      });
+      const change = applyIgnoreChange(config, action, { channelId: channel?.id, roleId: role?.id });
+      if (change.changed.length) await updateStarboardConfig(guildId, { ignoredChannels: change.ignoredChannels, ignoredRoles: change.ignoredRoles });
+      await interaction.reply({ content: ignoreChangeMessage(action, change), flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
       return;
     }
 
@@ -307,24 +314,20 @@ export const command: Command = {
       const limit = interaction.options.getInteger("limit") ?? 10;
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const entries = await listStarboardEntries(guildId, limit);
+      const [entries, config] = await Promise.all([listStarboardEntries(guildId, limit), getStarboardConfig(guildId)]);
       if (!entries.length) {
         await interaction.editReply({ content: "⭐ No messages have hit the starboard yet." });
         return;
       }
 
-      const lines = entries.map((e, i) => {
-        const timestamp = Math.floor(new Date(e.createdAt as Date).getTime() / 1000);
-        return `**${i + 1}.** ${e.starCount}⭐ · <#${e.sourceChannelId}> · <t:${timestamp}:R>`;
+      await replyPagedList(interaction, {
+        title: `${config.emoji} Recent Starboard Entries`,
+        lines: entries.map((e, i) => starboardListLine(e as Parameters<typeof starboardListLine>[0], i, guildId, config.emoji)),
+        perPage: 10,
+        color: 0xffd700,
+        note: `${entries.length} most recent · /starboard top for the most-starred`,
+        ephemeral: true,
       });
-
-      const embed = new EmbedBuilder()
-        .setColor(0xffd700)
-        .setTitle("⭐ Recent Starboard Entries")
-        .setDescription(lines.join("\n"))
-        .setFooter({ text: `Showing ${entries.length} most recent` });
-
-      await interaction.editReply({ embeds: [embed] });
       return;
     }
 
@@ -339,12 +342,9 @@ export const command: Command = {
       const config = await getStarboardConfig(guildId);
 
       const channelStr = config.channelId ? `<#${config.channelId}>` : "Not set";
-      const ignoredCh = config.ignoredChannels.length
-        ? config.ignoredChannels.map((id) => `<#${id}>`).join(", ")
-        : "None";
-      const ignoredRoles = config.ignoredRoles.length
-        ? config.ignoredRoles.map((id) => `<@&${id}>`).join(", ")
-        : "None";
+      // Long ignore lists used to overflow the 1024-character field and fail the reply.
+      const ignoredCh = clippedMentions(config.ignoredChannels.map((id) => `<#${id}>`));
+      const ignoredRoles = clippedMentions(config.ignoredRoles.map((id) => `<@&${id}>`));
 
       const embed = new EmbedBuilder()
         .setColor(config.enabled ? 0xffd700 : 0x636363)
@@ -359,7 +359,7 @@ export const command: Command = {
           { name: "Ignored Channels", value: ignoredCh },
           { name: "Ignored Roles",    value: ignoredRoles },
         )
-        .setFooter({ text: "Use /starboard to modify settings" });
+        .setFooter(footer("Change settings with /starboard setup, threshold, emoji, selfstar, ignore or toggle"));
 
       await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       return;
@@ -369,8 +369,9 @@ export const command: Command = {
     if (sub === "toggle") {
       const enabled = interaction.options.getBoolean("enabled", true);
       await updateStarboardConfig(guildId, { enabled });
+      const channelId = enabled ? (await getStarboardConfig(guildId)).channelId : "set";
       await interaction.reply({
-        content: `⭐ Starboard is now **${enabled ? "enabled" : "disabled"}**.`,
+        content: `⭐ Starboard is now **${enabled ? "enabled" : "disabled"}**.` + (channelId ? "" : "\n⚠️ No starboard channel is set yet, so nothing will be posted. Pick one with `/starboard setup`."),
         flags: MessageFlags.Ephemeral,
       });
       return;

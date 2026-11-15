@@ -3,11 +3,9 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   PermissionFlagsBits,
-  TextChannel,
   EmbedBuilder,
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  ChannelType,
   ComponentType,
   ModalBuilder,
   TextInputBuilder,
@@ -19,9 +17,12 @@ import { Command } from "../../types/discord";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 import { renderWelcomeTemplate } from "../../services/communityLogic";
 import { sendGreetingTest } from "../../services/welcomeTest";
+import { memberTopRolePosition, roleAboveActor } from "../../permissions/hierarchy";
+import { logger } from "../../utils/logger";
+import { botChannelProblem, botRoleProblem, dashboardRow, replyError, type PermissionList } from "../config/kit/setupKit";
+import { buildWelcomeButtons, buildWelcomeStatus, unknownVariables, welcomeMessageProblem, WELCOME_MESSAGE_MAX } from "./welcome/view";
 
-// Variables that can be interpolated in welcome messages ({member_count} still works as an alias of {count}).
-const VARIABLES = ["{user}", "{username}", "{server}", "{count}", "{memberOrdinal}"];
+const PAGE = "settings/welcome" as const;
 
 /** Resolve template variables with the invoking moderator as a stand-in for the new member. */
 function applyVariables(text: string, interaction: ChatInputCommandInteraction): string {
@@ -33,33 +34,154 @@ function applyVariables(text: string, interaction: ChatInputCommandInteraction):
   });
 }
 
+function previewEmbed(message: string | null | undefined, interaction: ChatInputCommandInteraction): EmbedBuilder {
+  const text = message
+    ? applyVariables(message, interaction)
+    : `👋 Welcome to **${interaction.guild!.name}**, <@${interaction.user.id}>! You are member #${interaction.guild!.memberCount}.`;
+  return new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle("👁️ Welcome Message Preview")
+    .setDescription(text.slice(0, 4096))
+    .setThumbnail(interaction.user.displayAvatarURL())
+    .setFooter({ text: "Variables are resolved with your account as a stand-in." })
+    .setTimestamp();
+}
+
+async function showStatus(interaction: ChatInputCommandInteraction): Promise<void> {
+  const guildId = interaction.guildId!;
+  const icon = interaction.guild!.iconURL() ?? null;
+  const config = await getGuildConfig(guildId);
+  const sent = await interaction.reply({
+    embeds: [buildWelcomeStatus(config, icon)], components: [buildWelcomeButtons(config, guildId)],
+    flags: MessageFlags.Ephemeral, withResponse: true, allowedMentions: { parse: [] },
+  });
+  const message = sent.resource?.message;
+  if (!message) return;
+
+  const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: 120_000, filter: (i) => i.user.id === interaction.user.id });
+  collector.on("collect", (i) => guardCollect("welcome", i, async () => {
+    await i.deferUpdate();
+    let fresh = await getGuildConfig(guildId);
+    if (i.customId === "welcome_preview_btn") {
+      await i.followUp({ embeds: [previewEmbed(fresh.welcomeMessage, interaction)], flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
+      return;
+    }
+    if (i.customId === "welcome_toggle_on" || i.customId === "welcome_toggle_off") {
+      fresh = await updateGuildConfig(guildId, { welcomeEnabled: i.customId === "welcome_toggle_on" });
+      await i.editReply({ embeds: [buildWelcomeStatus(fresh, icon)], components: [buildWelcomeButtons(fresh, guildId)] });
+    }
+  }));
+  collector.on("end", async () => {
+    await interaction.editReply({ components: [dashboardRow(guildId, PAGE)] }).catch(() => null);
+  });
+}
+
+async function editMessage(interaction: ChatInputCommandInteraction): Promise<void> {
+  const guildId = interaction.guildId!;
+  const config = await getGuildConfig(guildId);
+  const modal = new ModalBuilder()
+    .setCustomId(scopedModalId("welcome_msg_modal", interaction.id))
+    .setTitle("Welcome Message Editor");
+  const msgInput = new TextInputBuilder()
+    .setCustomId("welcome_msg_input")
+    .setLabel("Welcome message")
+    .setStyle(TextInputStyle.Paragraph)
+    // The settings store keeps at most 1000 characters; a longer one used to fall back to the default unseen.
+    .setMaxLength(WELCOME_MESSAGE_MAX)
+    .setRequired(true)
+    .setPlaceholder("e.g. Welcome to {server}, {user}! You are member #{count} 🎉")
+    .setValue((config.welcomeMessage ?? "").slice(0, WELCOME_MESSAGE_MAX));
+  const hintInput = new TextInputBuilder()
+    .setCustomId("welcome_hint")
+    .setLabel("Variables you can use (this box is ignored)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setValue("{user} {username} {server} {count} {memberOrdinal}");
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(msgInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(hintInput),
+  );
+  await interaction.showModal(modal);
+
+  const modalResponse = await interaction.awaitModalSubmit({
+    time: 300_000,
+    filter: (m) => m.user.id === interaction.user.id && m.customId === scopedModalId("welcome_msg_modal", interaction.id),
+  }).catch(() => null);
+  if (!modalResponse) return;
+  await modalResponse.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const newMsg = modalResponse.fields.getTextInputValue("welcome_msg_input").trim();
+  const problem = welcomeMessageProblem(newMsg);
+  if (problem) {
+    await modalResponse.editReply(problem);
+    return;
+  }
+  const saved = await updateGuildConfig(guildId, { welcomeMessage: newMsg });
+  const unknown = unknownVariables(newMsg);
+  const notes = [
+    unknown.length ? `⚠️ ${unknown.map(v => `\`${v}\``).join(", ")} isn't a variable Aegis fills in, so it will appear as typed.` : "",
+    !saved.welcomeEnabled || !saved.welcomeChannelId ? "ℹ️ Welcoming is off or has no channel yet, so this won't be sent until you run `/welcome channel`." : "",
+  ].filter(Boolean).join("\n");
+  await modalResponse.editReply({
+    content: notes || undefined,
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x57F287)
+        .setTitle("✅ Welcome Message Updated")
+        .addFields(
+          { name: "📝 New Message (raw)", value: `\`\`\`\n${newMsg.replace(/`/g, "ˋ").slice(0, 900)}\n\`\`\``, inline: false },
+          { name: "👁️ Preview", value: applyVariables(newMsg, interaction).slice(0, 1024), inline: false },
+        )
+        .setFooter({ text: "Variables are substituted when a member actually joins. Run /welcome test to post it for real." })
+        .setTimestamp(),
+    ],
+    components: [dashboardRow(guildId, PAGE)],
+    allowedMentions: { parse: [] },
+  });
+}
+
+async function setRole(interaction: ChatInputCommandInteraction): Promise<void> {
+  const guild = interaction.guild!;
+  const role = interaction.options.getRole("role");
+  const clear = interaction.options.getBoolean("clear") ?? false;
+  if (!role && !clear) {
+    const cfg = await getGuildConfig(guild.id);
+    return replyError(interaction, cfg.welcomeRoleId ? `🎭 New members get <@&${cfg.welcomeRoleId}>. Pick another \`role\`, or set \`clear\` to stop.` : "🎭 No auto-role is set. Pick a `role` to give every new member.");
+  }
+  if (role && clear) return replyError(interaction, "❌ Pick a `role` **or** set `clear`, not both.");
+  if (role) {
+    const problem = botRoleProblem(guild, role, "as the welcome role");
+    if (problem) return replyError(interaction, problem);
+    const tooHigh = roleAboveActor({
+      ownerId: guild.ownerId, actorId: interaction.user.id,
+      actorTopPosition: await memberTopRolePosition(guild, interaction.user.id), roles: [role],
+    });
+    if (tooHigh) return replyError(interaction, `❌ You can't use <@&${role.id}> as the welcome role: it is equal to or above your highest role.`);
+  }
+  await updateGuildConfig(guild.id, { welcomeRoleId: role?.id ?? null });
+  await interaction.reply({
+    content: role ? `✅ New members will get <@&${role.id}> when they join (after membership screening, if it's on).` : "✅ New members no longer get an auto-role.",
+    components: [dashboardRow(guild.id, PAGE)],
+    flags: MessageFlags.Ephemeral,
+    allowedMentions: { parse: [] },
+  });
+}
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("welcome")
-    .setDescription("Configure and preview welcome messages for new members.")
-    .addSubcommand(sub =>
-      sub
-        .setName("status")
-        .setDescription("View current welcome configuration with quick-toggle controls.")
-    )
+    .setDescription("Greet new members: channel, message, auto-role, preview and test.")
+    .addSubcommand(sub => sub.setName("status").setDescription("See the welcome settings with on/off and preview buttons."))
     .addSubcommand(sub =>
       sub
         .setName("channel")
-        .setDescription("Set the channel where welcome messages are sent.")
+        .setDescription("Set the channel where welcome messages are posted (also turns welcoming on).")
         .addChannelOption(opt =>
-          opt.setName("channel").setDescription("Target welcome channel").setRequired(true)
+          opt.setName("channel").setDescription("Channel new members can see").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement).setRequired(true)
         )
     )
-    .addSubcommand(sub =>
-      sub
-        .setName("message")
-        .setDescription("Open a form to compose or update the welcome message.")
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("preview")
-        .setDescription("Preview the current welcome message as it would appear for a new member.")
-    )
+    .addSubcommand(sub => sub.setName("message").setDescription("Open a form to write the welcome message (up to 1000 characters)."))
+    .addSubcommand(sub => sub.setName("preview").setDescription("Preview the welcome message with you as the new member (only you see it)."))
     .addSubcommand(sub =>
       sub
         .setName("test")
@@ -72,279 +194,102 @@ export const command: Command = {
     .addSubcommand(sub =>
       sub
         .setName("toggle")
-        .setDescription("Enable or disable welcome messages.")
-        .addBooleanOption(opt =>
-          opt.setName("enabled").setDescription("Enable welcome messages?").setRequired(true)
-        )
+        .setDescription("Turn welcome messages on or off (keeps the channel and text).")
+        .addBooleanOption(opt => opt.setName("enabled").setDescription("True to greet new members, false to stop").setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("role")
+        .setDescription("Give every new member a role when they join, or stop doing so.")
+        .addRoleOption(opt => opt.setName("role").setDescription("Role to give (must be below Aegis's role)"))
+        .addBooleanOption(opt => opt.setName("clear").setDescription("Stop giving an auto-role"))
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   guildOnly: true,
 
   // Used by subcommands, buttons or background work; requested on the invite, checked where used.
-
   featurePermissions: [PermissionFlagsBits.ManageRoles],
   userPermissions: [PermissionFlagsBits.ManageGuild],
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
-    const config = await getGuildConfig(guildId);
 
-    // Status
-    if (sub === "status") {
-      const enabled = config.welcomeEnabled ?? false;
-      const hasChannel = !!config.welcomeChannelId;
-      const hasMsg = !!config.welcomeMessage;
+    try {
+      if (sub === "status") return await showStatus(interaction);
+      if (sub === "message") return await editMessage(interaction);
+      if (sub === "role") return await setRole(interaction);
 
-      const statusEmbed = new EmbedBuilder()
-        .setColor(enabled ? 0x57F287 : 0xED4245)
-        .setTitle("👋 Welcome Message Configuration")
-        .setThumbnail(interaction.guild!.iconURL() ?? null)
-        .addFields(
-          {
-            name: "🟢 Status",
-            value: enabled ? "**Enabled** — messages are sent on join" : "**Disabled** — no messages are sent",
-            inline: false,
-          },
-          {
-            name: "📌 Channel",
-            value: hasChannel ? `<#${config.welcomeChannelId}>` : "❌ Not set — use `/welcome channel`",
-            inline: true,
-          },
-          {
-            name: "📝 Message",
-            value: hasMsg ? "✅ Custom message set" : "⚠️ Using default message",
-            inline: true,
-          },
-          {
-            name: "🔣 Available Variables",
-            value: VARIABLES.map(v => `\`${v}\``).join("  "),
-            inline: false,
-          },
-        )
-        .setFooter({ text: "Use the buttons below to toggle or preview." })
-        .setTimestamp();
+      if (sub === "channel") {
+        const channel = interaction.options.getChannel("channel", true);
+        const config = await getGuildConfig(guildId);
+        const needs: PermissionList = [
+          [PermissionFlagsBits.ViewChannel, "View Channel"],
+          [PermissionFlagsBits.SendMessages, "Send Messages"],
+          ...(config.welcomeEmbed ? [[PermissionFlagsBits.EmbedLinks, "Embed Links"] as const] : []),
+        ];
+        const problem = await botChannelProblem(interaction.guild!, channel as never, needs);
+        if (problem) return await replyError(interaction, problem);
 
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId("welcome_toggle_on")
-          .setLabel("Enable")
-          .setStyle(enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
-          .setEmoji("🟢")
-          .setDisabled(enabled),
-        new ButtonBuilder()
-          .setCustomId("welcome_toggle_off")
-          .setLabel("Disable")
-          .setStyle(!enabled ? ButtonStyle.Danger : ButtonStyle.Secondary)
-          .setEmoji("🔴")
-          .setDisabled(!enabled),
-        new ButtonBuilder()
-          .setCustomId("welcome_preview_btn")
-          .setLabel("Preview Message")
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji("👁️")
-          .setDisabled(!hasMsg && !hasChannel),
-      );
+        await updateGuildConfig(guildId, { welcomeChannelId: channel.id, welcomeEnabled: true });
+        await interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0x57F287)
+              .setTitle("✅ Welcome Channel Set")
+              .setDescription(`Welcome messages will now be sent to <#${channel.id}>.\n\nWelcoming is now **enabled**.`)
+              .addFields({ name: "💡 Next Step", value: "Use `/welcome message` to customize the text, then `/welcome test` to try it.", inline: false })
+              .setTimestamp(),
+          ],
+          components: [dashboardRow(guildId, PAGE)],
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
 
-      const sent = await interaction.reply({ embeds: [statusEmbed], components: [row], flags: MessageFlags.Ephemeral, fetchReply: true });
+      if (sub === "preview") {
+        const config = await getGuildConfig(guildId);
+        const embed = previewEmbed(config.welcomeMessage, interaction).addFields(
+          { name: "📌 Channel", value: config.welcomeChannelId ? `<#${config.welcomeChannelId}>` : "❌ Not configured", inline: true },
+          { name: "🟢 Status",  value: config.welcomeEnabled ? "Enabled" : "Disabled", inline: true },
+        );
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
+        return;
+      }
 
-      const collector = sent.createMessageComponentCollector({
-        componentType: ComponentType.Button,
-        time: 60_000,
-        filter: (i) => i.user.id === interaction.user.id,
-      });
+      if (sub === "test") {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const member = await interaction.guild!.members.fetch(interaction.user.id);
+        const kind = interaction.options.getString("type") === "goodbye" ? "goodbye" : "welcome";
+        await interaction.editReply({ content: await sendGreetingTest(member, kind) });
+        return;
+      }
 
-      collector.on("collect", (i) => guardCollect("welcome", i, async () => {
-        await i.deferUpdate();
-        const freshConfig = await getGuildConfig(guildId);
-
-        if (i.customId === "welcome_toggle_on") {
-          await updateGuildConfig(guildId, { welcomeEnabled: true });
-          await i.editReply({
-            embeds: [statusEmbed.setColor(0x57F287).spliceFields(0, 1, { name: "🟢 Status", value: "**Enabled** — messages are sent on join", inline: false })],
-            components: [
-              new ActionRowBuilder<ButtonBuilder>().addComponents(
-                new ButtonBuilder().setCustomId("welcome_toggle_on").setLabel("Enable").setStyle(ButtonStyle.Success).setEmoji("🟢").setDisabled(true),
-                new ButtonBuilder().setCustomId("welcome_toggle_off").setLabel("Disable").setStyle(ButtonStyle.Secondary).setEmoji("🔴").setDisabled(false),
-                new ButtonBuilder().setCustomId("welcome_preview_btn").setLabel("Preview Message").setStyle(ButtonStyle.Primary).setEmoji("👁️").setDisabled(!freshConfig.welcomeMessage),
-              ),
-            ],
-          });
-        } else if (i.customId === "welcome_toggle_off") {
-          await updateGuildConfig(guildId, { welcomeEnabled: false });
-          await i.editReply({
-            embeds: [statusEmbed.setColor(0xED4245).spliceFields(0, 1, { name: "🟢 Status", value: "**Disabled** — no messages are sent", inline: false })],
-            components: [
-              new ActionRowBuilder<ButtonBuilder>().addComponents(
-                new ButtonBuilder().setCustomId("welcome_toggle_on").setLabel("Enable").setStyle(ButtonStyle.Secondary).setEmoji("🟢").setDisabled(false),
-                new ButtonBuilder().setCustomId("welcome_toggle_off").setLabel("Disable").setStyle(ButtonStyle.Danger).setEmoji("🔴").setDisabled(true),
-                new ButtonBuilder().setCustomId("welcome_preview_btn").setLabel("Preview Message").setStyle(ButtonStyle.Primary).setEmoji("👁️").setDisabled(!freshConfig.welcomeMessage),
-              ),
-            ],
-          });
-        } else if (i.customId === "welcome_preview_btn") {
-          const previewText = freshConfig.welcomeMessage
-            ? applyVariables(freshConfig.welcomeMessage, interaction)
-            : `👋 Welcome to **${interaction.guild!.name}**, <@${interaction.user.id}>! You are member #${interaction.guild!.memberCount}.`;
-
-          const previewEmbed = new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setTitle("👁️ Welcome Message Preview")
-            .setDescription(previewText)
-            .setThumbnail(interaction.user.displayAvatarURL())
-            .setFooter({ text: "This is how the message would appear for a new member." })
-            .setTimestamp();
-
-          await i.followUp({ embeds: [previewEmbed], flags: MessageFlags.Ephemeral });
+      if (sub === "toggle") {
+        const enabled = interaction.options.getBoolean("enabled", true);
+        const config = await getGuildConfig(guildId);
+        if (enabled && !config.welcomeChannelId) {
+          return await replyError(interaction, "❌ There's no welcome channel yet. Run `/welcome channel` to pick one; that turns welcoming on too.");
         }
-      }));
-
-      collector.on("end", async () => {
-        await interaction.editReply({ components: [] }).catch(() => null);
-      });
-
-      return;
-    }
-
-    // Channel
-    if (sub === "channel") {
-      const channel = interaction.options.getChannel("channel", true);
-      const me = interaction.guild?.members.me ?? await interaction.guild?.members.fetchMe().catch(() => null);
-      const targetChannel = await interaction.guild!.channels.fetch(channel.id).catch(() => null);
-
-      if (
-        !(targetChannel instanceof TextChannel) ||
-        !me ||
-        !targetChannel.permissionsFor(me).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])
-      ) {
-        return interaction.reply({
-          content: "❌ I need **View Channel** and **Send Messages** permissions in that channel.",
+        await updateGuildConfig(guildId, { welcomeEnabled: enabled });
+        await interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(enabled ? 0x57F287 : 0xED4245)
+              .setTitle(enabled ? "✅ Welcome Messages Enabled" : "🔴 Welcome Messages Disabled")
+              .setDescription(enabled
+                ? `New members will now be greeted in <#${config.welcomeChannelId}>.`
+                : "New members will no longer receive a welcome message. Your channel and text are kept.")
+              .setTimestamp(),
+          ],
+          components: [dashboardRow(guildId, PAGE)],
           flags: MessageFlags.Ephemeral,
         });
       }
-
-      await updateGuildConfig(guildId, { welcomeChannelId: channel.id, welcomeEnabled: true });
-
-      return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x57F287)
-            .setTitle("✅ Welcome Channel Set")
-            .setDescription(`Welcome messages will now be sent to <#${channel.id}>.\n\nWelcoming is now **enabled**.`)
-            .addFields({ name: "💡 Next Step", value: "Use `/welcome message` to customize the welcome text.", inline: false })
-            .setTimestamp(),
-        ],
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    // Message
-    if (sub === "message") {
-      const modal = new ModalBuilder()
-        .setCustomId(scopedModalId("welcome_msg_modal", interaction.id))
-        .setTitle("Welcome Message Editor");
-
-      const msgInput = new TextInputBuilder()
-        .setCustomId("welcome_msg_input")
-        .setLabel("Welcome message")
-        .setStyle(TextInputStyle.Paragraph)
-        .setMaxLength(2000)
-        .setRequired(true)
-        .setPlaceholder("e.g. Welcome to {server}, {user}! You are member #{count} 🎉")
-        .setValue(config.welcomeMessage ?? "");
-
-      const hintInput = new TextInputBuilder()
-        .setCustomId("welcome_hint")
-        .setLabel("Available variables (read-only reference)")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(false)
-        .setValue("{user} {username} {server} {count}");
-
-      modal.addComponents(
-        new ActionRowBuilder<TextInputBuilder>().addComponents(msgInput),
-        new ActionRowBuilder<TextInputBuilder>().addComponents(hintInput),
-      );
-
-      await interaction.showModal(modal);
-
-      const modalResponse = await interaction.awaitModalSubmit({
-        time: 300_000,
-        filter: (m) => m.user.id === interaction.user.id && m.customId === scopedModalId("welcome_msg_modal", interaction.id),
-      }).catch(() => null);
-
-      if (!modalResponse) return;
-      await modalResponse.deferReply({ flags: MessageFlags.Ephemeral });
-
-      const newMsg = modalResponse.fields.getTextInputValue("welcome_msg_input");
-      await updateGuildConfig(guildId, { welcomeMessage: newMsg });
-
-      const preview = applyVariables(newMsg, interaction);
-
-      await modalResponse.editReply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x57F287)
-            .setTitle("✅ Welcome Message Updated")
-            .addFields(
-              { name: "📝 New Message (raw)", value: `\`\`\`\n${newMsg.slice(0, 900)}\n\`\`\``, inline: false },
-              { name: "👁️ Preview", value: preview.slice(0, 1024), inline: false },
-            )
-            .setFooter({ text: "Variables are substituted when a member actually joins. Run /welcome preview any time." })
-            .setTimestamp(),
-        ],
-      });
-      return;
-    }
-
-    // Preview
-    if (sub === "preview") {
-      const previewText = config.welcomeMessage
-        ? applyVariables(config.welcomeMessage, interaction)
-        : `👋 Welcome to **${interaction.guild!.name}**, <@${interaction.user.id}>! You are member #${interaction.guild!.memberCount}.`;
-
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle("👁️ Welcome Message Preview")
-        .setDescription(previewText)
-        .setThumbnail(interaction.user.displayAvatarURL())
-        .addFields(
-          { name: "📌 Channel", value: config.welcomeChannelId ? `<#${config.welcomeChannelId}>` : "❌ Not configured", inline: true },
-          { name: "🟢 Status",  value: config.welcomeEnabled ? "Enabled" : "Disabled", inline: true },
-        )
-        .setFooter({ text: "Variables are resolved with your account as a stand-in." })
-        .setTimestamp();
-
-      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-    }
-
-    // Toggle
-    if (sub === "test") {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      const member = await interaction.guild!.members.fetch(interaction.user.id);
-      const kind = interaction.options.getString("type") === "goodbye" ? "goodbye" : "welcome";
-      await interaction.editReply({ content: await sendGreetingTest(member, kind) });
-      return;
-    }
-
-    if (sub === "toggle") {
-      const enabled = interaction.options.getBoolean("enabled", true);
-      await updateGuildConfig(guildId, { welcomeEnabled: enabled });
-
-      return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(enabled ? 0x57F287 : 0xED4245)
-            .setTitle(enabled ? "✅ Welcome Messages Enabled" : "🔴 Welcome Messages Disabled")
-            .setDescription(
-              enabled
-                ? `New members will now be greeted in ${config.welcomeChannelId ? `<#${config.welcomeChannelId}>` : "the configured channel"}.`
-                : "New members will no longer receive a welcome message."
-            )
-            .setTimestamp(),
-        ],
-        flags: MessageFlags.Ephemeral,
-      });
+    } catch (err) {
+      logger.error(`Failed to handle /welcome ${sub} for guild ${guildId}`, err);
+      await replyError(interaction, "❌ Couldn't update the welcome settings. Nothing was changed; try again in a moment.");
     }
   },
 };

@@ -1,3 +1,4 @@
+import { guardCollect } from "../../utils/collectorGuard";
 import { logger } from "../../utils/logger";
 import {
   SlashCommandBuilder,
@@ -24,6 +25,8 @@ import { LOCK_MESSAGE_MAX, buildLockNoticeText, shouldPostLockNotice } from "../
 import { isObfuscatedChannel, hiddenChannelMessage } from "../../utils/channels";
 import { offerLockUndo } from "../../services/lockUndo";
 import { lockServerChannels, serverLockWarning } from "../../services/serverLock";
+import { replyEphemeralPrompt } from "./lib/prompt";
+import { LOCK_REASON_PRESETS, UNLOCK_REASON_PRESETS, presetSuggestions } from "./lib/presets";
 import { LOCK_BOT_PERMISSION, lockFailureMessage, lockMissing, lockPermissionMessage } from "../../permissions/lockPermissions";
 
 export { isLockable, lockDurationMinutes, MAX_LOCK_MINUTES } from "../../services/channelLock";
@@ -41,7 +44,7 @@ export const command: Command = {
           opt.setName("channel").setDescription("Channel to lock (defaults to current channel)").setRequired(false)
         )
         .addStringOption(opt =>
-          opt.setName("reason").setDescription("Reason for locking").setMaxLength(512).setRequired(false)
+          opt.setName("reason").setDescription("Reason for locking (suggestions as you type)").setMaxLength(512).setRequired(false).setAutocomplete(true)
         )
         .addIntegerOption(opt =>
           opt
@@ -70,7 +73,7 @@ export const command: Command = {
           opt.setName("category").setDescription("Category to lock").addChannelTypes(ChannelType.GuildCategory).setRequired(true)
         )
         .addStringOption(opt =>
-          opt.setName("reason").setDescription("Reason for locking").setMaxLength(512).setRequired(false)
+          opt.setName("reason").setDescription("Reason for locking (suggestions as you type)").setMaxLength(512).setRequired(false).setAutocomplete(true)
         )
         .addIntegerOption(opt =>
           opt
@@ -99,7 +102,7 @@ export const command: Command = {
           opt.setName("channel").setDescription("Channel to unlock (defaults to current channel)").setRequired(false)
         )
         .addStringOption(opt =>
-          opt.setName("reason").setDescription("Reason for unlocking").setMaxLength(512).setRequired(false)
+          opt.setName("reason").setDescription("Reason for unlocking (suggestions as you type)").setMaxLength(512).setRequired(false).setAutocomplete(true)
         )
         .addChannelOption(opt =>
           opt.setName("category").setDescription("Unlock every channel in this category instead").addChannelTypes(ChannelType.GuildCategory).setRequired(false)
@@ -110,7 +113,7 @@ export const command: Command = {
         .setName("server")
         .setDescription("Emergency: lock ALL text channels (requires Administrator).")
         .addStringOption(opt =>
-          opt.setName("reason").setDescription("Reason for server lockdown").setMaxLength(512).setRequired(false)
+          opt.setName("reason").setDescription("Reason for the lockdown (suggestions as you type)").setMaxLength(512).setRequired(false).setAutocomplete(true)
         )
     )
     .addSubcommand(sub =>
@@ -130,9 +133,15 @@ export const command: Command = {
   userPermissions: [PermissionFlagsBits.ManageChannels],
   botPermissions: [LOCK_BOT_PERMISSION],
 
+  autocomplete: async (interaction) => {
+    const focused = interaction.options.getFocused(true);
+    const presets = interaction.options.getSubcommand(false) === "unlock" ? UNLOCK_REASON_PRESETS : LOCK_REASON_PRESETS;
+    await interaction.respond(focused.name === "reason" ? presetSuggestions(String(focused.value ?? ""), presets) : []);
+  },
+
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();
-    const reason = interaction.options.getString("reason") ?? "No reason provided.";
+    const reason = interaction.options.getString("reason")?.trim() || "No reason provided.";
     const guildId = interaction.guildId!;
     const guild = interaction.guild!;
 
@@ -200,12 +209,7 @@ export const command: Command = {
           .setEmoji("✖️"),
       );
 
-      const prompt = await interaction.reply({
-        embeds: [warningEmbed],
-        components: [confirmRow],
-        flags: MessageFlags.Ephemeral,
-        fetchReply: true,
-      });
+      const prompt = await replyEphemeralPrompt(interaction, { embeds: [warningEmbed], components: [confirmRow] });
 
       const confirmCollector = prompt.createMessageComponentCollector({
         componentType: ComponentType.Button,
@@ -214,7 +218,7 @@ export const command: Command = {
         max: 1,
       });
 
-      confirmCollector.on("collect", async (i) => {
+      confirmCollector.on("collect", (i) => guardCollect("lock-server", i, async () => {
         if (i.customId === "lockdown_cancel") {
           await i.update({ content: "❌ Lockdown cancelled.", embeds: [], components: [] });
           return;
@@ -249,7 +253,7 @@ export const command: Command = {
           logger.error(`Failed to lockdown server in guild ${guildId}`, err);
           await i.editReply({ content: "❌ Failed to activate lockdown.", embeds: [], components: [] });
         }
-      });
+      }));
 
       confirmCollector.on("end", async (_, stopReason) => {
         if (stopReason === "time") {

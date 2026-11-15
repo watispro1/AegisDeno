@@ -1,3 +1,4 @@
+import { hierarchyRefusalText } from "../../permissions/hierarchyExplain";
 import {
   ChatInputCommandInteraction,
   GuildMember,
@@ -77,11 +78,11 @@ export const command: Command = {
       isBotHierarchyValid(interaction.client, guildId, target.id),
     ]);
     if (!moderatorAllowed) {
-      await interaction.reply({ content: "❌ You cannot rename a member with an equal or higher role.", flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: await hierarchyRefusalText(interaction.guild!, "you", interaction.user.id, target.id, "rename", target.user.tag), flags: MessageFlags.Ephemeral });
       return;
     }
     if (!botAllowed || !target.manageable) {
-      await interaction.reply({ content: "❌ I cannot rename this member because of role hierarchy.", flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: await hierarchyRefusalText(interaction.guild!, "bot", interaction.client.user.id, target.id, "rename", target.user.tag), flags: MessageFlags.Ephemeral });
       return;
     }
 

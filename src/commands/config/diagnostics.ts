@@ -13,6 +13,8 @@ import { mediaSafetySummary } from "../../services/mediaSafety";
 import { getTicketSettings } from "../../services/ticketSettings";
 import { getVerificationConfig } from "../../services/verificationService";
 import { checkConfiguredChannels, checkModmailChannel, configuredChannels, fitField } from "../../services/channelAccess";
+import { dashboardButton } from "./kit/setupKit";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 
 /**
  * One line per permission the invite asks for (✅/❌ with what it is for),
@@ -32,7 +34,7 @@ export function invitePermissionReport(have: Pick<PermissionsBitField, "has">): 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("diagnostics")
-    .setDescription("Run a diagnostic check on the server's configuration and bot permissions.")
+    .setDescription("Check Aegis's permissions and every module's channels, with fixes for anything wrong.")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   guildOnly: true,
@@ -40,10 +42,10 @@ export const command: Command = {
 
   execute: async (interaction: ChatInputCommandInteraction) => {
     const guild = interaction.guild!;
-    const botMember = guild.members.me;
+    const botMember = guild.members.me ?? await guild.members.fetchMe().catch(() => null);
 
     if (!botMember) {
-      await interaction.reply({ content: "❌ Could not find bot member in this server.", flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: "❌ Aegis couldn't read its own member in this server. Try again in a moment; if it keeps failing, re-invite Aegis.", flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -71,8 +73,8 @@ export const command: Command = {
       if (isObfuscatedChannel(channel)) {
         loggingStatus = `⚠️ Configured but ${hiddenChannelMessage(guildConfig.loggingChannelId)}`;
       } else if (channel && "permissionsFor" in channel) {
-        const canSend = channel.permissionsFor(botMember)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]);
-        loggingStatus = canSend ? `✅ Configured (<#${channel.id}>)` : `⚠️ Configured (<#${channel.id}>) but missing Send Messages permission`;
+        const canSend = channel.permissionsFor(botMember)?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks]);
+        loggingStatus = canSend ? `✅ Configured (<#${channel.id}>)` : `⚠️ Configured (<#${channel.id}>) but missing Send Messages or Embed Links`;
       } else {
         loggingStatus = `⚠️ Configured but channel was deleted`;
       }
@@ -139,7 +141,9 @@ export const command: Command = {
     if (missingPermissions) {
       recommendations.push(`• Give Aegis's role ${missingFlags.map(f => `**${permissionName(f)}**`).join(", ")} (Server Settings → Roles → Aegis), or re-invite it from ${inviteUrl()}.`);
     }
-    if (!guildConfig.loggingEnabled || !guildConfig.loggingChannelId) {
+    if (guildConfig.loggingEnabled && !guildConfig.loggingChannelId) {
+      recommendations.push("• Logging is on but has no channel. Pick one with `/logging channel`.");
+    } else if (!guildConfig.loggingEnabled || !guildConfig.loggingChannelId) {
       recommendations.push("• Set up a logging channel using `/logging channel`.");
     }
     if (channelProblems.length) {
@@ -158,7 +162,11 @@ export const command: Command = {
       embed.addFields({ name: "Recommendations", value: "✅ Everything looks good!", inline: false });
     }
 
-    await interaction.editReply({ embeds: [embed] });
+    const links = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      dashboardButton(guild.id, ""),
+      ...(missingPermissions ? [new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Re-invite with permissions").setURL(inviteUrl())] : []),
+    );
+    await interaction.editReply({ embeds: [embed], components: [links] });
   },
 };
 

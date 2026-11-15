@@ -6,19 +6,26 @@ pull request.
 ## Before you start
 
 - **Licence.** Aegis is source-available, not open source: the code is
-  proprietary and all rights are reserved (see the [README](./README.md#licence)).
+  proprietary and all rights are reserved (see [`LICENSE`](./LICENSE) and the
+  [README](./README.md#licence)). Versions before 3.13.0 were MIT-licensed.
   Pull requests are welcome, but the maintainer decides what is merged. For
   anything larger than a small fix, open an issue first so we can agree on the
   approach before you spend time on it.
 - **Conduct.** Everyone taking part is expected to follow the
   [Code of Conduct](./CODE_OF_CONDUCT.md).
-- **Security problems** go through [`SECURITY.md`](./SECURITY.md), never a
-  public issue or pull request.
+- **Security problems** go through [`SECURITY.md`](./SECURITY.md) (also at
+  https://aegisdeno.fly.dev/security), never a public issue, pull request or the
+  support server.
+- **Questions** are welcome in the
+  [support server](https://discord.gg/HwTbCYC4PM).
 
 ## Setting up
 
-You need Node.js 20 or newer (CI uses 22) and, to run the bot itself, a MongoDB
-database and a Discord application. The tests do not need either.
+You need Node.js 22 or newer (what `package.json`, CI and the Docker image use)
+and, to run the bot itself, a MongoDB database and a Discord application. The
+tests do not need either. Running your own copy of the bot needs the
+maintainer's written permission (see [`LICENSE`](./LICENSE)), so ask in an
+issue or the support server before you set one up.
 
 ```bash
 git clone https://github.com/watispro1/AegisDeno.git

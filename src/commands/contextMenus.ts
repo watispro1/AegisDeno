@@ -4,6 +4,9 @@
  * the same guild-only, permission, cooldown and error-ID handling as slash commands.
  */
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ApplicationCommandType,
   ContextMenuCommandBuilder,
   InteractionContextType,
@@ -23,6 +26,7 @@ import { showAvatar } from "./general/avatar";
 import { sendGuildLog } from "../services/logging";
 import { truncate } from "../utils/safeText";
 import { remindAboutMessage } from "./general/remindme/message";
+import { memberPageUrl } from "../config/links";
 
 const userInfo: ContextMenu = {
   data: new ContextMenuCommandBuilder().setName("User Info").setType(ApplicationCommandType.User),
@@ -59,11 +63,29 @@ export function reportLogEmbed(
   };
 }
 
+/** Link buttons on the report: the message itself and the author's dashboard page. Pure. */
+export function reportLinks(guildId: string, message: { url: string; author: { id: string } }): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Jump to message").setURL(message.url),
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Author on dashboard").setURL(memberPageUrl(guildId, message.author.id)),
+  );
+}
+
+/** Why a message can't be reported, or null. Aegis's own and Discord system messages aren't member content. Pure. */
+export function reportBlock(message: { author: { id: string }; system?: boolean | null }, reporterId: string, botId: string | null | undefined): "own" | "bot-self" | "system" | null {
+  if (message.author.id === reporterId) return "own";
+  if (botId && message.author.id === botId) return "bot-self";
+  if (message.system) return "system";
+  return null;
+}
+
 /** What the reporter is told, privately. */
-export function reportReply(outcome: "sent" | "no-log" | "own"): string {
+export function reportReply(outcome: "sent" | "no-log" | "own" | "bot-self" | "system"): string {
   if (outcome === "own") return "❌ You can't report your own message.";
+  if (outcome === "bot-self") return "❌ That's an Aegis message. If something's wrong with it, tell a moderator directly.";
+  if (outcome === "system") return "❌ Discord system messages (joins, boosts, pins) can't be reported.";
   if (outcome === "sent") return "✅ Thanks — the message was reported to this server's moderators. The author isn't told who reported it.";
-  return "⚠️ This server has no log channel set up, so the report couldn't be delivered. Please contact a moderator directly. (Admins: set one with `/logging` or on the dashboard.)";
+  return "⚠️ This server has no log channel set up (or logging is off or unreachable), so the report couldn't be delivered. Please contact a moderator directly. (Admins: check `/logging status` or `/diagnostics`.)";
 }
 
 const reportMessage: ContextMenu = {
@@ -74,12 +96,13 @@ const reportMessage: ContextMenu = {
   async execute(raw) {
     const interaction = raw as MessageContextMenuCommandInteraction;
     const message = interaction.targetMessage;
-    if (message.author.id === interaction.user.id) {
-      await interaction.reply({ content: reportReply("own"), flags: MessageFlags.Ephemeral });
+    const blocked = reportBlock(message, interaction.user.id, interaction.client.user?.id);
+    if (blocked) {
+      await interaction.reply({ content: reportReply(blocked), flags: MessageFlags.Ephemeral });
       return;
     }
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const sent = await sendGuildLog(interaction.client, interaction.guildId!, reportLogEmbed(message, interaction.user));
+    const sent = await sendGuildLog(interaction.client, interaction.guildId!, reportLogEmbed(message, interaction.user), undefined, [reportLinks(interaction.guildId!, message)]);
     await interaction.editReply({ content: reportReply(sent ? "sent" : "no-log") });
   },
 };

@@ -33,8 +33,8 @@ async function roleMembers(guild: Guild, role: Role): Promise<{ list: { id: stri
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("roleinfo")
-    .setDescription("Show a role's colour, position, members, permissions and creation date.")
-    .addRoleOption(o => o.setName("role").setDescription("The role to look up").setRequired(true))
+    .setDescription("Show a role's colour, position, members, permissions and whether Aegis can assign it.")
+    .addRoleOption(o => o.setName("role").setDescription("The role to look up (type to search)").setRequired(true))
     .addBooleanOption(o => o.setName("ephemeral").setDescription("Only show the response to you (default: false)")),
   guildOnly: true,
   cooldownMs: 2000,
@@ -77,7 +77,7 @@ export const command: Command = {
         { name: "Created", value: dateAndAgo(role.createdTimestamp), inline: true },
         { name: "Notable permissions", value: perms.length ? truncate(perms.join(", "), 1024) : "None", inline: false },
       )
-      .setFooter(footer("Buttons: full permission list and members"));
+      .setFooter(footer(`Buttons: full permission list and members${role.managed ? " · managed roles are given by their integration" : ""}`));
     const icon = role.iconURL({ size: 256 });
     if (icon) embed.setThumbnail(icon);
     else if (role.unicodeEmoji) embed.addFields({ name: "Icon", value: role.unicodeEmoji, inline: true });
@@ -85,7 +85,7 @@ export const command: Command = {
     const ids = { perms: `roleinfo_perms_${interaction.id}`, members: `roleinfo_members_${interaction.id}` };
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId(ids.perms).setLabel("All permissions").setEmoji("🔑").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(ids.members).setLabel("Members").setEmoji("👥").setStyle(ButtonStyle.Secondary).setDisabled(isEveryone),
+      new ButtonBuilder().setCustomId(ids.members).setLabel(isEveryone ? "Members" : `Members (${role.members.size.toLocaleString("en-US")}${guild.memberCount > guild.members.cache.size ? "+" : ""})`).setEmoji("👥").setStyle(ButtonStyle.Secondary).setDisabled(isEveryone),
     );
     const response = await interaction.reply({
       embeds: [embed], components: [row], allowedMentions: { parse: [] }, withResponse: true,

@@ -111,7 +111,8 @@ test("server.md §5: topics name only real commands and real Aegis links", () =>
     known.add(cmd.name);
     for (const sub of cmd.subcommands ?? []) known.add(`${cmd.name} ${sub.name}`);
   }
-  const allowedLinks = /^https:\/\/(aegisdeno\.fly\.dev\/(|status|features|commands|docs|dashboard|dashboard\/changelog|changelog|invite|security)|github\.com\/watispro1\/AegisDeno)$/;
+  // The support server invite is the production default (SUPPORT_SERVER_INVITE in src/web/layout.ts).
+  const allowedLinks = /^https:\/\/(aegisdeno\.fly\.dev\/(|status|features|commands|docs|dashboard|dashboard\/changelog|changelog|invite|security|terms(#source)?|privacy|why|roadmap)|github\.com\/watispro1\/AegisDeno|discord\.gg\/HwTbCYC4PM)$/;
   for (const { channel, topic } of topicBlocks()) {
     for (const m of topic.matchAll(/(?:^|[\s(])\/([a-z]+)(?: ([a-z]+))?/g)) {
       if (topic.slice(Math.max(0, m.index! - 30), m.index! + 1).includes("http")) continue;

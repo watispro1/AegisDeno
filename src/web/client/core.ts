@@ -1,4 +1,4 @@
-/** Opens the IIFE: theme toggle, site search (Ctrl/Cmd+K), mobile nav and toasts. */
+/** Opens the IIFE (theme picker is in ./theme): site search (Ctrl/Cmd+K), mobile nav and toasts. */
 export const jsCore = String.raw`
 (function () {
   'use strict';
@@ -14,61 +14,6 @@ export const jsCore = String.raw`
       .replace(/'/g, '&#39;');
   }
 
-  /* Theme: System (default), Light, Dark */
-  var STORAGE_KEY = 'aegis-theme';
-
-  function getSavedTheme() {
-    try { return localStorage.getItem(STORAGE_KEY) || 'system'; } catch (e) { return 'system'; }
-  }
-
-  function resolveSystemDark() {
-    return Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  }
-
-  function syncToggle() {
-    var setting = getSavedTheme();
-    var active = setting === 'system' ? (resolveSystemDark() ? 'dark' : 'light') : setting;
-    root.setAttribute('data-theme', active);
-    root.setAttribute('data-theme-setting', setting);
-    var btns = document.querySelectorAll('.theme-toggle');
-    var label = setting === 'system' ? 'Theme: System (click for Light)' : (setting === 'light' ? 'Theme: Light (click for Dark)' : 'Theme: Dark (click for System)');
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].setAttribute('aria-label', label);
-      btns[i].setAttribute('title', label);
-      btns[i].setAttribute('aria-pressed', active === 'dark' ? 'true' : 'false');
-    }
-  }
-
-  function applyTheme(theme) {
-    try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) {}
-    syncToggle();
-  }
-
-  function cycleTheme() {
-    var cur = getSavedTheme();
-    var next = cur === 'system' ? 'light' : (cur === 'light' ? 'dark' : 'system');
-    applyTheme(next);
-  }
-
-  document.addEventListener('click', function (e) {
-    if (e.target.closest && e.target.closest('.theme-toggle')) {
-      cycleTheme();
-    }
-    if (e.target.closest && e.target.closest('[data-set-theme]')) {
-      var val = e.target.closest('[data-set-theme]').getAttribute('data-set-theme');
-      if (val === 'system' || val === 'light' || val === 'dark') applyTheme(val);
-    }
-  });
-
-  if (window.matchMedia) {
-    try {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
-        if (getSavedTheme() === 'system') syncToggle();
-      });
-    } catch (e) {}
-  }
-  syncToggle();
-
   /* Site search (Ctrl/Cmd+K) */
   var searchDialog = document.getElementById('site-search-dialog');
   var searchInput = document.getElementById('site-search-input');
@@ -82,11 +27,13 @@ export const jsCore = String.raw`
 
   var pagesIndex = [
     { name: 'Features', detail: 'What each part of the bot does', href: '/features' },
+    { name: 'Why Aegis', detail: 'Reversible actions, explainable scores, no Administrator', href: '/why' },
     { name: 'Commands', detail: 'Every slash command with its options', href: '/commands' },
     { name: 'Docs', detail: 'Setup, configuration and permissions', href: '/docs' },
     { name: 'Dashboard', detail: 'Log in with Discord to manage cases and settings', href: '/dashboard' },
     { name: 'Troubleshooting', detail: 'Missing permissions, missing commands and other fixes', href: '/troubleshooting' },
     { name: 'Changelog', detail: 'Release history', href: '/changelog' },
+    { name: 'What\'s next', detail: 'Roadmap: planned work, not promises', href: '/roadmap' },
     { name: 'Status', detail: 'Gateway latency and uptime', href: '/status' },
     { name: 'Privacy', detail: 'What is stored and for how long', href: '/privacy' },
     { name: 'Terms', detail: 'Terms of service', href: '/terms' },

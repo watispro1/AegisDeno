@@ -11,6 +11,7 @@ export const cssDashboardModulePages = `
 .module-stats .stat-ok dd:not(.stat-hint) { color: var(--ok); }
 .module-stats .stat-warn dd:not(.stat-hint) { color: var(--warn); }
 .module-stats .stat-bad dd:not(.stat-hint) { color: var(--danger); }
+.module-stats .stat-info dd:not(.stat-hint) { color: var(--link); }
 .module-stats .stat-off dd:not(.stat-hint) { color: var(--faint); }
 
 /* Status pills */

@@ -19,11 +19,23 @@ import { getVerificationConfig } from "../../services/verificationService";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { dashboardUrl } from "../../config/links";
 import { automodSummaryText } from "./dashboard/automodSummary";
+import { hasModerationPermissions } from "../../services/commandAccess";
+import { COLORS, footer } from "../../utils/embedStyle";
+import { replyPagedList } from "../../utils/listPager";
+import { ownsComponent } from "../shared/componentOwner";
+
+/** Buttons that show moderation records or security settings: staff only. */
+export const DASHBOARD_STAFF_BUTTONS: readonly string[] = ["dash_automod", "dash_escalation", "dash_verify", "dash_warnings"];
+
+/** Whether a button on /dashboard needs moderation permissions. Pure. */
+export function dashboardButtonNeedsStaff(customId: string): boolean {
+  return DASHBOARD_STAFF_BUTTONS.includes(customId);
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("dashboard")
-    .setDescription("Display an interactive server management and stats dashboard."),
+    .setDescription("Server control panel: members, tickets, suggestions and (for staff) moderation and security status."),
 
   guildOnly: true,
   botPermissions: [PermissionFlagsBits.EmbedLinks],
@@ -31,6 +43,8 @@ export const command: Command = {
   execute: async (interaction: ChatInputCommandInteraction) => {
     const guild = interaction.guild!;
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    // Warning and case totals, escalation and verification settings are for staff.
+    const staff = hasModerationPermissions(interaction.memberPermissions?.bitfield ?? null);
 
     const fetchStats = async () => {
       const [automod, config, openTickets, pendingSuggestions, totalWarnings, totalCases, vConfig, watchlistCount] = await Promise.all([
@@ -38,10 +52,10 @@ export const command: Command = {
         getGuildConfig(guild.id).catch(() => null),
         TicketModel.countDocuments({ guildId: guild.id, status: "open" }).catch(() => 0),
         SuggestionModel.countDocuments({ guildId: guild.id, status: "pending" }).catch(() => 0),
-        WarningModel.countDocuments({ guildId: guild.id }).catch(() => 0),
-        ModerationCaseModel.countDocuments({ guildId: guild.id }).catch(() => 0),
-        getVerificationConfig(guild.id).catch(() => null),
-        WatchlistEntryModel.countDocuments({ guildId: guild.id }).catch(() => 0),
+        staff ? WarningModel.countDocuments({ guildId: guild.id }).catch(() => 0) : 0,
+        staff ? ModerationCaseModel.countDocuments({ guildId: guild.id }).catch(() => 0) : 0,
+        staff ? getVerificationConfig(guild.id).catch(() => null) : null,
+        staff ? WatchlistEntryModel.countDocuments({ guildId: guild.id }).catch(() => 0) : 0,
       ]);
 
       const automodActive = automod
@@ -56,9 +70,17 @@ export const command: Command = {
         c.type === ChannelType.GuildVoice || c.type === ChannelType.GuildStageVoice
       )).size;
 
+      const staffFields = [
+          { name: "⚠️ Total Warnings", value: `**${totalWarnings}**`, inline: true },
+          { name: "📂 Total Mod Cases", value: `**${totalCases}**`, inline: true },
+          { name: "📋 Mod Log", value: config?.loggingChannelId ? `<#${config.loggingChannelId}>` : "Not configured", inline: true },
+          { name: "⚡ Auto-Escalation", value: config?.escalation?.enabled ? `✅ Active (${config.escalation.thresholds?.length ?? 0} tiers)` : "❌ Disabled", inline: true },
+          { name: "🛡️ Verification", value: vConfig?.enabled ? `✅ Active (${vConfig.type})` : "Not setup", inline: true },
+          { name: "👁️ Watchlist", value: `**${watchlistCount}** monitored`, inline: true },
+        ];
       const embed = new EmbedBuilder()
         .setTitle(`🛡️ ${guild.name} — Control Panel`)
-        .setColor(0x5865F2)
+        .setColor(COLORS.brand)
         .setThumbnail(guild.iconURL() || null)
         .setDescription(`Server management overview • Boost Level **${guild.premiumTier}** • ${guild.premiumSubscriptionCount ?? 0} boost(s)`)
         .addFields(
@@ -67,15 +89,10 @@ export const command: Command = {
           { name: "🤖 Bot Latency", value: `**${Math.round(interaction.client.ws.ping)}ms**`, inline: true },
           { name: "🎫 Open Tickets", value: `**${openTickets}**`, inline: true },
           { name: "💡 Pending Suggestions", value: `**${pendingSuggestions}**`, inline: true },
-          { name: "⚠️ Total Warnings", value: `**${totalWarnings}**`, inline: true },
-          { name: "📂 Total Mod Cases", value: `**${totalCases}**`, inline: true },
           { name: "💬 Text / Voice", value: `**${textChannels}** text • **${voiceChannels}** voice`, inline: true },
-          { name: "📋 Mod Log", value: config?.loggingChannelId ? `<#${config.loggingChannelId}>` : "Not configured", inline: true },
-          { name: "⚡ Auto-Escalation", value: config?.escalation?.enabled ? `✅ Active (${config.escalation.thresholds?.length ?? 0} tiers)` : "❌ Disabled", inline: true },
-          { name: "🛡️ Verification", value: vConfig?.enabled ? `✅ Active (${vConfig.type})` : "Not setup", inline: true },
-          { name: "👁️ Watchlist", value: `**${watchlistCount}** monitored`, inline: true },
+          ...(staff ? staffFields : []),
         )
-        .setFooter({ text: `AegisDeno • Last refreshed` })
+        .setFooter(footer(staff ? "Last refreshed" : "Last refreshed · moderation details are shown to staff only"))
         .setTimestamp();
 
       return embed;
@@ -138,6 +155,14 @@ export const command: Command = {
           .setURL(dashboardUrl(interaction.guildId ?? undefined))
           .setEmoji("🌐"),
       );
+      if (!staff) {
+        for (const row of [row1, row2]) {
+          for (const b of row.components) {
+            const id = "custom_id" in b.data ? b.data.custom_id : undefined;
+            if (id && dashboardButtonNeedsStaff(id)) b.setDisabled(true);
+          }
+        }
+      }
       return [row1, row2, row3];
     };
 
@@ -149,11 +174,16 @@ export const command: Command = {
 
     const collector = sent.createMessageComponentCollector({
       componentType: ComponentType.Button,
-      time: 180_000,
-      filter: (i) => i.user.id === interaction.user.id,
+      idle: 180_000,
+      filter: (i) => i.customId.startsWith("dash_"),
     });
 
     collector.on("collect", (i) => guardCollect("dashboard", i, async () => {
+      if (!(await ownsComponent(i, interaction.user.id, "dashboard"))) return;
+      if (dashboardButtonNeedsStaff(i.customId) && !hasModerationPermissions(i.memberPermissions?.bitfield ?? null)) {
+        await i.reply({ content: "❌ That part of the dashboard is for moderators.", flags: MessageFlags.Ephemeral });
+        return;
+      }
       switch (i.customId) {
         case "dash_refresh": {
           await i.deferUpdate();
@@ -170,8 +200,10 @@ export const command: Command = {
           break;
         }
         case "dash_tickets": {
-          const count = await TicketModel.countDocuments({ guildId: guild.id, status: "open" }).catch(() => 0);
-          const closed = await TicketModel.countDocuments({ guildId: guild.id, status: "closed" }).catch(() => 0);
+          const [count, closed] = await Promise.all([
+            TicketModel.countDocuments({ guildId: guild.id, status: "open" }).catch(() => 0),
+            TicketModel.countDocuments({ guildId: guild.id, status: "closed" }).catch(() => 0),
+          ]);
           await i.reply({ content: `🎫 **Ticket Summary for ${guild.name}:**\n• Open: **${count}**\n• Closed (all-time): **${closed}**`, flags: MessageFlags.Ephemeral });
           break;
         }
@@ -185,11 +217,10 @@ export const command: Command = {
           break;
         }
         case "dash_warnings": {
-          const total = await WarningModel.countDocuments({ guildId: guild.id }).catch(() => 0);
-          const last7Days = await WarningModel.countDocuments({
-            guildId: guild.id,
-            createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-          }).catch(() => 0);
+          const [total, last7Days] = await Promise.all([
+            WarningModel.countDocuments({ guildId: guild.id }).catch(() => 0),
+            WarningModel.countDocuments({ guildId: guild.id, createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } }).catch(() => 0),
+          ]);
           await i.reply({ content: `⚠️ **Warnings Summary for ${guild.name}:**\n• All-time: **${total}**\n• Last 7 days: **${last7Days}**\n\nUse \`/modstats\` for the full moderation dashboard.`, flags: MessageFlags.Ephemeral });
           break;
         }
@@ -214,7 +245,7 @@ export const command: Command = {
           const cfg = await getGuildConfig(guild.id).catch(() => null);
           const esc = cfg?.escalation;
           const lines = esc?.thresholds?.length
-            ? esc.thresholds.sort((a, b) => a.atWarnings - b.atWarnings).map(t => "• **" + t.atWarnings + " warns** → `" + t.action.toUpperCase() + "`" + (t.durationMinutes ? " (" + t.durationMinutes + "m)" : "")).join("\n")
+            ? [...esc.thresholds].sort((a, b) => a.atWarnings - b.atWarnings).map(t => "• **" + t.atWarnings + " warns** → `" + t.action.toUpperCase() + "`" + (t.durationMinutes ? " (" + t.durationMinutes + "m)" : "")).join("\n")
             : "No escalation thresholds configured.";
           const expiryText = esc?.warnExpiryDays ? (esc.warnExpiryDays + " day(s)") : "Never expire";
           await i.reply({
@@ -241,15 +272,14 @@ export const command: Command = {
           break;
         }
         case "dash_roles": {
-          const topRoles = guild.roles.cache
-            .filter(r => r.id !== guild.id)
-            .sort((a, b) => b.position - a.position)
-            .map(r => r.name)
-            .slice(0, 15)
-            .join(", ");
-          await i.reply({
-            content: `🎭 **Roles Overview for ${guild.name}:**\n• Total Roles: **${Math.max(0, guild.roles.cache.size - 1)}**\n• Top Roles: ${topRoles || "None"}`,
-            flags: MessageFlags.Ephemeral,
+          // Every role, highest first, paged instead of cut at 15.
+          const roles = guild.roles.cache.filter(r => r.id !== guild.id).sort((a, b) => b.position - a.position);
+          await replyPagedList(i, {
+            title: `🎭 Roles in ${guild.name.slice(0, 200)} (${roles.size})`,
+            lines: roles.map(r => `<@&${r.id}> · ${r.members.size} loaded member${r.members.size === 1 ? "" : "s"}${r.managed ? " · managed" : ""}`),
+            empty: "This server has no roles besides @everyone.",
+            perPage: 20,
+            ephemeral: true,
           });
           break;
         }
