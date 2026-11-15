@@ -10,6 +10,8 @@ import { requestConfirmation } from "../../utils/confirmation";
 import { COLORS, footer } from "../../utils/embedStyle";
 import type { EconomyStats, TransactionType } from "../../services/economyStore";
 import { TX_NAMES } from "./transactions";
+import { withMemberLock } from "./lib/memberLock";
+import { STILL_RUNNING } from "./lib/ui";
 
 type OptionRow = [option: string, key: keyof typeof ECONOMY_LIMITS, description: string];
 
@@ -144,16 +146,16 @@ export const command: Command = {
       return s;
     })
     .addSubcommand(s => s.setName("stats").setDescription("Coins in circulation and the last 7 days of economy activity in this server."))
-    .addSubcommand(s => s.setName("give").setDescription("Give coins to a member (logged to the mod log).")
-      .addUserOption(o => o.setName("user").setDescription("Member").setRequired(true))
-      .addIntegerOption(o => o.setName("amount").setDescription("Coins").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE))
+    .addSubcommand(s => s.setName("give").setDescription("Add coins to a member's wallet (logged to the mod log).")
+      .addUserOption(o => o.setName("user").setDescription("Member to give coins to").setRequired(true))
+      .addIntegerOption(o => o.setName("amount").setDescription("Coins to add to their wallet").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE))
       .addStringOption(o => o.setName("reason").setDescription("Why (shown in the mod log)").setMaxLength(200)))
-    .addSubcommand(s => s.setName("take").setDescription("Take coins from a member (logged to the mod log).")
-      .addUserOption(o => o.setName("user").setDescription("Member").setRequired(true))
-      .addIntegerOption(o => o.setName("amount").setDescription("Coins").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE))
+    .addSubcommand(s => s.setName("take").setDescription("Remove coins from a member's wallet (logged to the mod log).")
+      .addUserOption(o => o.setName("user").setDescription("Member to take coins from").setRequired(true))
+      .addIntegerOption(o => o.setName("amount").setDescription("Coins to remove from their wallet").setRequired(true).setMinValue(1).setMaxValue(MAX_BALANCE))
       .addStringOption(o => o.setName("reason").setDescription("Why (shown in the mod log)").setMaxLength(200)))
     .addSubcommand(s => s.setName("reset").setDescription("Set a member's wallet and bank to 0 (logged to the mod log).")
-      .addUserOption(o => o.setName("user").setDescription("Member").setRequired(true))
+      .addUserOption(o => o.setName("user").setDescription("Member whose wallet and bank to clear").setRequired(true))
       .addStringOption(o => o.setName("reason").setDescription("Why (shown in the mod log)").setMaxLength(200))),
   category: "economy",
   guildOnly: true,
@@ -165,7 +167,11 @@ export const command: Command = {
 
     if (sub === "toggle") {
       const current = await svc.config(guildId);
-      const enabled = interaction.options.getBoolean("enabled") ?? !current.enabled;
+      const asked = interaction.options.getBoolean("enabled");
+      if (asked !== null && asked === current.enabled) {
+        return interaction.reply({ content: `ℹ️ The economy is already **${asked ? "on" : "off"}**. Nothing changed.`, flags: MessageFlags.Ephemeral });
+      }
+      const enabled = asked ?? !current.enabled;
       const r = await svc.updateConfig(guildId, { enabled });
       if (!r.ok) return interaction.reply({ content: "❌ Couldn't save that.", flags: MessageFlags.Ephemeral });
       return interaction.reply({
@@ -207,13 +213,19 @@ export const command: Command = {
 
     if (action === "reset") {
       const before = await svc.balance(guildId, user.id);
+      if (before.balance + before.bank <= 0) {
+        return interaction.reply({ content: `ℹ️ ${user} already has nothing in their wallet or bank. Nothing changed.`, flags: MessageFlags.Ephemeral, allowedMentions: NO_PINGS });
+      }
       const answer = await requestConfirmation(interaction, { content: `Reset ${user}'s wallet (${formatCoins(cfg, before.balance)}) and bank (${formatCoins(cfg, before.bank)}) to 0?`, confirmLabel: "Reset balance" });
       if (answer !== "confirmed") return;
     }
-    const r = await svc.adjust(guildId, user.id, action, amount, interaction.user.id, reason);
     const say = async (content: string) => { await (interaction.deferred || interaction.replied
       ? interaction.editReply({ content, components: [], allowedMentions: NO_PINGS })
       : interaction.reply({ content, flags: MessageFlags.Ephemeral, allowedMentions: NO_PINGS })); };
+    // Queued behind the member's own economy actions, so a staff change never lands mid-purchase.
+    const locked = await withMemberLock(guildId, user.id, () => svc.adjust(guildId, user.id, action, amount, interaction.user.id, reason));
+    if (!locked.ok) return say(STILL_RUNNING.replace("Your last economy action", `${user}'s last economy action`));
+    const r = locked.value;
     if (!r.ok) {
       return say(r.reason === "insufficient"
         ? `❌ ${user} only has ${formatCoins(cfg, r.balance)}. Take less, or use \`/economy reset\`.`
@@ -221,7 +233,7 @@ export const command: Command = {
     }
     await postAdjustLog(interaction.client, { guildId, userId: user.id, actorId: interaction.user.id, action, amount: action === "reset" ? r.previous : amount, balance: r.balance, reason }, interaction.user.tag, "command");
     const verb = action === "give" ? `Gave ${formatCoins(cfg, amount)} to` : action === "take" ? `Took ${formatCoins(cfg, amount)} from` : "Reset the balance of";
-    return say(`✅ ${verb} ${user}. New balance: ${formatCoins(cfg, r.balance)}. Logged to the mod log.`);
+    return say(`✅ ${verb} ${user}. Their wallet: ${formatCoins(cfg, r.balance)}. Logged to the mod log.`);
   },
 };
 

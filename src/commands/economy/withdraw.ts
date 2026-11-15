@@ -1,18 +1,21 @@
-import { SlashCommandBuilder, InteractionContextType, type ChatInputCommandInteraction } from "discord.js";
+import { SlashCommandBuilder, InteractionContextType, type AutocompleteInteraction, type ChatInputCommandInteraction } from "discord.js";
 import type { Command } from "../../types/discord";
-import { runBankCommand } from "../../services/economyBankCommand";
+import { bankAutocomplete, runBank } from "./lib/bank";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("withdraw")
-    .setDescription("Move coins from your bank to your wallet.")
+    .setDescription("Move coins from your bank back into your wallet so you can spend them.")
     .setContexts(InteractionContextType.Guild)
-    .addStringOption(o => o.setName("amount").setDescription("How much: a number, all or half").setRequired(true).setMaxLength(20)),
+    .addStringOption(o => o.setName("amount").setDescription("How much: a number (1500, 2.5k), all or half of your bank").setRequired(true).setMaxLength(20).setAutocomplete(true)),
   category: "economy",
   guildOnly: true,
   cooldownMs: 2000,
   async execute(interaction: ChatInputCommandInteraction) {
-    await runBankCommand(interaction, "withdraw");
+    await runBank(interaction, "withdraw");
+  },
+  async autocomplete(interaction: AutocompleteInteraction) {
+    await bankAutocomplete(interaction, "withdraw");
   },
 };
 
