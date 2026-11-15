@@ -30,6 +30,8 @@ import { cssThemeTokens, cssThemeSurfaces } from "./themes";
 import { cssGlass } from "./glass";
 import { cssGlassDashboard } from "./glassDashboard";
 import { cssShowcase } from "./showcase";
+import { cssDashboardRefresh } from "./dashboardRefresh";
+import { cssSiteRefresh } from "./siteRefresh";
 import { cssPremium } from "./premium";
 
 /* Concatenated in this order; later rules override earlier ones. */
@@ -55,4 +57,6 @@ export const styles =
   cssThemeSurfaces +
   cssGlass +
   cssGlassDashboard +
+  cssSiteRefresh +
+  cssDashboardRefresh +
   cssResponsive;

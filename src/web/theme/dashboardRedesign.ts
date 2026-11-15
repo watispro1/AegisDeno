@@ -91,12 +91,6 @@ export const cssDashboardRedesign = `
 /* Landing hero */
 .dash-landing { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 2.5rem; align-items: center; margin: 2.5rem 0 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
 .dash-landing-text h1 { margin: .2rem 0 .6rem; }
-.dash-landing-preview { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-lg, var(--r)); background: var(--surface); }
-.dash-landing-preview li { display: flex; align-items: center; gap: .6rem; padding: .7rem 1rem; border-top: 1px solid var(--border); font-size: .92rem; }
-.dash-landing-preview li:first-child { border-top: 0; }
-.lp-dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--border-strong); flex: none; }
-.lp-dot.on { background: var(--accent); border-color: var(--accent); }
-.lp-n { margin-left: auto; font: 400 .78rem var(--mono); color: var(--faint); }
 .dash-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr)); gap: 0; list-style: none; padding: 0; margin: 0 0 2rem; border: 1px solid var(--border); border-radius: var(--r-lg, var(--r)); }
 .dash-fact { display: grid; grid-template-columns: auto 1fr; gap: .15rem .7rem; padding: 1rem 1.1rem; border-left: 1px solid var(--border); border-top: 1px solid var(--border); margin: -1px 0 0 -1px; }
 .dash-fact-icon { grid-row: span 2; color: var(--accent); font: 500 1.1rem var(--mono); }

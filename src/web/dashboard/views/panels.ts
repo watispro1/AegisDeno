@@ -3,7 +3,7 @@ import type { ChannelOption, RoleOption } from "../botView";
 import type { RolePanelSummary } from "../data";
 import { PANEL_TITLE_MAX, TICKET_PANEL_DESCRIPTION_MAX, VERIFY_PANEL_DESCRIPTION_MAX } from "../validation";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
-import { type GuildContext, copyId, csrfField, head, notice, relTime, shell } from "./layout";
+import { type GuildContext, copyId, csrfField, emptyState, head, notice, relTime, shell } from "./layout";
 import { Form, ROLE_PICKER_HELP, type Values, channelOptions, channelPickerEmptyNote, hiddenChannelNote, roleOptions, rolePickerEmptyNote } from "./form";
 import { errorSummary, permissionNote } from "./parts";
 import { helpPanel, pill, sectionJump, summaryStrip } from "./moduleKit";
@@ -81,7 +81,7 @@ export function renderPanels(
         </form>
       </li>`;
       }).join("")}</ul>`
-    : `<div class="empty-state"><strong>No role panels yet.</strong> Create one with <code class="inline">/rolepanel create</code> in Discord; it will show up here to re-post.</div>`;
+    : emptyState("No role panels yet.", "Create one with <code class=\"inline\">/rolepanel create</code> in Discord; it will show up here to re-post.", undefined, { icon: "▦" });
 
   const valuesFor = (which: "ticket" | "verification") => (state.form === which ? { title: String(state.values.title ?? ""), description: String(state.values.description ?? ""), type: String(state.values.type ?? "") } : {});
   return shell(cfg, {

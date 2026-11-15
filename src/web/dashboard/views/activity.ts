@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { AuditEntry } from "../audit";
 import { SECTION_TITLES, SETTINGS_SECTIONS, type SettingsSection } from "../validation";
-import { type GuildContext, copyId, head, relTime, shell } from "./layout";
+import { type GuildContext, copyId, emptyState, head, relTime, shell } from "./layout";
 import { pagerNav } from "./parts";
 import { countBy, helpPanel, listFoot, listTools, pagedTable, rowAttrs, summaryStrip } from "./moduleKit";
 
@@ -119,7 +119,7 @@ export function renderActivity(
     <caption class="visually-hidden">Dashboard changes</caption>
     <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Details</th></tr></thead>
     <tbody>${rows}</tbody>
-  </table></div>${listFoot("audit-table", "No change on this page matches. Clear the search, pick another kind, or try an older page.")}` : `<div class="empty-state"><strong>No dashboard changes yet.</strong>Saves, revokes, appeal decisions and posted panels show up here. <a class="btn ghost sm empty-action" href="/dashboard/${esc(g.id)}/settings">Open settings</a></div>`}
+  </table></div>${listFoot("audit-table", "No change on this page matches. Clear the search, pick another kind, or try an older page.")}` : emptyState("No dashboard changes yet.", "Saves, revokes, appeal decisions and posted panels show up here.", { label: "Open settings", href: `/dashboard/${g.id}/settings` }, { icon: "⟲" })}
   ${helpPanel("About this log", [
     ["What's recorded", "Every save, revoke, appeal decision, posted panel and export made through this dashboard, with who did it."],
     ["What isn't", "Slash-command changes. Those go to your mod log channel."],
