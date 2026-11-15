@@ -17,6 +17,7 @@ export interface HealthReading {
   status: HealthState;
   gateway: boolean;
   database: boolean;
+  rustBackend?: boolean;
 }
 
 export interface HealthCheckOptions {
@@ -30,18 +31,40 @@ export function createHealthCheck(o: HealthCheckOptions) {
   const toleranceMs = o.toleranceMs ?? HEALTH_DOWN_TOLERANCE_MS;
   let downSince: number | null = null;
 
-  return function read(gateway: boolean, database: boolean, nowMs: number = Date.now()): HealthReading {
+  return function read(
+    gateway: boolean,
+    database: boolean,
+    arg3?: number | boolean,
+    arg4?: number | boolean,
+  ): HealthReading {
+    let nowMs = Date.now();
+    let rustBackend: boolean | undefined = undefined;
+
+    if (typeof arg3 === "number") {
+      nowMs = arg3;
+      if (typeof arg4 === "boolean") rustBackend = arg4;
+    } else if (typeof arg3 === "boolean") {
+      rustBackend = arg3;
+      if (typeof arg4 === "number") nowMs = arg4;
+    }
+
+    const base = {
+      gateway,
+      database,
+      ...(rustBackend !== undefined ? { rustBackend } : {}),
+    };
+
     if (gateway && database) {
       downSince = null;
-      return { httpStatus: 200, status: "ok", gateway, database };
+      return { httpStatus: 200, status: "ok", ...base };
     }
     if (nowMs - o.startedAt < graceMs) {
-      return { httpStatus: 200, status: "starting", gateway, database };
+      return { httpStatus: 200, status: "starting", ...base };
     }
     downSince ??= nowMs;
     if (nowMs - downSince < toleranceMs) {
-      return { httpStatus: 200, status: "degraded", gateway, database };
+      return { httpStatus: 200, status: "degraded", ...base };
     }
-    return { httpStatus: 503, status: "down", gateway, database };
+    return { httpStatus: 503, status: "down", ...base };
   };
 }

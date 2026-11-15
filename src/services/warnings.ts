@@ -1,5 +1,6 @@
 import { WarningModel } from "../database/mongo";
 import { noteTrustChange } from "./trustHooks";
+import { getRustClient } from "../database/rustClient";
 
 export interface Warning {
   _id: string;
@@ -31,6 +32,15 @@ export async function addWarning(
   });
   const obj = warning.toObject() as unknown as Warning;
   noteTrustChange(guildId, userId);
+  // Best-effort dual-write to AegisDB
+  getRustClient()
+    .createWarning(guildId, {
+      user_id: userId,
+      mod_id: moderatorId,
+      reason,
+      proof_url: proofUrl,
+    })
+    .catch(() => null);
   return { ...obj, _id: String(warning._id) };
 }
 

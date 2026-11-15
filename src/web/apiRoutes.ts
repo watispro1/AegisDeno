@@ -4,6 +4,7 @@ import { logger } from "../utils/logger";
 import { buildCatalog, catalogStats, getCommand } from "./catalog";
 import { secretMatches } from "./securityHeaders";
 import { createHealthCheck } from "./health";
+import { getRustClient } from "../database/rustClient";
 import type { Stats } from "./pages";
 
 export interface ApiRouteDeps {
@@ -14,17 +15,37 @@ export interface ApiRouteDeps {
   startedAt: number;
 }
 
+/** Cached AegisDB health probe: updated every 15 s, never blocks a request. */
+let rustBackendUp = false;
+let rustProbeTimer: ReturnType<typeof setInterval> | null = null;
+
+function startRustProbe(): void {
+  if (rustProbeTimer) return;
+  const probe = async () => {
+    try {
+      rustBackendUp = await getRustClient().ping();
+    } catch {
+      rustBackendUp = false;
+    }
+  };
+  void probe();
+  rustProbeTimer = setInterval(() => void probe(), 15_000);
+  if (rustProbeTimer.unref) rustProbeTimer.unref();
+}
+
 export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
+  startRustProbe();
   const health = createHealthCheck({ startedAt: deps.startedAt });
 
   app.get("/health", (_req, res) => {
     const stats = deps.stats();
-    const reading = health(deps.online(), deps.databaseReady());
+    const reading = health(deps.online(), deps.databaseReady(), rustBackendUp);
     res.setHeader("Cache-Control", "no-store");
     res.status(reading.httpStatus).json({
       status: reading.status,
       gateway: reading.gateway,
       database: reading.database,
+      rustBackend: reading.rustBackend,
       version: deps.version,
       uptime: Math.floor(stats.uptime / 1000),
       guilds: stats.guilds,
@@ -49,7 +70,21 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
       users: stats.users,
       commands: stats.commands,
       catalog: cs,
+      rustBackend: { healthy: rustBackendUp },
     });
+  });
+
+  app.get("/api/backend/stats", async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("X-Robots-Tag", "noindex");
+    try {
+      const data = await getRustClient().stats();
+      res.json({ ok: true, ...data });
+    } catch (err) {
+      logger.debug("AegisDB stats probe failed:", err);
+      res.status(503).json({ ok: false, error: "backend_unavailable" });
+    }
   });
 
   app.get("/api/commands", (_req, res) => {
@@ -74,13 +109,20 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
     }
 
     const body = (req.body && typeof req.body === "object" ? req.body : {}) as Record<string, unknown>;
-    const field = (v: unknown) => (typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v).slice(0, 40).replace(/[^\w.-]/g, "") : "?");
-    logger.info(`top.gg vote: user ${field(body.user)}, type ${field(body.type)}, weekend ${field(body.isWeekend)}, guild ${body.guild ? field(body.guild) : "none"}`);
+    const field = (v: unknown) =>
+      typeof v === "string" || typeof v === "number" || typeof v === "boolean"
+        ? String(v).slice(0, 40).replace(/[^\w.-]/g, "")
+        : "?";
+    logger.info(
+      `top.gg vote: user ${field(body.user)}, type ${field(body.type)}, weekend ${field(body.isWeekend)}, guild ${body.guild ? field(body.guild) : "none"}`,
+    );
     res.json({ status: "ok" });
   });
 
   app.get("/api/commands/:name", (req, res) => {
-    const name = String(req.params.name ?? "").replace(/^\//, "").slice(0, 64);
+    const name = String(req.params.name ?? "")
+      .replace(/^\//, "")
+      .slice(0, 64);
     const found = getCommand(name);
 
     if (!found) {

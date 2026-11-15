@@ -183,6 +183,44 @@ export class AegisRustClient {
   ): Promise<{ guild_id: string; count: number; leaderboard: Array<{ rank: number; user_id: string; wallet: number; bank: number; net_worth: number }> }> {
     return this.request(`/api/guilds/${encodeURIComponent(guildId)}/economy/leaderboard?limit=${limit}`);
   }
+
+  /** Create a warning record */
+  async createWarning(
+    guildId: string,
+    data: {
+      user_id: string;
+      mod_id: string;
+      reason: string;
+      proof_url?: string | null;
+    },
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/api/guilds/${encodeURIComponent(guildId)}/warnings`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Patch a moderation case (update reason, revoke, etc.) */
+  async patchCase(
+    guildId: string,
+    caseId: string,
+    payload: Record<string, unknown>,
+  ): Promise<RustCaseRecord | null> {
+    return this.request<RustCaseRecord | null>(
+      `/api/guilds/${encodeURIComponent(guildId)}/cases/${encodeURIComponent(caseId)}`,
+      { method: "PATCH", body: JSON.stringify(payload) },
+    );
+  }
+
+  /** Ping AegisDB – returns true if reachable, false otherwise */
+  async ping(): Promise<boolean> {
+    try {
+      await this.health();
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 let defaultClient: AegisRustClient | null = null;
