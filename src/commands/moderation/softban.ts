@@ -1,3 +1,4 @@
+import { replyEphemeralPrompt } from "./lib/prompt";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -33,7 +34,7 @@ export const command: Command = {
       opt.setName("delete_messages").setDescription(`Delete messages from this many days (${SOFTBAN_MIN_DAYS}-${SOFTBAN_MAX_DAYS}, default ${SOFTBAN_DEFAULT_DAYS})`)
         .setMinValue(SOFTBAN_MIN_DAYS).setMaxValue(SOFTBAN_MAX_DAYS).setRequired(false)
     )
-    .addBooleanOption(opt => opt.setName("silent").setDescription("Don't DM the member (default: false)").setRequired(false))
+    .addBooleanOption(opt => opt.setName("silent").setDescription("Don't DM the member about the softban (default: they get a DM)").setRequired(false))
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
   guildOnly: true,
@@ -94,7 +95,7 @@ export const command: Command = {
       new ButtonBuilder().setCustomId("softban_cancel").setLabel("Cancel").setStyle(ButtonStyle.Secondary).setEmoji("✖️"),
     );
 
-    const prompt = await interaction.reply({ embeds: [confirmEmbed], components: [confirmRow], flags: MessageFlags.Ephemeral, fetchReply: true });
+    const prompt = await replyEphemeralPrompt(interaction, { embeds: [confirmEmbed], components: [confirmRow] });
     const collector = prompt.createMessageComponentCollector({
       componentType: ComponentType.Button,
       time: 30_000,

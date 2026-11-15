@@ -17,11 +17,12 @@ import { assetSlots, boostProgress, emojiListLine, featureNames, memberBreakdown
 import { replyPagedList } from "../../utils/listPager";
 import { COLORS, footer } from "../../utils/embedStyle";
 import { truncate } from "../../utils/safeText";
+import { channelTreeLines, stickerLine } from "../shared/serverLists";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("serverinfo")
-    .setDescription("Server stats: owner, members, channels, boosts, features and settings.")
+    .setDescription("Server stats: owner, members, boosts and settings, with role, channel, emoji and sticker lists.")
     .addBooleanOption(o => o.setName("ephemeral").setDescription("Only show the response to you (default: false)").setRequired(false)),
 
   guildOnly: true,
@@ -102,7 +103,8 @@ export const command: Command = {
     const listRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId("serverinfo_roles").setLabel(`Roles (${roleCount})`).setStyle(ButtonStyle.Secondary).setEmoji("🎨"),
       new ButtonBuilder().setCustomId("serverinfo_emojis").setLabel(`Emojis (${emojis?.size ?? 0})`).setStyle(ButtonStyle.Secondary).setEmoji("😀").setDisabled(!emojis?.size),
-      new ButtonBuilder().setCustomId("serverinfo_channels").setLabel("Channels").setStyle(ButtonStyle.Secondary).setEmoji("💬"),
+      new ButtonBuilder().setCustomId("serverinfo_stickers").setLabel(`Stickers (${stickers?.size ?? 0})`).setStyle(ButtonStyle.Secondary).setEmoji("🏷️").setDisabled(!stickers?.size),
+      new ButtonBuilder().setCustomId("serverinfo_channels").setLabel(`Channels (${channels.size})`).setStyle(ButtonStyle.Secondary).setEmoji("💬"),
       new ButtonBuilder().setCustomId("serverinfo_security").setLabel("Security").setStyle(ButtonStyle.Secondary).setEmoji("🔒"),
     );
     const rows = [listRow, ...(linkButtons.length ? [new ActionRowBuilder<ButtonBuilder>().addComponents(...linkButtons)] : [])];
@@ -112,9 +114,24 @@ export const command: Command = {
 
     collector.on("collect", (i) => guardCollect("serverinfo", i, async () => {
       if (i.customId === "serverinfo_channels") {
-        await i.reply({
-          content: `💬 **Channel Breakdown for ${guild.name}:**\n- Text Channels: **${textChannels}**\n- Voice & Stage: **${voiceChannels}**\n- Forums & Media: **${forumChannels}**\n- Categories: **${categories}**\n- Active threads: **${threads}**\n- Total: **${channels.size}**`,
-          flags: MessageFlags.Ephemeral,
+        // The channel tree the member can see, by category, paged.
+        const visible = channels.filter(c => !("permissionsFor" in c) || c.permissionsFor(i.user.id)?.has("ViewChannel") !== false);
+        await replyPagedList(i, {
+          title: `💬 Channels in ${truncate(guild.name, 200)} (${visible.size})`,
+          header: `Text **${textChannels}** · Voice **${voiceChannels}** · Forums **${forumChannels}** · Categories **${categories}** · Active threads **${threads}**`,
+          lines: channelTreeLines(visible.map(c => ({ id: c.id, name: c.name, type: c.type, parentId: c.parentId, position: "position" in c ? c.position : 0 }))),
+          perPage: 25,
+          empty: "No channels you can see.",
+          ephemeral: true,
+        });
+      } else if (i.customId === "serverinfo_stickers") {
+        const list = [...(stickers?.values() ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+        await replyPagedList(i, {
+          title: `🏷️ Stickers in ${truncate(guild.name, 200)} (${list.length})`,
+          lines: list.map(st => stickerLine(st)),
+          perPage: 15,
+          empty: "No custom stickers.",
+          ephemeral: true,
         });
       } else if (i.customId === "serverinfo_roles") {
         const roles = guild.roles.cache

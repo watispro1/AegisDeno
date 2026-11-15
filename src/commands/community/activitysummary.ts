@@ -11,11 +11,28 @@ import {
 } from "discord.js";
 import type { Command } from "../../types/discord";
 import { getGuildActivitySummary } from "../../services/activitySummaryService";
+import { COLORS, footer } from "../../utils/embedStyle";
+import { ownsComponent } from "../shared/componentOwner";
+
+/** Timeframes offered as buttons, in days. */
+export const ACTIVITY_TIMEFRAMES = [1, 7, 30] as const;
+
+/** The timeframe a button id stands for, or null for an unknown id. Pure. */
+export function timeframeFromButton(customId: string): number | null {
+  const m = /^act_tf_(\d+)$/.exec(customId);
+  const days = m ? Number(m[1]) : NaN;
+  return (ACTIVITY_TIMEFRAMES as readonly number[]).includes(days) ? days : null;
+}
+
+/** "last 24 hours" / "last 7 days". Pure. */
+export function timeframeLabel(days: number): string {
+  return days === 1 ? "last 24 hours" : `last ${days} days`;
+}
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("activitysummary")
-    .setDescription("View server moderation and community activity summary metrics.")
+    .setDescription("Staff digest: cases, warnings, tickets and suggestions over the last day, week or month.")
     .setDMPermission(false)
     .addIntegerOption(opt =>
       opt
@@ -31,6 +48,8 @@ export const command: Command = {
 
   category: "community",
   guildOnly: true,
+  // Declared so /help and the docs show who can use it; the check below stays as a second guard.
+  userPermissions: [PermissionFlagsBits.ModerateMembers],
 
   async execute(interaction) {
     if (!interaction.guild) return;
@@ -40,7 +59,7 @@ export const command: Command = {
       return;
     }
 
-    let timeframe = interaction.options.getInteger("timeframe") || 7;
+    const timeframe = interaction.options.getInteger("timeframe") || 7;
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const buildEmbedAndButtons = async (days: number) => {
@@ -48,20 +67,21 @@ export const command: Command = {
 
       const embed = new EmbedBuilder()
         .setTitle(`📊 Server Activity Digest — ${interaction.guild!.name}`)
-        .setColor(0x3498DB)
-        .setDescription(`Activity metrics summary for the **last ${days} day(s)**.`)
+        .setColor(COLORS.brand)
+        .setDescription(`Activity for the **${timeframeLabel(days)}**. Open tickets and autoresponders are counted as of now.`)
         .addFields(
           { name: "🔨 Moderation Actions", value: `Total Cases: \`${summary.totalCases}\`\nWarnings Issued: \`${summary.totalWarnings}\``, inline: true },
           { name: "🎫 Support Tickets", value: `Open: \`${summary.openTickets}\`\nClosed Recently: \`${summary.closedTickets}\``, inline: true },
           { name: "🗳️ Community Suggestions", value: `Total: \`${summary.totalSuggestions}\`\nApproved: \`${summary.approvedSuggestions}\``, inline: true },
           { name: "🤖 Active Autoresponders", value: `Enabled: \`${summary.totalAutoResponders}\``, inline: true }
         )
+        .setFooter(footer("Switch the timeframe with the buttons · /modstats for the full moderation view"))
         .setTimestamp();
 
       if (summary.recentCases.length > 0) {
         embed.addFields({
           name: "📈 Case Breakdown",
-          value: summary.recentCases.map(c => `• **${c.action.toUpperCase()}:** ${c.count}`).join("\n"),
+          value: summary.recentCases.map(c => `• **${c.action.toUpperCase()}:** ${c.count}`).join("\n").slice(0, 1024),
           inline: false,
         });
       }
@@ -92,15 +112,13 @@ export const command: Command = {
 
     const collector = sent.createMessageComponentCollector({
       componentType: ComponentType.Button,
-      time: 120_000,
-      filter: (i) => i.user.id === interaction.user.id,
+      idle: 120_000,
+      filter: (i) => i.customId.startsWith("act_tf_"),
     });
 
     collector.on("collect", (i) => guardCollect("activitysummary", i, async () => {
-      let newDays = 7;
-      if (i.customId === "act_tf_1") newDays = 1;
-      if (i.customId === "act_tf_7") newDays = 7;
-      if (i.customId === "act_tf_30") newDays = 30;
+      if (!(await ownsComponent(i, interaction.user.id, "activitysummary"))) return;
+      const newDays = timeframeFromButton(i.customId) ?? 7;
 
       await i.deferUpdate();
       const updated = await buildEmbedAndButtons(newDays);

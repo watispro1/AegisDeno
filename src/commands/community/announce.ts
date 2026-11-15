@@ -13,12 +13,21 @@ import {
   TextInputBuilder,
   TextInputStyle,
   MessageFlags,
+  ChannelType,
 } from "discord.js";
 import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { isSendableChannel } from "../../utils/channels";
 import { sendGuildLog } from "../../services/logging";
 import { logger } from "../../utils/logger";
+import { checkLink, expandNewlines, embedTextProblem } from "../shared/inputChecks";
+import { footer } from "../../utils/embedStyle";
+
+/** How long the preview's buttons keep working after the last press. */
+export const ANNOUNCE_PREVIEW_IDLE_MS = 180_000;
+
+/** Channel kinds an announcement can go to. */
+export const ANNOUNCE_CHANNEL_TYPES = [ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.PublicThread, ChannelType.AnnouncementThread] as const;
 
 // Color presets
 
@@ -42,9 +51,9 @@ const PING_CHOICES = [
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("announce")
-    .setDescription("Send a polished announcement embed to any channel.")
+    .setDescription("Preview, edit and send an announcement embed to a channel, with an optional ping.")
     .addChannelOption(opt =>
-      opt.setName("channel").setDescription("Channel to send the announcement to").setRequired(true)
+      opt.setName("channel").setDescription("Channel to send the announcement to").addChannelTypes(...ANNOUNCE_CHANNEL_TYPES).setRequired(true)
     )
     .addStringOption(opt =>
       opt.setName("message").setDescription("Announcement body text (use \\n for newlines)").setRequired(true).setMaxLength(2048)
@@ -67,10 +76,10 @@ export const command: Command = {
         .addChoices(...PING_CHOICES)
     )
     .addStringOption(opt =>
-      opt.setName("image_url").setDescription("Optional image URL to attach to the embed").setMaxLength(512).setRequired(false)
+      opt.setName("image_url").setDescription("Optional image link (https://…) shown under the text").setMaxLength(512).setRequired(false)
     )
     .addStringOption(opt =>
-      opt.setName("thumbnail_url").setDescription("Optional thumbnail URL in embed corner").setMaxLength(512).setRequired(false)
+      opt.setName("thumbnail_url").setDescription("Optional small image link (https://…) in the top-right corner").setMaxLength(512).setRequired(false)
     )
     .addBooleanOption(opt =>
       opt.setName("suppress_author").setDescription("Hide the server name/icon in the embed author (default: false)").setRequired(false)
@@ -96,8 +105,14 @@ export const command: Command = {
     const crosspost      = interaction.options.getBoolean("crosspost") ?? false;
 
     if (!isSendableChannel(channel)) {
-      return interaction.reply({ content: "❌ Please select a text channel.", flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: "❌ Pick a text or announcement channel (or a thread) I can post in.", flags: MessageFlags.Ephemeral });
     }
+    // Bad links used to fail only when sending, as a generic error.
+    const image = checkLink(imageUrl, "image link");
+    if (!image.ok) return interaction.reply({ content: `❌ ${image.error}`, flags: MessageFlags.Ephemeral });
+    const thumbnail = checkLink(thumbnailUrl, "thumbnail link");
+    if (!thumbnail.ok) return interaction.reply({ content: `❌ ${thumbnail.error}`, flags: MessageFlags.Ephemeral });
+    if (!bodyRaw.trim()) return interaction.reply({ content: "❌ The announcement text can't be empty.", flags: MessageFlags.Ephemeral });
 
     // The announcer must be able to post there (and ping everyone, if asked) themselves.
     const refusal = postRefusal(await memberPermsIn(interaction, channel.id), channel.id, { pingEveryone: pingChoice === "everyone" || pingChoice === "here" });
@@ -106,12 +121,21 @@ export const command: Command = {
     const me = interaction.guild?.members.me;
     if (me && "permissionsFor" in channel) {
       const perms = channel.permissionsFor(me);
-      if (perms && !perms.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
-        return interaction.reply({ content: "❌ I need View Channel + Send Messages permissions in that channel.", flags: MessageFlags.Ephemeral });
+      const needed: Array<[bigint, string]> = [
+        [PermissionFlagsBits.ViewChannel, "View Channel"],
+        [channel.isThread() ? PermissionFlagsBits.SendMessagesInThreads : PermissionFlagsBits.SendMessages, channel.isThread() ? "Send Messages in Threads" : "Send Messages"],
+        [PermissionFlagsBits.EmbedLinks, "Embed Links"],
+        ...(pingChoice !== "none" ? [[PermissionFlagsBits.MentionEveryone, "Mention @everyone"] as [bigint, string]] : []),
+      ];
+      const lacking = perms ? needed.filter(([flag]) => !perms.has(flag)).map(([, label]) => `**${label}**`) : [];
+      if (lacking.length) {
+        return interaction.reply({ content: `❌ I need ${lacking.join(", ")} in <#${channel.id}> to post this announcement.`, flags: MessageFlags.Ephemeral });
       }
     }
 
-    const body = bodyRaw.replace(/\\n/g, "\n");
+    const body = expandNewlines(bodyRaw);
+    const tooLong = embedTextProblem({ title, description: body, footer: `Announced by ${interaction.user.tag}`, author: interaction.guild?.name });
+    if (tooLong) return interaction.reply({ content: `❌ ${tooLong}`, flags: MessageFlags.Ephemeral });
     const color = parseInt(colorHex, 16);
 
     const embed = new EmbedBuilder()
@@ -127,8 +151,8 @@ export const command: Command = {
         iconURL: interaction.guild?.iconURL() ?? undefined,
       });
     }
-    if (imageUrl)     embed.setImage(imageUrl);
-    if (thumbnailUrl) embed.setThumbnail(thumbnailUrl);
+    if (image.value)     embed.setImage(image.value);
+    if (thumbnail.value) embed.setThumbnail(thumbnail.value);
 
     let pingContent = "";
     if (pingChoice === "everyone") pingContent = "@everyone";
@@ -161,7 +185,7 @@ export const command: Command = {
         { name: "🔔 Ping",    value: pingChoice === "none" ? "None" : `@${pingChoice}`, inline: true },
         { name: "↩️ Crosspost", value: crosspost ? "Yes" : "No", inline: true },
       )
-      .setFooter({ text: "Preview expires in 60 seconds." });
+      .setFooter(footer(`Preview closes after ${ANNOUNCE_PREVIEW_IDLE_MS / 60_000} minutes without a press.`));
 
     await interaction.reply({
       content: "**📋 Announcement Preview** — review before sending:",
@@ -175,7 +199,7 @@ export const command: Command = {
 
     const collector = (await interaction.fetchReply()).createMessageComponentCollector({
       componentType: ComponentType.Button,
-      time: 60_000,
+      idle: ANNOUNCE_PREVIEW_IDLE_MS,
       filter: (i) => i.user.id === interaction.user.id,
     });
 
@@ -214,10 +238,12 @@ export const command: Command = {
         );
 
         await i.showModal(modal);
+        // Typing in the modal doesn't count as a press; keep the preview open meanwhile.
+        collector.resetTimer({ idle: ANNOUNCE_PREVIEW_IDLE_MS + 120_000 });
         const resp = await i.awaitModalSubmit({ time: 120_000, filter: m => m.user.id === interaction.user.id && m.customId === scopedModalId("ann_edit_modal", i.id) }).catch(() => null);
         if (resp) {
           const newTitle = resp.fields.getTextInputValue("ann_title_input");
-          const newBody  = resp.fields.getTextInputValue("ann_body_input").replace(/\\n/g, "\n");
+          const newBody  = expandNewlines(resp.fields.getTextInputValue("ann_body_input"));
           currentBody = newBody;
           currentEmbed = EmbedBuilder.from(currentEmbed).setTitle(newTitle).setDescription(newBody);
           await resp.deferUpdate();
@@ -240,14 +266,21 @@ export const command: Command = {
           });
 
           // Publish to followers in announcement channels
-          if (crosspost && "crosspost" in sent && typeof sent.crosspost === "function") {
-            await sent.crosspost().catch(() => null);
+          let crossposted: boolean | null = null;
+          if (crosspost) {
+            crossposted = channel.type === ChannelType.GuildAnnouncement && "crosspost" in sent && typeof sent.crosspost === "function"
+              ? await sent.crosspost().then(() => true, () => false)
+              : false;
           }
 
           await interaction.editReply({
-            content: `✅ Announcement sent to <#${channel.id}>.`,
+            content: `✅ Announcement sent to <#${channel.id}>.` + (crossposted === false
+              ? "\n⚠️ It wasn't published to following servers: that only works in an announcement channel, and Discord limits how often a channel can publish (10 per hour)."
+              : crossposted ? " Published to following servers too." : ""),
             embeds: [],
-            components: [],
+            components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
+              new ButtonBuilder().setLabel("Jump to announcement").setStyle(ButtonStyle.Link).setURL(sent.url).setEmoji("🔗"),
+            )],
           });
 
           await sendGuildLog(interaction.client, interaction.guildId!, {

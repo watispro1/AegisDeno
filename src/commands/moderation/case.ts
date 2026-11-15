@@ -16,6 +16,8 @@ import { truncate as clip } from "../../utils/safeText";
 import { rankChoices, shortAge, type AutocompleteItem } from "../../utils/autocomplete";
 import { requestConfirmation } from "../../utils/confirmation";
 import { addCaseSearchSubcommand, runCaseSearch } from "../shared/caseSearch";
+import { caseColor, findCaseOrWarning, recentWarningsForAutocomplete } from "./lib/caseLookup";
+import { generalReasonSuggestions } from "./lib/presets";
 
 const MAX_EXPORT_CASES = 5_000;
 /** How many recent cases the case_id autocomplete searches. */
@@ -51,13 +53,13 @@ export const command: Command = {
     .addSubcommand(sub =>
       sub
         .setName("view")
-        .setDescription("View details of a specific moderation case.")
+        .setDescription("View one moderation case or warning in full.")
         .addStringOption(opt => opt.setName("case_id").setDescription("Case ID; start typing to pick a recent case").setRequired(true).setAutocomplete(true))
     )
     .addSubcommand(sub =>
       sub
         .setName("user")
-        .setDescription("List recent moderation cases for a specific member.")
+        .setDescription("List a member's moderation cases, newest first, with paging.")
         .addUserOption(opt => opt.setName("user").setDescription("The member whose cases to list").setRequired(true))
         .addStringOption(opt => opt.setName("action").setDescription("Only cases with this action")
           .addChoices(...CASE_USER_ACTIONS.map(a => ({ name: a, value: a }))))
@@ -67,20 +69,20 @@ export const command: Command = {
     .addSubcommand(sub =>
       sub
         .setName("edit")
-        .setDescription("Edit the reason on a moderation case.")
+        .setDescription("Rewrite the reason on a moderation case or warning.")
         .addStringOption(opt => opt.setName("case_id").setDescription("Case ID; start typing to pick a recent case").setRequired(true).setAutocomplete(true))
-        .addStringOption(opt => opt.setName("reason").setDescription("New updated reason").setRequired(true).setMaxLength(512))
+        .addStringOption(opt => opt.setName("reason").setDescription("The new reason: pick a preset or type your own").setRequired(true).setMaxLength(512).setAutocomplete(true))
     )
     .addSubcommand(sub =>
       sub
         .setName("delete")
-        .setDescription("Delete a moderation case record.")
+        .setDescription("Permanently delete a case record (Administrator). Does not undo the action.")
         .addStringOption(opt => opt.setName("case_id").setDescription("Case ID; start typing to pick a recent case").setRequired(true).setAutocomplete(true))
     )
     .addSubcommand(sub =>
       sub
         .setName("export")
-        .setDescription("Export all guild moderation history as a JSON file.")
+        .setDescription("Download this server's moderation cases as a JSON file (Manage Server).")
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
@@ -96,18 +98,28 @@ export const command: Command = {
       return;
     }
     const focused = interaction.options.getFocused(true);
+    if (focused.name === "reason") {
+      await interaction.respond(generalReasonSuggestions(String(focused.value ?? "")));
+      return;
+    }
     if (focused.name !== "case_id") {
       await interaction.respond([]);
       return;
     }
-    const records = await ModerationCaseModel.find({ guildId: interaction.guildId })
-      .select("_id action reason userId createdAt")
-      .sort({ createdAt: -1 })
-      .limit(CASE_AUTOCOMPLETE_SCAN)
-      .lean()
-      .catch(() => []);
+    const sub = interaction.options.getSubcommand(false);
+    // View and edit also accept warning IDs; delete removes cases only.
+    const [records, warnings] = await Promise.all([
+      ModerationCaseModel.find({ guildId: interaction.guildId })
+        .select("_id action reason userId createdAt")
+        .sort({ createdAt: -1 })
+        .limit(CASE_AUTOCOMPLETE_SCAN)
+        .lean()
+        .catch(() => []),
+      sub === "delete" ? Promise.resolve([]) : recentWarningsForAutocomplete(interaction.guildId, 50),
+    ]);
+    const merged = [...records, ...warnings].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const now = Date.now();
-    await interaction.respond(rankChoices(records.map(r => caseChoice(r, now)), String(focused.value)));
+    await interaction.respond(rankChoices(merged.map(r => caseChoice(r, now)), String(focused.value)));
   },
 
   async execute(interaction) {
@@ -135,22 +147,22 @@ export const command: Command = {
         await interaction.reply({ content: caseIdHelp(caseId, "invalid"), flags: MessageFlags.Ephemeral });
         return;
       }
-      const record = await ModerationCaseModel.findOne({ guildId: interaction.guild.id, _id: caseId }).catch(() => null);
-
+      const record = await findCaseOrWarning(interaction.guild.id, caseId);
       if (!record) {
         await interaction.reply({ content: caseIdHelp(caseId, "missing"), flags: MessageFlags.Ephemeral });
         return;
       }
 
       const icon = CASE_ACTION_ICONS[record.action.toLowerCase()] ?? "📜";
+      const at = Math.floor(record.createdAt.getTime() / 1000);
       const embed = new EmbedBuilder()
-        .setTitle(`${icon} Moderation Case #${caseId}`)
-        .setColor(record.action === "ban" ? 0xED4245 : (record.action === "timeout" ? 0xFEE75C : 0x3498DB))
+        .setTitle(`${icon} ${record.kind === "warning" ? "Warning" : "Moderation Case"} …${caseId.slice(-6)}${record.revoked ? " (revoked)" : ""}`)
+        .setColor(caseColor(record.action, record.revoked))
         .addFields(
           { name: "👤 Target User", value: `<@${record.userId}> (\`${record.userId}\`)`, inline: true },
           { name: "🛡️ Moderator",   value: `<@${record.moderatorId}>`, inline: true },
           { name: "⚖️ Action",      value: `\`${record.action.toUpperCase()}\``, inline: true },
-          { name: "📝 Reason",      value: clip(record.reason || "No reason provided", 1024), inline: false },
+          { name: "📝 Reason",      value: clip(record.reason, 1024), inline: false },
           ...(record.details ? [{ name: "ℹ️ Details", value: clip(record.details, 1024), inline: false }] : []),
           ...(record.proofUrl ? [{ name: "📎 Proof", value: `[Attachment](${record.proofUrl})`, inline: false }] : []),
           ...(record.revoked ? [{
@@ -158,12 +170,12 @@ export const command: Command = {
             value: `By ${record.revokedBy ? `<@${record.revokedBy}>` : "staff"}${record.revokedAt ? ` <t:${Math.floor(record.revokedAt.getTime() / 1000)}:R>` : ""}`,
             inline: false,
           }] : []),
-          { name: "📅 Timestamp",   value: `<t:${Math.floor(record.createdAt.getTime() / 1000)}:F> (<t:${Math.floor(record.createdAt.getTime() / 1000)}:R>)`, inline: false }
+          { name: "📅 Timestamp",   value: `<t:${at}:F> (<t:${at}:R>)`, inline: false },
         )
-        .setFooter({ text: `Guild ID: ${interaction.guild.id}` })
+        .setFooter({ text: `ID: ${caseId} · /case edit to change the reason` })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
       return;
     }
 
@@ -188,7 +200,11 @@ export const command: Command = {
         await interaction.reply({ content: caseIdHelp(caseId, "invalid"), flags: MessageFlags.Ephemeral });
         return;
       }
-      const newReason = interaction.options.getString("reason", true);
+      const newReason = interaction.options.getString("reason", true).trim();
+      if (!newReason) {
+        await interaction.reply({ content: "❌ The new reason can't be empty.", flags: MessageFlags.Ephemeral });
+        return;
+      }
 
       // Acknowledge before the database write so a slow lookup never shows "This interaction failed".
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -201,7 +217,14 @@ export const command: Command = {
       const warning = edited.kind === "warning";
       const targetId = edited.userId;
       const previous = { reason: edited.previousReason };
-      await interaction.editReply({ content: `✅ Updated reason for ${warning ? "warning" : "case"} \`${caseId}\` to: "${newReason}"` });
+      if (previous.reason === newReason) {
+        await interaction.editReply({ content: `ℹ️ That ${warning ? "warning" : "case"} already has this reason. Nothing changed.` });
+        return;
+      }
+      await interaction.editReply({
+        content: `✅ Updated the reason on ${warning ? "warning" : "case"} \`${caseId}\`.\n**Before:** ${clip(previous.reason ?? "None", 700)}\n**After:** ${clip(newReason, 700)}`,
+        allowedMentions: { parse: [] },
+      });
       await sendGuildLog(interaction.client, interaction.guild.id, {
         title: "✏️ Case Reason Edited",
         color: 0x3498DB,
@@ -225,7 +248,12 @@ export const command: Command = {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const record = await ModerationCaseModel.findOne({ guildId: interaction.guild.id, _id: caseId }).lean().catch(() => null);
       if (!record) {
-        await interaction.editReply({ content: caseIdHelp(caseId, "missing") });
+        const other = await findCaseOrWarning(interaction.guild.id, caseId);
+        await interaction.editReply({
+          content: other?.kind === "warning"
+            ? `ℹ️ \`${caseId}\` is a warning, not a case. Edit its reason with \`/case edit\`, or remove the member's warnings with \`/clearwarnings\`.`
+            : caseIdHelp(caseId, "missing"),
+        });
         return;
       }
 

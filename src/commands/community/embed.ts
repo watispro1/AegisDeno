@@ -3,35 +3,55 @@ import { guardCollect } from "../../utils/collectorGuard";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
-  EmbedBuilder,
   PermissionFlagsBits,
   ActionRowBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-  ModalSubmitInteraction,
   MessageFlags,
+  ChannelType,
+  type AutocompleteInteraction,
+  type GuildBasedChannel,
 } from "discord.js";
 import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
 import { isSendableChannel } from "../../utils/channels";
+import { colorChoices } from "../shared/inputChecks";
+import { applyDraftModal, buildDraftEmbed, draftFromInput, draftModal, draftPostProblem, type DraftModalKind, type EmbedDraft } from "../shared/embedDraft";
 
 /** Short-term debounce lock preventing duplicate concurrent submissions by the same user to the same channel */
 const activeQuickEmbeds = new Set<string>();
 
+/** Channel kinds an embed can be posted to. */
+export const EMBED_CHANNEL_TYPES = [ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.PublicThread, ChannelType.PrivateThread, ChannelType.AnnouncementThread, ChannelType.GuildVoice] as const;
+export const EMBED_BUILDER_IDLE_MS = 600_000;
+
+const MODAL_FOR: Record<string, DraftModalKind> = { embed_edit_desc: "desc", embed_edit_meta: "meta", embed_edit_media: "media" };
+
+/** Aegis's own permissions in the target: what's missing, as names. */
+function botMissing(interaction: ChatInputCommandInteraction, channel: GuildBasedChannel): string[] {
+  const me = interaction.guild?.members.me;
+  const perms = me && "permissionsFor" in channel ? channel.permissionsFor(me) : null;
+  if (!perms) return [];
+  const send = channel.isThread() ? ["SendMessagesInThreads", "Send Messages in Threads"] as const : ["SendMessages", "Send Messages"] as const;
+  return ([["ViewChannel", "View Channel"], send, ["EmbedLinks", "Embed Links"]] as const)
+    .filter(([flag]) => !perms.has(PermissionFlagsBits[flag])).map(([, label]) => label);
+}
+
+function jumpRow(url: string): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setLabel("Jump to embed").setStyle(ButtonStyle.Link).setURL(url).setEmoji("🔗"));
+}
+
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("embed")
-    .setDescription("Create and post a fully customized rich embed message.")
+    .setDescription("Create and post a custom embed: a live-preview builder, or a quick one-shot post.")
     .addSubcommand(sub =>
       sub
         .setName("builder")
         .setDescription("Open an interactive embed builder with live preview and modal editor.")
         .addChannelOption(opt =>
-          opt.setName("channel").setDescription("Target channel to post the embed").setRequired(true)
+          opt.setName("channel").setDescription("Target channel to post the embed").addChannelTypes(...EMBED_CHANNEL_TYPES).setRequired(true)
         )
         .addStringOption(opt =>
           opt.setName("title").setDescription("Embed title").setRequired(true).setMaxLength(256)
@@ -40,19 +60,19 @@ export const command: Command = {
           opt.setName("description").setDescription("Embed body text (supports \\n for newlines)").setRequired(false).setMaxLength(4000)
         )
         .addStringOption(opt =>
-          opt.setName("color").setDescription("Hex color (e.g. #5865F2)").setRequired(false)
+          opt.setName("color").setDescription("Hex colour (e.g. #5865F2) or pick a preset").setRequired(false).setAutocomplete(true).setMaxLength(16)
         )
         .addStringOption(opt =>
-          opt.setName("url").setDescription("Clickable title URL link").setRequired(false)
+          opt.setName("url").setDescription("Clickable title link (https://…)").setRequired(false).setMaxLength(2000)
         )
         .addStringOption(opt =>
           opt.setName("footer").setDescription("Footer text").setRequired(false).setMaxLength(2048)
         )
         .addStringOption(opt =>
-          opt.setName("image").setDescription("Large image URL (shown at bottom)").setRequired(false)
+          opt.setName("image").setDescription("Large image link (https://…), shown at the bottom").setRequired(false).setMaxLength(2000)
         )
         .addStringOption(opt =>
-          opt.setName("thumbnail").setDescription("Small thumbnail URL (top-right corner)").setRequired(false)
+          opt.setName("thumbnail").setDescription("Small thumbnail link (https://…), top-right corner").setRequired(false).setMaxLength(2000)
         )
         .addStringOption(opt =>
           opt.setName("author").setDescription("Author name shown above the title").setRequired(false).setMaxLength(256)
@@ -63,19 +83,19 @@ export const command: Command = {
         .setName("quick")
         .setDescription("Quickly post a simple embed without interactive preview.")
         .addChannelOption(opt =>
-          opt.setName("channel").setDescription("Target channel").setRequired(true)
+          opt.setName("channel").setDescription("Target channel").addChannelTypes(...EMBED_CHANNEL_TYPES).setRequired(true)
         )
         .addStringOption(opt =>
           opt.setName("title").setDescription("Embed title").setRequired(true).setMaxLength(256)
         )
         .addStringOption(opt =>
-          opt.setName("description").setDescription("Embed body text").setRequired(true).setMaxLength(4000)
+          opt.setName("description").setDescription("Embed body text (supports \\n for newlines)").setRequired(true).setMaxLength(4000)
         )
         .addStringOption(opt =>
-          opt.setName("color").setDescription("Hex color (e.g. #5865F2)").setRequired(false)
+          opt.setName("color").setDescription("Hex colour (e.g. #5865F2) or pick a preset").setRequired(false).setAutocomplete(true).setMaxLength(16)
         )
         .addStringOption(opt =>
-          opt.setName("footer").setDescription("Footer text").setRequired(false)
+          opt.setName("footer").setDescription("Footer text").setRequired(false).setMaxLength(2048)
         )
     ),
 
@@ -83,28 +103,41 @@ export const command: Command = {
   userPermissions: [PermissionFlagsBits.ManageMessages],
   botPermissions: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks],
 
+  /** `color`: presets, plus the typed hex when it is valid. */
+  async autocomplete(interaction: AutocompleteInteraction) {
+    const focused = interaction.options.getFocused(true);
+    await interaction.respond(focused.name === "color" ? colorChoices(String(focused.value ?? "")) : []);
+  },
+
   execute: async (interaction: ChatInputCommandInteraction) => {
     const sub = interaction.options.getSubcommand();
+    const picked = interaction.options.getChannel("channel", true);
+    const channel = interaction.guild?.channels.cache.get(picked.id) ?? picked;
 
-    const parseColor = (input: string | null): number => {
-      if (!input) return 0x5865F2;
-      return parseInt(input.replace("#", ""), 16) || 0x5865F2;
-    };
+    if (!isSendableChannel(channel) || !("guildId" in channel)) {
+      return interaction.reply({ content: "❌ Pick a text or announcement channel (or a thread) I can post in.", flags: MessageFlags.Ephemeral });
+    }
+    const refusal = postRefusal(await memberPermsIn(interaction, channel.id), channel.id);
+    if (refusal) return interaction.reply({ content: `❌ ${refusal}`, flags: MessageFlags.Ephemeral });
+    const missing = botMissing(interaction, channel as GuildBasedChannel);
+    if (missing.length) return interaction.reply({ content: `❌ I need **${missing.join("**, **")}** in <#${channel.id}> to post an embed there.`, flags: MessageFlags.Ephemeral });
+
+    const parsed = draftFromInput({
+      title: interaction.options.getString("title", true),
+      description: interaction.options.getString("description"),
+      color: interaction.options.getString("color"),
+      url: sub === "builder" ? interaction.options.getString("url") : null,
+      footer: interaction.options.getString("footer"),
+      image: sub === "builder" ? interaction.options.getString("image") : null,
+      thumbnail: sub === "builder" ? interaction.options.getString("thumbnail") : null,
+      author: sub === "builder" ? interaction.options.getString("author") : null,
+    });
+    if (!parsed.ok) return interaction.reply({ content: `❌ ${parsed.error}`, flags: MessageFlags.Ephemeral });
 
     // Quick mode
     if (sub === "quick") {
-      const channel = interaction.options.getChannel("channel", true);
-      const title = interaction.options.getString("title", true);
-      const description = interaction.options.getString("description", true).replace(/\\n/g, "\n");
-      const color = parseColor(interaction.options.getString("color"));
-      const footer = interaction.options.getString("footer");
-
-      if (!isSendableChannel(channel)) {
-        return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
-      }
-      const quickRefusal = postRefusal(await memberPermsIn(interaction, channel.id), channel.id);
-      if (quickRefusal) return interaction.reply({ content: `❌ ${quickRefusal}`, flags: MessageFlags.Ephemeral });
-
+      const problem = draftPostProblem(parsed.draft);
+      if (problem) return interaction.reply({ content: `❌ ${problem}`, flags: MessageFlags.Ephemeral });
       // Concurrency lock to prevent duplicate submissions from rapid clicks or gateway retries
       const lockKey = `${interaction.user.id}:${channel.id}`;
       if (activeQuickEmbeds.has(lockKey)) {
@@ -114,17 +147,9 @@ export const command: Command = {
       setTimeout(() => activeQuickEmbeds.delete(lockKey), 3000);
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-      const embed = new EmbedBuilder()
-        .setTitle(title)
-        .setDescription(description)
-        .setColor(color)
-        .setTimestamp();
-      if (footer) embed.setFooter({ text: footer });
-
       try {
-        await channel.send({ embeds: [embed] });
-        await interaction.editReply({ content: `✅ Embed posted to <#${channel.id}>.` });
+        const sent = await channel.send({ embeds: [buildDraftEmbed(parsed.draft)], allowedMentions: { parse: [] } });
+        await interaction.editReply({ content: `✅ Embed posted to <#${channel.id}>.`, components: [jumpRow(sent.url)] });
       } catch {
         await interaction.editReply({ content: `❌ Failed to send embed to <#${channel.id}>. Please check my permissions.` });
       }
@@ -132,76 +157,23 @@ export const command: Command = {
     }
 
     // Builder mode
-    const channel = interaction.options.getChannel("channel", true);
-    let title = interaction.options.getString("title", true);
-    let color = parseColor(interaction.options.getString("color"));
-    let footer = interaction.options.getString("footer");
-    let image = interaction.options.getString("image");
-    let thumbnail = interaction.options.getString("thumbnail");
-    let author = interaction.options.getString("author");
-    let url = interaction.options.getString("url");
-    
-    const initialDesc = interaction.options.getString("description");
-    let description = initialDesc
-      ? initialDesc.replace(/\\n/g, "\n")
-      : "*Click **Edit Description** to write or edit the embed body...*";
-
-    if (!isSendableChannel(channel)) {
-      return interaction.reply({ content: "❌ Please select a valid text channel.", flags: MessageFlags.Ephemeral });
-    }
-    const refusal = postRefusal(await memberPermsIn(interaction, channel.id), channel.id);
-    if (refusal) return interaction.reply({ content: `❌ ${refusal}`, flags: MessageFlags.Ephemeral });
-
-    const buildEmbed = () => {
-      const e = new EmbedBuilder()
-        .setTitle(title)
-        .setDescription(description)
-        .setColor(color)
-        .setTimestamp();
-      if (url) e.setURL(url);
-      if (footer) e.setFooter({ text: footer });
-      if (image) e.setImage(image);
-      if (thumbnail) e.setThumbnail(thumbnail);
-      if (author) e.setAuthor({ name: author });
-      return e;
-    };
-
+    let draft: EmbedDraft = parsed.draft;
     const buildButtons = (sent: boolean) => [
       new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId("embed_edit_desc")
-          .setLabel("Edit Description")
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji("✏️"),
-        new ButtonBuilder()
-          .setCustomId("embed_edit_meta")
-          .setLabel("Title & URL")
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji("🏷️"),
-        new ButtonBuilder()
-          .setCustomId("embed_edit_media")
-          .setLabel("Images & Author")
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji("🖼️"),
+        new ButtonBuilder().setCustomId("embed_edit_desc").setLabel("Edit Description").setStyle(ButtonStyle.Primary).setEmoji("✏️"),
+        new ButtonBuilder().setCustomId("embed_edit_meta").setLabel("Title, Link & Colour").setStyle(ButtonStyle.Secondary).setEmoji("🏷️"),
+        new ButtonBuilder().setCustomId("embed_edit_media").setLabel("Images & Author").setStyle(ButtonStyle.Secondary).setEmoji("🖼️"),
       ),
       new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId("embed_send")
-          .setLabel("Post Embed")
-          .setStyle(ButtonStyle.Success)
-          .setEmoji("🚀")
-          .setDisabled(sent),
-        new ButtonBuilder()
-          .setCustomId("embed_cancel")
-          .setLabel("Cancel")
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji("✖️"),
+        new ButtonBuilder().setCustomId("embed_send").setLabel("Post Embed").setStyle(ButtonStyle.Success).setEmoji("🚀").setDisabled(sent),
+        new ButtonBuilder().setCustomId("embed_cancel").setLabel("Cancel").setStyle(ButtonStyle.Danger).setEmoji("✖️"),
       ),
     ];
+    const previewText = (note?: string) => `👇 **Embed Preview** — Posting to <#${channel.id}>${note ? `\n${note}` : ""}`;
 
     const sent = await interaction.reply({
-      content: `👇 **Embed Preview** — Posting to <#${channel.id}>`,
-      embeds: [buildEmbed()],
+      content: previewText(),
+      embeds: [buildDraftEmbed(draft)],
       components: buildButtons(false),
       flags: MessageFlags.Ephemeral,
       fetchReply: true,
@@ -209,7 +181,7 @@ export const command: Command = {
 
     const collector = sent.createMessageComponentCollector({
       componentType: ComponentType.Button,
-      time: 600_000,
+      idle: EMBED_BUILDER_IDLE_MS,
       filter: (i) => i.user.id === interaction.user.id,
     });
 
@@ -222,156 +194,43 @@ export const command: Command = {
         return;
       }
 
-      if (i.customId === "embed_edit_desc") {
-        const modal = new ModalBuilder()
-          .setCustomId(scopedModalId("embed_desc_modal", i.id))
-          .setTitle("Edit Embed Description");
-
-        const input = new TextInputBuilder()
-          .setCustomId("embed_desc_input")
-          .setLabel("Description (supports \\n for newlines)")
-          .setStyle(TextInputStyle.Paragraph)
-          .setValue(description === "*Click **Edit Description** to write or edit the embed body...*" ? "" : description)
-          .setMaxLength(4000)
-          .setRequired(true);
-
-        modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
-        await i.showModal(modal);
-
-        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === scopedModalId("embed_desc_modal", i.id) }).catch(() => null) as ModalSubmitInteraction | null;
-        if (!modalSubmit) return;
-
-        description = modalSubmit.fields.getTextInputValue("embed_desc_input").replace(/\\n/g, "\n");
-        await modalSubmit.deferUpdate();
-        await interaction.editReply({ embeds: [buildEmbed()], components: buildButtons(posted) });
-        return;
-      }
-
-      if (i.customId === "embed_edit_meta") {
-        const modal = new ModalBuilder()
-          .setCustomId(scopedModalId("embed_meta_modal", i.id))
-          .setTitle("Edit Title & URL Link");
-
-        const titleInput = new TextInputBuilder()
-          .setCustomId("embed_title_input")
-          .setLabel("Embed Title")
-          .setStyle(TextInputStyle.Short)
-          .setValue(title)
-          .setMaxLength(256)
-          .setRequired(true);
-
-        const urlInput = new TextInputBuilder()
-          .setCustomId("embed_url_input")
-          .setLabel("Title Clickable Link URL (optional)")
-          .setStyle(TextInputStyle.Short)
-          .setValue(url ?? "")
-          .setRequired(false);
-
-        modal.addComponents(
-          new ActionRowBuilder<TextInputBuilder>().addComponents(titleInput),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(urlInput)
-        );
-        await i.showModal(modal);
-
-        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === scopedModalId("embed_meta_modal", i.id) }).catch(() => null) as ModalSubmitInteraction | null;
-        if (!modalSubmit) return;
-
-        title = modalSubmit.fields.getTextInputValue("embed_title_input");
-        const newUrl = modalSubmit.fields.getTextInputValue("embed_url_input").trim();
-        url = newUrl || null;
-
-        await modalSubmit.deferUpdate();
-        await interaction.editReply({ embeds: [buildEmbed()], components: buildButtons(posted) });
-        return;
-      }
-
-      if (i.customId === "embed_edit_media") {
-        const modal = new ModalBuilder()
-          .setCustomId(scopedModalId("embed_media_modal", i.id))
-          .setTitle("Edit Images & Author");
-
-        const authorInput = new TextInputBuilder()
-          .setCustomId("embed_author_input")
-          .setLabel("Author Name (above title)")
-          .setStyle(TextInputStyle.Short)
-          .setValue(author ?? "")
-          .setRequired(false);
-
-        const imageInput = new TextInputBuilder()
-          .setCustomId("embed_image_input")
-          .setLabel("Large Image URL (bottom)")
-          .setStyle(TextInputStyle.Short)
-          .setValue(image ?? "")
-          .setRequired(false);
-
-        const thumbInput = new TextInputBuilder()
-          .setCustomId("embed_thumb_input")
-          .setLabel("Small Thumbnail URL (top right)")
-          .setStyle(TextInputStyle.Short)
-          .setValue(thumbnail ?? "")
-          .setRequired(false);
-
-        const footerInput = new TextInputBuilder()
-          .setCustomId("embed_footer_input")
-          .setLabel("Footer Text")
-          .setStyle(TextInputStyle.Short)
-          .setValue(footer ?? "")
-          .setRequired(false);
-
-        modal.addComponents(
-          new ActionRowBuilder<TextInputBuilder>().addComponents(authorInput),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(imageInput),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(thumbInput),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(footerInput)
-        );
-        await i.showModal(modal);
-
-        const modalSubmit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === scopedModalId("embed_media_modal", i.id) }).catch(() => null) as ModalSubmitInteraction | null;
-        if (!modalSubmit) return;
-
-        const a = modalSubmit.fields.getTextInputValue("embed_author_input").trim();
-        const img = modalSubmit.fields.getTextInputValue("embed_image_input").trim();
-        const th = modalSubmit.fields.getTextInputValue("embed_thumb_input").trim();
-        const ft = modalSubmit.fields.getTextInputValue("embed_footer_input").trim();
-
-        author = a || null;
-        image = img || null;
-        thumbnail = th || null;
-        footer = ft || null;
-
-        await modalSubmit.deferUpdate();
-        await interaction.editReply({ embeds: [buildEmbed()], components: buildButtons(posted) });
+      const kind = MODAL_FOR[i.customId];
+      if (kind) {
+        const modalId = scopedModalId(`embed_${kind}_modal`, i.id);
+        await i.showModal(draftModal(kind, modalId, draft));
+        const submit = await i.awaitModalSubmit({ time: 300_000, filter: (m) => m.user.id === i.user.id && m.customId === modalId }).catch(() => null);
+        if (!submit) return;
+        const result = applyDraftModal(kind, submit, draft);
+        await submit.deferUpdate();
+        if (result.ok) draft = result.draft;
+        await interaction.editReply({ content: previewText(result.ok ? undefined : `⚠️ ${result.error} Nothing was changed.`), embeds: [buildDraftEmbed(draft)], components: buildButtons(posted) });
         return;
       }
 
       if (i.customId === "embed_send") {
         if (posted) return;
+        const problem = draftPostProblem(draft);
+        if (problem) {
+          await i.reply({ content: `❌ ${problem}`, flags: MessageFlags.Ephemeral });
+          return;
+        }
         posted = true;
         collector.stop("posted");
 
         // Immediately disable the button row and acknowledge to prevent race conditions
-        await i.update({
-          content: `⏳ Posting embed to <#${channel.id}>...`,
-          embeds: [],
-          components: [],
-        });
+        await i.update({ content: `⏳ Posting embed to <#${channel.id}>...`, embeds: [], components: [] });
 
         try {
-          await channel.send({ embeds: [buildEmbed()] });
-          await interaction.editReply({
-            content: `✅ Embed successfully posted to <#${channel.id}>!`,
-          });
+          const message = await channel.send({ embeds: [buildDraftEmbed(draft)], allowedMentions: { parse: [] } });
+          await interaction.editReply({ content: `✅ Embed successfully posted to <#${channel.id}>!`, components: [jumpRow(message.url)] });
         } catch {
-          await interaction.editReply({
-            content: `❌ Failed to post embed to <#${channel.id}>. Please check my permissions.`,
-          });
+          await interaction.editReply({ content: `❌ Failed to post embed to <#${channel.id}>. Please check my permissions.` });
         }
-        return;
       }
     }));
 
     collector.on("end", async (_, reason) => {
-      if (reason === "time" && !posted) {
+      if (reason === "idle" && !posted) {
         await interaction.editReply({ content: "⏰ Embed builder timed out.", components: [] }).catch(() => null);
       }
     });

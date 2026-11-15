@@ -24,6 +24,9 @@ import {
 } from "../../services/purgeFilters";
 import { finishPurge, type PurgeRunContext, respondViaButton } from "./purge/finish";
 import { COLORS, footer } from "../../utils/embedStyle";
+import type { AutocompleteInteraction } from "discord.js";
+import { parseMessageRef, wrongChannelError } from "./lib/messageRef";
+import { PURGE_REASON_PRESETS, presetSuggestions } from "./lib/presets";
 
 /** Most messages /purge will look through in one run (10 API pages). */
 const MAX_SCAN = 1_000;
@@ -100,13 +103,13 @@ export const command: Command = {
       opt.setName("keyword").setDescription("Only delete messages containing this text (works with any filter)").setRequired(false).setMaxLength(100)
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the purge (recorded in mod logs)").setRequired(false).setMaxLength(256)
+      opt.setName("reason").setDescription("Reason for the purge, recorded in the mod log (suggestions as you type)").setRequired(false).setMaxLength(256).setAutocomplete(true)
     )
     .addStringOption(opt =>
-      opt.setName("before_message").setDescription("Only scan messages sent before this message ID (right-click a message → Copy ID)").setRequired(false)
+      opt.setName("before_message").setDescription("Only messages older than this one: paste a message link or ID").setRequired(false)
     )
     .addStringOption(opt =>
-      opt.setName("after_message").setDescription("Only delete messages sent after this message ID: clears everything since a point").setRequired(false)
+      opt.setName("after_message").setDescription("Only messages newer than this one (clear everything since): message link or ID").setRequired(false)
     )
     .addBooleanOption(opt =>
       opt.setName("keep_pinned").setDescription("Protect pinned messages from being deleted (default: true)").setRequired(false)
@@ -120,14 +123,20 @@ export const command: Command = {
   userPermissions: [PermissionFlagsBits.ManageMessages],
   botPermissions: [PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory],
 
+  autocomplete: async (interaction: AutocompleteInteraction) => {
+    const focused = interaction.options.getFocused(true);
+    await interaction.respond(focused.name === "reason" ? presetSuggestions(String(focused.value ?? ""), PURGE_REASON_PRESETS) : []);
+  },
+
   execute: async (interaction: ChatInputCommandInteraction) => {
     const amount  = interaction.options.getInteger("amount", true);
     const filter  = (interaction.options.getString("filter") ?? "all") as FilterMode;
     const target  = interaction.options.getUser("user");
     const keyword = interaction.options.getString("keyword");
-    const reason  = interaction.options.getString("reason") ?? "Channel message cleanup";
-    const beforeMsgId = interaction.options.getString("before_message") ?? undefined;
-    const afterMsgId = interaction.options.getString("after_message")?.trim() || undefined;
+    const reason  = interaction.options.getString("reason")?.trim() || "Channel message cleanup";
+    // Accept a message link as well as a bare ID; before_message used to fail on stray spaces.
+    const beforeRef = parseMessageRef(interaction.options.getString("before_message"), "before_message");
+    const afterRef = parseMessageRef(interaction.options.getString("after_message"), "after_message");
     const forcePreview = interaction.options.getBoolean("preview") ?? false;
     const keepPinned = interaction.options.getBoolean("keep_pinned") ?? true;
     const channel = interaction.channel;
@@ -153,11 +162,13 @@ export const command: Command = {
       }
     }
 
-    for (const [name, id] of [["before_message", beforeMsgId], ["after_message", afterMsgId]] as const) {
-      if (id && !/^\d{17,20}$/.test(id)) {
-        return interaction.reply({ content: `❌ \`${name}\` must be a valid Discord message ID (17–20 digits). Right-click a message → Copy Message ID.`, flags: MessageFlags.Ephemeral });
-      }
+    for (const [name, ref] of [["before_message", beforeRef], ["after_message", afterRef]] as const) {
+      if (!ref.ok) return interaction.reply({ content: ref.error, flags: MessageFlags.Ephemeral });
+      const elsewhere = wrongChannelError(ref, name, channel.id);
+      if (elsewhere) return interaction.reply({ content: elsewhere, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
     }
+    const beforeMsgId = beforeRef.ok ? beforeRef.id : undefined;
+    const afterMsgId = afterRef.ok ? afterRef.id : undefined;
     if (beforeMsgId && afterMsgId && !isAfterSnowflake(beforeMsgId, afterMsgId)) {
       return interaction.reply({ content: "❌ `after_message` must be older than `before_message`, or nothing can match.", flags: MessageFlags.Ephemeral });
     }
