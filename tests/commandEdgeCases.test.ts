@@ -63,10 +63,11 @@ test("client, appeal, watchlist, reminder and escalation modules stay under 400 
   }
 });
 
-test("/warn history button: reasons are clipped so the reply stays under 2000 characters", () => {
+test("/warn history button: reasons are clipped and the full history is paged", () => {
   const s = src("src/commands/moderation/warn.ts");
   assert.match(s, /truncate\(String\(w\.reason\)\.replace\(\/`\/g, "'"\), 120\)/);
-  assert.match(s, /content: truncate\(`📜 \*\*Warning History[^\n]*, 2000\)/);
+  // replyPagedList keeps each page inside the embed limit, so no warning is cut off at 10.
+  assert.match(s, /replyPagedList\(i, \{\s*title: `📜 Warning history/);
 });
 
 test("/warn quick timeout: records a case and a mod-log entry, once", () => {
