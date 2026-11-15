@@ -174,6 +174,7 @@ export function validateCasePatch(body: Record<string, unknown>): Check<CasePatc
 }
 
 export interface WarningInput {
+  warn_ref?: string;
   user_id: string;
   mod_id: string;
   reason: string;
@@ -182,6 +183,7 @@ export interface WarningInput {
 }
 
 export function validateWarningInput(body: Record<string, unknown>): Check<WarningInput> {
+  if (body.warn_ref !== undefined && !isCaseRef(body.warn_ref)) return bad("warn_ref is invalid");
   if (!isSnowflake(body.user_id)) return bad("user_id must be a Discord snowflake");
   if (!isSnowflake(body.mod_id)) return bad("mod_id must be a Discord snowflake");
   const reason = optString(body.reason ?? "", "reason", MAX_REASON);
@@ -189,6 +191,7 @@ export function validateWarningInput(body: Record<string, unknown>): Check<Warni
   const proof = optString(body.proof_url, "proof_url", MAX_URL);
   for (const c of [reason, severity, proof]) if (!c.ok) return bad(c.error);
   return ok({
+    warn_ref: body.warn_ref as string | undefined,
     user_id: body.user_id,
     mod_id: body.mod_id,
     reason: v(reason) ?? "",

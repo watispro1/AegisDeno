@@ -225,6 +225,9 @@ pub async fn list_warnings(
 
 #[derive(Debug, Deserialize)]
 pub struct CreateWarningPayload {
+    /// Caller's stable id for the warning; makes a retried create overwrite
+    /// the same record instead of adding a duplicate.
+    pub warn_ref: Option<String>,
     pub user_id: String,
     pub mod_id: String,
     pub reason: String,
@@ -236,7 +239,11 @@ pub async fn create_warning(
     Path(guild_id): Path<String>,
     Json(payload): Json<CreateWarningPayload>,
 ) -> impl IntoResponse {
-    let warn_id = format!("w_{}", chrono::Utc::now().timestamp_micros());
+    let warn_id = match payload.warn_ref.as_deref() {
+        Some(r) if !r.is_empty() && r.len() <= 64 && r.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-') => r.to_string(),
+        Some(_) => return (StatusCode::BAD_REQUEST, Json(json!({ "error": "warn_ref is invalid" }))).into_response(),
+        None => format!("w_{}", chrono::Utc::now().timestamp_micros()),
+    };
     let key = format!("warn:{}:{}:{}", guild_id, payload.user_id, warn_id);
 
     let record = WarningRecord {

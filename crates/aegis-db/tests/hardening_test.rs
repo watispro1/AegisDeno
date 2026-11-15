@@ -271,3 +271,20 @@ fn constant_time_compare() {
     assert!(!secret_matches(b"abcd", b"abc"));
     assert!(!secret_matches(b"", b""));
 }
+
+#[tokio::test]
+async fn warning_ref_makes_retries_overwrite() {
+    let dir = tmp("warn_ref");
+    let router = router_with_secret(&dir, "s3cret");
+    let body = json!({ "warn_ref": "65f0c0ffee0000000000abcd", "user_id": "1", "mod_id": "2", "reason": "spam" });
+    for _ in 0..3 {
+        let (s, w) = call(&router, "POST", "/api/guilds/5/warnings", Some(body.clone()), Some("s3cret")).await;
+        assert_eq!(s, StatusCode::CREATED);
+        assert_eq!(w["warn_id"], "65f0c0ffee0000000000abcd");
+    }
+    let (_, list) = call(&router, "GET", "/api/guilds/5/warnings/1", None, Some("s3cret")).await;
+    assert_eq!(list["count"], 1);
+    let (bad, _) = call(&router, "POST", "/api/guilds/5/warnings", Some(json!({ "warn_ref": "../x", "user_id": "1", "mod_id": "2", "reason": "r" })), Some("s3cret")).await;
+    assert_eq!(bad, StatusCode::BAD_REQUEST);
+    let _ = fs::remove_dir_all(&dir);
+}

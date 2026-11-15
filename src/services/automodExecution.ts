@@ -256,7 +256,7 @@ async function enforceAutomod(
         return false;
       });
       if (ok) {
-        await addModerationCase({ guildId: message.guildId, userId: message.author.id, moderatorId: botId, action: "timeout", reason, details: `Automod, ${timeoutMinutes} minute(s)` });
+        await addModerationCase({ guildId: message.guildId, userId: message.author.id, moderatorId: botId, action: "timeout", reason, details: `Automod, ${timeoutMinutes} minute(s)`, targetTag: message.author.tag, durationMs: timeoutMinutes * 60_000 });
         outcome = `Timed out for ${timeoutMinutes} minute(s)`;
       } else {
         outcome = "Timeout failed (check my Moderate Members permission and role position)";

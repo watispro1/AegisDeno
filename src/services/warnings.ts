@@ -1,6 +1,7 @@
 import { WarningModel } from "../database/mongo";
 import { noteTrustChange } from "./trustHooks";
 import { getRustClient } from "../database/rustClient";
+import { mirrorToAegis } from "./aegisMirror";
 
 export interface Warning {
   _id: string;
@@ -32,15 +33,20 @@ export async function addWarning(
   });
   const obj = warning.toObject() as unknown as Warning;
   noteTrustChange(guildId, userId);
-  // Best-effort dual-write to AegisDB
-  getRustClient()
-    .createWarning(guildId, {
+  // Best-effort mirror to AegisDB (Mongo stays the source of truth). The Mongo
+  // _id is the AegisDB warning id, so a retried write overwrites, never duplicates.
+  const warnRef = String(warning._id);
+  void mirrorToAegis({
+    key: `warn:${guildId}:${userId}`,
+    label: `createWarning ${guildId}/${warnRef}`,
+    run: () => getRustClient().createWarning(guildId, {
+      warn_ref: warnRef,
       user_id: userId,
       mod_id: moderatorId,
       reason,
       proof_url: proofUrl,
-    })
-    .catch(() => null);
+    }),
+  });
   return { ...obj, _id: String(warning._id) };
 }
 

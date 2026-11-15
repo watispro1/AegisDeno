@@ -213,8 +213,9 @@ export function handleAegisDbRequest(
         const guildId = decodeURIComponent(warningsPostMatch[1]);
         const check = validateWarningInput(await readJsonObject(req));
         if (!check.ok) return sendJson(400, { error: check.error });
-        const input = check.value;
-        const warnId = `w_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+        const { warn_ref: warnRef, ...input } = check.value;
+        // A caller-supplied ref makes the key deterministic, so retries overwrite.
+        const warnId = warnRef ?? `w_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
         const record: WarningRecord = {
           warn_id: warnId,
           guild_id: guildId,

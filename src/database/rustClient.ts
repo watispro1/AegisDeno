@@ -191,6 +191,8 @@ export class AegisRustClient {
   async createWarning(
     guildId: string,
     data: {
+      /** Stable id (the bot's Mongo _id) so a retried create overwrites instead of duplicating. */
+      warn_ref?: string;
       user_id: string;
       mod_id: string;
       reason: string;
