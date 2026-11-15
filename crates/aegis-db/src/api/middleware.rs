@@ -1,6 +1,6 @@
 use axum::{
     extract::{Request, State},
-    http::{header::AUTHORIZATION, StatusCode},
+    http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
     Json,
@@ -8,34 +8,49 @@ use axum::{
 use std::sync::Arc;
 use crate::config::Config;
 
+/// Compares two secrets in time that depends only on the expected length.
+pub fn secret_matches(provided: &[u8], expected: &[u8]) -> bool {
+    if expected.is_empty() {
+        return false;
+    }
+    let mut diff: u8 = if provided.len() == expected.len() { 0 } else { 1 };
+    for (i, e) in expected.iter().enumerate() {
+        let p = provided.get(i).copied().unwrap_or(0);
+        diff |= p ^ e;
+    }
+    diff == 0
+}
+
+/// True when the request carries the admin secret (`x-aegis-secret` or
+/// `Authorization: Bearer`). With no secret configured (development only; the
+/// binary refuses to start that way elsewhere) every request is allowed.
+pub fn is_authorized(headers: &HeaderMap, secret: &str) -> bool {
+    if secret.is_empty() {
+        return true;
+    }
+    let expected = secret.as_bytes();
+    if let Some(val) = headers.get("x-aegis-secret") {
+        if secret_matches(val.as_bytes(), expected) {
+            return true;
+        }
+    }
+    if let Some(val) = headers.get(AUTHORIZATION) {
+        if let Some(token) = val.as_bytes().strip_prefix(b"Bearer ") {
+            if secret_matches(token, expected) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 pub async fn auth_middleware(
     State(config): State<Arc<Config>>,
     req: Request,
     next: Next,
 ) -> Response {
-    // If no secret configured, allow access (e.g. localhost development)
-    if config.secret.is_empty() {
+    if is_authorized(req.headers(), &config.secret) {
         return next.run(req).await;
-    }
-
-    // Check X-Aegis-Secret header
-    if let Some(val) = req.headers().get("x-aegis-secret") {
-        if let Ok(str_val) = val.to_str() {
-            if str_val == config.secret {
-                return next.run(req).await;
-            }
-        }
-    }
-
-    // Check Authorization: Bearer <secret>
-    if let Some(val) = req.headers().get(AUTHORIZATION) {
-        if let Ok(str_val) = val.to_str() {
-            if let Some(token) = str_val.strip_prefix("Bearer ") {
-                if token == config.secret {
-                    return next.run(req).await;
-                }
-            }
-        }
     }
 
     (

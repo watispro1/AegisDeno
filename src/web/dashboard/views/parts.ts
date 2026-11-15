@@ -34,7 +34,7 @@ export function pagerNav(base: string, query: (page: number) => string, page: nu
 export function modulePage(
   cfg: import("../../pages").SiteConfig,
   ctx: import("./layout").GuildContext,
-  o: { active: import("./layout").GuildSection; title: string; lead: string; path: string; body: string },
+  o: { active: import("./layout").GuildSection; title: string; lead: string; path: string; body: string; extraScripts?: string },
 ): string {
   const g = ctx.guild;
   return shell(cfg, {
@@ -43,6 +43,7 @@ export function modulePage(
     viewer: ctx.viewer,
     guild: ctx,
     active: o.active,
+    extraScripts: o.extraScripts,
     body: `${head(o.title, o.lead, [["Servers", "/dashboard"], [g.name, `/dashboard/${g.id}`], [o.title, null]])}${o.body}`,
   });
 }

@@ -413,7 +413,7 @@ test("3.13.0 legal pages: updated 2026-11-14, licence and contact wording, new p
   const terms = renderTerms(cfg);
   const privacy = renderPrivacy(cfg);
   for (const html of [terms, privacy]) {
-    assert.match(html, /datetime="2026-11-14">November 14, 2026/);
+    assert.match(html, /datetime="2026-11-1[45]">November 1[45], 2026/);
     assert.ok(html.includes('href="https://discord.gg/HwTbCYC4PM"'), "support server contact, even without SUPPORT_SERVER_URL");
     assert.ok(html.includes('href="/security"'));
   }

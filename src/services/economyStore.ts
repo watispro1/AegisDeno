@@ -147,7 +147,8 @@ export interface EconomyStore {
   recentTransactions(guildId: string, limit: number, userId?: string, filter?: TransactionFilter): Promise<Transaction[]>;
   listItems(guildId: string): Promise<ShopItem[]>;
   getItem(guildId: string, id: string): Promise<ShopItem | null>;
-  addItem(guildId: string, input: ShopItemInput): Promise<ShopItem | "duplicate" | "full">;
+  /** `maxItems` is the server's cap (MAX_SHOP_ITEMS unless it has Premium). */
+  addItem(guildId: string, input: ShopItemInput, maxItems?: number): Promise<ShopItem | "duplicate" | "full">;
   updateItem(guildId: string, id: string, input: ShopItemInput): Promise<ShopItem | "duplicate" | null>;
   removeItem(guildId: string, id: string): Promise<ShopItem | null>;
   /** Reserve one unit: true for unlimited stock or when stock > 0 (decremented atomically). */
@@ -293,8 +294,8 @@ export function memoryEconomyStore(seed: { config?: Partial<EconomyConfig>; now?
     },
     async listItems(guildId) { return items.filter(i => i.guildId === guildId).sort((a, b) => a.price - b.price || a.name.localeCompare(b.name)).map(i => ({ ...i })); },
     async getItem(guildId, id) { const i = items.find(x => x.guildId === guildId && x.id === id); return i ? { ...i } : null; },
-    async addItem(guildId, input) {
-      if (items.filter(i => i.guildId === guildId).length >= MAX_SHOP_ITEMS) return "full";
+    async addItem(guildId, input, maxItems = MAX_SHOP_ITEMS) {
+      if (items.filter(i => i.guildId === guildId).length >= maxItems) return "full";
       if (nameTaken(guildId, input.name)) return "duplicate";
       const item: ShopItem = { ...input, id: (++seq).toString(16).padStart(24, "0"), guildId, createdAt: new Date(now()) };
       items.push(item);

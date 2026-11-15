@@ -27,6 +27,7 @@ import { registerDigestRoutes } from "./routes/digest";
 import { registerMemberRoutes } from "./routes/members";
 import { registerInsightRoutes } from "./routes/insights";
 import { registerEconomyRoutes } from "./routes/economy";
+import { registerPremiumRoutes } from "./routes/premium";
 
 export {
   CASES_PER_PAGE,
@@ -65,6 +66,7 @@ export function createDashboardRouter(deps: DashboardDeps): Router {
   router.use(kit.rejectOperatorInput);
   registerAuthRoutes(router, kit);
   registerPickerRoutes(router, kit);
+  registerPremiumRoutes(router, kit, deps.premium);
   registerCaseRoutes(router, kit);
   registerAppealRoutes(router, kit);
   registerPanelRoutes(router, kit);

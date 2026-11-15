@@ -4,6 +4,8 @@ import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
 import { NOTICES } from "./notices";
 import { isDiscordCdnUrl } from "../cdn";
+import { premiumOffered } from "../../../config/paddle";
+import { PREMIUM_BADGE } from "../../../config/premium";
 
 export interface Viewer {
   userId: string;
@@ -34,6 +36,8 @@ export interface GuildContext {
   roleLimit?: ViewerRoleLimit;
   /** Other servers for the sidebar switcher (from the login's server list). */
   servers?: SwitcherServer[];
+  /** Whether the server has Aegis Premium (for the badge). Missing means no. */
+  premium?: boolean;
 }
 
 export type GuildSection =
@@ -41,7 +45,7 @@ export type GuildSection =
   | "moderation" | "automod" | "cases" | "appeals" | "watchlist" | "logging"
   | "welcome" | "verification" | "panels" | "tickets" | "starboard" | "suggestions" | "giveaways" | "polls"
   | "autoresponders" | "automations" | "announce"
-  | "activity" | "incident" | "trust" | "members" | "analytics" | "tools" | "modmail" | "digest" | "economy";
+  | "activity" | "incident" | "trust" | "members" | "analytics" | "tools" | "modmail" | "digest" | "economy" | "premium";
 
 interface NavItem { key: GuildSection; label: string; href: string; icon: string }
 
@@ -122,10 +126,15 @@ export function memberLabel(n: number): string {
   return `${v.toLocaleString("en-US")} member${v === 1 ? "" : "s"}`;
 }
 
+/** Shown at the end of General only when Paddle is configured (Premium is hidden otherwise). */
+export const PREMIUM_NAV_ITEM: NavItem = { key: "premium", label: "Premium", href: "/premium", icon: "✦" };
+
 function sidebar(ctx: GuildContext, active: GuildSection): string {
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}`;
-  const groups = MODULE_NAV.map(grp => {
+  const offered = premiumOffered();
+  const groups = MODULE_NAV.map(group => {
+    const grp = offered && group.group === "General" ? { ...group, items: [...group.items, PREMIUM_NAV_ITEM] } : group;
     const hasActive = grp.items.some(i => i.key === active);
     return `<li class="nav-group"><details class="nav-group-details" open data-nav-group="${esc(grp.group)}"${hasActive ? ' data-active-group=""' : ""}>
       <summary class="nav-group-title"><span>${esc(grp.group)}</span><span class="nav-caret" aria-hidden="true">▾</span></summary>
@@ -137,7 +146,7 @@ function sidebar(ctx: GuildContext, active: GuildSection): string {
 
   return `<aside class="app-side" id="dash-sidebar" data-drawer aria-label="Server menu">
     <div class="side-head">
-      <a class="side-brand" href="${base}" title="${esc(g.name)} overview">${iconOrInitial(g.iconUrl, g.name, "g-icon")}<span class="side-brand-text"><span class="side-brand-name">${esc(g.name)}</span><span class="side-brand-meta">${esc(memberLabel(g.memberCount))}</span></span></a>
+      <a class="side-brand" href="${base}" title="${esc(g.name)} overview">${iconOrInitial(g.iconUrl, g.name, "g-icon")}<span class="side-brand-text"><span class="side-brand-name">${esc(g.name)}</span><span class="side-brand-meta">${esc(memberLabel(g.memberCount))}${ctx.premium ? ` · <span class="premium-badge">${esc(PREMIUM_BADGE)}</span>` : ""}</span></span></a>
       <button class="drawer-close" type="button" data-drawer-close aria-label="Close menu">✕</button>
     </div>
     <div class="side-filter" data-js-only>
@@ -214,7 +223,7 @@ const APP_CHROME = `<div class="nav-progress" data-nav-progress aria-hidden="tru
 
 /* Shell */
 
-export function shell(cfg: SiteConfig, o: { title: string; path: string; body: string; viewer?: Viewer; scripts?: boolean; guild?: GuildContext; active?: GuildSection }): string {
+export function shell(cfg: SiteConfig, o: { title: string; path: string; body: string; viewer?: Viewer; scripts?: boolean; guild?: GuildContext; active?: GuildSection; extraScripts?: string }): string {
   const v = cfg.assetVersion ? `?v=${encodeURIComponent(cfg.assetVersion)}` : "";
   const support = cfg.supportUrl && /^https:\/\//.test(cfg.supportUrl) ? ` · <a href="${esc(cfg.supportUrl)}" rel="noopener noreferrer">Support server</a>` : "";
   const footer = `<p class="muted dash-foot"><span class="dash-foot-v">Dashboard v${esc(DASHBOARD_VERSION)}</span>. <a href="/dashboard/changelog">Dashboard changelog</a>: what changed in the dashboard. <span class="dash-foot-links"><a href="/docs">Docs</a> · <a href="/status">Status</a>${support}</span></p>`;
@@ -266,7 +275,7 @@ export function shell(cfg: SiteConfig, o: { title: string; path: string; body: s
     noindex: true,
     omitCanonical: true,
     assetVersion: cfg.assetVersion,
-    scripts: o.scripts === false ? "" : `<script src="/assets/dashboard.js${v}" defer></script>`,
+    scripts: o.scripts === false ? "" : `<script src="/assets/dashboard.js${v}" defer></script>${o.extraScripts ?? ""}`,
   });
 }
 

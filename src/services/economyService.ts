@@ -6,6 +6,7 @@
  */
 import { randomInt as cryptoRandomInt } from "node:crypto";
 import { logger } from "../utils/logger";
+import { premiumLimit } from "./premium";
 import {
   MAX_BALANCE, dailyClaim, workClaim, applyEconomySettings, validateShopItem,
   type EconomyConfig, type EconomySettingsInput, type ShopItem, type ShopItemInput,
@@ -232,8 +233,9 @@ export class EconomyService {
   async addItem(guildId: string, raw: Parameters<typeof validateShopItem>[0]) {
     const v = validateShopItem(raw);
     if (!v.ok) return v;
-    const r = await this.store.addItem(guildId, v.value);
-    if (r === "full") return { ok: false as const, errors: { name: "The shop is full (50 items). Remove one first." } };
+    const max = await premiumLimit(guildId, "shopItems");
+    const r = await this.store.addItem(guildId, v.value, max);
+    if (r === "full") return { ok: false as const, errors: { name: `The shop is full (${max} items). Remove one first.` } };
     if (r === "duplicate") return { ok: false as const, errors: { name: "An item with that name already exists." } };
     return { ok: true as const, value: r };
   }

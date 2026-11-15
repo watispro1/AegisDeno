@@ -18,6 +18,8 @@ import { encodeScheduledPayload, scheduledPayloadPreview } from "../../services/
 import { updateGuildConfig } from "../../services/configuration";
 import { isObfuscatedChannel } from "../../utils/channels";
 import { logger } from "../../utils/logger";
+import { premiumLimit } from "../../services/premium";
+import { PREMIUM_LIMITS } from "../../config/premium";
 import type { Actor, PanelResult } from "./data";
 import { suggestionMatch, suggestionPipeline, toPollRow, type PollRow, type SuggestionSort } from "./communityQuery";
 
@@ -132,7 +134,7 @@ interface SuggestionDoc {
   upvotes?: string[]; downvotes?: string[]; reviewedBy?: string | null; reviewReason?: string | null; createdAt?: Date;
 }
 
-export const MAX_AUTORESPONDERS = 50;
+export const MAX_AUTORESPONDERS: number = PREMIUM_LIMITS.autoresponders.free;
 const DAY_MS = 86_400_000;
 
 /** The last `days` UTC day keys (YYYY-MM-DD), oldest first. */
@@ -194,7 +196,8 @@ export function mongoModuleData(client: Client): ModuleData {
     },
     async addAutoResponder(guildId, input, actor) {
       const existing = await getAutoResponders(guildId);
-      if (existing.length >= MAX_AUTORESPONDERS) return { ok: false, error: `This server already has ${MAX_AUTORESPONDERS} autoresponders, the most Aegis keeps. Delete one first.` };
+      const max = await premiumLimit(guildId, "autoresponders");
+      if (existing.length >= max) return { ok: false, error: `This server already has ${max} autoresponders, the most Aegis keeps. Delete one first.` };
       if (await autoResponderExists(guildId, input.trigger, input.matchType)) return { ok: false, error: "An autoresponder with that trigger and match type already exists." };
       const created = await addAutoResponder({ guildId, ...input, createdBy: actor.userId });
       if (!created) return { ok: false, error: "The autoresponder could not be saved. Try again in a moment." };

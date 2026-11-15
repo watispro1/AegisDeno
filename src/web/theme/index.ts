@@ -32,6 +32,7 @@ import { cssGlassDashboard } from "./glassDashboard";
 import { cssShowcase } from "./showcase";
 import { cssDashboardRefresh } from "./dashboardRefresh";
 import { cssSiteRefresh } from "./siteRefresh";
+import { cssPremium } from "./premium";
 
 /* Concatenated in this order; later rules override earlier ones. */
 export const styles =
@@ -52,6 +53,7 @@ export const styles =
   cssDashboardTrustPages +
   cssDashboardCommunityPages +
   cssShowcase +
+  cssPremium +
   cssThemeSurfaces +
   cssGlass +
   cssGlassDashboard +

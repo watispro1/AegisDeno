@@ -57,7 +57,7 @@ export const WHY_REASONS: WhyReason[] = [
     id: "free",
     icon: "star",
     title: "Free, with nothing locked",
-    html: `<p>There is no paid tier, no premium flag in the code and no feature held back. Every command on the <a href="/commands">commands page</a> works in every server.</p>`,
+    html: `<p>No feature is held back. Every command on the <a href="/commands">commands page</a> works in every server. The optional <a href="/premium">Aegis Premium</a> subscription only raises a few existing limits (such as autoresponders and shop items) and adds a badge.</p>`,
     proof: `The <a href="/commands">commands page</a> is generated from the bot's own command definitions.`,
   },
   {

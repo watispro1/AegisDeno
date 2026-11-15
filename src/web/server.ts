@@ -24,6 +24,7 @@ import {
   renderNotFound,
   renderWhy,
   renderRoadmap,
+  renderPremium,
   SiteConfig,
   Stats,
 } from "./pages";
@@ -42,10 +43,12 @@ import { mongoRateLimitStore } from "./dashboard/rateLimitStore";
 import { mongoAuditStore } from "./dashboard/audit";
 import { mongoDashboardExtras } from "./dashboard/extrasMongo";
 import { dashboardScript } from "./dashboard/client";
+import { premiumScript } from "./dashboard/clientPremium";
 import { securityHeaders } from "./securityHeaders";
-import { startAegisBackend } from "../database/aegisDb";
 import { databaseConnected } from "../services/statusMonitor";
-import { registerApiRoutes } from "./apiRoutes";
+import { registerApiRoutes, startBackendProbe } from "./apiRoutes";
+import { registerPaddleWebhook } from "./paddleWebhook";
+import { missingPaddleSettings, premiumOffered, readPaddleConfig } from "../config/paddle";
 import { registerSiteRoutes } from "./siteRoutes";
 import { apiRateLimit, compression, siteErrorHandler } from "./serverMiddleware";
 
@@ -64,6 +67,7 @@ const ASSET_VERSION = createHash("sha256")
   .update(themeInitScript)
   .update(dashboardScript)
   .update(statusScript)
+  .update(premiumScript)
   .digest("hex")
   .slice(0, 8);
 
@@ -128,6 +132,7 @@ const ROUTES: RouteDef[] = [
   // Registered before the /dashboard router, which would otherwise treat it as a server ID.
   { path: "/dashboard/changelog", render: c => renderDashboardChangelog(c), priority: "0.4" },
   { path: "/status", render: async (c, x) => renderStatus(c, await x.status()), priority: "0.6", live: true },
+  { path: "/premium", render: c => renderPremium(c, premiumOffered()), priority: "0.5" },
   { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },
   { path: "/terms", render: c => renderTerms(c), priority: "0.4" },
   { path: "/security", render: c => renderSecurity(c), priority: "0.3" },
@@ -143,6 +148,7 @@ const SUGGESTABLE = [
   { href: "/changelog", label: "Changelog" },
   { href: "/roadmap", label: "What's next" },
   { href: "/status", label: "Status" },
+  { href: "/premium", label: "Premium" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
   { href: "/security", label: "Security" },
@@ -156,7 +162,8 @@ export interface WebServerOptions {
 }
 
 export function startWebServer(client: Client, opts: WebServerOptions = {}) {
-  void startAegisBackend().catch(() => null);
+  // main() starts AegisDB before the web server; here we only watch its health.
+  startBackendProbe();
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
   const cfg = siteConfig();
@@ -196,6 +203,7 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   app.get("/assets/site.css", (_req, res) => asset(res, "text/css", styles, 31536000));
   app.get("/assets/site.js", (_req, res) => asset(res, "text/javascript", clientScript, 31536000));
   app.get("/assets/dashboard.js", (_req, res) => asset(res, "text/javascript", dashboardScript, 31536000));
+  app.get("/assets/premium.js", (_req, res) => asset(res, "text/javascript", premiumScript, 31536000));
   app.get("/assets/status.js", (_req, res) => asset(res, "text/javascript", statusScript, 31536000));
   app.get("/assets/theme-init.js", (_req, res) => asset(res, "text/javascript", themeInitScript, 31536000));
   app.get("/assets/favicon.svg", (_req, res) => asset(res, "image/svg+xml", faviconSvg, 31536000));
@@ -207,6 +215,9 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   registerApiRoutes(app, {
     online, databaseReady: opts.databaseReady ?? databaseConnected, stats: () => collectStats(client), version: SITE_VERSION, startedAt: STARTED_AT,
   });
+  // Aegis Premium (Paddle Billing). Raw body, verified signature; 503 until PADDLE_WEBHOOK_SECRET is set.
+  registerPaddleWebhook(app);
+  if (!readPaddleConfig()) logger.info(`Aegis Premium hidden; Paddle settings missing: ${missingPaddleSettings().join(", ")}`);
   registerSiteRoutes(app, { origin, inviteUrl: cfg.inviteUrl, startedAt: STARTED_AT, sitemap: ROUTES });
 
   const send = (res: Response, html: string, code = 200, cacheControl?: string) => {

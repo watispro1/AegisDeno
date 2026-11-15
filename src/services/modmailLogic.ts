@@ -3,6 +3,7 @@
  * No Discord or Mongo here, so every rule is unit-tested directly.
  * The Discord side lives in modmailService.ts.
  */
+import { PREMIUM_LIMITS } from "../config/premium";
 import { normalizeEmbedSpec, type EmbedSpec } from "./embedSpec";
 import type { MediaFlagReason, MediaSafetyMode } from "./mediaSafety";
 import { guardedRelayLine } from "./mediaSafetyRepost";
@@ -28,7 +29,8 @@ export interface ModmailConfig {
 
 export const MODMAIL_MAX_BLOCKED = 1000;
 export const MODMAIL_PREFIX_MAX = 8;
-export const MODMAIL_MAX_SNIPPETS = 50;
+/** Free cap on snippets per server; Aegis Premium raises it (src/config/premium.ts). */
+export const MODMAIL_MAX_SNIPPETS: number = PREMIUM_LIMITS.modmailSnippets.free;
 export const MODMAIL_SNIPPET_NAME = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 export const MODMAIL_SNIPPET_MAX = 1800;
 /** Transcript lines kept per ticket. */

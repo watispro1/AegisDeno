@@ -240,6 +240,9 @@ export const command: Command = {
           reason,
           details: `Deleted messages: ${deleteDays} day(s)${durationSeconds ? ` | Temporary: ${durationLabel}` : ""}`,
           proofUrl: proof?.url ?? null,
+          targetTag: target.tag,
+          modTag: interaction.user.tag,
+          durationMs: durationSeconds ? durationSeconds * 1000 : undefined,
         });
 
         let unbanScheduled = false;

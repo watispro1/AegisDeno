@@ -5,7 +5,7 @@
  * commands racing on one account cannot both pass.
  */
 import { TtlCache } from "../utils/ttlCache";
-import { MAX_BALANCE, MAX_SHOP_ITEMS, itemNameKey, normalizeEconomyConfig, type EconomyConfig, type ShopItem } from "./economyLogic";
+import { MAX_BALANCE, MAX_SHOP_ITEMS, MAX_SHOP_ITEMS_ANY, itemNameKey, normalizeEconomyConfig, type EconomyConfig, type ShopItem } from "./economyLogic";
 import { TRANSACTION_TYPES, leaderboardScore, withBounds, type Account, type AccountUpdate, type EconomyStore, type InventoryRow, type LeaderboardRow, type LeaderboardSort, type Transaction, type TransactionFilter, type TransactionType } from "./economyStore";
 import { isItemEffect } from "./economyProgress";
 
@@ -270,7 +270,7 @@ export function mongoEconomyStore(models: EconomyModels = defaultModels()): Econ
       return rows.map(toTx);
     },
     async listItems(guildId) {
-      const rows = await models.item.find({ guildId }).sort({ price: 1, name: 1 }).limit(MAX_SHOP_ITEMS).lean();
+      const rows = await models.item.find({ guildId }).sort({ price: 1, name: 1 }).limit(MAX_SHOP_ITEMS_ANY).lean();
       return rows.map(toItem);
     },
     async getItem(guildId, id) {
@@ -278,8 +278,8 @@ export function mongoEconomyStore(models: EconomyModels = defaultModels()): Econ
       const d = await models.item.findOne({ guildId, _id: id }).lean();
       return d ? toItem(d) : null;
     },
-    async addItem(guildId, input) {
-      if ((await models.item.countDocuments({ guildId })) >= MAX_SHOP_ITEMS) return "full";
+    async addItem(guildId, input, maxItems = MAX_SHOP_ITEMS) {
+      if ((await models.item.countDocuments({ guildId })) >= maxItems) return "full";
       try {
         const doc = await models.item.create({ guildId, ...input, nameKey: itemNameKey(input.name), createdAt: new Date() });
         return toItem(doc.toObject());

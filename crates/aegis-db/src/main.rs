@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use aegis_db::{api, Config, AegisDatabase};
+use aegis_db::{api, config::is_dev_environment, Config, AegisDatabase};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -17,6 +17,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let config = Arc::new(Config::parse());
+    config.validate(is_dev_environment())?;
+
+    // Bind the port before touching the data directory: if another instance
+    // already owns the port, exit without opening (and replaying) its files.
+    let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
+    let listener = tokio::net::TcpListener::bind(addr).await?;
 
     tracing::info!(
         "Initializing AegisDB at path '{}'...",
@@ -41,11 +47,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let router = api::create_router(db, config.clone());
-
-    let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
     tracing::info!("AegisDB backend listening on http://{}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, router)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
