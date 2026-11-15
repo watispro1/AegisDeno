@@ -6,7 +6,7 @@
  */
 import type { Router } from "express";
 import type { PanelResult } from "../data";
-import { MAX_AUTORESPONDERS } from "../moduleData";
+import { premiumLimit } from "../../../services/premium";
 import { isResponderId, isTaskId, parseAnnouncement, parseAutoResponder, parseAutomation } from "../moduleValidation";
 import { checkbox, type FormBody } from "../validation";
 import { submittedValues, type GuildContext } from "../views";
@@ -26,7 +26,7 @@ export function registerAutomationRoutes(router: Router, k: RouteKit): void {
 
   async function arPage(ctx: GuildContext, noticeCode: string | null, state?: FormState): Promise<string> {
     const [rows, snapshot] = await Promise.all([modules.listAutoResponders(ctx.guild.id), deps.data.loadSettings(ctx.guild.id)]);
-    return renderAutoResponders(deps.site, ctx, { rows, enabled: snapshot.guild.autorespondersEnabled !== false, noticeCode, state, max: MAX_AUTORESPONDERS });
+    return renderAutoResponders(deps.site, ctx, { rows, enabled: snapshot.guild.autorespondersEnabled !== false, noticeCode, state, max: await premiumLimit(ctx.guild.id, "autoresponders") });
   }
 
   router.get("/:guildId/autoresponders", ...guildGet, async (req, res, next) => {

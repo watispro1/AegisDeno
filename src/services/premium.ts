@@ -6,11 +6,14 @@
  * that call (and is not cached), so a database blip never blocks anything free.
  */
 import { PREMIUM_CACHE_MS, limitValue, type PremiumLimitKey } from "../config/premium";
+import mongoose from "mongoose";
 import { logger } from "../utils/logger";
 import { applyPaddleEvent, entitlementActive, primaryEntitlement, subscriptionIdOf, type Entitlement, type PaddleEvent } from "./premiumState";
 import { mongoPremiumStore, type PremiumStore } from "./premiumStore";
 
 let store: PremiumStore | null = null;
+/** Set when a test or caller injected its own store; the default is Mongo. */
+let injected = false;
 const cache = new Map<string, { premium: boolean; at: number }>();
 const MAX_CACHE = 5_000;
 
@@ -22,6 +25,7 @@ export function premiumStore(): PremiumStore {
 /** Swap the store (tests) and forget every cached answer. */
 export function setPremiumStore(next: PremiumStore | null): void {
   store = next;
+  injected = next !== null;
   cache.clear();
 }
 
@@ -33,6 +37,8 @@ export function clearPremiumCache(guildId?: string): void {
 /** Whether a server has Premium right now (cached briefly). */
 export async function isPremium(guildId: string | null | undefined, nowMs = Date.now()): Promise<boolean> {
   if (!guildId || !/^\d{17,20}$/.test(guildId)) return false;
+  // The default (Mongo) store with no connection: answer free at once instead of waiting on mongoose's buffer.
+  if (!injected && mongoose.connection.readyState !== 1) return false;
   const hit = cache.get(guildId);
   if (hit && nowMs - hit.at < PREMIUM_CACHE_MS) return hit.premium;
   try {
