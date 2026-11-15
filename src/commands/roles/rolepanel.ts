@@ -17,21 +17,23 @@ import { scopedModalId } from "../../utils/modal";
 import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
 import { memberTopRolePosition, roleAboveActor } from "../../permissions/hierarchy";
 import type { Command } from "../../types/discord";
-import { createRolePanel, getRolePanels, deleteRolePanel } from "../../services/rolePanelService";
+import { createRolePanel } from "../../services/rolePanelService";
+import { deletePanel, listPanels, panelAutocomplete } from "./rolepanel/manage";
+import { botChannelProblem, botRoleProblem, dashboardRow, POST_EMBED_PERMISSIONS } from "../config/kit/setupKit";
 import { normalizePanelStyle } from "../../services/rolePanelLogic";
 import { getGuildConfig, MAX_ROLES_PER_PANEL } from "../../services/configuration";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("rolepanel")
-    .setDescription("Self-assign role panels with buttons or a dropdown menu.")
+    .setDescription("Role panels: members pick their own roles with buttons or a dropdown.")
     .setDMPermission(false)
     .addSubcommand(sub =>
       sub
         .setName("create")
-        .setDescription("Open a form to create a new role panel.")
-        .addChannelOption(opt => opt.setName("channel").setDescription("Target channel").addChannelTypes(ChannelType.GuildText).setRequired(true))
-        .addRoleOption(opt => opt.setName("role1").setDescription("First role").setRequired(true))
+        .setDescription("Post a role panel (up to 3 roles); a form asks for the title, text and labels.")
+        .addChannelOption(opt => opt.setName("channel").setDescription("Text channel for the panel").addChannelTypes(ChannelType.GuildText).setRequired(true))
+        .addRoleOption(opt => opt.setName("role1").setDescription("First role (must be below Aegis's role)").setRequired(true))
         .addRoleOption(opt => opt.setName("role2").setDescription("Second role (optional)").setRequired(false))
         .addRoleOption(opt => opt.setName("role3").setDescription("Third role (optional)").setRequired(false))
         .addStringOption(opt =>
@@ -54,19 +56,21 @@ export const command: Command = {
     .addSubcommand(sub =>
       sub
         .setName("list")
-        .setDescription("List active role panels in this server.")
+        .setDescription("List this server's role panels, a page at a time (only you see it).")
     )
     .addSubcommand(sub =>
       sub
         .setName("delete")
-        .setDescription("Delete a role panel record.")
-        .addStringOption(opt => opt.setName("id").setDescription("Panel ID (from /rolepanel list)").setRequired(true))
+        .setDescription("Delete a role panel and its message (asks to confirm).")
+        .addStringOption(opt => opt.setName("id").setDescription("Panel; start typing its title to pick it").setRequired(true).setAutocomplete(true))
     ),
 
   category: "roles",
   guildOnly: true,
   // Used by subcommands, buttons or background work; requested on the invite, checked where used.
   featurePermissions: [PermissionFlagsBits.ManageRoles],
+
+  autocomplete: panelAutocomplete,
 
   async execute(interaction) {
     if (!interaction.guild) return;
@@ -115,6 +119,24 @@ export const command: Command = {
           content: `❌ You can't put <@&${tooHigh.id}> on a role panel: it is equal to or above your highest role.`,
           flags: MessageFlags.Ephemeral,
         });
+        return;
+      }
+
+      if (requiredRole && requiredRole.id === interaction.guild.id) {
+        await interaction.reply({ content: "❌ Everyone has @everyone, so it can't be the required role. Leave `required_role` empty instead.", flags: MessageFlags.Ephemeral });
+        return;
+      }
+      // Aegis hands these roles out when members click, so check it can before opening the form.
+      for (const role of picked) {
+        const problem = botRoleProblem(interaction.guild, role, "on a role panel");
+        if (problem) {
+          await interaction.reply({ content: problem, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
+          return;
+        }
+      }
+      const channelProblem = await botChannelProblem(interaction.guild, channel as never, POST_EMBED_PERMISSIONS);
+      if (channelProblem) {
+        await interaction.reply({ content: channelProblem, flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -240,83 +262,18 @@ export const command: Command = {
                 { name: "🔒 Required role", value: requiredRole ? `<@&${requiredRole.id}>` : "None", inline: true },
               )
               .setTimestamp()
-          ]
+          ],
+          components: [dashboardRow(interaction.guild.id, "panels")],
+          allowedMentions: { parse: [] },
         });
       } else {
-        await modalResponse.editReply("❌ Failed to create role panel. Check my permissions in the target channel.");
+        await modalResponse.editReply("❌ Couldn't post the role panel. Check that Aegis can **View Channel**, **Send Messages** and **Embed Links** in that channel.");
       }
       return;
     }
 
-    // list
-    if (subcommand === "list") {
-      const panels = await getRolePanels(interaction.guild.id);
-      
-      if (panels.length === 0) {
-        const emptyEmbed = new EmbedBuilder()
-          .setColor(0x9B59B6)
-          .setTitle("🎭 Active Role Panels")
-          .setDescription("ℹ️ No role panels configured on this server.")
-          .setFooter({ text: "Create one using /rolepanel create" });
-        await interaction.reply({ embeds: [emptyEmbed], flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const embed = new EmbedBuilder()
-        .setTitle("🎭 Active Role Panels")
-        .setColor(0x9B59B6)
-        .setDescription(
-          panels
-            .map(p => {
-              const extras = [
-                p.panelStyle === "dropdown" ? "Dropdown" : "Buttons",
-                p.mode === "exclusive" ? "pick one" : null,
-                p.requiredRoleId ? `requires <@&${p.requiredRoleId}>` : null,
-              ].filter(Boolean).join(" · ");
-              return `**ID:** \`${p.id}\`\n> **Title:** ${p.title}\n> **Location:** <#${p.channelId}>\n> **Roles:** ${p.roles.map(r => `<@&${r.roleId}>`).join(", ")}\n> **Style:** ${extras}`;
-            })
-            .join("\n\n")
-        )
-        .setFooter({ text: `Total Panels: ${panels.length}` })
-        .setTimestamp();
-
-      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    // delete
-    if (subcommand === "delete") {
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
-        await interaction.reply({ content: "❌ You need `Manage Roles` permission to delete role panels.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      const id = interaction.options.getString("id", true);
-      const ok = await deleteRolePanel(interaction.guild, id);
-      
-      if (ok) {
-        await interaction.editReply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0x57F287)
-              .setTitle("🗑️ Role Panel Deleted")
-              .setDescription(`Panel ID \`${id}\` and its message in Discord have been deleted.`)
-              .setTimestamp()
-          ]
-        });
-      } else {
-        await interaction.editReply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0xED4245)
-              .setTitle("❌ Panel Not Found")
-              .setDescription(`Could not find a panel with ID \`${id}\`. Use \`/rolepanel list\` to see active panels.`)
-          ]
-        });
-      }
-      return;
-    }
+    if (subcommand === "list") { await listPanels(interaction, interaction.guild); return; }
+    if (subcommand === "delete") { await deletePanel(interaction, interaction.guild); return; }
   },
 };
 
