@@ -8,6 +8,25 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [1.9.0] - 2026-11-14
+
+Dashboard 1.9.0. Glass v3: a deeper glass treatment on the public site and a
+full Glass theme for the dashboard. The Light theme is unchanged. Released
+alongside bot version 3.14.0. No new environment variables or OAuth scopes.
+
+### Added
+- Full Glass dashboard: a frosted sidebar, floating top bar, recessed inputs
+  and springy toggles, with glass cards, fieldsets, tables, chips, the Get
+  started checklist, activity, charts, previews and the palette.
+  Toasts, the unsaved-changes bar and dialogs are frosted, with solid
+  fallbacks. It follows the theme already chosen in the picker.
+
+### Changed
+- Glass on the site goes deeper: sheen, a top highlight, hairline edges,
+  two-step shadows, a highlight sweep on hover and a spring press. Blur is
+  used only on floating parts, with a no-blur fallback, and reduced-motion and
+  reduced-transparency settings turn the effects off.
+
 ## [1.8.0] - 2026-11-14
 
 Dashboard 1.8.0. A first-run checklist and recent activity on the overview, and
