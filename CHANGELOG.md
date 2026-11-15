@@ -9,6 +9,102 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.14.0] - 2026-11-14
+
+Command upgrades across moderation, general and community, economy, and
+config, automod and server setup, with the bug fixes found along the way.
+Nothing was renamed or removed: every existing command, subcommand and option
+keeps its name, type, order and required flag, and new options are optional.
+Upgrade notes: new autocompletes, options and subcommands (`/suggest list`,
+`/logging category`, `/welcome role`, `/automod words list` and `words clear`),
+so commands are re-registered on deploy (or run `npm run deploy`). No
+migration, new permissions or environment variables. Released alongside
+dashboard 1.9.0.
+
+### Added
+- Moderation: `/unban` autocompletes `user_id` from the server's ban list,
+  searchable by name, ID or reason (no Developer Mode needed). Reason presets
+  on `/purge`, `/unban`, `/removetimeout`, `/clearwarnings`, `/lock`,
+  `/massban` and `/case edit`. `/purge` `before_message` and `after_message`
+  accept a message link as well as an ID. `/removetimeout` gets optional
+  `reason` and `notify`, and `/clearwarnings` an optional `reason`.
+- `/help` navigation: ◀ / ▶ and Home buttons, paged categories, and buttons
+  from a command's manual back into its category and the hub.
+- Jump buttons after posting with `/announce`, `/embed`, `/giveaway`, `/poll`
+  and `/suggest`, and on `/remindme set` (with Later (+1h) and Cancel
+  reminder).
+- New `/suggest list` subcommand (status filter, paged, votes and jump links).
+- `/serverinfo` Stickers list and a paged channel tree; `/channelinfo`
+  Overwrites list and Open channel link; optional `private` on `/ping`,
+  `/about` and `/channelinfo`, and `view` on `/about`.
+- Economy: optional `quantity` on `/shop buy` and `/shop sell`, and amount
+  autocomplete on `/deposit`, `/withdraw`, `/pay`, `/gamble` and `/use`.
+  Amounts accept `2.5k`, `1m`, `1,500`, `all`/`max` and `half`.
+- Setup: `/automod words list` and `words clear`, `/logging category`,
+  `/welcome role` for the auto-role, and dashboard links on the setup
+  commands. `/rolepanel delete` autocompletes panel IDs.
+
+### Changed
+- Paged lists instead of cut-off text: `/warn` history, `/timeout` case
+  history (up to 25), `/userinfo` roles, warnings and cases, `/giveaway list`,
+  `/starboard list`, `/case search` (up to 50), `/dashboard` roles,
+  `/autoresponder list`, `/automation list`, `/rolepanel list` and
+  `/developer guilds`.
+- Up-front checks with clear errors: hierarchy and membership on `/kick`
+  confirm, channel types and Aegis's permissions on `/announce`, `/embed`,
+  `/logging`, `/welcome`, `/config`, `/ticket`, `/verify`, `/rolepanel` and
+  `/automation`, and wallet, stock and limits on `/shop buy`.
+- Confirmations before destructive actions: `/shop remove`, `/ticket close`
+  and `remove`, `/verify disable`, `/preset apply` (shows what will change),
+  `/autoresponder remove` and `delete`, `/automation cancel`,
+  `/rolepanel delete` and `/sync`.
+- Economy replies are embeds that show your wallet (and bank where it
+  matters); cooldowns read "in 2h 13m (at 14:05)".
+- `/automod` replies are private, and every change shows the rule's current
+  settings.
+- `/dashboard` shows warning and case totals, mod log, escalation,
+  verification and watchlist to staff only, and `/activitysummary` is listed
+  for staff only.
+- `/case view` finds warning IDs too, and `/case` colours each action and
+  greys out revoked cases.
+- `/automation` durations accept `1h30m` and `2 days`.
+
+### Fixed
+- `/ban`: the temp-ban DM now says how long the ban lasts, and confirming a
+  ban another moderator already made no longer bans twice.
+- `/kick`: a member who left or changed roles during the prompt no longer gets
+  a "you were kicked" DM before the kick fails.
+- `/warn`: the quick "Timeout (10m)" action no longer shortens a longer
+  timeout, and can be retried after a failure.
+- `/case view` no longer says "No case" for warning IDs.
+- Economy: two `/shop buy` calls for the same role item at once could charge
+  twice. Balance-changing commands now run one at a time per member.
+- `/daily` "next claim" and "keep the streak" now agree; `/balance` no longer
+  promises crime protection where crime is off; `/shop edit` refuses
+  contradictory options instead of silently picking one.
+- `/embed` and `/announce`: invalid colours and links are refused with a clear
+  error instead of being replaced, crashing the post or failing at send; the
+  preview no longer expires while the edit form is open.
+- `/dashboard` no longer shows staff settings to every member.
+- `/ping` Refresh pressed by someone else no longer says "This interaction
+  failed"; `/about`'s database ping can no longer hang; `/avatar` Open full
+  size links the view on screen.
+- `/giveaway` removes the posted message if saving fails; `/poll` and
+  `/suggest` refuse whitespace-only text; `/starboard` checks the trigger
+  emoji and no longer overflows its config field.
+- `/automod` no longer posts blocked words publicly.
+- `/logging channel` and `toggle` no longer overwrite dashboard edits, the
+  status card's toggle updates after a click, and Send Test reports real
+  failures.
+- `/welcome message` is capped at 1000 characters, the most the config
+  stores, instead of silently falling back to the default.
+- `/ticket setup` no longer times out, and `/ticket rename` handles Discord's
+  rename limit instead of hanging.
+- `/preset apply` keeps the server's own blocked words and warning expiry.
+- `/rolepanel list` and `/developer commands` stay within embed limits;
+  `/automation repeat` needs at least 1 minute between runs; `/config view`
+  no longer shows `<#null>`.
+
 ## [3.13.0] - 2026-11-14
 
 Trust Score bar, licence change and updated Terms and Privacy. **From this

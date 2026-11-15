@@ -18,7 +18,7 @@ review cases and change settings in a web dashboard.
 | Roadmap | https://aegisdeno.fly.dev/roadmap |
 | Support server | https://discord.gg/HwTbCYC4PM |
 | Security | https://aegisdeno.fly.dev/security (report privately, see [`SECURITY.md`](./SECURITY.md)) |
-| Current version | bot 3.13.0, dashboard 1.8.0 |
+| Current version | bot 3.14.0, dashboard 1.9.0 |
 
 > **Self-hosting and the source.** The source code is public so it can be read
 > and reviewed. It is not open source: copying, modifying, redistributing or

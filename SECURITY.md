@@ -9,8 +9,8 @@ Only the latest release gets security fixes.
 
 | Component | Supported | Not supported |
 | --- | --- | --- |
-| Bot | 3.13.x | 3.12.x and older |
-| Web dashboard | 1.8.x | 1.7.x and older |
+| Bot | 3.14.x | 3.13.x and older |
+| Web dashboard | 1.9.x | 1.8.x and older |
 
 The running versions are shown in the website footer, at the bottom of every
 dashboard page, and in `/about`.

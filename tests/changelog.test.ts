@@ -298,15 +298,30 @@ test("dashboard 1.7.0 themes and site content: released 2026-11-14", () => {
   assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
 
-test("dashboard 1.8.0 checklist, activity and site round 3: newest dashboard release", () => {
+test("dashboard 1.8.0 checklist, activity and site round 3: released 2026-11-14", () => {
   const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
-  assert.equal(dash[0].version, "1.8.0");
-  assert.equal(dash[0].date, "2026-11-14");
-  assert.equal(DASHBOARD_VERSION, "1.8.0");
-  assert.ok(dash[0].notes.join(" ").includes("3.13.0"), "names the bot release it shipped with");
-  assert.deepEqual(dash[0].sections.map((s) => s.title), ["Added", "Changed", "Fixed"]);
-  const text = dash[0].sections.flatMap((s) => s.items).join(" ");
+  const r = dash.find((x) => x.version === "1.8.0")!;
+  assert.ok(r, "1.8.0 is still listed");
+  assert.equal(r.date, "2026-11-14");
+  assert.ok(r.notes.join(" ").includes("3.13.0"), "names the bot release it shipped with");
+  assert.deepEqual(r.sections.map((s) => s.title), ["Added", "Changed", "Fixed"]);
+  const text = r.sections.flatMap((s) => s.items).join(" ");
   for (const needle of ["Get started checklist", "Recent activity", "Showcase", "What&#39;s new", "Need help?", "Breadcrumbs", "featureList", "Activity moves", "phones", "Steel &amp; Ink", "proprietary"]) assert.ok(text.includes(needle), `1.8.0 mentions ${needle}`);
+  const items = r.sections.flatMap((s) => s.items);
+  assert.equal(new Set(items).size, items.length, "no duplicate entries");
+});
+
+test("dashboard 1.9.0 Glass v3: newest dashboard release", () => {
+  const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
+  assert.equal(dash[0].version, "1.9.0");
+  assert.equal(dash[0].date, "2026-11-14");
+  assert.equal(DASHBOARD_VERSION, "1.9.0");
+  const notes = dash[0].notes.join(" ");
+  assert.ok(notes.includes("3.14.0"), "names the bot release it shipped with");
+  assert.ok(notes.includes("Glass v3"), "names Glass v3");
+  assert.deepEqual(dash[0].sections.map((s) => s.title), ["Added", "Changed"]);
+  const text = dash[0].sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["Full Glass dashboard", "frosted sidebar", "floating top bar", "unsaved-changes bar", "solid", "sheen", "no-blur fallback", "reduced-motion", "reduced-transparency"]) assert.ok(text.includes(needle), `1.9.0 mentions ${needle}`);
   const items = dash[0].sections.flatMap((s) => s.items);
   assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
@@ -348,17 +363,32 @@ test("3.12.1: records the new support server invite", () => {
   assert.ok(text.includes("SUPPORT_SERVER_URL"), "notes the override still wins");
 });
 
-test("3.13.0: newest bot release, records the trust bar, the licence change and the legal updates", () => {
+test("3.13.0: records the trust bar, the licence change and the legal updates", () => {
   const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
-  assert.equal(bot[0].version, "3.13.0");
-  assert.equal(bot[0].date, "2026-11-14");
-  assert.equal(VERSION, "3.13.0");
-  const notes = bot[0].notes.join(" ");
+  const r = bot.find((x) => x.version === "3.13.0")!;
+  assert.ok(r, "3.13.0 is still listed");
+  assert.equal(r.date, "2026-11-14");
+  const notes = r.notes.join(" ");
   assert.ok(/MIT/.test(notes) && /proprietary/.test(notes), "notes the licence change from MIT to proprietary");
   assert.ok(notes.includes("1.8.0"), "names the dashboard release");
-  assert.deepEqual(bot[0].sections.map((s) => s.title), ["Changed", "Fixed"]);
-  const text = bot[0].sections.flatMap((s) => s.items).join(" ");
+  assert.deepEqual(r.sections.map((s) => s.title), ["Changed", "Fixed"]);
+  const text = r.sections.flatMap((s) => s.items).join(" ");
   for (const needle of ["Trust Score bar", "scoreBar()", "LICENSE", "UNLICENSED", "Terms of Service", "Privacy Policy", "2026-11-14", "HwTbCYC4PM", "/security", "/remindme", "Remind Me About This", "Timed slowmode".toLowerCase(), "ModMail", "90 days", "Node.js 22"]) assert.ok(text.includes(needle), `3.13.0 mentions ${needle}`);
+  const items = r.sections.flatMap((s) => s.items);
+  assert.equal(new Set(items).size, items.length, "no duplicate entries");
+});
+
+test("3.14.0: newest bot release, records the command upgrades, the bug fixes and the deploy note", () => {
+  const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
+  assert.equal(bot[0].version, "3.14.0");
+  assert.equal(bot[0].date, "2026-11-14");
+  assert.equal(VERSION, "3.14.0");
+  const notes = bot[0].notes.join(" ");
+  assert.ok(notes.includes("npm run deploy"), "deploy note");
+  assert.ok(notes.includes("1.9.0"), "names the dashboard release");
+  assert.deepEqual(bot[0].sections.map((s) => s.title), ["Added", "Changed", "Fixed"]);
+  const text = bot[0].sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["/unban", "/purge", "/help", "/suggest list", "/remindme set", "quantity", "/shop buy", "/deposit", "/automod words list", "/logging category", "/welcome role", "/preset apply", "/ticket setup", "/ban", "/kick", "/warn", "/case view", "charge", "/dashboard", "/embed"]) assert.ok(text.includes(needle), `3.14.0 mentions ${needle}`);
   const items = bot[0].sections.flatMap((s) => s.items);
   assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
