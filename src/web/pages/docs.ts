@@ -103,7 +103,7 @@ export function renderDocs(cfg: SiteConfig): string {
           </tbody>
         </table>
       </div>
-      <p>The reply opens with a short list of why, biggest factor first. Aegis keeps only a message count and last-active time per member for this, never message content. The total is clamped to 0&ndash;100. 80 and up is <em>trusted</em>, 60 <em>established</em>, 40 <em>caution</em>, 20 <em>elevated risk</em>, below 20 <em>high risk</em>.</p>
+      <p>The reply opens with a short list of why, biggest factor first. Aegis keeps only a message count and last-active time per member for this, never message content. The total is clamped to 0&ndash;100. 80 and up is <em>trusted</em>, 60 <em>established</em>, 40 <em>neutral</em>, 20 <em>low trust</em>, below 20 <em>high risk</em>.</p>
 
       ${docHeading("modmail", "ModMail")}
       <p>Members DM Aegis to reach your staff. If they share one server with ModMail on, a private thread (or a forum post) opens in your staff channel; if they share several, Aegis asks which server. Each member has at most one open conversation per server, and DMs are rate-limited.</p>

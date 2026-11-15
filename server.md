@@ -832,4 +832,4 @@ The economy is off by default. Turn it on here so visitors can try it in `#bot-p
 
 ---
 
-*Document version: 3.13.0 (2026-11-14) • Maintained by the Aegis team • Source (proprietary, for review): https://github.com/watispro1/AegisDeno*
+*Document version: 3.14.0 (2026-11-14) • Maintained by the Aegis team • Source (proprietary, for review): https://github.com/watispro1/AegisDeno*

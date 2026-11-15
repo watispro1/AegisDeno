@@ -96,6 +96,12 @@
 - [x] Add release checklist and operational verification notes before publishing new versions
 - [x] Update all project documentation (`.md` files) across bot guides, server setup, and changelogs for v3.3.1
 
+### v3.14.0 Milestone (Command upgrades, dashboard 1.9.0)
+
+- [x] Command upgrades across moderation, general, community, economy and setup with no renames or removals (see `CHANGELOG.md` 3.14.0)
+- [x] Site copy: the Trust Score feature card in `src/web/content.ts` and the docs use Trust Score v2's band names (neutral, low trust) and factors
+- [x] Dashboard and site refresh: mobile overflow fixes, consistent empty states, a settings shortcut strip on the overview, collapsible case filters on phones, and redesigned Security, Why Aegis, dashboard sign-in and server picker pages
+
 ### v3.13.0 Milestone (Licence, Legal and Site Round 3)
 
 - [x] Replace the MIT `LICENSE` with a proprietary, all-rights-reserved licence worded like the Terms (source public for review; any own copy, public or private, needs written permission); `package.json` and `package-lock.json` say `UNLICENSED`
@@ -103,7 +109,6 @@
 - [x] Trust Score bar as ten band-coloured squares (`scoreBar()`), the same in the bot and the site mockup
 - [x] Dashboard 1.8.0: Get started checklist, Recent activity, showcase, homepage hierarchy, phones, support blocks, breadcrumbs, Steel & Ink polish
 - [x] Every Markdown file checked for stale versions, commands, links and licence wording
-- [ ] Site copy: bring the Trust Score feature card in `src/web/content.ts` in line with Trust Score v2 (band names and factors)
 - [ ] Decide how the DCO sign-off in `CONTRIBUTING.md` fits a proprietary licence (contributor terms)
 
 ### v3.7.0 Milestone (Official Server Playbook & Website QoL)
@@ -185,5 +190,5 @@
 ## Notes
 
 - The current codebase is strongest in moderation commands, scheduler logic, and the web dashboard.
-- Liquid Glass 2.0 is active by default with instant accessibility/performance fallback to solid opaque surfaces (`data-glass="off"`).
+- Light is the default theme; Dark, Steel & Ink and Glass (beta, with a solid fallback when blur is unavailable or reduced transparency is requested) are opt-in from the theme picker.
 - All smoke tests and TypeScript builds validate cleanly across 11 core routes and API endpoints.
