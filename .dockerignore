@@ -1,24 +1,43 @@
+# ── Node ────────────────────────────────────────────────────────────────────
 node_modules
-npm-debug.log
+npm-debug.log*
 dist
 coverage
+.nyc_output
+
+# ── Env / secrets ───────────────────────────────────────────────────────────
 .env
 .env.*
 !.env.example
+
+# ── Databases / generated ───────────────────────────────────────────────────
 *.sqlite
 *.db
 *.log
+crates/
+
+# ── Git / CI ─────────────────────────────────────────────────────────────────
 .git
 .gitignore
+.gitattributes
 .github
-tests
-scripts
+.vscode
+
+# ── Build tooling (not needed in container) ──────────────────────────────────
 Dockerfile
 .dockerignore
 fly.toml
+
+# ── Docs / dev-only ──────────────────────────────────────────────────────────
 README.md
 DEPLOYMENT.md
 OPERATIONAL.md
 TROUBLESHOOTING.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
 context.md
 todo.md
+
+# ── Tests and local scripts ──────────────────────────────────────────────────
+tests
+scripts

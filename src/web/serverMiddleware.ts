@@ -53,6 +53,18 @@ export function apiRateLimit(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
+/**
+ * Tell crawlers not to index API, health, and /dashboard paths.
+ * Robots.txt is advisory; X-Robots-Tag is enforced per-response.
+ */
+export function robotsNoIndex(req: Request, res: Response, next: NextFunction): void {
+  const p = req.path;
+  if (p.startsWith("/api/") || p === "/health" || p.startsWith("/dashboard")) {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  }
+  next();
+}
+
 /** Gzip text responses. Fly terminates TLS and does not compress upstream. */
 export function compression(req: Request, res: Response, next: NextFunction): void {
   const accepted = String(req.headers["accept-encoding"] ?? "");

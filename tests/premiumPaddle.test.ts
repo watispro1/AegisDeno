@@ -278,6 +278,14 @@ test("POST /api/paddle/webhook: 503 unconfigured, 401 bad signature, 200 then du
   });
 });
 
+test("POST /api/paddle/webhook: rejects unauthorized IPs with 403", async () => {
+  await withServer({ secret: () => SECRET, isAllowedIp: () => false }, async url => {
+    const res = await fetch(url, { method: "POST", body: "{}" });
+    assert.equal(res.status, 403);
+    assert.equal((await res.json() as { error: string }).error, "forbidden_ip");
+  });
+});
+
 /* Config */
 
 test("readPaddleConfig needs every value and a token that matches PADDLE_ENV", () => {

@@ -72,7 +72,9 @@ function actions(v: PremiumView): string {
     return `<p class="muted">Bought by ${v.buyerName ? `<strong>${esc(v.buyerName)}</strong>` : "another member"}. Only they can manage or cancel the subscription.</p>`;
   }
   const d = v.paddle;
-  return `<div class="premium-checkout" data-premium-checkout data-env="${esc(d.environment)}" data-token="${esc(d.clientToken)}" data-price="${esc(d.priceId)}" data-guild="${esc(v.guild.id)}" data-user="${esc(v.viewer.userId)}" data-success="${esc(v.successUrl)}">
+  const customerId = v.entitlement?.customerId ?? "";
+  const custAttr = customerId ? ` data-customer="${esc(customerId)}"` : "";
+  return `<div class="premium-checkout" data-premium-checkout data-env="${esc(d.environment)}" data-token="${esc(d.clientToken)}" data-price="${esc(d.priceId)}" data-guild="${esc(v.guild.id)}" data-user="${esc(v.viewer.userId)}"${custAttr} data-success="${esc(v.successUrl)}">
       <button class="btn" type="button" data-premium-subscribe disabled>Subscribe for ${esc(PREMIUM_PRICE_LABEL)}</button>
       <p class="faint" data-premium-status role="status" aria-live="polite">Loading the secure checkout…</p>
       <noscript><p class="notice bad">The checkout needs JavaScript. Turn it on for this page, or run /premium in the server for help.</p></noscript>

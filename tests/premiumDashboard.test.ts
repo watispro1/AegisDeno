@@ -171,6 +171,7 @@ test("premium.js passes custom_data {guildId, userId} into the overlay checkout"
   assert.match(premiumScript, /customData: \{ guildId: cfg\.guild, userId: cfg\.user \}/);
   assert.match(premiumScript, /displayMode: 'overlay'/);
   assert.match(premiumScript, /Environment\.set\('sandbox'\)/);
+  assert.match(premiumScript, /pwCustomer\s*=\s*\{\s*id:\s*cfg\.customer\s*\}/);
 });
 
 test("/premium command is guild-only and its status lines cover every state", () => {

@@ -2,8 +2,9 @@
  * Script served from /assets/premium.js, loaded only on the dashboard's Premium
  * page after Paddle.js (https://cdn.paddle.com/paddle/v2/paddle.js). Reads the
  * checkout settings from data-* attributes (no inline script), initialises
- * Paddle.js and opens the overlay checkout with custom_data {guildId, userId},
- * which the webhook uses to attribute the subscription to the server.
+ * Paddle.js (including pwCustomer for Paddle Retain) and opens the overlay checkout
+ * with custom_data {guildId, userId}, which the webhook uses to attribute the
+ * subscription to the server.
  */
 export const premiumScript = String.raw`
 (function () {
@@ -19,6 +20,7 @@ export const premiumScript = String.raw`
     price: box.getAttribute('data-price'),
     guild: box.getAttribute('data-guild'),
     user: box.getAttribute('data-user'),
+    customer: box.getAttribute('data-customer'),
     success: box.getAttribute('data-success')
   };
   var P = window.Paddle;
@@ -28,14 +30,18 @@ export const premiumScript = String.raw`
   }
   try {
     if (cfg.env === 'sandbox') P.Environment.set('sandbox');
-    P.Initialize({
+    var initOpts = {
       token: cfg.token,
       eventCallback: function (ev) {
         if (!ev || !ev.name) return;
         if (ev.name === 'checkout.completed') say('Payment received. Premium turns on as soon as Paddle confirms it, usually within a minute.');
         if (ev.name === 'checkout.error') say('The checkout hit an error. Nothing was charged. Try again.');
       }
-    });
+    };
+    if (cfg.customer && /^ctm_[a-z\d]{26}$/.test(cfg.customer)) {
+      initOpts.pwCustomer = { id: cfg.customer };
+    }
+    P.Initialize(initOpts);
   } catch (e) {
     say('The secure checkout could not start. Reload the page and try again.');
     return;

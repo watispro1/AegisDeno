@@ -2,7 +2,7 @@
  * POST /api/paddle/webhook: Paddle Billing notifications for Aegis Premium.
  *
  * The body is read raw (never JSON-parsed first) because the signature covers
- * the exact bytes. Order: signature, then parse, then idempotent apply.
+ * the exact bytes. Order: IP allowlist, signature, then parse, then idempotent apply.
  * Without PADDLE_WEBHOOK_SECRET the route answers 503 so Paddle retries later.
  */
 import express, { type Express, type Request, type Response } from "express";
@@ -12,6 +12,8 @@ import { verifyPaddleSignature } from "../services/paddleSignature";
 import { parsePaddleEvent } from "../services/premiumState";
 import { handlePaddleEvent } from "../services/premium";
 import type { PremiumStore } from "../services/premiumStore";
+import { clientIp } from "./securityHeaders";
+import { isPaddleIp, initPaddleIpAllowlist } from "../services/paddleIps";
 
 export const PADDLE_WEBHOOK_PATH = "/api/paddle/webhook";
 /** Paddle events are a few KB; anything far larger is not from Paddle. */
@@ -21,12 +23,23 @@ export interface PaddleWebhookDeps {
   secret?: () => string | null;
   store?: PremiumStore;
   now?: () => number;
+  isAllowedIp?: (ip: string) => boolean;
 }
 
 export function registerPaddleWebhook(app: Express, deps: PaddleWebhookDeps = {}): void {
+  initPaddleIpAllowlist();
   const raw = express.raw({ type: () => true, limit: WEBHOOK_BODY_LIMIT });
   app.post(PADDLE_WEBHOOK_PATH, raw, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
+
+    const ip = clientIp(req);
+    const allowIp = deps.isAllowedIp ? deps.isAllowedIp(ip) : isPaddleIp(ip);
+    if (!allowIp) {
+      logger.warn(`Paddle webhook rejected: unauthorized IP ${ip}`);
+      res.status(403).json({ error: "forbidden_ip" });
+      return;
+    }
+
     const secret = (deps.secret ?? paddleWebhookSecret)();
     if (!secret) {
       res.status(503).json({ error: "webhook_not_configured" });
