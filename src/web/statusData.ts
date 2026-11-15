@@ -116,17 +116,24 @@ function windowOf(label: string, samples: readonly HeartbeatSample[], nowMs: num
   };
 }
 
+export function aegisDbState(healthy: boolean): StatusComponent {
+  if (healthy) return { id: "aegisdb", name: "AegisDB backend", state: "operational", detail: "Custom Rust database responding normally" };
+  return { id: "aegisdb", name: "AegisDB backend", state: "degraded", detail: "Custom Rust database not responding (falling back to primary store)" };
+}
+
 export function overallState(components: readonly StatusComponent[], notices: readonly StatusNotice[], nowMs: number): OverallState {
   const byId = new Map(components.map(c => [c.id, c.state]));
   if (byId.get("gateway") === "outage" || byId.get("database") === "outage") return "major_outage";
   const open = notices.filter(n => noticeOpen(n, nowMs));
   if (open.some(n => n.kind === "incident" && n.severity === "major")) return "major_outage";
-  if (components.some(c => c.state === "outage" || c.state === "degraded") || open.some(n => n.kind === "incident")) return "degraded";
+  // aegisdb is non-critical because MongoDB is the fallback; only core component issues degrade overall status
+  const coreIssue = components.some(c => c.id !== "aegisdb" && (c.state === "outage" || c.state === "degraded"));
+  if (coreIssue || open.some(n => n.kind === "incident")) return "degraded";
   if (open.some(n => n.kind === "maintenance" && n.startsAt.getTime() <= nowMs)) return "maintenance";
   return "operational";
 }
 
-export function buildStatusPayload(input: StatusInput): StatusPayload {
+export function buildStatusPayload(input: StatusInput & { aegisDbHealthy?: boolean }): StatusPayload {
   const components: StatusComponent[] = [
     gatewayState(input.online, input.ping),
     { id: "web", name: "Dashboard & website", state: "operational", detail: "Serving pages (you are reading one)" },
@@ -134,6 +141,9 @@ export function buildStatusPayload(input: StatusInput): StatusPayload {
     latencyState(input.online, input.ping),
     registrationState(input.registration),
   ];
+  if (input.aegisDbHealthy !== undefined) {
+    components.push(aegisDbState(input.aegisDbHealthy));
+  }
   const status = overallState(components, input.notices, input.nowMs);
   return {
     status,

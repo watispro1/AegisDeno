@@ -36,6 +36,17 @@ test("health: recovering resets the down timer", () => {
   assert.equal(read(true, false, START + 2200).httpStatus, 503);
 });
 
+test("health: tracks rustBackend probe when provided", () => {
+  const read = createHealthCheck({ startedAt: START });
+  const ok = read(true, true, true, START + 1000);
+  assert.equal(ok.status, "ok");
+  assert.equal(ok.rustBackend, true);
+
+  const degradedBackend = read(true, true, false, START + 1000);
+  assert.equal(degradedBackend.status, "ok");
+  assert.equal(degradedBackend.rustBackend, false);
+});
+
 test("fly.toml checks GET /health", () => {
   const toml = fs.readFileSync("fly.toml", "utf8");
   assert.match(toml, /\[\[http_service\.checks\]\]/);

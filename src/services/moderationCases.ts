@@ -3,6 +3,7 @@ import { ModerationCaseModel, WarningModel } from "../database/mongo";
 import { noteIncidentCase } from "./incidentHooks";
 import { noteTrustChange } from "./trustHooks";
 import { logger } from "../utils/logger";
+import { getRustClient } from "../database/rustClient";
 
 export type ModerationAction =
   | "warn"
@@ -43,6 +44,16 @@ export async function addModerationCase(input: {
   try {
     const doc = await ModerationCaseModel.create(input);
     const id = String(doc._id);
+    // Best-effort dual-write to AegisDB; never blocks or throws on failure
+    getRustClient()
+      .createCase(input.guildId, {
+        target_id: input.userId,
+        mod_id: input.moderatorId,
+        action: input.action,
+        reason: input.reason,
+        duration_ms: undefined,
+      })
+      .catch(() => null);
     noteIncidentCase(input.guildId, id, input.action, input.userId);
     noteTrustChange(input.guildId, input.userId);
     return id;
@@ -85,6 +96,7 @@ export async function revokeModerationCase(guildId: string, caseId: string, revo
       { $set: { revoked: true, revokedBy, revokedAt: new Date() } },
     );
     if (result) noteTrustChange(guildId, String((result as { userId?: unknown }).userId ?? ""));
+    if (result) getRustClient().patchCase(guildId, caseId, { revoked: true, revoked_by: revokedBy }).catch(() => null);
     return result !== null;
   } catch (error) {
     logger.error(`Failed to revoke case ${caseId} in guild ${guildId}:`, error);
@@ -109,7 +121,10 @@ export async function editCaseReason(
     { $set: { reason } },
     { returnDocument: "before" },
   ).catch(() => null);
-  if (record) return { kind: "case", userId: record.userId, previousReason: record.reason };
+  if (record) {
+    getRustClient().patchCase(guildId, caseId, { reason }).catch(() => null);
+    return { kind: "case", userId: record.userId, previousReason: record.reason };
+  }
 
   const warning = await WarningModel.findOneAndUpdate(
     { guildId, _id: caseId },
