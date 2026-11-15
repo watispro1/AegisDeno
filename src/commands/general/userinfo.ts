@@ -27,6 +27,7 @@ import { balanceSummary } from "../../services/economyDiscord";
 import { fitRecordLines, recordLine, userInfoEphemeral, warningSummary } from "../../services/userInfoFormat";
 import { COLORS, footer } from "../../utils/embedStyle";
 import { truncate } from "../../utils/safeText";
+import { replyPagedList } from "../../utils/listPager";
 
 const KEY_PERMISSIONS: Array<{ flag: bigint; name: string }> = [
   { flag: PermissionFlagsBits.Administrator, name: "Administrator" },
@@ -191,15 +192,14 @@ export async function showUserInfo(interaction: UserInfoInteraction, user: User,
   const sent = await interaction.editReply({ embeds: [embed], components: rows, allowedMentions: NO_PINGS });
   const collector = sent.createMessageComponentCollector({
     componentType: ComponentType.Button,
-    time: 120_000,
+    idle: 120_000,
     filter: (i) => Object.values(ids).includes(i.customId),
   });
 
-  const recordEmbed = (title: string, lines: string[]) => new EmbedBuilder()
-    .setColor(COLORS.warn)
-    .setTitle(title)
-    .setDescription(fitRecordLines(lines, 4000, "See them all with `/case user`."))
-    .setFooter(footer("Copy an ID into /case view for the full record"));
+  const recordList = (title: string, lines: string[]) => ({
+    title, lines, perPage: 8, color: COLORS.warn, ephemeral: true,
+    note: "Copy an ID into /case view for the full record · /case user lists them all",
+  });
 
   collector.on("collect", (i) => guardCollect("userinfo", i, async () => {
     const isModRecord = i.customId === ids.warns || i.customId === ids.cases;
@@ -209,14 +209,11 @@ export async function showUserInfo(interaction: UserInfoInteraction, user: User,
     }
     const tag = truncate(user.tag, 80);
     if (i.customId === ids.warns) {
-      const lines = warnings.map((w) => recordLine({ ...w, action: "warn" }));
-      await i.reply({ embeds: [recordEmbed(`📜 Active warnings for ${tag} (${warnings.length})`, lines)], flags: MessageFlags.Ephemeral, allowedMentions: NO_PINGS });
+      await replyPagedList(i, recordList(`📜 Active warnings for ${tag} (${warnings.length})`, warnings.map((w) => recordLine({ ...w, action: "warn" }))));
     } else if (i.customId === ids.cases) {
-      await i.reply({ embeds: [recordEmbed(`📂 Recent cases for ${tag}`, cases.map(recordLine))], flags: MessageFlags.Ephemeral, allowedMentions: NO_PINGS });
+      await replyPagedList(i, recordList(`📂 Recent cases for ${tag}`, cases.map(recordLine)));
     } else if (i.customId === ids.roles) {
-      const e = new EmbedBuilder().setColor(member.displayColor || COLORS.brand).setTitle(`🎭 Roles for ${tag} (${roles.length})`)
-        .setDescription(fitRecordLines(roles, 4000));
-      await i.reply({ embeds: [e], flags: MessageFlags.Ephemeral, allowedMentions: NO_PINGS });
+      await replyPagedList(i, { title: `🎭 Roles for ${tag} (${roles.length})`, lines: roles, perPage: 25, color: member.displayColor || COLORS.brand, ephemeral: true, note: "Highest first" });
     } else if (i.customId === ids.perms) {
       const all = member.permissions.toArray().map((p) => p.replace(/([a-z])([A-Z])/g, "$1 $2"));
       const e = new EmbedBuilder().setColor(COLORS.brand).setTitle(`🔑 Permissions for ${tag}`)

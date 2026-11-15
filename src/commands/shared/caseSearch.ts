@@ -3,12 +3,15 @@
  * text and date range. Shows the newest matches with the total, and points at
  * the dashboard's Cases page (same filters, CSV download) for the rest.
  */
-import { EmbedBuilder, MessageFlags, type ChatInputCommandInteraction, type SlashCommandSubcommandBuilder } from "discord.js";
+import { MessageFlags, type ChatInputCommandInteraction, type SlashCommandSubcommandBuilder } from "discord.js";
+import { replyPagedList } from "../../utils/listPager";
 import { ModerationCaseModel, WarningModel } from "../../database/mongo";
 import { parseFriendlyDuration } from "../../utils/duration";
 
 export const CASE_SEARCH_ACTIONS = ["warn", "timeout", "kick", "ban", "softban", "unban", "untimeout", "temprole", "clearwarnings", "purge", "lock", "unlock"] as const;
-export const CASE_SEARCH_LIMIT = 10;
+/** Matches shown, newest first, ten to a page; the dashboard has the rest. */
+export const CASE_SEARCH_LIMIT = 50;
+export const CASE_SEARCH_PER_PAGE = 10;
 const REASON_MAX = 100;
 
 export function addCaseSearchSubcommand(sub: SlashCommandSubcommandBuilder): SlashCommandSubcommandBuilder {
@@ -79,6 +82,10 @@ export async function runCaseSearch(interaction: ChatInputCommandInteraction): P
     await interaction.reply({ content: "❌ Use a length of time such as `7d` or `2 weeks`, or a UTC day such as `2026-10-01`.", flags: MessageFlags.Ephemeral });
     return;
   }
+  if (since && since.getTime() > now) {
+    await interaction.reply({ content: "❌ `since` is in the future, so nothing could match. Use a past day or a length of time like `7d`.", flags: MessageFlags.Ephemeral });
+    return;
+  }
   if (since && until && since >= until) {
     await interaction.reply({ content: "❌ `since` has to be before `until`.", flags: MessageFlags.Ephemeral });
     return;
@@ -106,10 +113,14 @@ export async function runCaseSearch(interaction: ChatInputCommandInteraction): P
     ...(warnings as unknown as Array<Omit<Row, "action">>).map(w => ({ ...w, action: "warn" })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, CASE_SEARCH_LIMIT);
   const total = caseTotal + warningTotal;
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle(`🔎 ${total.toLocaleString("en-US")} matching record${total === 1 ? "" : "s"}`)
-    .setDescription(rows.length ? rows.map(caseSearchLine).join("\n\n").slice(0, 4000) : "Nothing matches. Try fewer filters.")
-    .setFooter({ text: total > rows.length ? `Newest ${rows.length} shown. The dashboard's Cases page has the rest, with the same filters and a CSV download.` : "Open one with /case view." });
-  await interaction.editReply({ embeds: [embed], allowedMentions: { parse: [] } });
+  await replyPagedList(interaction, {
+    title: `🔎 ${total.toLocaleString("en-US")} matching record${total === 1 ? "" : "s"}`,
+    lines: rows.map(r => `${caseSearchLine(r)}\n`),
+    empty: "Nothing matches. Try fewer filters, or a wider date range.",
+    perPage: CASE_SEARCH_PER_PAGE,
+    note: total > rows.length
+      ? `Newest ${rows.length} shown. The dashboard's Cases page has the rest, with the same filters and a CSV download.`
+      : "Open one with /case view",
+    ephemeral: true,
+  });
 }

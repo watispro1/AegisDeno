@@ -9,6 +9,8 @@ import {
   TextInputStyle,
   MessageFlags,
   AutocompleteInteraction,
+  ButtonBuilder,
+  ButtonStyle,
 } from "discord.js";
 import { scopedModalId } from "../../utils/modal";
 import { Command } from "../../types/discord";
@@ -21,6 +23,17 @@ import {
 } from "../../services/suggestions";
 import { getGuildConfig, updateGuildConfig } from "../../services/configuration";
 import { logger } from "../../utils/logger";
+import { findSuggestions, suggestionListLine } from "../shared/suggestionList";
+import { replyPagedList } from "../../utils/listPager";
+import { messageLink } from "../shared/inputChecks";
+import { footer } from "../../utils/embedStyle";
+
+function jumpRow(guildId: string, s: { channelId: string | null; messageId: string | null }, label = "Jump to suggestion"): ActionRowBuilder<ButtonBuilder>[] {
+  if (!s.channelId || !s.messageId) return [];
+  return [new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setLabel(label).setStyle(ButtonStyle.Link).setURL(messageLink(guildId, s.channelId, s.messageId)).setEmoji("🔗"))];
+}
+
+const NOT_FOUND = "❌ I couldn't find that suggestion in this server. Pick one from the list as you type, or check the ID on the suggestion's footer.";
 import { isObfuscatedChannel, hiddenChannelMessage, isSendableChannel } from "../../utils/channels";
 import {
   SUGGESTION_CHANNEL_TYPES,
@@ -45,7 +58,7 @@ export {
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("suggest")
-    .setDescription("Submit ideas or manage server suggestions.")
+    .setDescription("Submit ideas, browse them, and (staff) approve, deny or consider them.")
     .addSubcommand(sub =>
       sub
         .setName("submit")
@@ -64,27 +77,41 @@ export const command: Command = {
         .setName("approve")
         .setDescription("Approve a suggestion.")
         .addStringOption(opt => opt.setName("id").setDescription("Suggestion: pick one, or paste its ID").setRequired(true).setAutocomplete(true).setMaxLength(64))
-        .addStringOption(opt => opt.setName("reason").setDescription("Reason or note for the author").setRequired(false))
+        .addStringOption(opt => opt.setName("reason").setDescription("Reason or note for the author").setRequired(false).setMaxLength(1000))
     )
     .addSubcommand(sub =>
       sub
         .setName("deny")
         .setDescription("Deny a suggestion.")
         .addStringOption(opt => opt.setName("id").setDescription("Suggestion: pick one, or paste its ID").setRequired(true).setAutocomplete(true).setMaxLength(64))
-        .addStringOption(opt => opt.setName("reason").setDescription("Reason for denial").setRequired(false))
+        .addStringOption(opt => opt.setName("reason").setDescription("Reason for denial (sent to the author)").setRequired(false).setMaxLength(1000))
     )
     .addSubcommand(sub =>
       sub
         .setName("consider")
         .setDescription("Mark a suggestion as under consideration.")
         .addStringOption(opt => opt.setName("id").setDescription("Suggestion: pick one, or paste its ID").setRequired(true).setAutocomplete(true).setMaxLength(64))
-        .addStringOption(opt => opt.setName("reason").setDescription("Staff note").setRequired(false))
+        .addStringOption(opt => opt.setName("reason").setDescription("Staff note (sent to the author)").setRequired(false).setMaxLength(1000))
     )
     .addSubcommand(sub =>
       sub
         .setName("info")
         .setDescription("View vote counts, status, and full details for a suggestion.")
         .addStringOption(opt => opt.setName("id").setDescription("Suggestion: pick one, or paste its ID").setRequired(true).setAutocomplete(true).setMaxLength(64))
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("list")
+        .setDescription("Browse this server's suggestions, newest first, with votes and links.")
+        .addStringOption(opt => opt.setName("status").setDescription("Which ones (default: open = pending or under consideration)").setRequired(false)
+          .addChoices(
+            { name: "Open (pending or under consideration)", value: "open" },
+            { name: "Pending review", value: "pending" },
+            { name: "Under consideration", value: "considered" },
+            { name: "Approved", value: "approved" },
+            { name: "Denied", value: "rejected" },
+            { name: "All", value: "all" },
+          ))
     ),
 
   guildOnly: true,
@@ -198,8 +225,12 @@ export const command: Command = {
           return;
         }
 
-        const title = modalResponse.fields.getTextInputValue("suggest_title");
-        const detail = modalResponse.fields.getTextInputValue("suggest_detail");
+        const title = modalResponse.fields.getTextInputValue("suggest_title").trim();
+        const detail = modalResponse.fields.getTextInputValue("suggest_detail").trim();
+        if (!title || !detail) {
+          await modalResponse.editReply("❌ Give your suggestion a title and some details (not just spaces), then try `/suggest submit` again.");
+          return;
+        }
         const content = `**${title}**\n\n${detail}`;
 
         const suggestion = await createSuggestion(guildId, interaction.user.id, content);
@@ -232,6 +263,7 @@ export const command: Command = {
               .addFields({ name: "🆔 ID", value: `\`${suggestion.id}\``, inline: true })
               .setTimestamp(),
           ],
+          components: jumpRow(guildId, { channelId: channel.id, messageId: msg.id }, "Jump to your suggestion"),
         });
       } catch (err) {
         logger.error(`Failed to submit suggestion for guild ${guildId}`, err);
@@ -267,9 +299,10 @@ export const command: Command = {
               { name: "📊 New Status",  value: result.statusText, inline: true },
               { name: "📋 Staff Note",  value: reason ?? "No reason provided.", inline: false },
             )
-            .setFooter({ text: "The author was sent a DM (if their DMs are open)." })
+            .setFooter(footer("The author was sent a DM (if their DMs are open)."))
             .setTimestamp(),
         ],
+        components: jumpRow(interaction.guildId!, result.suggestion),
       });
       return;
     }
@@ -281,7 +314,7 @@ export const command: Command = {
       const id = interaction.options.getString("id", true);
       const suggestion = await getSuggestion(guildId, id);
       if (!suggestion) {
-        await interaction.editReply("❌ Suggestion not found.");
+        await interaction.editReply(NOT_FOUND);
         return;
       }
 
@@ -311,10 +344,26 @@ export const command: Command = {
             inline: false,
           },
         )
-        .setFooter({ text: `Submitted` })
+        .setFooter(footer(suggestion.reviewReason ? `Staff note: ${suggestion.reviewReason.slice(0, 200)} · Submitted` : "Submitted"))
         .setTimestamp(new Date(suggestion.createdAt));
 
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [embed], components: jumpRow(guildId, suggestion), allowedMentions: { parse: [] } });
+      return;
+    }
+
+    // List
+    if (sub === "list") {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const status = interaction.options.getString("status");
+      const rows = await findSuggestions(guildId, status);
+      await replyPagedList(interaction, {
+        title: `💡 Suggestions (${rows.length}${rows.length >= 100 ? "+" : ""})`,
+        lines: rows.map(r => suggestionListLine(r, guildId)),
+        empty: "No suggestions match. Submit one with `/suggest submit`.",
+        perPage: 6,
+        note: "Newest first · /suggest info for the details",
+        ephemeral: true,
+      });
     }
   },
 };
