@@ -108,6 +108,7 @@ export async function verifyDisable(interaction: ChatInputCommandInteraction, gu
   if (answer !== "confirmed") return;
   await VerificationModel.updateOne({ guildId: guild.id }, { $set: { enabled: false } });
   await interaction.editReply({
+    content: "",
     embeds: [
       new EmbedBuilder()
         .setColor(0xED4245)
