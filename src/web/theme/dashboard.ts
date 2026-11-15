@@ -104,5 +104,6 @@ form[aria-busy="true"] .btn:disabled { cursor: progress; }
 .review-buttons { margin-top: .6rem; }
 @media (max-width: 640px) {
   .field-row { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .panel-item { grid-template-columns: minmax(0, 1fr); }
 }
 `;
