@@ -43,6 +43,7 @@ import { mongoRateLimitStore } from "./dashboard/rateLimitStore";
 import { mongoAuditStore } from "./dashboard/audit";
 import { mongoDashboardExtras } from "./dashboard/extrasMongo";
 import { dashboardScript } from "./dashboard/client";
+import { premiumScript } from "./dashboard/clientPremium";
 import { securityHeaders } from "./securityHeaders";
 import { startAegisBackend } from "../database/aegisDb";
 import { databaseConnected } from "../services/statusMonitor";
@@ -67,6 +68,7 @@ const ASSET_VERSION = createHash("sha256")
   .update(themeInitScript)
   .update(dashboardScript)
   .update(statusScript)
+  .update(premiumScript)
   .digest("hex")
   .slice(0, 8);
 
@@ -201,6 +203,7 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   app.get("/assets/site.css", (_req, res) => asset(res, "text/css", styles, 31536000));
   app.get("/assets/site.js", (_req, res) => asset(res, "text/javascript", clientScript, 31536000));
   app.get("/assets/dashboard.js", (_req, res) => asset(res, "text/javascript", dashboardScript, 31536000));
+  app.get("/assets/premium.js", (_req, res) => asset(res, "text/javascript", premiumScript, 31536000));
   app.get("/assets/status.js", (_req, res) => asset(res, "text/javascript", statusScript, 31536000));
   app.get("/assets/theme-init.js", (_req, res) => asset(res, "text/javascript", themeInitScript, 31536000));
   app.get("/assets/favicon.svg", (_req, res) => asset(res, "image/svg+xml", faviconSvg, 31536000));
