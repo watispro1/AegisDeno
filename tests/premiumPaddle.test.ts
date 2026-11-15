@@ -292,3 +292,37 @@ test("readPaddleConfig needs every value and a token that matches PADDLE_ENV", (
   const s = JSON.stringify(missingPaddleSettings(full));
   assert.ok(!s.includes(SECRET), "never logs values");
 });
+
+/* Benefits reach the existing caps */
+
+test("Premium raises the shop cap from 50 to 100; a lapsed server keeps its items", async () => {
+  const { EconomyService } = await import("../src/services/economyService");
+  const { memoryEconomyStore } = await import("../src/services/economyStore");
+  const premium = memoryPremiumStore();
+  setPremiumStore(premium);
+  try {
+    const svc = new EconomyService(memoryEconomyStore());
+    for (let i = 0; i < 50; i++) assert.ok((await svc.addItem(GUILD, { name: `Item ${i}`, price: i + 1 })).ok);
+    const full = await svc.addItem(GUILD, { name: "Item 50", price: 1 });
+    assert.equal(full.ok, false);
+    assert.match(JSON.stringify(full), /The shop is full \(50 items\)/);
+    await premium.save(ent({ currentPeriodEnd: new Date(Date.now() + 10 * DAY) }));
+    setPremiumStore(premium); // clears the cached "no"
+    assert.ok((await svc.addItem(GUILD, { name: "Item 50", price: 1 })).ok);
+    assert.equal((await svc.items(GUILD)).length, 51);
+    await premium.save(ent({ status: "canceled" }));
+    setPremiumStore(premium);
+    assert.equal((await svc.items(GUILD)).length, 51, "nothing is removed when Premium ends");
+    assert.equal((await svc.addItem(GUILD, { name: "Item 51", price: 1 })).ok, false);
+  } finally {
+    setPremiumStore(null);
+  }
+});
+
+test("autoresponder trigger check takes the server's cap", async () => {
+  const { validateTrigger, MAX_AUTORESPONDERS } = await import("../src/commands/autoresponder/autoresponder");
+  const many = Array.from({ length: 50 }, (_, i) => ({ trigger: `t${i}`, matchType: "contains" as const }));
+  assert.equal(MAX_AUTORESPONDERS, 50);
+  assert.match(validateTrigger("new", "contains", many) ?? "", /already has 50/);
+  assert.equal(validateTrigger("new", "contains", many, limitValue("autoresponders", true)), null);
+});

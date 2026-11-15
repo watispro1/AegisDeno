@@ -301,6 +301,27 @@ URL as a redirect in the portal. The two must match character for character.
   add that redirect in the portal, and run `npm run dev`. Cookies drop the
   `Secure` flag only when the redirect URI is plain `http`.
 
+## Aegis Premium (Paddle Billing)
+
+Premium is $5/month per server, sold through Paddle as merchant of record. It stays hidden (no dashboard page, no sidebar link, `/premium` says it isn't offered, the webhook answers 503) until all five secrets below are set. Benefits live in `src/config/premium.ts`.
+
+1. In Paddle (start in a sandbox account): **Catalog > Products**: create "Aegis Premium" (tax category: standard/SaaS) with a recurring price of USD 5.00 every 1 month. Copy the price ID (`pri_...`).
+2. **Developer tools > Authentication**: create a client-side token (`test_...` in sandbox, `live_...` in production) and an API key with at least `customer_portal_session.write`.
+3. **Developer tools > Notifications > New destination**: URL `https://aegisdeno.fly.dev/api/paddle/webhook`, type webhook, events `subscription.created`, `subscription.updated`, `subscription.activated`, `subscription.canceled`, `subscription.past_due`, `subscription.paused`, `subscription.resumed`, `subscription.trialing`, `transaction.completed`. Copy the destination's secret key (`pdl_ntfset_...`).
+4. **Checkout > Checkout settings**: set the default payment link to `https://aegisdeno.fly.dev/premium`. For live, submit `aegisdeno.fly.dev` under **Website approval** (Paddle reviews the pricing, terms, privacy and refund information on the site).
+5. Set the secrets (this restarts the app):
+
+```bash
+fly secrets set \
+  PADDLE_ENV=sandbox \
+  PADDLE_CLIENT_TOKEN=test_... \
+  PADDLE_PRICE_ID=pri_... \
+  PADDLE_API_KEY=... \
+  PADDLE_WEBHOOK_SECRET=pdl_ntfset_...
+```
+
+6. Test with Paddle's webhook simulator and a sandbox checkout (card 4242 4242 4242 4242), then repeat steps 1–5 in the live account with `PADDLE_ENV=production`.
+
 ## Automatic deploys from GitHub
 
 Every push to `main` runs the CI checks (typecheck + tests). If they pass, the
