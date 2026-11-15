@@ -17,3 +17,5 @@ export { renderNotFound, renderPlayground } from "./fallback";
 export { renderWhy } from "./why";
 export { renderRoadmap } from "./roadmap";
 export { renderPremium } from "./premium";
+export { renderPricing } from "./pricing";
+export { renderRefunds } from "./refunds";

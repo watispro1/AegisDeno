@@ -35,6 +35,7 @@ export const SUPPORT_SERVER_INVITE = "https://discord.gg/HwTbCYC4PM";
 export const NAV: NavLink[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Features", href: "/features" },
+  { label: "Pricing", href: "/pricing" },
   { label: "Why Aegis", href: "/why" },
   { label: "Commands", href: "/commands" },
   { label: "Docs", href: "/docs" },
@@ -242,6 +243,8 @@ ${o.body}
       <div class="footer-col">
         <h2 class="footer-title">Legal and project</h2>
         <ul>
+          <li><a href="/pricing">Pricing</a></li>
+          <li><a href="/refunds">Refund Policy</a></li>
           <li><a href="/terms">Terms of Service</a></li>
           <li><a href="/privacy">Privacy Policy</a></li>
           <li><a href="/security">Security</a></li>
@@ -256,8 +259,10 @@ ${o.body}
       <nav aria-label="Footer">
         <a class="back-to-top" href="#main">Back to top ↑</a>
         <a href="/features">Features</a>
+        <a href="/pricing">Pricing</a>
         <a href="/commands">Commands</a>
         <a href="/docs">Docs</a>
+        <a href="/refunds">Refunds</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
         <a href="/security">Security</a>

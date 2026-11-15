@@ -25,6 +25,8 @@ import {
   renderWhy,
   renderRoadmap,
   renderPremium,
+  renderPricing,
+  renderRefunds,
   SiteConfig,
   Stats,
 } from "./pages";
@@ -132,7 +134,9 @@ const ROUTES: RouteDef[] = [
   // Registered before the /dashboard router, which would otherwise treat it as a server ID.
   { path: "/dashboard/changelog", render: c => renderDashboardChangelog(c), priority: "0.4" },
   { path: "/status", render: async (c, x) => renderStatus(c, await x.status()), priority: "0.6", live: true },
+  { path: "/pricing", render: c => renderPricing(c, premiumOffered()), priority: "0.8" },
   { path: "/premium", render: c => renderPremium(c, premiumOffered()), priority: "0.5" },
+  { path: "/refunds", render: c => renderRefunds(c), priority: "0.4" },
   { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },
   { path: "/terms", render: c => renderTerms(c), priority: "0.4" },
   { path: "/security", render: c => renderSecurity(c), priority: "0.3" },
@@ -148,7 +152,9 @@ const SUGGESTABLE = [
   { href: "/changelog", label: "Changelog" },
   { href: "/roadmap", label: "What's next" },
   { href: "/status", label: "Status" },
+  { href: "/pricing", label: "Pricing" },
   { href: "/premium", label: "Premium" },
+  { href: "/refunds", label: "Refund Policy" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
   { href: "/security", label: "Security" },

@@ -151,9 +151,19 @@ export class WalStorage {
 
     // Only now is the WAL redundant. Compaction runs synchronously, so no
     // append can land between the in-memory copy and this truncate.
-    const walFd = this.openFd();
-    fs.ftruncateSync(walFd, 0);
-    fs.fsyncSync(walFd);
+    if (this.fd !== null) {
+      fs.closeSync(this.fd);
+      this.fd = null;
+    }
+    if (fs.existsSync(this.walPath)) {
+      fs.truncateSync(this.walPath, 0);
+      const walFd = fs.openSync(this.walPath, "r+");
+      try {
+        fs.fsyncSync(walFd);
+      } finally {
+        fs.closeSync(walFd);
+      }
+    }
   }
 
   walSizeBytes(): number {

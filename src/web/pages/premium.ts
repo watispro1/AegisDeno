@@ -40,7 +40,7 @@ export function renderPremium(cfg: SiteConfig, offered: boolean): string {
   <section aria-labelledby="refunds-h">
     <h2 id="refunds-h">Billing, cancelling and refunds</h2>
     <p class="refund-policy">Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. Paddle processes all refunds.</p>
-    <p class="faint">Full details are in the <a href="/terms#premium">terms</a>.</p>
+    <p class="faint">Full details are in our <a href="/refunds">refund policy</a>, <a href="/pricing">pricing overview</a>, and <a href="/terms#premium">terms</a>.</p>
     ${cta}
   </section>
   <section aria-labelledby="adds-h">

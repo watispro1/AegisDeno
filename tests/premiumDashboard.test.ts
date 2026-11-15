@@ -15,7 +15,7 @@ import { cookieNames, csrfToken, signSessionId } from "../src/web/dashboard/secu
 import type { BotView } from "../src/web/dashboard/botView";
 import type { DashboardData, SettingsSnapshot } from "../src/web/dashboard/data";
 import type { SiteConfig } from "../src/web/pages";
-import { renderPremium, renderTerms } from "../src/web/pages";
+import { renderPremium, renderPricing, renderRefunds, renderTerms } from "../src/web/pages";
 import { normalizeGuildConfig } from "../src/services/guildConfigNormalize";
 import { memoryPremiumStore } from "../src/services/premiumStore";
 import type { Entitlement } from "../src/services/premiumState";
@@ -203,4 +203,36 @@ test("refund policy: the same 14-day policy is on /premium (on sale or not) and 
   const premiumSection = terms.slice(terms.indexOf('id="premium"'), terms.indexOf('id="acceptable-use"'));
   assert.ok(text(premiumSection).includes(policy), "policy in the Terms Premium section");
   assert.doesNotMatch(premiumSection, /handled by Paddle under its buyer terms/);
+  const refunds = renderRefunds(site);
+  assert.ok(text(refunds).includes(policy), "policy on /refunds");
+  assert.ok(refunds.includes('href="https://paddle.net"'));
+  assert.doesNotMatch(refunds, /\sstyle=|\son[a-z]+=/i);
+});
+
+test("public /pricing page compares Free vs Premium, lists limits, and is CSP-clean", () => {
+  const on = renderPricing(site, true);
+  assert.ok(on.includes("$5 / month"));
+  assert.ok(on.includes("Free forever"));
+  assert.ok(on.includes("✦ Premium"));
+  assert.ok(on.includes("Autoresponders"));
+  assert.ok(on.includes("merchant of record"));
+  assert.ok(on.includes('href="/refunds"'));
+  assert.ok(on.includes('href="/dashboard"'));
+  assert.doesNotMatch(on, /\sstyle=|\son[a-z]+=/i);
+
+  const off = renderPricing(site, false);
+  assert.ok(off.includes("Not on sale yet"));
+  assert.doesNotMatch(off, /\sstyle=|\son[a-z]+=/i);
+});
+
+test("dedicated /refunds page details 14-day guarantee and cancellation steps", () => {
+  const html = renderRefunds(site);
+  assert.ok(html.includes("Refund and Cancellation Policy"));
+  assert.ok(html.includes("14-Day Money-Back Guarantee"));
+  assert.ok(html.includes("Cancellation Policy"));
+  assert.ok(html.includes("What Happens When Premium Ends"));
+  assert.ok(html.includes("https://paddle.net"));
+  assert.ok(html.includes("/terms#premium"));
+  assert.ok(html.includes("/pricing"));
+  assert.doesNotMatch(html, /\sstyle=|\son[a-z]+=/i);
 });

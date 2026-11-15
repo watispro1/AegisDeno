@@ -21,6 +21,8 @@ export const PREMIUM_LIMITS = {
   autoresponders: { free: 50, premium: 100, label: "Autoresponders" },
   shopItems: { free: 50, premium: 100, label: "Economy shop items" },
   modmailSnippets: { free: 50, premium: 100, label: "ModMail snippets" },
+  scheduledMessages: { free: 25, premium: 50, label: "Scheduled automation messages" },
+  rolePanelChoices: { free: 25, premium: 50, label: "Role panel choices" },
 } as const;
 
 export type PremiumLimitKey = keyof typeof PREMIUM_LIMITS;
@@ -40,7 +42,13 @@ export function maxLimitValue(key: PremiumLimitKey): number {
 /** One line per benefit, for the dashboard, the public page and /premium. */
 export function premiumBenefitLines(): string[] {
   const caps = Object.values(PREMIUM_LIMITS).map(l => `${l.label}: ${l.premium} instead of ${l.free}`);
-  return [...caps, "A Premium badge for your server in /help and on the dashboard", "Supports Aegis's hosting and development"];
+  return [
+    ...caps,
+    "A Premium badge for your server in /help and on the dashboard",
+    "Priority webhook & notification delivery",
+    "Customer portal for one-click invoice management and self-service cancellation",
+    "Supports Aegis's hosting, high-availability infrastructure, and development",
+  ];
 }
 
 /** Shown wherever the badge appears. */
