@@ -1,108 +1,126 @@
-import {
-  ChannelType,
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-  TextChannel,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  MessageFlags,
-} from "discord.js";
+import { PermissionFlagsBits, TextChannel, EmbedBuilder, MessageFlags, type ChatInputCommandInteraction, type Guild } from "discord.js";
 import type { Command } from "../../types/discord";
 import {
   closeTicket,
-  addUserToTicket,
-  removeUserFromTicket,
   canCloseTicket,
   canManageTicket,
   claimTicket,
   buildTicketTranscript,
-  getTicketSettings,
-  updateTicketSettings,
-  ensureAutoCloseChecks,
   postTicketPanel,
 } from "../../services/ticketService";
-import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../services/ticketTranscript";
 import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
+import { requestConfirmation } from "../../utils/confirmation";
 import { logger } from "../../utils/logger";
+import { botChannelProblem, botHas, dashboardRow, POST_EMBED_PERMISSIONS, replyError, type PermissionList } from "../config/kit/setupKit";
+import { ticketData } from "./ticket/builder";
+import { addToTicket, removeFromTicket, renameTicket, ticketSettings } from "./ticket/manage";
 
-const PANEL_PERMISSIONS: Array<[bigint, string]> = [
-  [PermissionFlagsBits.ViewChannel, "View Channel"],
-  [PermissionFlagsBits.SendMessages, "Send Messages"],
-  [PermissionFlagsBits.EmbedLinks, "Embed Links"],
-];
+/** The panel channel also needs Read Message History so older panels can be found and replaced. */
+const PANEL_PERMISSIONS: PermissionList = [...POST_EMBED_PERMISSIONS, [PermissionFlagsBits.ReadMessageHistory, "Read Message History"]];
+
+/** Server-wide permissions Aegis needs to open ticket channels when members click the panel. */
+export function ticketCreationGaps(has: (bit: bigint) => boolean): string[] {
+  return ([[PermissionFlagsBits.ManageChannels, "Manage Channels"], [PermissionFlagsBits.ManageRoles, "Manage Roles"]] as const)
+    .filter(([bit]) => !has(bit)).map(([, name]) => name);
+}
+
+async function setupPanel(interaction: ChatInputCommandInteraction, guild: Guild): Promise<void> {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
+    return replyError(interaction, "❌ You need `Manage Channels` permission to set up ticket panels.");
+  }
+  const channel = interaction.options.getChannel("channel", true) as TextChannel;
+  const staffRole = interaction.options.getRole("staff_role");
+  const title = interaction.options.getString("title")?.trim() || null;
+  const description = interaction.options.getString("description")?.trim() || null;
+
+  if (staffRole && staffRole.id === guild.id) {
+    return replyError(interaction, "❌ @everyone can't be the staff role: every member would see every ticket. Pick your support team's role.");
+  }
+  // Check the channel first so a missing permission is named instead of surfacing as a generic error.
+  const problem = await botChannelProblem(guild, channel as never, PANEL_PERMISSIONS);
+  if (problem) return replyError(interaction, problem);
+
+  // Replacing older panels reads and deletes messages, which can outlast Discord's 3-second window.
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    await postTicketPanel(channel, { staffRoleId: staffRole?.id ?? null, title, description });
+  } catch (err) {
+    logger.warn(`Ticket panel could not be posted in ${channel.id} of guild ${guild.id}:`, err);
+    await interaction.editReply(`❌ Aegis couldn't post the ticket panel in ${channel}. Check that it can **View Channel**, **Send Messages** and **Embed Links** there, then run this again.`);
+    return;
+  }
+  const gaps = ticketCreationGaps((bit) => botHas(guild, bit));
+  const embed = new EmbedBuilder()
+    .setColor(gaps.length ? 0xFEE75C : 0x57F287)
+    .setTitle("✅ Ticket Panel Posted")
+    .setDescription(`The panel is live in ${channel}. Older Aegis ticket panels there were replaced.${gaps.length ? `\n⚠️ Aegis lacks **${gaps.join("**, **")}** server-wide, so clicking the panel can't open tickets yet. Grant it in Server Settings → Roles → Aegis.` : ""}`)
+    .addFields(
+      { name: "🛡️ Staff role", value: staffRole ? `<@&${staffRole.id}>` : "None (only members with Manage Channels see tickets)", inline: true },
+      { name: "⚙️ More settings", value: "`/ticket settings` for transcripts and auto-close", inline: true },
+    )
+    .setTimestamp();
+  await interaction.editReply({ embeds: [embed], components: [dashboardRow(guild.id, "settings/tickets")], allowedMentions: { parse: [] } });
+}
+
+async function closeHere(interaction: ChatInputCommandInteraction, guild: Guild): Promise<void> {
+  const reason = interaction.options.getString("reason")?.trim() || "Resolved";
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  if (!await canCloseTicket(guild, interaction.channelId, interaction.user.id)) {
+    await interaction.editReply("❌ Run this inside an open ticket. Only the ticket opener or support staff can close it.");
+    return;
+  }
+  if (isObfuscatedChannel(interaction.channel)) {
+    await interaction.editReply(`❌ ${hiddenChannelMessage(interaction.channelId)} The ticket stays open until then.`);
+    return;
+  }
+  const answer = await requestConfirmation(interaction, {
+    content: `🔒 Close this ticket? A transcript is saved and the channel is deleted.\n**Reason:** ${reason.slice(0, 500)}`,
+    confirmLabel: "Close ticket",
+  });
+  if (answer !== "confirmed") return;
+
+  const closed = await closeTicket(guild, interaction.channelId, interaction.user.id, reason);
+  await interaction.editReply({ content: closed ? "🔒 Closing the ticket…" : "❌ This ticket was already closed, or isn't an active ticket.", components: [] }).catch(() => null);
+}
+
+async function claimHere(interaction: ChatInputCommandInteraction, guild: Guild): Promise<void> {
+  const result = await claimTicket(guild, interaction.channelId, interaction.user.id);
+  if (result.status === "not_ticket") return replyError(interaction, "❌ This command can only be used inside an active ticket channel.");
+  if (result.status === "forbidden") return replyError(interaction, "❌ Only support staff can claim tickets.");
+  if (result.status === "already") {
+    return replyError(interaction, result.claimedBy === interaction.user.id ? "ℹ️ You've already claimed this ticket." : `ℹ️ This ticket is already claimed by <@${result.claimedBy}>.`);
+  }
+  const embed = new EmbedBuilder()
+    .setColor(0xF1C40F)
+    .setTitle("🙋 Ticket Claimed")
+    .setDescription(`This ticket is now being handled by <@${interaction.user.id}>.`)
+    .setTimestamp();
+  await interaction.reply({ embeds: [embed], allowedMentions: { parse: [] } });
+}
+
+async function transcriptHere(interaction: ChatInputCommandInteraction, guild: Guild): Promise<void> {
+  const channel = interaction.channel as TextChannel | null;
+  if (!channel || !("name" in channel) || !await canManageTicket(guild, channel.id, interaction.user.id)) {
+    return replyError(interaction, "❌ Run this inside an open ticket channel. Only support staff can export transcripts.");
+  }
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const { TicketModel } = await import("../../database/mongo");
+  const ticket = await TicketModel.findOne({ guildId: guild.id, channelId: channel.id, status: "open" }).lean();
+  const { file, messageCount } = await buildTicketTranscript(channel, {
+    ticketId: ticket?.id ?? channel.id,
+    openerId: ticket?.userId ?? "unknown",
+  });
+  if (messageCount === 0) {
+    await interaction.editReply("❌ No messages found in this ticket to export. Aegis needs **Read Message History** here.");
+    return;
+  }
+  await interaction.editReply({ content: `📄 **Ticket Transcript Generated** (${messageCount} messages)`, files: [file] });
+}
 
 export const command: Command = {
-  data: new SlashCommandBuilder()
-    .setName("ticket")
-    .setDescription("Support ticket system operations and panel setup.")
-    .setDMPermission(false)
-    .addSubcommand(sub =>
-      sub
-        .setName("setup")
-        .setDescription("Create a support ticket panel in a channel.")
-        .addChannelOption(opt => opt.setName("channel").setDescription("Target channel for the panel").addChannelTypes(ChannelType.GuildText).setRequired(true))
-        .addRoleOption(opt => opt.setName("staff_role").setDescription("Support staff role to notify").setRequired(false))
-        .addStringOption(opt => opt.setName("title").setDescription("Embed title for ticket panel").setRequired(false))
-        .addStringOption(opt => opt.setName("description").setDescription("Embed description").setRequired(false))
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("close")
-        .setDescription("Close the current support ticket.")
-        .addStringOption(opt => opt.setName("reason").setDescription("Reason for closing").setRequired(false))
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("add")
-        .setDescription("Add a member to this ticket.")
-        .addUserOption(opt => opt.setName("user").setDescription("User to add").setRequired(true))
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("remove")
-        .setDescription("Remove a member from this ticket.")
-        .addUserOption(opt => opt.setName("user").setDescription("User to remove").setRequired(true))
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("claim")
-        .setDescription("Claim responsibility for managing this ticket.")
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("transcript")
-        .setDescription("Generate and fetch an HTML transcript of this ticket.")
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("rename")
-        .setDescription("Rename the current support ticket channel.")
-        .addStringOption(opt => opt.setName("name").setDescription("New channel name").setRequired(true).setMaxLength(100))
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("settings")
-        .setDescription("View or change the transcript log channel and inactivity auto-close.")
-        .addChannelOption(opt =>
-          opt.setName("log_channel").setDescription("Channel that receives transcripts when tickets close").addChannelTypes(ChannelType.GuildText).setRequired(false)
-        )
-        .addIntegerOption(opt =>
-          opt
-            .setName("autoclose_hours")
-            .setDescription("Close tickets after this many hours without messages (0 = off, default 48)")
-            .setMinValue(0)
-            .setMaxValue(MAX_TICKET_AUTOCLOSE_HOURS)
-            .setRequired(false)
-        )
-        .addBooleanOption(opt =>
-          opt.setName("transcripts").setDescription("Post transcripts to the log channel on close (default on)").setRequired(false)
-        )
-        .addBooleanOption(opt =>
-          opt.setName("clear_log_channel").setDescription("Stop posting transcripts to a log channel").setRequired(false)
-        )
-    ),
+  data: ticketData,
 
   category: "tickets",
   guildOnly: true,
@@ -111,209 +129,22 @@ export const command: Command = {
 
   async execute(interaction) {
     if (!interaction.guild) return;
+    const guild = interaction.guild;
     const subcommand = interaction.options.getSubcommand();
-
-    if (subcommand === "setup") {
-      if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
-        await interaction.reply({ content: "❌ You need `Manage Channels` permission to set up ticket panels.", flags: MessageFlags.Ephemeral });
-        return;
+    try {
+      switch (subcommand) {
+        case "setup": return await setupPanel(interaction, guild);
+        case "close": return await closeHere(interaction, guild);
+        case "add": return await addToTicket(interaction, guild);
+        case "remove": return await removeFromTicket(interaction, guild);
+        case "rename": return await renameTicket(interaction, guild);
+        case "claim": return await claimHere(interaction, guild);
+        case "settings": return await ticketSettings(interaction, guild);
+        case "transcript": return await transcriptHere(interaction, guild);
       }
-
-      const channel = interaction.options.getChannel("channel", true) as TextChannel;
-      const staffRole = interaction.options.getRole("staff_role");
-      const title = interaction.options.getString("title");
-      const description = interaction.options.getString("description");
-
-      // Check the channel first so a missing permission is named instead of
-      // surfacing as a generic "couldn't post" error.
-      const me = interaction.guild.members.me;
-      const permissions = me ? channel.permissionsFor(me) : null;
-      const missing = permissions
-        ? PANEL_PERMISSIONS.filter(([permission]) => !permissions.has(permission)).map(([, name]) => name)
-        : [];
-      if (missing.length) {
-        await interaction.reply({
-          content: `❌ Aegis can't post the panel in ${channel}: it needs **${missing.join("**, **")}** there. Give Aegis's role those permissions in the channel, then run this again.`,
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-
-      try {
-        await postTicketPanel(channel, { staffRoleId: staffRole?.id ?? null, title, description });
-      } catch (err) {
-        logger.warn(`Ticket panel could not be posted in ${channel.id} of guild ${interaction.guild.id}:`, err);
-        await interaction.reply({
-          content: `❌ Aegis couldn't post the ticket panel in ${channel}. Check that it can **View Channel**, **Send Messages** and **Embed Links** there, then run this again.`,
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-      await interaction.reply({ content: `✅ Support ticket panel successfully created in ${channel}! (Previous panels in channel purged)`, flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    if (subcommand === "close") {
-      const reason = interaction.options.getString("reason") || "Resolved";
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-      if (!await canCloseTicket(interaction.guild, interaction.channelId, interaction.user.id)) {
-        await interaction.editReply("❌ Only the ticket opener or support staff can close this ticket.");
-        return;
-      }
-
-      if (isObfuscatedChannel(interaction.channel)) {
-        await interaction.editReply(`❌ ${hiddenChannelMessage(interaction.channelId)} The ticket stays open until then.`);
-        return;
-      }
-
-      const closed = await closeTicket(interaction.guild, interaction.channelId, interaction.user.id, reason);
-      if (closed) {
-        await interaction.editReply({ content: "🔒 Ticket closure initiated." });
-      } else {
-        await interaction.editReply({ content: "❌ This channel is not an active support ticket." });
-      }
-      return;
-    }
-
-    if (subcommand === "add") {
-      const targetUser = interaction.options.getUser("user", true);
-      const channel = interaction.channel as TextChannel | null;
-      if (!channel || !("name" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
-        await interaction.reply({ content: "❌ This command can only be used inside an active ticket channel.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-      const ok = await addUserToTicket(channel, targetUser.id);
-      await interaction.reply({
-        content: ok ? `✅ Added <@${targetUser.id}> to the ticket.` : "❌ Failed to add user.",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    if (subcommand === "remove") {
-      const targetUser = interaction.options.getUser("user", true);
-      const channel = interaction.channel as TextChannel | null;
-      if (!channel || !("name" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
-        await interaction.reply({ content: "❌ This command can only be used inside an active ticket channel.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-      const ok = await removeUserFromTicket(channel, targetUser.id);
-      await interaction.reply({
-        content: ok ? `✅ Removed <@${targetUser.id}> from the ticket.` : "❌ Failed to remove user.",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    if (subcommand === "rename") {
-      const channel = interaction.channel as TextChannel | null;
-      if (!channel || !("setName" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
-        await interaction.reply({ content: "❌ This command can only be used by support staff inside an active ticket channel.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-      const rawName = interaction.options.getString("name", true).trim().toLowerCase().replace(/\s+/g, "-");
-      const cleanName = rawName.slice(0, 100);
-      try {
-        await channel.setName(cleanName, `Ticket renamed by ${interaction.user.tag}`);
-        await interaction.reply({ content: `✅ Ticket channel renamed to \`${cleanName}\`.` });
-      } catch (err) {
-        await interaction.reply({ content: "❌ Failed to rename ticket channel. Check bot permissions.", flags: MessageFlags.Ephemeral });
-      }
-      return;
-    }
-
-    if (subcommand === "claim") {
-      const result = await claimTicket(interaction.guild, interaction.channelId, interaction.user.id);
-      if (result.status === "not_ticket") {
-        await interaction.reply({ content: "❌ This command can only be used inside an active ticket channel.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-      if (result.status === "forbidden") {
-        await interaction.reply({ content: "❌ Only support staff can claim tickets.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-      if (result.status === "already") {
-        await interaction.reply({ content: `ℹ️ This ticket is already claimed by <@${result.claimedBy}>.`, flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const embed = new EmbedBuilder()
-        .setColor(0xF1C40F)
-        .setTitle("🙋 Ticket Claimed")
-        .setDescription(`This ticket is now being handled by <@${interaction.user.id}>.`)
-        .setTimestamp();
-
-      await interaction.reply({ embeds: [embed], allowedMentions: { parse: [] } });
-      return;
-    }
-
-    if (subcommand === "settings") {
-      const logChannel = interaction.options.getChannel("log_channel");
-      const autoCloseHours = interaction.options.getInteger("autoclose_hours");
-      const transcripts = interaction.options.getBoolean("transcripts");
-      const clearLog = interaction.options.getBoolean("clear_log_channel") ?? false;
-      const changing = Boolean(logChannel) || autoCloseHours !== null || transcripts !== null || clearLog;
-
-      if (changing && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
-        await interaction.reply({ content: "❌ You need `Manage Channels` permission to change ticket settings.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      const patch: Parameters<typeof updateTicketSettings>[1] = {};
-      if (logChannel) patch.logChannelId = logChannel.id;
-      if (clearLog) patch.logChannelId = null;
-      if (autoCloseHours !== null) patch.autoCloseHours = autoCloseHours;
-      if (transcripts !== null) patch.transcriptLogging = transcripts;
-
-      const settings = changing
-        ? await updateTicketSettings(interaction.guild.id, patch)
-        : await getTicketSettings(interaction.guild.id);
-      if (changing && settings.autoCloseHours > 0) {
-        // Queue checks for tickets opened before auto-close was on; runs after the reply.
-        void ensureAutoCloseChecks(interaction.guild).catch(() => 0);
-      }
-
-      const embed = new EmbedBuilder()
-        .setColor(0x3498DB)
-        .setTitle(changing ? "✅ Ticket Settings Updated" : "🎫 Ticket Settings")
-        .addFields(
-          { name: "📄 Transcript log channel", value: settings.logChannelId ? `<#${settings.logChannelId}>` : "Not set", inline: true },
-          { name: "📨 Post transcripts", value: settings.transcriptLogging ? "On" : "Off", inline: true },
-          { name: "⏳ Auto-close", value: settings.autoCloseHours > 0 ? `After ${settings.autoCloseHours}h without messages` : "Off", inline: true },
-        )
-        .setFooter({ text: "The ticket opener always gets a transcript by DM when a ticket closes (if their DMs are open). Auto-close changes apply to the next check of each ticket." })
-        .setTimestamp();
-
-      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    if (subcommand === "transcript") {
-      const channel = interaction.channel as TextChannel | null;
-      if (!channel || !("name" in channel) || !await canManageTicket(interaction.guild, channel.id, interaction.user.id)) {
-        await interaction.reply({ content: "❌ This command can only be used inside an active ticket channel.", flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-      const { TicketModel } = await import("../../database/mongo");
-      const ticket = await TicketModel.findOne({ guildId: interaction.guild.id, channelId: channel.id, status: "open" }).lean();
-      const { file, messageCount } = await buildTicketTranscript(channel, {
-        ticketId: ticket?.id ?? channel.id,
-        openerId: ticket?.userId ?? "unknown",
-      });
-      if (messageCount === 0) {
-        await interaction.editReply("❌ No messages found in this ticket to export.");
-        return;
-      }
-
-      await interaction.editReply({
-        content: `📄 **Ticket Transcript Generated** (${messageCount} messages)`,
-        files: [file],
-      });
-      return;
+    } catch (err) {
+      logger.error(`Failed to handle /ticket ${subcommand} in guild ${guild.id}`, err);
+      await replyError(interaction, "❌ Something went wrong with that ticket action. Nothing else was changed; try again in a moment.");
     }
   },
 };

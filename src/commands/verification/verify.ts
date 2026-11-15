@@ -1,4 +1,3 @@
-import { guardCollect } from "../../utils/collectorGuard";
 import {
   ChannelType,
   PermissionFlagsBits,
@@ -6,12 +5,9 @@ import {
   TextChannel,
   EmbedBuilder,
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ComponentType,
   MessageFlags,
 } from "discord.js";
 import { scopedModalId } from "../../utils/modal";
@@ -20,24 +16,28 @@ import { memberTopRolePosition, roleAboveActor } from "../../permissions/hierarc
 import type { Command } from "../../types/discord";
 import { setupVerification, getVerificationConfig, setKickUnverifiedMinutes } from "../../services/verificationService";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../services/verificationLogic";
-import { VerificationModel } from "../../database/mongo";
 import { verifyUser, verifyBatch } from "./verify/members";
+import { verifyDisable, verifyInfo } from "./verify/info";
+import { botChannelProblem, botHas, botRoleProblem, dashboardRow, POST_EMBED_PERMISSIONS, type PermissionList } from "../config/kit/setupKit";
+
+/** The panel channel also needs Read Message History so an older panel can be found and replaced. */
+const PANEL_PERMISSIONS: PermissionList = [...POST_EMBED_PERMISSIONS, [PermissionFlagsBits.ReadMessageHistory, "Read Message History"]];
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("verify")
-    .setDescription("Server anti-raid and member verification settings.")
+    .setDescription("Member verification: post the panel, verify members by hand and change settings.")
     .setDMPermission(false)
     .addSubcommand(sub =>
       sub
         .setName("setup")
-        .setDescription("Open a form to customize and post a verification panel.")
-        .addChannelOption(opt => opt.setName("channel").setDescription("Target channel").addChannelTypes(ChannelType.GuildText).setRequired(true))
-        .addRoleOption(opt => opt.setName("verified_role").setDescription("Role granted upon verification").setRequired(true))
+        .setDescription("Post (or replace) the verification panel; a form asks for its title and text.")
+        .addChannelOption(opt => opt.setName("channel").setDescription("Text channel new members can see").addChannelTypes(ChannelType.GuildText).setRequired(true))
+        .addRoleOption(opt => opt.setName("verified_role").setDescription("Role members get once verified (must be below Aegis's role)").setRequired(true))
         .addStringOption(opt =>
           opt
             .setName("type")
-            .setDescription("Verification challenge type")
+            .setDescription("One click, or a quick maths CAPTCHA (default: one click)")
             .setRequired(false)
             .addChoices(
               { name: "One-Click Button", value: "button" },
@@ -69,23 +69,23 @@ export const command: Command = {
     .addSubcommand(sub =>
       sub
         .setName("user")
-        .setDescription("Manually verify a server member.")
+        .setDescription("Give one member the verified role by hand.")
         .addUserOption(opt => opt.setName("target").setDescription("Member to verify").setRequired(true))
     )
     .addSubcommand(sub =>
       sub
         .setName("batch")
-        .setDescription("Manually verify multiple users in bulk (up to 50).")
+        .setDescription("Verify up to 50 members at once by pasting their user IDs.")
     )
     .addSubcommand(sub =>
       sub
         .setName("info")
-        .setDescription("Display an interactive dashboard of current verification settings.")
+        .setDescription("See the verification settings and any problems to fix.")
     )
     .addSubcommand(sub =>
       sub
         .setName("disable")
-        .setDescription("Disable the verification system.")
+        .setDescription("Turn verification off (asks to confirm; settings are kept).")
     ),
 
   category: "verification",
@@ -124,6 +124,12 @@ export const command: Command = {
           flags: MessageFlags.Ephemeral,
         });
       }
+
+      // Aegis hands the role out and posts the panel itself, so check both before the form opens.
+      const roleProblem = botRoleProblem(interaction.guild, role, "as the verified role");
+      if (roleProblem) return interaction.reply({ content: roleProblem, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
+      const channelProblem = await botChannelProblem(interaction.guild, channel as never, PANEL_PERMISSIONS);
+      if (channelProblem) return interaction.reply({ content: channelProblem, flags: MessageFlags.Ephemeral });
 
       const modal = new ModalBuilder()
         .setCustomId(scopedModalId("verify_setup_modal", interaction.id))
@@ -173,87 +179,24 @@ export const command: Command = {
             new EmbedBuilder()
               .setColor(0x57F287)
               .setTitle("✅ Verification Configured")
-              .setDescription(`The verification panel has been posted in <#${channel.id}>.`)
+              .setDescription(`The verification panel has been posted in <#${channel.id}>.${result.kickUnverifiedMinutes > 0 && !botHas(interaction.guild, PermissionFlagsBits.KickMembers) ? "\n⚠️ Auto-kick is on but Aegis lacks **Kick Members**, so nobody will be kicked." : ""}`)
               .addFields(
                 { name: "🛡️ Role", value: `<@&${role.id}>`, inline: true },
-                { name: "⚙️ Type", value: type.toUpperCase(), inline: true },
+                { name: "⚙️ Type", value: type === "captcha" ? "CAPTCHA" : "One-click button", inline: true },
                 { name: "👢 Auto-kick", value: result.kickUnverifiedMinutes > 0 ? `After ${result.kickUnverifiedMinutes} min` : "Off", inline: true },
               )
               .setTimestamp(),
           ],
+          components: [dashboardRow(guildId, "settings/verification")],
+          allowedMentions: { parse: [] },
         });
       } else {
-        await modalResponse.editReply("❌ Failed to set up verification panel. Please check my permissions in that channel.");
+        await modalResponse.editReply("❌ Couldn't post the verification panel. Check that Aegis can **View Channel**, **Send Messages** and **Embed Links** in that channel.");
       }
       return;
     }
 
-    // info
-    if (subcommand === "info") {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      const config = await getVerificationConfig(guildId);
-      
-      const buildEmbed = (cfg: typeof config) => {
-        const embed = new EmbedBuilder()
-          .setTitle("🛡️ Verification System Dashboard")
-          .setTimestamp();
-
-        if (!cfg || !cfg.enabled) {
-          embed.setColor(0xED4245);
-          embed.setDescription("The verification system is currently **disabled**.\nUse `/verify setup` to enable it.");
-          return embed;
-        }
-
-        embed.setColor(0x3498DB);
-        embed.addFields(
-          { name: "🟢 Status",        value: "**Enabled**", inline: true },
-          { name: "⚙️ Mode",         value: `\`${cfg.type.toUpperCase()}\``, inline: true },
-          { name: "🛡️ Verified Role", value: `<@&${cfg.verifiedRoleId}>`, inline: true },
-          { name: "📌 Channel",       value: cfg.channelId ? `<#${cfg.channelId}>` : "Not set", inline: true },
-          { name: "📨 Message ID",    value: cfg.messageId ? `\`${cfg.messageId}\`` : "Not set", inline: true },
-          { name: "👢 Auto-kick",     value: cfg.kickUnverifiedMinutes > 0 ? `Unverified after ${cfg.kickUnverifiedMinutes} min` : "Off", inline: true },
-        );
-        return embed;
-      };
-
-      const embed = buildEmbed(config);
-      
-      const components: ActionRowBuilder<ButtonBuilder>[] = [];
-      if (config && config.enabled) {
-        components.push(
-          new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder()
-              .setCustomId("verify_disable_quick")
-              .setLabel("Disable Verification")
-              .setStyle(ButtonStyle.Danger)
-              .setEmoji("🔴")
-          )
-        );
-      }
-
-      const sent = await interaction.editReply({ embeds: [embed], components });
-
-      if (config && config.enabled) {
-        const collector = sent.createMessageComponentCollector({
-          componentType: ComponentType.Button,
-          time: 60_000,
-          filter: (i) => i.user.id === interaction.user.id,
-          max: 1,
-        });
-
-        collector.on("collect", (i) => guardCollect("verify", i, async () => {
-          if (i.customId === "verify_disable_quick") {
-            await i.deferUpdate();
-            await VerificationModel.updateOne({ guildId }, { $set: { enabled: false } });
-            
-            const updatedConfig = await getVerificationConfig(guildId);
-            await i.editReply({ embeds: [buildEmbed(updatedConfig)], components: [] });
-            await i.followUp({ content: "🔴 Verification system has been disabled.", flags: MessageFlags.Ephemeral });
-          }
-        }));
-      }
-      return;
-    }
+    if (subcommand === "info") { await verifyInfo(interaction, interaction.guild); return; }
 
     // Manual user verify
     if (subcommand === "user") { await verifyUser(interaction, interaction.guild, guildId); return; }
@@ -271,29 +214,21 @@ export const command: Command = {
       if (!ok) {
         return interaction.reply({ content: "❌ Verification is not set up yet. Run `/verify setup` first.", flags: MessageFlags.Ephemeral });
       }
+      const cfg = await getVerificationConfig(guildId);
+      const notes = [
+        minutes > 0 && !botHas(interaction.guild, PermissionFlagsBits.KickMembers) ? "⚠️ Aegis lacks **Kick Members**, so nobody will be kicked until you grant it." : "",
+        cfg && !cfg.enabled ? "ℹ️ Verification itself is off, so auto-kick won't run until you turn it back on with `/verify setup`." : "",
+      ].filter(Boolean).join("\n");
       return interaction.reply({
-        content: minutes > 0
-          ? `✅ Members who join from now on will be kicked if they have not verified within **${minutes}** minute(s). Make sure my role is above theirs and I have Kick Members.`
-          : "✅ Unverified auto-kick is now **off**. Pending kicks are skipped.",
+        content: (minutes > 0
+          ? `✅ Members who join from now on will be kicked if they have not verified within **${minutes}** minute(s). Aegis's role must be above theirs.`
+          : "✅ Unverified auto-kick is now **off**. Pending kicks are skipped.") + (notes ? `\n${notes}` : ""),
         flags: MessageFlags.Ephemeral,
+        components: [dashboardRow(guildId, "settings/verification")],
       });
     }
 
-    // Disable
-    if (subcommand === "disable") {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      await VerificationModel.updateOne({ guildId }, { $set: { enabled: false } });
-      await interaction.editReply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0xED4245)
-            .setTitle("🔴 Verification Disabled")
-            .setDescription("The verification system has been disabled.")
-            .setTimestamp(),
-        ],
-      });
-      return;
-    }
+    if (subcommand === "disable") { await verifyDisable(interaction, interaction.guild); return; }
   },
 };
 
