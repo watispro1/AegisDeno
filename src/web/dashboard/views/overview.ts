@@ -1,7 +1,7 @@
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord, OverviewData, SettingsSnapshot } from "../data";
 import type { OverviewExtras } from "../moduleData";
-import { type GuildContext, copyId, head, moduleStatus, notice, person, personId, relTime, shell } from "./layout";
+import { type GuildContext, copyId, emptyState, head, moduleStatus, notice, person, personId, relTime, shell } from "./layout";
 import type { AuditEntry } from "../audit";
 import { gettingStartedCard, onboardingSteps, recentActivityCard, showGettingStarted } from "./gettingStarted";
 import { AUTOMOD_RULE_KEYS, enabledAutomodRules } from "../../../services/automod";
@@ -256,6 +256,31 @@ export function casesChart(series: number[], endMs: number): string {
   </figure>`;
 }
 
+/** The settings people open most, one tap from the overview, each with its current state. */
+const QUICK_KEYS = ["automod", "logging", "moderation", "welcome", "verification", "tickets", "appeals", "incident"] as const;
+
+export function quickSettings(guildId: string, data: OverviewData, model: OverviewModel): string {
+  const base = `/dashboard/${esc(guildId)}`;
+  const byKey = new Map(moduleStates(guildId, data, model).map(st => [st.key, st]));
+  const tiles = QUICK_KEYS.map(k => byKey.get(k)).filter((st): st is ModuleState => Boolean(st));
+  const body = tiles.length
+    ? `<ul class="quick-settings">${tiles.map(st => {
+        const state = st.on === null ? "ready" : st.on ? "on" : "off";
+        const word = st.on === null ? "Ready" : st.on ? "On" : "Off";
+        return `<li><a class="quick-tile" href="${esc(st.href)}"><span class="quick-label">${esc(st.label)}</span><span class="quick-state" data-state="${state}"><span class="quick-dot" aria-hidden="true"></span>${word}</span>${st.detail ? `<span class="quick-detail">${esc(st.detail)}</span>` : ""}</a></li>`;
+      }).join("")}</ul>`
+    : `<div class="btn-row">
+      <a class="btn ghost sm" href="${base}/cases">View Recent Cases</a>
+      <a class="btn ghost sm" href="${base}/settings/automod">Automod Rules</a>
+      <a class="btn ghost sm" href="${base}/settings/logging">Configure Logging</a>
+      <a class="btn ghost sm" href="${base}/incident">Incident Mode</a>
+    </div>`;
+  return `<section class="panel-card quick-card" aria-labelledby="quick-actions-h">
+    <div class="quick-head"><h2 id="quick-actions-h">Common settings</h2><a class="text-link" href="${base}/settings">All settings &rarr;</a></div>
+    ${body}
+  </section>`;
+}
+
 export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: OverviewData, model: OverviewModel = {}): string {
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}`;
@@ -298,6 +323,7 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
     ${x ? card("Active giveaways", x.activeGiveaways, "", `${base}/giveaways`) : ""}
     ${x ? card("Automod hits, 7 days", x.automodHits7, "", `${base}/settings/automod`) : ""}
   </dl>
+  ${quickSettings(g.id, data, model)}
   <div class="overview-grid">
     <section class="panel-card span-2" aria-labelledby="chart-h">
       <h2 id="chart-h">Cases per day</h2>
@@ -308,19 +334,11 @@ export function renderOverview(cfg: SiteConfig, ctx: GuildContext, data: Overvie
       ${checklistHtml(checks)}
     </section>
   </div>
-  <section class="panel-card" aria-labelledby="quick-actions-h">
-    <h2 id="quick-actions-h">Quick Actions</h2>
-    <div class="btn-row">
-      <a class="btn ghost sm" href="${base}/cases">View Recent Cases</a>
-      <a class="btn ghost sm" href="${base}/settings/automod">Automod Rules</a>
-      <a class="btn ghost sm" href="${base}/settings/logging">Configure Logging</a>
-      <a class="btn ghost sm" href="${base}/incident">Incident Mode</a>
-    </div>
-  </section>
+
   ${model.audit !== undefined ? recentActivityCard(g.id, model.audit) : ""}
   ${states.length ? `<section class="mod-section" aria-labelledby="modules-h"><h2 id="modules-h">Modules</h2>${moduleGrid(states, model)}</section>` : ""}
   <h2>Recent cases</h2>
-  ${data.recentCases.length ? caseTable(ctx, data.recentCases, "The 10 most recent cases and warnings") : `<div class="empty-state"><strong>No cases yet.</strong> Cases and warnings appear here as moderators use /warn, /timeout, /kick and /ban.</div>`}
+  ${data.recentCases.length ? caseTable(ctx, data.recentCases, "The 10 most recent cases and warnings") : emptyState("No cases yet.", "Cases and warnings appear here as moderators use <code class=\"inline\">/warn</code>, <code class=\"inline\">/timeout</code>, <code class=\"inline\">/kick</code> and <code class=\"inline\">/ban</code>.", undefined, { icon: "▤" })}
   <p><a class="text-link" href="${base}/cases">All cases &rarr;</a></p>
   ${data.pendingAppeals > 0 ? `<p><a class="text-link" href="${base}/appeals">Review ${data.pendingAppeals.toLocaleString("en-US")} pending appeal${data.pendingAppeals === 1 ? "" : "s"} &rarr;</a></p>` : ""}
   <h2>Open tickets</h2>

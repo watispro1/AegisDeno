@@ -357,7 +357,17 @@ export function person(ctx: GuildContext, id: string): string {
   return name ? `${esc(name)} <span class="faint">${esc(id)}</span>` : `<code class="inline">${esc(id)}</code>`;
 }
 
-/** A friendly empty state block. */
-export function emptyState(title: string, text: string, action?: { label: string; href: string }): string {
-  return `<div class="empty-state"><span class="empty-icon" aria-hidden="true">∅</span><div class="empty-body"><strong>${esc(title)}</strong> ${text}${action ? ` <a class="btn ghost sm empty-action" href="${esc(action.href)}">${esc(action.label)}</a>` : ""}</div></div>`;
+export interface EmptyAction { label: string; href: string }
+
+/**
+ * A friendly empty state block: icon, a bold title, an explanation (already
+ * escaped HTML) and up to two next steps. Every dashboard "nothing here yet"
+ * goes through this so they look and read the same.
+ */
+export function emptyState(title: string, text: string, action?: EmptyAction, o: { icon?: string; secondary?: EmptyAction } = {}): string {
+  const link = (a: EmptyAction, ghost: boolean) => `<a class="btn ${ghost ? "ghost " : ""}sm empty-action" href="${esc(a.href)}">${esc(a.label)}</a>`;
+  const actions = action || o.secondary
+    ? `<span class="empty-actions">${action ? link(action, Boolean(o.secondary) === false) : ""}${o.secondary ? link(o.secondary, true) : ""}</span>`
+    : "";
+  return `<div class="empty-state"><span class="empty-icon" aria-hidden="true">${esc(o.icon ?? "∅")}</span><div class="empty-body"><strong>${esc(title)}</strong> ${text}${actions}</div></div>`;
 }

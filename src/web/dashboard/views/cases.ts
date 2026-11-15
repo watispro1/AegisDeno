@@ -2,7 +2,7 @@ import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { CaseRecord } from "../data";
 import { CASE_REASON_MAX, CASE_TYPES, CASE_QUERY_MAX, type CaseFilter, CASE_PAGE_SIZES } from "../validation";
 import { CASE_EXPORT_MAX } from "../casesCsv";
-import { type GuildContext, csrfField, head, idCode, notice, person, personId, relTime, shell } from "./layout";
+import { type GuildContext, csrfField, emptyState, head, idCode, notice, person, personId, relTime, shell } from "./layout";
 import { caseTable } from "./overview";
 import { pill, summaryStrip } from "./moduleKit";
 
@@ -51,6 +51,7 @@ export function renderCases(
     </nav>`
     : `<p class="muted">${result.total.toLocaleString("en-US")} record${result.total === 1 ? "" : "s"}.</p>`;
 
+  const activeFilters = [filter.type, filter.userId, filter.moderatorId, filter.from, filter.to, filter.query].filter(Boolean).length;
   return shell(cfg, {
     title: `Cases in ${g.name}`,
     path: `/dashboard/${g.id}/cases`,
@@ -67,6 +68,8 @@ export function renderCases(
     <li><a href="${base}${esc(casesQuery({ ...filter, type: null }, 1))}"${filter.type ? "" : ' aria-current="true"'}>All types</a></li>
     ${QUICK_TYPES.map(t => `<li><a href="${base}${esc(casesQuery({ ...filter, type: t }, 1))}"${filter.type === t ? ' aria-current="true"' : ""}>${t}</a></li>`).join("")}
   </ul>
+  <details class="filter-panel" data-filter-panel data-active-count="${activeFilters}" open>
+  <summary class="filter-panel-summary">Filters${activeFilters ? ` <span class="filter-count">${activeFilters} on</span>` : ""}</summary>
   <form class="filter-bar" method="get" action="${base}" role="search" aria-label="Filter cases">
     <div><label for="f-type">Type</label><select id="f-type" name="type">${typeOptions}</select></div>
     <div><label for="f-user">Member ID</label><input id="f-user" name="user" type="text" inputmode="numeric" autocomplete="off" value="${esc(filter.userId ?? "")}" placeholder="123456789012345678"></div>
@@ -77,10 +80,11 @@ export function renderCases(
     <div><label for="f-q">Reason contains</label><input id="f-q" name="q" type="search" maxlength="${CASE_QUERY_MAX}" autocomplete="off" value="${esc(filter.query ?? "")}" placeholder="spam"></div>
     <div class="btn-row"><button class="btn" type="submit">Filter</button>${filtered ? `<a class="btn ghost" href="${base}">Clear</a>` : ""}</div>
   </form>
+  </details>
   ${result.total ? `<p class="muted"><a class="text-link" href="${base}/export.csv${esc(casesQuery({ ...filter, per: undefined }, 1))}" download>Download ${result.total > CASE_EXPORT_MAX ? `the newest ${CASE_EXPORT_MAX.toLocaleString("en-US")}` : `all ${result.total.toLocaleString("en-US")}`} as CSV</a> <span class="faint">(uses the filter above)</span></p>` : ""}
   ${result.items.length ? caseTable(ctx, result.items, "Cases matching the filter") : (filtered
-    ? `<div class="empty-state"><strong>Nothing matches.</strong> Try a different filter, or <a href="${base}">clear it</a>.</div>`
-    : `<div class="empty-state"><strong>No cases yet.</strong> Cases appear here when someone is warned, timed out, kicked or banned with Aegis. <a class="btn ghost sm empty-action" href="/dashboard/${esc(g.id)}/settings/automod">Set up automod</a></div>`)}
+    ? emptyState("Nothing matches.", "No case fits this filter. Try a wider date range or another type.", { label: "Clear the filter", href: base }, { icon: "⌕" })
+    : emptyState("No cases yet.", "Cases appear here when someone is warned, timed out, kicked or banned with Aegis.", { label: "Set up automod", href: `/dashboard/${g.id}/settings/automod` }, { icon: "▤", secondary: { label: "Escalation rules", href: `/dashboard/${g.id}/settings/escalation` } }))}
   ${pager}`,
   });
 }

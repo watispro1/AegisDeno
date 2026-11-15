@@ -5,7 +5,7 @@ import { type FormBody, ESCALATION_ROWS, LOG_CATEGORY_LABELS, MAX_TIMEOUT_MINUTE
 import { MAX_WARN_EXPIRY_DAYS } from "../../../services/configuration";
 import { MAX_TICKET_AUTOCLOSE_HOURS } from "../../../services/ticketTranscript";
 import { MAX_KICK_UNVERIFIED_MINUTES } from "../../../services/verificationLogic";
-import { type GuildContext, type GuildSection, csrfField, head, moduleStatus, notice, shell } from "./layout";
+import { type GuildContext, type GuildSection, csrfField, emptyState, head, moduleStatus, notice, shell } from "./layout";
 import { embedBuilder } from "./embedBuilder";
 import { automodTestPanel, type AutomodTestState } from "./automodTest";
 import { automodForm } from "./automodForm";
@@ -123,8 +123,9 @@ function sectionForm(
 
     case "verification":
       if (!snapshot.verification) {
-        return `<div class="empty-state"><strong>Verification is not set up yet.</strong>
-          New members need a panel to click before verification can work. <a class="text-link" href="/dashboard/${esc(ctx.guild.id)}/panels#verification">Post the verification panel</a> from the Panels page, or run <code class="inline">/verify setup</code> in Discord. After that you can change the settings here.</div>`;
+        return emptyState("Verification is not set up yet.",
+          `New members need a panel to click before verification can work. Post it from the Panels page, or run <code class="inline">/verify setup</code> in Discord. After that you can change the settings here.`,
+          { label: "Post the verification panel", href: `/dashboard/${ctx.guild.id}/panels#verification` }, { icon: "✓" });
       }
       return `${missingNote(f.str("verifiedRoleId"), roles, "verified role")}
       <fieldset><legend>Verification</legend>
@@ -254,11 +255,12 @@ function moduleHeader(section: SettingsSection, s: SettingsSnapshot, base: strin
     : section === "tickets"
       ? `<p class="muted">Post or move the ticket panel from <a href="${dash}/panels#tickets">Role panels &amp; panels</a>.</p>`
       : "";
-  const status = on === null ? "Always available." : on ? "Aegis is using this module." : switchable ? "Switched off. Use the switch to turn it on." : "Turn it on below, then save.";
+  const notSetUp = section === "verification" && !s.verification;
+  const status = on === null ? "Always available." : on ? "Aegis is using this module." : notSetUp ? "Post the verification panel to set it up." : switchable ? "Switched off. Use the switch to turn it on." : "Turn it on below, then save.";
   return `${tabs}<div class="module-head mod-head" data-module-head>
     <span class="mod-icon" aria-hidden="true">${esc(meta.icon)}</span>
     <div class="mod-head-text">
-      <div class="mod-head-line">${on === null ? `<span class="status-pill neutral">Available</span>` : moduleStatus(on)}<span class="muted">${status}</span></div>
+      <div class="mod-head-line">${on === null ? `<span class="status-pill neutral">Available</span>` : notSetUp ? moduleStatus(false, "Not set up") : moduleStatus(on)}<span class="muted">${status}</span></div>
       ${meta.description ? `<p class="mod-head-desc">${esc(meta.description)}</p>` : ""}
       <p class="mod-head-links">${meta.command ? `<a href="${esc(moduleDocsHref(SECTION_MODULE[section]))}">Docs: <code class="inline">${esc(meta.command)}</code></a>` : `<a href="/docs">Docs</a>`}<a href="${dash}">Back to overview</a></p>
     </div>
