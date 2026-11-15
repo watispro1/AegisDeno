@@ -5,6 +5,7 @@ import { commandRegistrationData } from "./commands/registration";
 import { createClient, setupEvents } from "./bot/client";
 import { initScheduler, shutdownScheduler } from "./services/schedulerRunner";
 import { connectDatabase, closeDatabase } from "./database/mongo";
+import { startAegisBackend, stopAegisBackend } from "./database/aegisDb";
 import { logger } from "./utils/logger";
 import { startWebServer } from "./web/server";
 import { flushMemberActivity } from "./services/memberActivity";
@@ -69,6 +70,8 @@ async function main(): Promise<void> {
 
   await loadCommands();
 
+  await startAegisBackend().catch((err) => logger.error("AegisDB start error:", err));
+
   // Start the web server before registering commands so Fly's health check
   // passes while Discord's API is slow.
   const client = createClient();
@@ -119,6 +122,7 @@ async function main(): Promise<void> {
       { name: "discord client", run: () => client.destroy() },
       { name: "activity flush", run: () => flushMemberActivity() },
       { name: "database", run: () => closeDatabase() },
+      { name: "aegis-db", run: () => stopAegisBackend() },
     ],
   });
 

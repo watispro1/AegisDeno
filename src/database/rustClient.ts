@@ -1,5 +1,7 @@
+import { getAegisDbEngine, startAegisBackend } from "./aegisDb";
+
 /**
- * Client for Aegis's Rust-powered database & backend service (AegisDB).
+ * Client for Aegis's database & backend service (AegisDB).
  * Communicates over high-performance HTTP REST with Write-Ahead Log (WAL) durability.
  */
 
@@ -218,6 +220,18 @@ export class AegisRustClient {
       await this.health();
       return true;
     } catch {
+      if (getAegisDbEngine()) return true;
+
+      // Auto-start native backend if using local default endpoint
+      if (this.baseUrl.includes("127.0.0.1:4000") || this.baseUrl.includes("localhost:4000")) {
+        try {
+          await startAegisBackend();
+          await this.health();
+          return true;
+        } catch {
+          return getAegisDbEngine() !== null;
+        }
+      }
       return false;
     }
   }
@@ -231,3 +245,6 @@ export function getRustClient(): AegisRustClient {
   }
   return defaultClient;
 }
+
+export const AegisDbClient = AegisRustClient;
+export const getAegisDbClient = getRustClient;

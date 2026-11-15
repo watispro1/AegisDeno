@@ -5,6 +5,7 @@ import { buildCatalog, catalogStats, getCommand } from "./catalog";
 import { secretMatches } from "./securityHeaders";
 import { createHealthCheck } from "./health";
 import { getRustClient } from "../database/rustClient";
+import { getAegisDbEngine } from "../database/aegisDb";
 import type { Stats } from "./pages";
 
 export interface ApiRouteDeps {
@@ -39,7 +40,8 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
 
   app.get("/health", (_req, res) => {
     const stats = deps.stats();
-    const reading = health(deps.online(), deps.databaseReady(), rustBackendUp);
+    const isUp = rustBackendUp || getAegisDbEngine() !== null;
+    const reading = health(deps.online(), deps.databaseReady(), isUp);
     res.setHeader("Cache-Control", "no-store");
     res.status(reading.httpStatus).json({
       status: reading.status,
@@ -58,6 +60,7 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
   app.get("/api/stats", (_req, res) => {
     const stats = deps.stats();
     const cs = catalogStats();
+    const isUp = rustBackendUp || getAegisDbEngine() !== null;
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("X-Robots-Tag", "noindex");
@@ -70,7 +73,7 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
       users: stats.users,
       commands: stats.commands,
       catalog: cs,
-      rustBackend: { healthy: rustBackendUp },
+      rustBackend: { healthy: isUp },
     });
   });
 
@@ -82,8 +85,13 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
       const data = await getRustClient().stats();
       res.json({ ok: true, ...data });
     } catch (err) {
-      logger.debug("AegisDB stats probe failed:", err);
-      res.status(503).json({ ok: false, error: "backend_unavailable" });
+      const engine = getAegisDbEngine();
+      if (engine) {
+        res.json({ ok: true, ...engine.stats() });
+      } else {
+        logger.debug("AegisDB stats probe failed:", err);
+        res.status(503).json({ ok: false, error: "backend_unavailable" });
+      }
     }
   });
 

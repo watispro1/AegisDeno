@@ -64,6 +64,8 @@ typings/
 *.db
 *.sqlite
 *.sqlite-*
+/data/
+target/
 
 # Dist
 dist/
