@@ -33,7 +33,8 @@ test("escalation, unban, timed unban, remove-timeout and clear-warnings logs use
   for (const f of files) {
     const calls = logCalls(f);
     assert.ok(calls.length > 0, f);
-    for (const c of calls) assert.match(c, /"modActions"\)$/, `${f}: ${c.slice(0, 60)}`);
+    // The category may be followed by a row of case / history link buttons.
+    for (const c of calls) assert.match(c, /"modActions"(,[^"]*)?\)$/, `${f}: ${c.slice(0, 60)}`);
   }
   const timedUnban = logCalls("src/services/scheduledActions.ts").find((c) => c.includes("Temporary Ban Expired"));
   assert.match(timedUnban ?? "", /"modActions"\)$/);

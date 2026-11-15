@@ -1,3 +1,4 @@
+import { handleReasonAutocomplete } from "../../utils/moderationPresets";
 /**
  * /massban: ban up to 50 pasted user IDs at once (raid clean-up), with the
  * same hierarchy rules as /ban, a confirmation step, one case per ban and a
@@ -58,7 +59,7 @@ export const command: Command = {
     .addStringOption(opt =>
       opt.setName("user_ids").setDescription("User IDs or mentions, separated by spaces, commas or new lines").setRequired(true).setMaxLength(2000))
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason recorded on every case and in the audit log").setRequired(true).setMaxLength(400))
+      opt.setName("reason").setDescription("Reason recorded on every case and in the audit log (suggestions as you type)").setRequired(true).setMaxLength(400).setAutocomplete(true))
     .addIntegerOption(opt =>
       opt.setName("delete_messages").setDescription("Delete their messages from this many days (0–7, default 1)").setMinValue(0).setMaxValue(7))
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
@@ -68,6 +69,9 @@ export const command: Command = {
   botPermissions: [PermissionFlagsBits.BanMembers],
   // A run can issue 50 bans; one at a time per moderator is plenty.
   cooldownMs: 30_000,
+
+  // Same reason suggestions as /ban (Raiding, Spam…), plus whatever is typed.
+  autocomplete: handleReasonAutocomplete,
 
   async execute(interaction: ChatInputCommandInteraction) {
     const guild = interaction.guild;

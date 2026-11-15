@@ -20,7 +20,6 @@ import { combineReason, handleReasonAutocomplete } from "../../utils/moderationP
 import { UNDO_WINDOW_MS, buildUndoButton, canPressUndo, isUndoWindowOpen } from "../../services/moderationUndo";
 import { caseLinkButton, modLogRow } from "../../services/modLogLinks";
 import { BanAppealModel } from "../../database/mongo";
-import { generateAppealCode } from "./appeal";
 import { buildDurationSuggestions } from "../../utils/moderationPresets";
 import { formatDurationLong } from "../../utils/duration";
 import { auditReason } from "../../utils/safeText";
@@ -29,21 +28,22 @@ import { randomBytes } from "node:crypto";
 import { clearTimedUnbans, scheduleTimedUnban } from "../../services/tempBan";
 import type { AutocompleteInteraction } from "discord.js";
 import { parseBanDuration, TEMP_BAN_PRESETS } from "./ban/logic";
-import { softFail } from "../../utils/softFail";
+import { appealFieldText, banNoticeEmbed, issueAppealCode, sendBanNotice } from "./ban/notices";
+import { replyEphemeralPrompt } from "./lib/prompt";
 import { dmOutcome, dmSentLabel } from "../../services/dmNotice";
 export { parseBanDuration } from "./ban/logic";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("ban")
-    .setDescription("Ban a member from the server with confirmation prompt.")
+    .setDescription("Ban a member or any user by ID, permanently or for a set time, after a confirmation.")
     .addUserOption(opt =>
-      opt.setName("user").setDescription("The member to ban").setRequired(true)
+      opt.setName("user").setDescription("The member (or user ID) to ban; they don't need to be in the server").setRequired(true)
     )
     .addStringOption(opt =>
       opt
         .setName("preset")
-        .setDescription("Common ban reason preset")
+        .setDescription("Common ban reason preset (combined with reason if you give both)")
         .setRequired(false)
         .addChoices(
           { name: "🚨 Severe Harassment / Hate Speech", value: "Severe Harassment / Hate Speech" },
@@ -173,12 +173,7 @@ export const command: Command = {
         .setEmoji("✖️"),
     );
 
-    const prompt = await interaction.reply({
-      embeds: [confirmEmbed],
-      components: [confirmRow],
-      flags: MessageFlags.Ephemeral,
-      fetchReply: true,
-    });
+    const prompt = await replyEphemeralPrompt(interaction, { embeds: [confirmEmbed], components: [confirmRow] });
 
     const collector = prompt.createMessageComponentCollector({
       componentType: ComponentType.Button,
@@ -198,6 +193,13 @@ export const command: Command = {
       try {
         const guild = interaction.guild!;
 
+        // Another moderator may have banned them while this prompt was open:
+        // banning again would add a second case and a second appeal code.
+        if (await guild.bans.fetch(target.id).catch(() => null)) {
+          await i.editReply({ content: `ℹ️ ${target.tag} was banned by someone else while you were confirming. Nothing more was done.`, embeds: [], components: [] }).catch(() => null);
+          return;
+        }
+
         // Roles can change during the 30-second confirmation: check again.
         const current = await guild.members.fetch(target.id).catch(() => null);
         if (current) {
@@ -214,13 +216,8 @@ export const command: Command = {
         // DM the user before banning (so message can still be delivered)
         let noticeDelivered = false;
         if (!silent && member) {
-          const dmEmbed = new EmbedBuilder()
-            .setColor(0xED4245)
-            .setTitle(`🔨 You have been banned from **${guild.name}**`)
-            .addFields({ name: "📝 Reason", value: reason })
-            .setFooter({ text: "If you believe this was a mistake, please contact server staff." })
-            .setTimestamp();
-          noticeDelivered = (await target.send({ embeds: [dmEmbed] }).catch(softFail(`Ban notice DM to ${target.id}`, "debug"))) !== null;
+          const temp = durationSeconds ? { label: durationLabel, endsAtMs: Date.now() + durationSeconds * 1000 } : null;
+          noticeDelivered = await sendBanNotice(target, banNoticeEmbed(guild.name, reason, temp));
         }
 
         // A temporary ban carries a marker at the start of its reason (kept by
@@ -261,43 +258,9 @@ export const command: Command = {
           }
         }
 
-        // Auto-generate ban appeal record & DM the user their appeal code
-        let appealCode = "";
-        let appealDelivered = false;
-        try {
-          appealCode = generateAppealCode();
-          await BanAppealModel.create({
-            appealCode,
-            guildId,
-            userId: target.id,
-            moderatorId: interaction.user.id,
-            banReason: reason,
-          });
-
-          const appealEmbed = new EmbedBuilder()
-            .setColor(0xFEE75C)
-            .setTitle("📋 You Have Been Banned — Appeal Information")
-            .setDescription(
-              `You were banned from **${guild.name}**.\n\n` +
-              `If you believe this was a mistake, you may submit a ban appeal.\n` +
-              `**Your appeal code is: \`${appealCode}\`**\n\n` +
-              `To submit your appeal:\n` +
-              `1. Join a server where **Aegis** is present\n` +
-              `2. Use the command: \`/appeal submit code:${appealCode}\`\n` +
-              `3. Staff will review your appeal and DM you the decision.`
-            )
-            .addFields(
-              { name: "📝 Ban Reason",   value: reason, inline: false },
-              { name: "🆔 Appeal Code",  value: `\`${appealCode}\``, inline: true },
-              { name: "📅 Banned On",    value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
-            )
-            .setFooter({ text: `Aegis Ban Appeal System • ${guild.name}` })
-            .setTimestamp();
-          // `silent` means no DMs at all; the code is still shown to the moderator below.
-          if (!silent) appealDelivered = (await target.send({ embeds: [appealEmbed] }).catch(softFail(`Appeal code DM to ${target.id}`, "debug"))) !== null;
-        } catch (appealErr) {
-          logger.warn(`Failed to create/send appeal for ban of ${target.id} in ${guildId}:`, appealErr);
-        }
+        // Auto-generate the ban appeal record and DM the user their appeal code
+        // (`silent` means no DMs at all; the code is still shown to the moderator).
+        const { appealCode, appealDelivered } = await issueAppealCode({ guild, target, moderatorId: interaction.user.id, reason, silent });
 
         const resultEmbed = new EmbedBuilder()
           .setColor(0xED4245)
@@ -310,7 +273,7 @@ export const command: Command = {
             { name: "🗑️ Msg Deletion",  value: `${deleteDays} day(s)`, inline: true },
             { name: "🔕 DM Sent",       value: !silent && !member ? "❌ No (not in the server)" : dmSentLabel(dmOutcome(silent, noticeDelivered)), inline: true },
             { name: "⏳ Length",        value: durationSeconds ? (unbanScheduled ? `${durationLabel} — unbans <t:${Math.floor((bannedAt + durationSeconds * 1000) / 1000)}:R>` : `${durationLabel} — ⚠️ the automatic unban could not be scheduled; unban by hand`) : "Permanent", inline: true },
-            ...(appealCode ? [{ name: "📋 Appeal Code", value: silent ? `\`${appealCode}\` — not sent (silent); share it if you want them to appeal` : appealDelivered ? `\`${appealCode}\` — DM sent with instructions` : `\`${appealCode}\` — the DM didn't go through; share it if you want them to appeal`, inline: false }] : []),
+            ...(appealCode ? [{ name: "📋 Appeal Code", value: appealFieldText(appealCode, silent, appealDelivered), inline: false }] : []),
             ...(proof ? [{ name: "📎 Proof", value: `[${proof.name}](${proof.url})`, inline: false }] : []),
           )
           .setFooter(caseId ? { text: `Case ID: ${caseId}` } : null)
@@ -335,7 +298,7 @@ export const command: Command = {
             time: UNDO_WINDOW_MS,
           });
 
-          postCollector.on("collect", async (bi) => {
+          postCollector.on("collect", (bi) => guardCollect("ban-undo", bi, async () => {
             if (bi.customId !== `ban_undo_${target.id}`) return;
             if (!canPressUndo("ban", bi.memberPermissions)) {
               await bi.reply({ content: "❌ You need `Ban Members` to undo a ban.", flags: MessageFlags.Ephemeral });
@@ -371,7 +334,7 @@ export const command: Command = {
               embeds: [resultEmbed.setColor(0x57F287).setTitle("↩️ Ban Undone")],
               components: [new ActionRowBuilder<ButtonBuilder>().addComponents(buildUndoButton(`ban_undo_${target.id}`, "done"))],
             }).catch(() => null);
-          });
+          }));
 
           postCollector.on("end", async (_c, endReason) => {
             if (endReason === "undone") return;

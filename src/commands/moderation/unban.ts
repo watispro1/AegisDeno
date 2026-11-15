@@ -13,16 +13,22 @@ import {
 } from "discord.js";
 import { Command } from "../../types/discord";
 import { unbanMember } from "../../services/unban";
+import type { AutocompleteInteraction } from "discord.js";
+import { forgetBanList, respondBannedUsers } from "./lib/bannedUsers";
+import { stripTempBanMarker } from "./lib/prompt";
+import { UNBAN_REASON_PRESETS, presetSuggestions } from "./lib/presets";
+import { caseActionsRow } from "../../services/modLogLinks";
+import { truncate } from "../../utils/safeText";
 
 export const command: Command = {
   data: new SlashCommandBuilder()
     .setName("unban")
-    .setDescription("Unban a user and view their ban details before confirming.")
+    .setDescription("Lift a ban: pick the banned user, review why they were banned, then confirm.")
     .addStringOption(opt =>
-      opt.setName("user_id").setDescription("The banned user's Discord ID").setRequired(true)
+      opt.setName("user_id").setDescription("The banned user: start typing a name or paste their ID").setRequired(true).setAutocomplete(true)
     )
     .addStringOption(opt =>
-      opt.setName("reason").setDescription("Reason for the unban").setMaxLength(512).setRequired(false)
+      opt.setName("reason").setDescription("Reason for the unban (suggestions as you type)").setMaxLength(512).setRequired(false).setAutocomplete(true)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
@@ -30,14 +36,20 @@ export const command: Command = {
   userPermissions: [PermissionFlagsBits.BanMembers],
   botPermissions:  [PermissionFlagsBits.BanMembers],
 
+  autocomplete: async (interaction: AutocompleteInteraction) => {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name === "user_id") return respondBannedUsers(interaction);
+    await interaction.respond(focused.name === "reason" ? presetSuggestions(String(focused.value ?? ""), UNBAN_REASON_PRESETS) : []);
+  },
+
   execute: async (interaction: ChatInputCommandInteraction) => {
     const rawUserId = interaction.options.getString("user_id", true).trim();
     const userId    = rawUserId.replace(/[<@!>]/g, "").trim();
-    const reason    = interaction.options.getString("reason") ?? "No reason provided.";
+    const reason    = interaction.options.getString("reason")?.trim() || "No reason provided.";
     const guildId   = interaction.guildId!;
 
     if (!/^\d{17,20}$/.test(userId)) {
-      return interaction.reply({ content: "❌ That doesn't look like a valid Discord user ID (17-20 digits).", flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: "❌ That doesn't look like a user ID. Pick the user from the list as you type, or paste their ID (17–20 digits).", flags: MessageFlags.Ephemeral });
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -59,7 +71,8 @@ export const command: Command = {
         return;
       }
 
-      const banReason = ban.reason ?? "No reason recorded.";
+      // Temporary bans carry a "[temp:ref]" marker for the timed unban; moderators don't need to see it.
+      const banReason = truncate(stripTempBanMarker(ban.reason) || "No reason recorded.", 1024);
       const confirmEmbed = new EmbedBuilder()
         .setColor(0x57F287)
         .setTitle("🔓 Unban Confirmation")
@@ -106,6 +119,7 @@ export const command: Command = {
 
         await i.deferUpdate();
         const result = await unbanMember(interaction.guild!, userId, { id: interaction.user.id, tag: interaction.user.tag }, reason);
+        forgetBanList(guildId);
         if (!result.ok) {
           await i.editReply({
             content: result.reason === "not_banned" ? "⚠️ That user is no longer banned." : "❌ Failed to unban the user. Check my permissions.",
@@ -127,7 +141,8 @@ export const command: Command = {
           )
           .setTimestamp();
 
-        await i.editReply({ content: null, embeds: [resultEmbed], components: [] });
+        if (result.caseId) resultEmbed.setFooter({ text: `Case ID: ${result.caseId}` });
+        await i.editReply({ content: null, embeds: [resultEmbed], components: result.caseId ? [caseActionsRow(guildId, userId, result.caseId)] : [] });
       }));
 
       collector.on("end", async (_, stopReason) => {
