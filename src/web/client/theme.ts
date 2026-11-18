@@ -1,10 +1,10 @@
 /** Theme picker (fragment of the site.js IIFE opened in core): applies, saves and reflects the chosen theme. */
 export const jsTheme = String.raw`
-  /* Theme picker: System (default), Light, Dark, Steel & Ink, Glass (beta).
+  /* Theme picker: System (default), Light, Dark, Steel & Ink, Glass, Aurora (beta).
      theme-init.js applies the saved choice before paint; this keeps it in sync. */
   var STORAGE_KEY = 'aegis-theme';
-  var THEME_LABELS = { system: 'System', light: 'Light', dark: 'Dark', steel: 'Steel & Ink', glass: 'Glass (beta)' };
-  var THEME_COLORS = { light: '#fbfaf8', dark: '#161716', steel: '#0c0d0f', glass: '#0b0d12' };
+  var THEME_LABELS = { system: 'System', light: 'Light', dark: 'Dark', steel: 'Steel & Ink', glass: 'Glass', aurora: 'Aurora (beta)' };
+  var THEME_COLORS = { light: '#fbfaf8', dark: '#161716', steel: '#0c0d0f', glass: '#0b0d12', aurora: '#f7f5fb' };
 
   function getSavedTheme() {
     var t = null;
