@@ -130,3 +130,12 @@ test("a malformed role panel button answers instead of leaving the deferred repl
   assert.equal(replies.length, 1);
   assert.match(JSON.stringify(replies[0]), /out of date/);
 });
+
+test("automod: a thread inside a safe-listed channel is exempt, like per-rule exemptions", async () => {
+  const { isExempt } = await import("../src/services/automodExecution");
+  const roles = { cache: { some: () => false } };
+  const member = { permissions: { has: () => false }, roles } as never;
+  assert.equal(isExempt(member, ["thread1", "parent1"], [], ["parent1"]), true);
+  assert.equal(isExempt(member, ["thread1", "parent1"], [], ["other"]), false);
+  assert.equal(isExempt(member, "parent1", [], ["parent1"]), true, "a single channel ID still works");
+});

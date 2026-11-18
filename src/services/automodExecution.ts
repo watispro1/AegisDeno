@@ -33,11 +33,13 @@ const duplicateTracker = new DuplicateTracker();
  */
 export function isExempt(
   member: Pick<GuildMember, "permissions" | "roles"> | null,
-  channelId: string,
+  /** The channel, or the channel and (for a thread) its parent: a thread in a safe-listed channel is safe-listed too. */
+  channelIds: string | readonly string[],
   exemptRoleIds: string[],
   exemptChannelIds: string[]
 ): boolean {
-  if (exemptChannelIds.includes(channelId)) return true;
+  const ids = typeof channelIds === "string" ? [channelIds] : channelIds;
+  if (ids.some(id => exemptChannelIds.includes(id))) return true;
   if (!member) return false;
   if (member.permissions?.has?.(PermissionFlagsBits.Administrator) || member.permissions?.has?.(PermissionFlagsBits.ManageGuild)) return true;
   if (member.roles.cache.some(role => exemptRoleIds.includes(role.id))) return true;
@@ -97,12 +99,12 @@ async function handleAutomod(client: Client, message: Message, isEdit: boolean):
 
   const member = message.member ?? await message.guild?.members.fetch(message.author.id).catch(() => null) ?? null;
 
-  // Skip if the user or channel is on the safe-list
-  if (isExempt(member, message.channelId, config.exemptRoleIds, config.exemptChannelIds)) return false;
+  const where = [message.channelId, message.channel && "parentId" in message.channel ? message.channel.parentId : null].filter((id): id is string => Boolean(id));
+  // Skip if the user or channel (or a thread's parent channel) is on the safe-list
+  if (isExempt(member, where, config.exemptRoleIds, config.exemptChannelIds)) return false;
 
   let triggeredRule: { action: string } | null = null;
   let ruleName = "";
-  const where = [message.channelId, message.channel && "parentId" in message.channel ? message.channel.parentId : null].filter((id): id is string => Boolean(id));
   const applies = (rule: AutomodRule) => !ruleExempt(rule, member, where);
 
   // Spam. Edits don't count, or fixing a typo a few times trips the rule.
