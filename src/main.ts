@@ -123,8 +123,10 @@ async function main(): Promise<void> {
       { name: "discord client", run: () => client.destroy() },
       { name: "activity flush", run: () => flushMemberActivity() },
       { name: "database", run: () => closeDatabase() },
-      // One last retry of queued AegisDB mirror writes before the engine closes.
-      { name: "aegis-db mirror", run: () => drainMirrorQueue({ force: true }) },
+      // One last retry of queued AegisDB mirror writes before the engine closes,
+      // bounded so a down backend cannot eat the whole shutdown deadline and
+      // keep the engine below from closing its WAL cleanly.
+      { name: "aegis-db mirror", run: () => drainMirrorQueue({ force: true, budgetMs: 3_000 }) },
       { name: "aegis-db", run: () => stopAegisBackend() },
     ],
   });

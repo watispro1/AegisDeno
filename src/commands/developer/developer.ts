@@ -4,6 +4,7 @@ import { BOT_OWNER_IDS } from "../../config/env";
 import { commands } from "../loader";
 import { contextMenus } from "../contextMenus";
 import { replyPagedList } from "../../utils/listPager";
+import { describeMirrorHealth } from "../../services/aegisMirror";
 
 /** Category fields for /developer commands, each kept inside Discord's 1024-character field limit. Pure. */
 export function commandFields(byCategory: Map<string, string[]>): Array<{ name: string; value: string; inline: boolean }> {
@@ -67,6 +68,7 @@ export const command: Command = {
           { name: "Gateway ping", value: `\`${Math.round(interaction.client.ws.ping)}ms\``,      inline: true },
           { name: "Cached users", value: `\`${interaction.client.users.cache.size}\``,           inline: true },
           { name: "Started",      value: `<t:${Math.floor((Date.now() - uptimeSecs * 1000) / 1000)}:R>`, inline: true },
+          { name: "AegisDB mirror", value: describeMirrorHealth(), inline: false },
         )
         .setTimestamp();
 

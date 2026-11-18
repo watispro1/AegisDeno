@@ -149,6 +149,8 @@ export function createGuildConfigService(store: GuildConfigStore, ttlMs = GUILD_
     void mirrorToAegis({
       key: `cfg:${guildId}`,
       label: `saveGuildConfig ${guildId}`,
+      // Each save is the whole config, so a newer one replaces older queued ones.
+      supersedes: true,
       run: () => getRustClient().saveGuildConfig(guildId, snapshot),
     });
     return structuredClone(config);
