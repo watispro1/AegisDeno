@@ -23,6 +23,7 @@ fn tmp(name: &str) -> PathBuf {
 fn opts(zstd: bool) -> DbOptions {
     DbOptions {
         snapshot_zstd: zstd,
+        ..DbOptions::default()
     }
 }
 

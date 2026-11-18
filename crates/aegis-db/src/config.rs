@@ -40,6 +40,11 @@ pub struct Config {
         value_parser = clap::builder::BoolishValueParser::new()
     )]
     pub snapshot_zstd: bool,
+
+    /// Compact as soon as the live WAL reaches this many bytes, in addition to
+    /// the timer. Default 64 MiB; 0 disables the size trigger.
+    #[arg(long, env = "AEGIS_DB_COMPACT_WAL_BYTES", default_value_t = crate::engine::DEFAULT_COMPACT_WAL_BYTES)]
+    pub compact_wal_bytes: u64,
 }
 
 impl Default for Config {
@@ -51,6 +56,7 @@ impl Default for Config {
             secret: String::new(),
             auto_compact_secs: 300,
             snapshot_zstd: true,
+            compact_wal_bytes: crate::engine::DEFAULT_COMPACT_WAL_BYTES,
         }
     }
 }
@@ -71,6 +77,7 @@ impl Config {
     pub fn db_options(&self) -> crate::engine::DbOptions {
         crate::engine::DbOptions {
             snapshot_zstd: self.snapshot_zstd,
+            compact_wal_bytes: self.compact_wal_bytes,
         }
     }
 

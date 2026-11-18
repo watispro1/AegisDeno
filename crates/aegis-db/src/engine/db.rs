@@ -5,9 +5,12 @@ use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions, TryLockError};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tokio::sync::Notify;
 
 use super::collection::Collection;
+use super::compactor::CompactTrigger;
 use super::snapshot::{SnapshotData, SnapshotFormat, SnapshotManager};
 use super::wal::{sync_dir, WalEntry, WalOp, WalReader, WalWriter};
 
@@ -22,18 +25,25 @@ pub const LOCK_FILE: &str = "aegis-db.lock";
 
 const LOCK_STRIPES: usize = 64;
 
+/// Default WAL size that triggers a compaction: 64 MiB.
+pub const DEFAULT_COMPACT_WAL_BYTES: u64 = 64 * 1024 * 1024;
+
 /// Engine tuning knobs. `Default` matches the service defaults.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DbOptions {
     /// Write snapshots zstd-compressed (`AEGIS_DB_SNAPSHOT_ZSTD`). Snapshots in
     /// either format are always readable.
     pub snapshot_zstd: bool,
+    /// Request a compaction once the live WAL reaches this many bytes
+    /// (`AEGIS_DB_COMPACT_WAL_BYTES`). 0 disables the size trigger.
+    pub compact_wal_bytes: u64,
 }
 
 impl Default for DbOptions {
     fn default() -> Self {
         Self {
             snapshot_zstd: true,
+            compact_wal_bytes: DEFAULT_COMPACT_WAL_BYTES,
         }
     }
 }
@@ -52,6 +62,12 @@ pub struct AegisDatabase {
     wal: Mutex<WalWriter>,
     snapshot: SnapshotManager,
     scope_locks: Vec<Mutex<()>>,
+    options: DbOptions,
+    /// Set once a write pushes the WAL past `compact_wal_bytes`, cleared when
+    /// a compaction starts; keeps a burst of writes from notifying repeatedly.
+    size_compaction_pending: AtomicBool,
+    /// Wakes the background compactor when the size threshold is crossed.
+    size_notify: Notify,
     /// Held for the life of the database; the OS releases it if the process dies.
     _dir_lock: File,
 }
@@ -158,6 +174,9 @@ impl AegisDatabase {
             wal: Mutex::new(wal_writer),
             snapshot,
             scope_locks: (0..LOCK_STRIPES).map(|_| Mutex::new(())).collect(),
+            options,
+            size_compaction_pending: AtomicBool::new(false),
+            size_notify: Notify::new(),
             _dir_lock: dir_lock,
         });
 
@@ -214,9 +233,13 @@ impl AegisDatabase {
 
         // Log and apply under the WAL lock, so a compaction (which also takes
         // it) always sees either both or neither.
-        let mut wal_lock = self.wal.lock();
-        wal_lock.append(&entry)?;
-        self.collection(collection_name).put(key, value);
+        let wal_bytes = {
+            let mut wal_lock = self.wal.lock();
+            wal_lock.append(&entry)?;
+            self.collection(collection_name).put(key, value);
+            wal_lock.bytes()
+        };
+        self.note_wal_size(wal_bytes);
         Ok(())
     }
 
@@ -234,9 +257,59 @@ impl AegisDatabase {
             value: Vec::new(),
         };
 
-        let mut wal_lock = self.wal.lock();
-        wal_lock.append(&entry)?;
-        Ok(self.collection(collection_name).delete(key).is_some())
+        let (existed, wal_bytes) = {
+            let mut wal_lock = self.wal.lock();
+            wal_lock.append(&entry)?;
+            let existed = self.collection(collection_name).delete(key).is_some();
+            (existed, wal_lock.bytes())
+        };
+        self.note_wal_size(wal_bytes);
+        Ok(existed)
+    }
+
+    /// Options this database was opened with.
+    pub fn options(&self) -> DbOptions {
+        self.options
+    }
+
+    /// Current size of the live WAL in bytes.
+    pub fn wal_bytes(&self) -> u64 {
+        self.wal.lock().bytes()
+    }
+
+    /// True when the size trigger is enabled and the live WAL has reached it.
+    pub fn wal_over_threshold(&self) -> bool {
+        let limit = self.options.compact_wal_bytes;
+        limit > 0 && self.wal_bytes() >= limit
+    }
+
+    /// True while a size-triggered compaction has been requested but has not
+    /// started yet.
+    pub fn size_compaction_pending(&self) -> bool {
+        self.size_compaction_pending.load(Ordering::Acquire)
+    }
+
+    /// Resolves when a write has pushed the WAL past `compact_wal_bytes`. A
+    /// request made while nobody is waiting is kept until the next call.
+    pub async fn size_compaction_requested(&self) {
+        self.size_notify.notified().await
+    }
+
+    /// Called after every append with the WAL size it left behind (and with no
+    /// lock held): requests one size-triggered compaction per crossing.
+    fn note_wal_size(&self, wal_bytes: u64) {
+        let limit = self.options.compact_wal_bytes;
+        if limit == 0 || wal_bytes < limit {
+            return;
+        }
+        if !self.size_compaction_pending.swap(true, Ordering::AcqRel) {
+            tracing::debug!(
+                "WAL reached {} bytes (limit {}), requesting compaction",
+                wal_bytes,
+                limit
+            );
+            self.size_notify.notify_one();
+        }
     }
 
     /// Checkpoints the in-memory state. Under the WAL lock it copies every
@@ -247,8 +320,18 @@ impl AegisDatabase {
     /// Whole compactions are serialized by `compact_lock`: a second caller
     /// waits for the first to finish, then checkpoints the newer state itself.
     pub fn compact(&self) -> std::io::Result<()> {
+        self.compact_with(CompactTrigger::Manual)
+    }
+
+    /// [`compact`](Self::compact), recording what asked for it.
+    pub fn compact_with(&self, trigger: CompactTrigger) -> std::io::Result<()> {
         let _compact_guard = self.compact_lock.lock();
-        tracing::info!("Starting database compaction & checkpoint...");
+        // Whatever pushed the WAL over the limit is about to be checkpointed.
+        self.size_compaction_pending.store(false, Ordering::Release);
+        tracing::info!(
+            "Starting database compaction & checkpoint (trigger={})...",
+            trigger
+        );
 
         let mut snap_cols = BTreeMap::new();
         {

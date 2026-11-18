@@ -90,6 +90,9 @@ pub struct WalWriter {
     file: File,
     path: PathBuf,
     entries_count: usize,
+    /// Current size of the live WAL file in bytes (records already on disk
+    /// when it was opened included).
+    bytes: u64,
 }
 
 impl WalWriter {
@@ -99,10 +102,12 @@ impl WalWriter {
             fs::create_dir_all(parent)?;
         }
         let file = OpenOptions::new().create(true).append(true).open(&path)?;
+        let bytes = file.metadata()?.len();
         Ok(Self {
             file,
             path,
             entries_count: 0,
+            bytes,
         })
     }
 
@@ -117,11 +122,17 @@ impl WalWriter {
         self.file.write_all(&record)?;
         self.file.sync_data()?;
         self.entries_count += 1;
+        self.bytes += record.len() as u64;
         Ok(())
     }
 
     pub fn entries_count(&self) -> usize {
         self.entries_count
+    }
+
+    /// Size of the live WAL in bytes.
+    pub fn bytes(&self) -> u64 {
+        self.bytes
     }
 
     /// Truncates the live WAL in place (only safe when nothing in it is needed).
@@ -135,6 +146,7 @@ impl WalWriter {
         self.file.sync_all()?;
         self.file = OpenOptions::new().append(true).open(&self.path)?;
         self.entries_count = 0;
+        self.bytes = 0;
         Ok(())
     }
 
@@ -167,6 +179,7 @@ impl WalWriter {
             .append(true)
             .open(&self.path)?;
         self.entries_count = 0;
+        self.bytes = 0;
         Ok(())
     }
 }
