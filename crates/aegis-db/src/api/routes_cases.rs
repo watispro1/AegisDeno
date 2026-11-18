@@ -47,7 +47,7 @@ pub async fn list_cases(
         .collect();
 
     // Sort descending by case_id
-    cases.sort_by(|a, b| b.case_id.cmp(&a.case_id));
+    cases.sort_by_key(|c| std::cmp::Reverse(c.case_id));
 
     let total = cases.len();
     let skip = query.skip.unwrap_or(0);
@@ -83,7 +83,11 @@ fn case_records(state: &AppState, guild_id: &str) -> Vec<(String, CaseRecord)> {
         .collection("cases")
         .prefix_scan(&format!("case:{}:", guild_id))
         .into_iter()
-        .filter_map(|(k, val)| serde_json::from_value::<CaseRecord>(val).ok().map(|c| (k, c)))
+        .filter_map(|(k, val)| {
+            serde_json::from_value::<CaseRecord>(val)
+                .ok()
+                .map(|c| (k, c))
+        })
         .collect()
 }
 
@@ -93,7 +97,9 @@ fn resolve_case(state: &AppState, guild_id: &str, case_id: &str) -> Option<(Stri
     if let Ok(n) = case_id.parse::<u64>() {
         let key = format!("case:{}:{}", guild_id, n);
         let val = state.db.get("cases", &key)?;
-        return serde_json::from_value::<CaseRecord>(val).ok().map(|c| (key, c));
+        return serde_json::from_value::<CaseRecord>(val)
+            .ok()
+            .map(|c| (key, c));
     }
     case_records(state, guild_id)
         .into_iter()
@@ -112,7 +118,10 @@ pub async fn create_case(
     // Idempotent on the caller's reference, so a retried dual-write never
     // creates the same case twice.
     if let Some(r) = payload.case_ref.as_deref() {
-        if let Some((_, found)) = existing.iter().find(|(_, c)| c.case_ref.as_deref() == Some(r)) {
+        if let Some((_, found)) = existing
+            .iter()
+            .find(|(_, c)| c.case_ref.as_deref() == Some(r))
+        {
             return (StatusCode::OK, Json(json!(found))).into_response();
         }
     }
@@ -140,11 +149,21 @@ pub async fn create_case(
 
     let val = match serde_json::to_value(&record) {
         Ok(v) => v,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": e.to_string() })),
+            )
+                .into_response()
+        }
     };
 
     if let Err(e) = state.db.put("cases", key, val) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))).into_response();
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e.to_string() })),
+        )
+            .into_response();
     }
 
     (StatusCode::CREATED, Json(json!(record))).into_response()
@@ -157,7 +176,11 @@ pub async fn get_case(
     if let Some((_, record)) = resolve_case(&state, &guild_id, &case_id) {
         (StatusCode::OK, Json(json!(record))).into_response()
     } else {
-        (StatusCode::NOT_FOUND, Json(json!({ "error": "Case not found" }))).into_response()
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Case not found" })),
+        )
+            .into_response()
     }
 }
 
@@ -177,7 +200,13 @@ pub async fn patch_case(
     let _guard = state.db.scope_lock(&format!("cases:{}", guild_id));
     let (key, mut record) = match resolve_case(&state, &guild_id, &case_id) {
         Some(found) => found,
-        None => return (StatusCode::NOT_FOUND, Json(json!({ "error": "Case not found" }))).into_response(),
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "error": "Case not found" })),
+            )
+                .into_response()
+        }
     };
 
     if let Some(r) = payload.reason {
@@ -191,11 +220,21 @@ pub async fn patch_case(
 
     let updated_val = match serde_json::to_value(&record) {
         Ok(v) => v,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": e.to_string() })),
+            )
+                .into_response()
+        }
     };
 
     if let Err(e) = state.db.put("cases", key, updated_val) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))).into_response();
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e.to_string() })),
+        )
+            .into_response();
     }
 
     (StatusCode::OK, Json(json!(record))).into_response()
@@ -240,8 +279,21 @@ pub async fn create_warning(
     Json(payload): Json<CreateWarningPayload>,
 ) -> impl IntoResponse {
     let warn_id = match payload.warn_ref.as_deref() {
-        Some(r) if !r.is_empty() && r.len() <= 64 && r.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-') => r.to_string(),
-        Some(_) => return (StatusCode::BAD_REQUEST, Json(json!({ "error": "warn_ref is invalid" }))).into_response(),
+        Some(r)
+            if !r.is_empty()
+                && r.len() <= 64
+                && r.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-') =>
+        {
+            r.to_string()
+        }
+        Some(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "warn_ref is invalid" })),
+            )
+                .into_response()
+        }
         None => format!("w_{}", chrono::Utc::now().timestamp_micros()),
     };
     let key = format!("warn:{}:{}:{}", guild_id, payload.user_id, warn_id);
@@ -259,11 +311,21 @@ pub async fn create_warning(
 
     let val = match serde_json::to_value(&record) {
         Ok(v) => v,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": e.to_string() })),
+            )
+                .into_response()
+        }
     };
 
     if let Err(e) = state.db.put("warnings", key, val) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))).into_response();
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e.to_string() })),
+        )
+            .into_response();
     }
 
     (StatusCode::CREATED, Json(json!(record))).into_response()
@@ -273,10 +335,16 @@ pub async fn clear_warnings(
     State(state): State<Arc<AppState>>,
     Path((guild_id, user_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let _guard = state.db.scope_lock(&format!("warn:{}:{}", guild_id, user_id));
+    let _guard = state
+        .db
+        .scope_lock(&format!("warn:{}:{}", guild_id, user_id));
     let col = state.db.collection("warnings");
     let prefix = format!("warn:{}:{}:", guild_id, user_id);
-    let keys: Vec<String> = col.prefix_scan(&prefix).into_iter().map(|(k, _)| k).collect();
+    let keys: Vec<String> = col
+        .prefix_scan(&prefix)
+        .into_iter()
+        .map(|(k, _)| k)
+        .collect();
 
     let count = keys.len();
     for k in keys {

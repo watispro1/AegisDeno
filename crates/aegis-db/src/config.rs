@@ -2,7 +2,11 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug, Clone)]
-#[command(name = "aegis-db", version = "0.1.0", about = "High-performance custom database and backend for Aegis")]
+#[command(
+    name = "aegis-db",
+    version = "0.1.0",
+    about = "High-performance custom database and backend for Aegis"
+)]
 pub struct Config {
     #[arg(long, env = "AEGIS_DB_HOST", default_value = "127.0.0.1")]
     pub host: String,
@@ -15,11 +19,32 @@ pub struct Config {
 
     /// Shared admin secret. The same variable name is read by the bot and the
     /// embedded TypeScript engine. Required unless running in development.
-    #[arg(long, env = "AEGIS_BACKEND_SECRET", default_value = "", hide_env_values = true)]
+    #[arg(
+        long,
+        env = "AEGIS_BACKEND_SECRET",
+        default_value = "",
+        hide_env_values = true
+    )]
     pub secret: String,
 
     #[arg(long, env = "AEGIS_DB_AUTO_COMPACT_SECS", default_value_t = 300)]
     pub auto_compact_secs: u64,
+
+    /// Write snapshots zstd-compressed. Accepts true/false, 1/0, yes/no, on/off.
+    /// Plain-JSON snapshots from older versions still load either way.
+    #[arg(
+        long,
+        env = "AEGIS_DB_SNAPSHOT_ZSTD",
+        default_value_t = true,
+        action = clap::ArgAction::Set,
+        value_parser = clap::builder::BoolishValueParser::new()
+    )]
+    pub snapshot_zstd: bool,
+
+    /// Compact as soon as the live WAL reaches this many bytes, in addition to
+    /// the timer. Default 64 MiB; 0 disables the size trigger.
+    #[arg(long, env = "AEGIS_DB_COMPACT_WAL_BYTES", default_value_t = crate::engine::DEFAULT_COMPACT_WAL_BYTES)]
+    pub compact_wal_bytes: u64,
 }
 
 impl Default for Config {
@@ -30,6 +55,8 @@ impl Default for Config {
             data_dir: PathBuf::from("./data/aegis-db"),
             secret: String::new(),
             auto_compact_secs: 300,
+            snapshot_zstd: true,
+            compact_wal_bytes: crate::engine::DEFAULT_COMPACT_WAL_BYTES,
         }
     }
 }
@@ -46,6 +73,14 @@ pub fn is_dev_environment() -> bool {
 }
 
 impl Config {
+    /// Engine options derived from this configuration.
+    pub fn db_options(&self) -> crate::engine::DbOptions {
+        crate::engine::DbOptions {
+            snapshot_zstd: self.snapshot_zstd,
+            compact_wal_bytes: self.compact_wal_bytes,
+        }
+    }
+
     /// Startup check: refuse to serve without a secret outside development.
     pub fn validate(&self, dev: bool) -> Result<(), String> {
         if self.secret.is_empty() && !dev {

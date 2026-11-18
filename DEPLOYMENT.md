@@ -182,6 +182,28 @@ fly scale show        # View current machine resources
 fly secrets list      # List set secret names (values are hidden)
 ```
 
+### AegisDB (Rust service)
+
+These apply to the standalone Rust service in `crates/aegis-db` only; the Docker image runs the
+embedded TypeScript engine, which ignores them. Set them in the service's environment (or with
+`fly secrets set` if you run it on Fly):
+
+| Variable | Default | Description |
+| -------- | ------- | ----------- |
+| `AEGIS_DB_AUTO_COMPACT_SECS` | `300` | Compaction timer in seconds; `0` turns the timer off |
+| `AEGIS_DB_COMPACT_WAL_BYTES` | `67108864` (64 MiB) | Compact once the WAL reaches this size; `0` disables |
+| `AEGIS_DB_SNAPSHOT_ZSTD` | `true` | zstd-compress snapshots; legacy JSON snapshots still load |
+
+- **Upgrading**: an existing plain-JSON `snapshot.json` loads as-is and is rewritten as zstd on the
+  next compaction. Setting `AEGIS_DB_SNAPSHOT_ZSTD=false` later is safe too; zstd snapshots still load.
+- **Backups**: pull a consistent copy on a schedule and keep it off the machine:
+  `curl -fsS -H "x-aegis-secret: $AEGIS_BACKEND_SECRET" -o aegis-db-$(date +%F).json.zst http://127.0.0.1:4000/api/db/snapshot/export`.
+  There is no import endpoint; restore by stopping the service and placing the file as
+  `snapshot.json` in an empty data directory.
+- **Watch** `wal_bytes`, `snapshot_bytes` and `last_compaction` (time, duration, trigger) in
+  `GET /api/db/stats`. A `last_compaction` that stops advancing, or a `wal_bytes` that keeps growing
+  past `compact_wal_bytes`, means compaction is failing: check the logs for `Background compaction`.
+
 ### MongoDB Atlas
 
 - Enable **Atlas Alerts** for connection count spikes or slow queries
@@ -227,6 +249,9 @@ Questions go to the support server: https://discord.gg/HwTbCYC4PM.
 | `DASHBOARD_REDIRECT_URI`  | Optional | OAuth2 redirect (default: `https://aegisdeno.fly.dev/dashboard/callback`) |
 | `TOPGG_TOKEN`             | Optional | Posts the server count to Top.gg every 30 minutes               |
 | `TOPGG_WEBHOOK_AUTH`      | Optional | Shared secret for the Top.gg vote webhook                       |
+| `AEGIS_DB_AUTO_COMPACT_SECS` | Optional | Rust AegisDB: compaction timer in seconds (default `300`, `0` = off) |
+| `AEGIS_DB_COMPACT_WAL_BYTES` | Optional | Rust AegisDB: compact when the WAL reaches this size (default 64 MiB, `0` = off) |
+| `AEGIS_DB_SNAPSHOT_ZSTD`  | Optional | Rust AegisDB: zstd-compress snapshots (default `true`) |
 
 ## Web dashboard
 

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use aegis_db::{api, config::is_dev_environment, Config, AegisDatabase};
+use aegis_db::{api, config::is_dev_environment, engine::compactor, AegisDatabase, Config};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,21 +29,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.data_dir.display()
     );
 
-    let db = AegisDatabase::open(&config.data_dir)?;
+    let db = AegisDatabase::open_with_options(&config.data_dir, config.db_options())?;
 
-    // Spawn background auto-compactor task
-    if config.auto_compact_secs > 0 {
-        let db_clone = db.clone();
-        let compact_interval = Duration::from_secs(config.auto_compact_secs);
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(compact_interval);
-            loop {
-                interval.tick().await;
-                if let Err(e) = db_clone.compact() {
-                    tracing::error!("Background compaction failed: {}", e);
-                }
-            }
-        });
+    // Background compaction: the timer and the WAL-size trigger. Both funnel
+    // into AegisDatabase::compact_with, which serializes on compact_lock.
+    let every =
+        (config.auto_compact_secs > 0).then(|| Duration::from_secs(config.auto_compact_secs));
+    if compactor::spawn(db.clone(), every).is_none() {
+        tracing::warn!("Automatic compaction is disabled (timer and WAL-size trigger both off)");
     }
 
     let router = api::create_router(db, config.clone());
