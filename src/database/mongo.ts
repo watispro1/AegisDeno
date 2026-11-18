@@ -3,7 +3,6 @@ import { logger } from "../utils/logger";
 
 export async function connectDatabase(): Promise<void> {
   const uri = process.env.MONGO_URI;
-  
   if (!uri) {
     logger.error("MONGO_URI is not set");
     logger.error("Please create a free cluster at MongoDB Atlas (mongodb.com) and paste your connection string.");
@@ -26,7 +25,6 @@ export async function closeDatabase(): Promise<void> {
 }
 
 // Schemas & Models
-
 const GuildConfigSchema = new mongoose.Schema({
   guildId: { type: String, required: true, unique: true },
   prefix: { type: String, default: "!", maxlength: 16 },
@@ -228,6 +226,9 @@ const SuggestionSchema = new mongoose.Schema({
   reviewedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
+// Per-guild lists, status counts and activity summaries (each used to scan the collection).
+SuggestionSchema.index({ guildId: 1, status: 1, createdAt: -1 });
+SuggestionSchema.index({ guildId: 1, createdAt: -1 });
 export const SuggestionModel = mongoose.model("Suggestion", SuggestionSchema);
 
 const TicketSchema = new mongoose.Schema({
@@ -311,6 +312,7 @@ const RolePanelSchema = new mongoose.Schema({
   ],
   createdAt: { type: Date, default: Date.now },
 });
+RolePanelSchema.index({ guildId: 1, createdAt: -1 });
 export const RolePanelModel = mongoose.model("RolePanel", RolePanelSchema);
 
 const GiveawaySchema = new mongoose.Schema({
@@ -348,6 +350,7 @@ const GiveawaySchema = new mongoose.Schema({
   createdAt:     { type: Date, default: Date.now },
 });
 GiveawaySchema.index({ guildId: 1, ended: 1, endsAt: 1 });
+GiveawaySchema.index({ ended: 1, winnersDrawn: 1 }); // boot restore across all guilds
 export const GiveawayModel = mongoose.model("Giveaway", GiveawaySchema);
 
 /**
@@ -375,7 +378,6 @@ const PollSchema = new mongoose.Schema({
 PollSchema.index({ guildId: 1, ended: 1 });
 export const PollModel = mongoose.model("Poll", PollSchema);
 
-
 /**
  * Retired per-feature settings (one document per guild and feature). Read only,
  * once per guild, to copy ticket and role-panel settings into GuildConfig; see
@@ -391,7 +393,7 @@ const LegacyPluginSettingsSchema = new mongoose.Schema({
 }, { collection: "pluginconfigs", autoIndex: false, autoCreate: false });
 export const LegacyPluginSettingsModel = mongoose.model("LegacyPluginSettings", LegacyPluginSettingsSchema);
 
-// Starboard, watchlist, appeals, automod hits and activity live in extraModels.ts.
+// Starboard, watchlist, appeals, automod hits and activity (extraModels.ts) and the
+// web dashboard models (dashboardModels.ts) are re-exported so existing imports keep working.
 export * from "./extraModels";
-// Web dashboard models live in dashboardModels.ts; re-exported so existing imports keep working.
 export * from "./dashboardModels";

@@ -24,3 +24,12 @@ test("findOneAndUpdate uses returnDocument, not the deprecated `new` option (mon
   const offenders = BOT_DIRS.flatMap(tsFiles).filter((f) => /\bnew:\s*true\b/.test(fs.readFileSync(path.join(ROOT, f), "utf8")));
   assert.deepEqual(offenders, []);
 });
+
+test("per-guild collections queried on hot paths have a guildId-led index", async () => {
+  const { SuggestionModel, RolePanelModel, GiveawayModel } = await import("../src/database/mongo");
+  const keys = (m: { schema: { indexes(): Array<[Record<string, unknown>, unknown]> } }) => m.schema.indexes().map(([k]) => JSON.stringify(k));
+  assert.ok(keys(SuggestionModel).includes(JSON.stringify({ guildId: 1, status: 1, createdAt: -1 })));
+  assert.ok(keys(SuggestionModel).includes(JSON.stringify({ guildId: 1, createdAt: -1 })));
+  assert.ok(keys(RolePanelModel).includes(JSON.stringify({ guildId: 1, createdAt: -1 })));
+  assert.ok(keys(GiveawayModel).includes(JSON.stringify({ ended: 1, winnersDrawn: 1 })), "boot restore query is indexed");
+});
