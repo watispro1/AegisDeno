@@ -189,3 +189,26 @@ async fn there_is_no_import_route() {
     drop(db);
     let _ = fs::remove_dir_all(&dir);
 }
+
+/// The documented restore path: an exported file dropped into an empty data
+/// directory as the snapshot loads back, in either format.
+#[tokio::test]
+async fn exported_file_restores_into_an_empty_directory() {
+    let (dir, db, router) = setup("restore", true);
+    db.put("tickets", "t1".into(), json!({ "open": true }))
+        .unwrap();
+    for format in ["zstd", "json"] {
+        let uri = format!("{EXPORT}?format={format}");
+        let res = get(&router, &uri, Some(("x-aegis-secret", SECRET))).await;
+        let bytes = body(res).await;
+        let restore = tmp(&format!("restore_{format}"));
+        fs::create_dir_all(&restore).unwrap();
+        fs::write(restore.join(SNAPSHOT_FILE), bytes).unwrap();
+        let restored = AegisDatabase::open(&restore).unwrap();
+        assert_eq!(restored.get("tickets", "t1"), Some(json!({ "open": true })));
+        drop(restored);
+        let _ = fs::remove_dir_all(&restore);
+    }
+    drop(db);
+    let _ = fs::remove_dir_all(&dir);
+}
