@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
 use parking_lot::RwLock;
 use serde_json::Value;
+use std::collections::BTreeMap;
 
 pub struct Collection {
     name: String,
@@ -40,7 +40,11 @@ impl Collection {
     }
 
     pub fn all(&self) -> Vec<(String, Value)> {
-        self.docs.read().iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+        self.docs
+            .read()
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
     }
 
     pub fn prefix_scan(&self, prefix: &str) -> Vec<(String, Value)> {

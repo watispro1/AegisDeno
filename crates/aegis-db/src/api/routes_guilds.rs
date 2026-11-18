@@ -33,7 +33,10 @@ pub async fn put_guild_config(
     let key = format!("guild:{}", guild_id);
     if let Some(obj) = payload.as_object_mut() {
         obj.insert("guild_id".to_string(), json!(guild_id));
-        obj.insert("updated_at".to_string(), json!(chrono::Utc::now().timestamp_millis()));
+        obj.insert(
+            "updated_at".to_string(),
+            json!(chrono::Utc::now().timestamp_millis()),
+        );
     }
 
     match state.db.put("guild_configs", key, payload.clone()) {

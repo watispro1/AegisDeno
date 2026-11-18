@@ -1,3 +1,4 @@
+use crate::config::Config;
 use axum::{
     extract::{Request, State},
     http::{header::AUTHORIZATION, HeaderMap, StatusCode},
@@ -6,14 +7,17 @@ use axum::{
     Json,
 };
 use std::sync::Arc;
-use crate::config::Config;
 
 /// Compares two secrets in time that depends only on the expected length.
 pub fn secret_matches(provided: &[u8], expected: &[u8]) -> bool {
     if expected.is_empty() {
         return false;
     }
-    let mut diff: u8 = if provided.len() == expected.len() { 0 } else { 1 };
+    let mut diff: u8 = if provided.len() == expected.len() {
+        0
+    } else {
+        1
+    };
     for (i, e) in expected.iter().enumerate() {
         let p = provided.get(i).copied().unwrap_or(0);
         diff |= p ^ e;

@@ -1,11 +1,11 @@
+use parking_lot::{Mutex, MutexGuard, RwLock};
+use serde_json::Value;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions, TryLockError};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use parking_lot::{Mutex, MutexGuard, RwLock};
-use serde_json::Value;
 
 use super::collection::Collection;
 use super::snapshot::{SnapshotData, SnapshotManager};
@@ -54,12 +54,19 @@ fn apply(collections_map: &mut BTreeMap<String, Arc<Collection>>, entries: Vec<W
 }
 
 fn lock_data_dir(dir: &Path) -> std::io::Result<File> {
-    let lock = OpenOptions::new().create(true).truncate(false).write(true).open(dir.join(LOCK_FILE))?;
+    let lock = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join(LOCK_FILE))?;
     match lock.try_lock() {
         Ok(()) => Ok(lock),
         Err(TryLockError::WouldBlock) => Err(std::io::Error::new(
             std::io::ErrorKind::WouldBlock,
-            format!("data directory {} is already in use by another AegisDB process", dir.display()),
+            format!(
+                "data directory {} is already in use by another AegisDB process",
+                dir.display()
+            ),
         )),
         Err(TryLockError::Error(e)) => Err(e),
     }
@@ -79,7 +86,11 @@ impl AegisDatabase {
 
         // 1. Load snapshot if available
         if let Some(snap) = snapshot.load()? {
-            tracing::info!("Loaded snapshot timestamp={} collections={}", snap.timestamp, snap.collections.len());
+            tracing::info!(
+                "Loaded snapshot timestamp={} collections={}",
+                snap.timestamp,
+                snap.collections.len()
+            );
             for (col_name, docs) in snap.collections {
                 let col = Arc::new(Collection::new(&col_name));
                 for (k, v) in docs {
@@ -95,7 +106,11 @@ impl AegisDatabase {
         let rotated = WalReader::replay(&rotated_wal_path)?;
         let live = WalReader::replay(&wal_path)?;
         if !rotated.is_empty() || !live.is_empty() {
-            tracing::info!("Replaying {} rotated + {} live WAL entries...", rotated.len(), live.len());
+            tracing::info!(
+                "Replaying {} rotated + {} live WAL entries...",
+                rotated.len(),
+                live.len()
+            );
         }
         apply(&mut collections_map, rotated);
         apply(&mut collections_map, live);
@@ -203,7 +218,10 @@ impl AegisDatabase {
             {
                 let lock = self.collections.read();
                 for (col_name, col) in lock.iter() {
-                    snap_cols.insert(col_name.clone(), col.all().into_iter().collect::<BTreeMap<_, _>>());
+                    snap_cols.insert(
+                        col_name.clone(),
+                        col.all().into_iter().collect::<BTreeMap<_, _>>(),
+                    );
                 }
             }
             wal_lock.rotate(&self.rotated_wal_path)?;
@@ -238,7 +256,10 @@ impl AegisDatabase {
         for (col_name, col) in lock.iter() {
             let count = col.len();
             total_docs += count;
-            col_stats.insert(col_name.clone(), serde_json::json!({ "document_count": count }));
+            col_stats.insert(
+                col_name.clone(),
+                serde_json::json!({ "document_count": count }),
+            );
         }
 
         serde_json::json!({

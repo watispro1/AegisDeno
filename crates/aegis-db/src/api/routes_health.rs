@@ -1,4 +1,9 @@
-use axum::{extract::State, http::{HeaderMap, StatusCode}, response::IntoResponse, Json};
+use axum::{
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    response::IntoResponse,
+    Json,
+};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Instant;
@@ -28,7 +33,10 @@ pub async fn stats_handler(State(state): State<Arc<AppState>>) -> impl IntoRespo
     Json(stats)
 }
 
-pub async fn metrics_handler(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
+pub async fn metrics_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
     if super::middleware::is_authorized(&headers, &state.secret) {
         Json(state.db.stats())
     } else {

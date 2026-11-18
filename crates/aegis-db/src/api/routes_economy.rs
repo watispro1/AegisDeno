@@ -59,24 +59,44 @@ pub async fn transact_economy(
     match payload.kind.as_str() {
         "deposit" => {
             if payload.amount <= 0 {
-                return (StatusCode::BAD_REQUEST, Json(json!({ "error": "Amount must be positive" }))).into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": "Amount must be positive" })),
+                )
+                    .into_response();
             }
             if record.wallet < payload.amount {
-                return (StatusCode::BAD_REQUEST, Json(json!({ "error": "Insufficient wallet funds" }))).into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": "Insufficient wallet funds" })),
+                )
+                    .into_response();
             }
             let space = (record.bank_capacity - record.bank).max(0);
             if payload.amount > space {
-                return (StatusCode::BAD_REQUEST, Json(json!({ "error": "Exceeds bank capacity" }))).into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": "Exceeds bank capacity" })),
+                )
+                    .into_response();
             }
             record.wallet -= payload.amount;
             record.bank += payload.amount;
         }
         "withdraw" => {
             if payload.amount <= 0 {
-                return (StatusCode::BAD_REQUEST, Json(json!({ "error": "Amount must be positive" }))).into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": "Amount must be positive" })),
+                )
+                    .into_response();
             }
             if record.bank < payload.amount {
-                return (StatusCode::BAD_REQUEST, Json(json!({ "error": "Insufficient bank funds" }))).into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "error": "Insufficient bank funds" })),
+                )
+                    .into_response();
             }
             record.bank -= payload.amount;
             record.wallet += payload.amount;
@@ -108,16 +128,28 @@ pub async fn transact_economy(
 
     record.transactions.push(tx);
     if record.transactions.len() > 50 {
-        record.transactions.drain(0..(record.transactions.len() - 50));
+        record
+            .transactions
+            .drain(0..(record.transactions.len() - 50));
     }
 
     let val = match serde_json::to_value(&record) {
         Ok(v) => v,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": e.to_string() })),
+            )
+                .into_response()
+        }
     };
 
     if let Err(e) = state.db.put("economy", key, val) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))).into_response();
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e.to_string() })),
+        )
+            .into_response();
     }
 
     (StatusCode::OK, Json(json!(record))).into_response()

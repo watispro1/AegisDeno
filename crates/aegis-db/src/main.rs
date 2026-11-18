@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use aegis_db::{api, config::is_dev_environment, Config, AegisDatabase};
+use aegis_db::{api, config::is_dev_environment, AegisDatabase, Config};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

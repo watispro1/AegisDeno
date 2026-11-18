@@ -1,9 +1,9 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use super::wal::sync_dir;
 
@@ -43,7 +43,11 @@ impl SnapshotManager {
     /// Writes the snapshot to a temp file, fsyncs it, renames it over the old
     /// snapshot, then fsyncs the directory so the rename itself is durable.
     pub fn save(&self, data: &SnapshotData) -> io::Result<()> {
-        let parent = self.path.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+        let parent = self
+            .path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
         fs::create_dir_all(&parent)?;
 
         let tmp_path = self.path.with_extension("tmp");

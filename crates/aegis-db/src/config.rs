@@ -2,7 +2,11 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug, Clone)]
-#[command(name = "aegis-db", version = "0.1.0", about = "High-performance custom database and backend for Aegis")]
+#[command(
+    name = "aegis-db",
+    version = "0.1.0",
+    about = "High-performance custom database and backend for Aegis"
+)]
 pub struct Config {
     #[arg(long, env = "AEGIS_DB_HOST", default_value = "127.0.0.1")]
     pub host: String,
@@ -15,7 +19,12 @@ pub struct Config {
 
     /// Shared admin secret. The same variable name is read by the bot and the
     /// embedded TypeScript engine. Required unless running in development.
-    #[arg(long, env = "AEGIS_BACKEND_SECRET", default_value = "", hide_env_values = true)]
+    #[arg(
+        long,
+        env = "AEGIS_BACKEND_SECRET",
+        default_value = "",
+        hide_env_values = true
+    )]
     pub secret: String,
 
     #[arg(long, env = "AEGIS_DB_AUTO_COMPACT_SECS", default_value_t = 300)]
