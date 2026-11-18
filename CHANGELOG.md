@@ -9,6 +9,31 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.14.1] - 2026-11-18
+
+Website and dashboard release: the redesigned dashboard 2.0.0, the Glass
+theme out of beta and a new Aurora theme in beta. No bot command changes, so
+no re-deploy of commands is needed. No migration, permissions or environment
+variables. Released alongside dashboard 2.0.0; the details are in
+`DASHBOARD_CHANGELOG.md`.
+
+### Added
+- Website: the Aurora theme (beta) in the theme picker, a light theme with a
+  still dawn wash, marked with a Beta badge.
+- `scripts/preview-dashboard.ts` writes every dashboard fixture page with the
+  real stylesheet and scripts to `dist/dashboard-preview/` for visual checks.
+
+### Changed
+- Dashboard: redesigned as a full-height app with its own sidebar, top bar
+  and footer, a server health card and quick actions on the overview, and one
+  set of cards, tables, fields and empty states across every page.
+- Website: Glass is generally available, with rebuilt materials and a smaller
+  blur budget. The Beta label moves from Glass to Aurora.
+
+### Fixed
+- Website: the theme button no longer shows the sun icon next to the chosen
+  theme's icon (every theme except Light was affected).
+
 ## [3.14.0] - 2026-11-14
 
 Command upgrades across moderation, general and community, economy, and
