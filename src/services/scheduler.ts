@@ -104,7 +104,7 @@ export async function updateTaskNextRun(guildId: string, id: string, nextExecute
     const doc = await TaskModel.findOneAndUpdate(
       { _id: id, guildId },
       { $set: { executeAt: nextExecuteAt } },
-      { new: true }
+      { returnDocument: "after" }
     ).lean();
     if (!doc) return null;
     return toTask(doc);
@@ -154,7 +154,7 @@ export async function updateTaskForCreator(
     if (patch.payload !== undefined) set.payload = patch.payload;
     if (patch.executeAt !== undefined) set.executeAt = patch.executeAt;
     if (patch.intervalMs !== undefined) set.intervalMs = patch.intervalMs;
-    const doc = await TaskModel.findOneAndUpdate({ _id: id, creatorId, type }, { $set: set }, { new: true }).lean();
+    const doc = await TaskModel.findOneAndUpdate({ _id: id, creatorId, type }, { $set: set }, { returnDocument: "after" }).lean();
     return doc ? toTask(doc) : null;
   } catch {
     return null;

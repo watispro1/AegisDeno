@@ -273,7 +273,7 @@ export async function closeTicket(client: Client, o: { guild: Guild; threadId: s
   const doc = (await ModmailThreadModel.findOneAndUpdate(
     { threadId: o.threadId, guildId: o.guild.id, status: "open" },
     { $set: { status: "closed", closedAt: now, closedBy: o.staff.id, closeReason: o.reason?.slice(0, 512) ?? null, expiresAt: transcriptExpiry(now) } },
-    { new: true },
+    { returnDocument: "after" },
   ).lean()) as (TicketDoc & { lines: TranscriptLine[] }) | null;
   if (!doc) return { ok: false, error: "This thread has no open ModMail conversation (it may already be closed)." };
   threadOwners.delete(o.threadId);

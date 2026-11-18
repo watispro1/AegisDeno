@@ -238,13 +238,13 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
 
 /** Mongo-backed store for the end/reroll transitions. */
 const giveawayTransitionStore: GiveawayTransitionStore = {
-  update: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { new: true }).lean() as Promise<TransitionGiveaway | null>,
+  update: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { returnDocument: "after" }).lean() as Promise<TransitionGiveaway | null>,
   find: (filter) => GiveawayModel.findOne(filter).lean() as Promise<TransitionGiveaway | null>,
 };
 
 /** Mongo-backed store for enterGiveaway. */
 const giveawayEntryStore: GiveawayEntryStore = {
-  enter: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { new: true }).lean() as Promise<{ entrants?: string[] | null } | null>,
+  enter: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { returnDocument: "after" }).lean() as Promise<{ entrants?: string[] | null } | null>,
   exists: async (filter) => (await GiveawayModel.exists(filter)) !== null,
 };
 

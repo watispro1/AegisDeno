@@ -171,7 +171,7 @@ export async function closePoll(client: Client, guildId: string, messageId: stri
   const poll = await PollModel.findOneAndUpdate(
     { guildId, messageId, ended: false },
     { $set: { ended: true, endedAt: new Date() } },
-    { new: true },
+    { returnDocument: "after" },
   ).lean() as PollRecord | null;
   if (!poll) return false;
 
@@ -288,7 +288,7 @@ export async function handlePollButton(interaction: ButtonInteraction): Promise<
     updated = await PollModel.findOneAndUpdate(
       { guildId: interaction.guildId, messageId, ended: false, ...pollVoteGuard(interaction.user.id, picks) },
       next.choices.length ? { $set: { [voteKey]: next.choices } } : { $unset: { [voteKey]: "" } },
-      { new: true },
+      { returnDocument: "after" },
     ).lean() as PollRecord | null;
     if (updated) break;
 

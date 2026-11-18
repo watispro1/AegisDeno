@@ -150,7 +150,7 @@ export const command: Command = {
               createdAt: new Date(),
             },
           },
-          { upsert: true, new: true }
+          { upsert: true, returnDocument: "after" }
         );
 
         updateWatchCache(guildId, target.id, modId, events, expiresAt, alertChannelId);

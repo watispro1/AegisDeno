@@ -77,7 +77,7 @@ export async function updateStarboardConfig(
   const doc = await StarboardConfigModel.findOneAndUpdate(
     { guildId },
     { ...patch, updatedAt: new Date() },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   ).lean();
   configCache.delete(guildId);
   return doc as StarboardConfig;
@@ -119,7 +119,7 @@ export async function updateStarCount(
   return StarboardEntryModel.findOneAndUpdate(
     { guildId, sourceMessageId },
     excerpt === undefined ? { starCount } : { starCount, excerpt },
-    { new: true },
+    { returnDocument: "after" },
   ).lean();
 }
 

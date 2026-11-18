@@ -178,7 +178,7 @@ export async function setupVerification(
           kickUnverifiedMinutes,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: "after" }
     );
 
     await sendGuildLog(guild.client, guild.id, {

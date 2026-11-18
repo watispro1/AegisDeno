@@ -80,7 +80,7 @@ export const mongoGuildConfigStore: GuildConfigStore = {
     return stripMeta(await GuildConfigModel.findOneAndUpdate(
       { guildId },
       { $set: set },
-      { new: true, upsert: true },
+      { returnDocument: "after", upsert: true },
     ).lean());
   },
   async loadLegacy(guildId) {

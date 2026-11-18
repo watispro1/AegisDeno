@@ -278,7 +278,7 @@ export async function claimTicket(guild: Guild, channelId: string, userId: strin
   const updated = await TicketModel.findOneAndUpdate(
     { _id: ticket._id, status: "open", claimedBy: null },
     { $set: { claimedBy: userId, lastActivityAt: new Date() } },
-    { new: true },
+    { returnDocument: "after" },
   ).lean();
   if (!updated) {
     const fresh = await TicketModel.findById(ticket._id).lean();
