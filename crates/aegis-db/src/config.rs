@@ -29,6 +29,17 @@ pub struct Config {
 
     #[arg(long, env = "AEGIS_DB_AUTO_COMPACT_SECS", default_value_t = 300)]
     pub auto_compact_secs: u64,
+
+    /// Write snapshots zstd-compressed. Accepts true/false, 1/0, yes/no, on/off.
+    /// Plain-JSON snapshots from older versions still load either way.
+    #[arg(
+        long,
+        env = "AEGIS_DB_SNAPSHOT_ZSTD",
+        default_value_t = true,
+        action = clap::ArgAction::Set,
+        value_parser = clap::builder::BoolishValueParser::new()
+    )]
+    pub snapshot_zstd: bool,
 }
 
 impl Default for Config {
@@ -39,6 +50,7 @@ impl Default for Config {
             data_dir: PathBuf::from("./data/aegis-db"),
             secret: String::new(),
             auto_compact_secs: 300,
+            snapshot_zstd: true,
         }
     }
 }
@@ -55,6 +67,13 @@ pub fn is_dev_environment() -> bool {
 }
 
 impl Config {
+    /// Engine options derived from this configuration.
+    pub fn db_options(&self) -> crate::engine::DbOptions {
+        crate::engine::DbOptions {
+            snapshot_zstd: self.snapshot_zstd,
+        }
+    }
+
     /// Startup check: refuse to serve without a secret outside development.
     pub fn validate(&self, dev: bool) -> Result<(), String> {
         if self.secret.is_empty() && !dev {

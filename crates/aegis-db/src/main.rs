@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.data_dir.display()
     );
 
-    let db = AegisDatabase::open(&config.data_dir)?;
+    let db = AegisDatabase::open_with_options(&config.data_dir, config.db_options())?;
 
     // Spawn background auto-compactor task
     if config.auto_compact_secs > 0 {

@@ -4,4 +4,4 @@ pub mod engine;
 pub mod models;
 
 pub use config::Config;
-pub use engine::AegisDatabase;
+pub use engine::{AegisDatabase, DbOptions};

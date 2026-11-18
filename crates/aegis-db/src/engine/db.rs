@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::collection::Collection;
-use super::snapshot::{SnapshotData, SnapshotManager};
+use super::snapshot::{SnapshotData, SnapshotFormat, SnapshotManager};
 use super::wal::{sync_dir, WalEntry, WalOp, WalReader, WalWriter};
 
 /// File names used by the Rust service inside its data directory. The embedded
@@ -21,6 +21,22 @@ pub const SNAPSHOT_FILE: &str = "snapshot.json";
 pub const LOCK_FILE: &str = "aegis-db.lock";
 
 const LOCK_STRIPES: usize = 64;
+
+/// Engine tuning knobs. `Default` matches the service defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DbOptions {
+    /// Write snapshots zstd-compressed (`AEGIS_DB_SNAPSHOT_ZSTD`). Snapshots in
+    /// either format are always readable.
+    pub snapshot_zstd: bool,
+}
+
+impl Default for DbOptions {
+    fn default() -> Self {
+        Self {
+            snapshot_zstd: true,
+        }
+    }
+}
 
 pub struct AegisDatabase {
     data_dir: PathBuf,
@@ -79,14 +95,25 @@ fn lock_data_dir(dir: &Path) -> std::io::Result<File> {
 }
 
 impl AegisDatabase {
+    /// Opens the database with the default [`DbOptions`].
     pub fn open<P: AsRef<Path>>(data_dir: P) -> std::io::Result<Arc<Self>> {
+        Self::open_with_options(data_dir, DbOptions::default())
+    }
+
+    pub fn open_with_options<P: AsRef<Path>>(
+        data_dir: P,
+        options: DbOptions,
+    ) -> std::io::Result<Arc<Self>> {
         let dir = data_dir.as_ref().to_path_buf();
         std::fs::create_dir_all(&dir)?;
         let dir_lock = lock_data_dir(&dir)?;
 
         let wal_path = dir.join(WAL_FILE);
         let rotated_wal_path = dir.join(WAL_ROTATED_FILE);
-        let snapshot = SnapshotManager::new(&dir);
+        let snapshot = SnapshotManager::with_format(
+            &dir,
+            SnapshotFormat::from_compress(options.snapshot_zstd),
+        );
 
         let mut collections_map: BTreeMap<String, Arc<Collection>> = BTreeMap::new();
 
