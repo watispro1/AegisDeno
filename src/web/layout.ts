@@ -24,6 +24,13 @@ export interface LayoutOptions {
   scripts?: string;
   /** Appended to stylesheet and script URLs to bust caches on deploy. */
   assetVersion?: string;
+  /**
+   * App pages (the signed-in dashboard): the page brings its own header,
+   * sidebar, <main> landmark and footer, so the marketing nav, the site
+   * footer and the <main> wrapper are left out. The skip link and the site
+   * search dialog stay.
+   */
+  app?: boolean;
 }
 
 /** Public source repository. */
@@ -73,6 +80,8 @@ export const systemIcon = `<svg class="icon-system" width="17" height="17" viewB
 export const steelIcon = `<svg class="icon-steel" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>`;
 export const glassIcon = `<svg class="icon-glass" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="13" height="13" rx="2"/><rect x="8" y="8" width="13" height="13" rx="2"/></svg>`;
 
+export const auroraIcon = `<svg class="icon-aurora" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 18c3-6 6-9 9-9s6 3 9 9"/><path d="M6 18c2-3.5 4-5 6-5s4 1.5 6 5"/><path d="M12 3v2M4.6 6.6l1.4 1.4M19.4 6.6 18 8"/></svg>`;
+
 /** Picker options: [setting, label]. "system" follows the OS light/dark preference. */
 export const THEME_OPTIONS: ReadonlyArray<readonly [string, string]> = [
   ["system", "System"],
@@ -80,7 +89,14 @@ export const THEME_OPTIONS: ReadonlyArray<readonly [string, string]> = [
   ["dark", "Dark"],
   ["steel", "Steel &amp; Ink"],
   ["glass", "Glass"],
+  ["aurora", "Aurora"],
 ];
+
+/** Themes still in beta: the picker marks them with a small Beta badge. */
+export const BETA_THEMES: ReadonlySet<string> = new Set(["aurora"]);
+
+/** The Beta badge shown after a theme's name (picker and account menu). */
+export const betaBadge = (id: string): string => (BETA_THEMES.has(id) ? ' <span class="theme-beta">Beta</span>' : "");
 
 /**
  * Header theme picker, shared by the site and the dashboard. A native
@@ -88,11 +104,11 @@ export const THEME_OPTIONS: ReadonlyArray<readonly [string, string]> = [
  */
 export function themePicker(): string {
   const options = THEME_OPTIONS.map(([id, label]) =>
-    `<button class="theme-opt" type="button" data-set-theme="${id}" aria-pressed="false"><span class="theme-swatch" data-swatch="${id}" aria-hidden="true"></span>${label}${id === "glass" ? ' <span class="theme-beta">Beta</span>' : ""}</button>`
+    `<button class="theme-opt" type="button" data-set-theme="${id}" aria-pressed="false"><span class="theme-swatch" data-swatch="${id}" aria-hidden="true"></span>${label}${betaBadge(id)}</button>`
   ).join("\n          ");
   return `<details class="theme-picker">
         <summary class="icon-btn theme-toggle" aria-label="Choose theme" title="Theme">
-          ${sunIcon}${moonIcon}${systemIcon}${steelIcon}${glassIcon}
+          ${sunIcon}${moonIcon}${systemIcon}${steelIcon}${glassIcon}${auroraIcon}
         </summary>
         <div class="theme-menu" role="group" aria-label="Theme">
           <p class="theme-menu-title" aria-hidden="true">Theme</p>
@@ -119,45 +135,7 @@ export function layout(o: LayoutOptions): string {
 
   const year = new Date().getFullYear();
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>${title}</title>
-<meta name="description" content="${description}">
-${o.omitCanonical ? "" : `<link rel="canonical" href="${canonical}">`}
-${o.noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="robots" content="index, follow">'}
-<meta name="theme-color" content="#fbfaf8">
-<meta name="color-scheme" content="light dark">
-
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Aegis">
-<meta property="og:title" content="${title}">
-<meta property="og:description" content="${description}">
-<meta property="og:url" content="${canonical}">
-${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Aegis: a moderation bot for Discord">` : ""}
-<meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
-<meta name="twitter:title" content="${title}">
-<meta name="twitter:description" content="${description}">
-${ogImage ? `<meta name="twitter:image" content="${esc(ogImage)}">` : ""}
-
-<link rel="icon" href="/assets/favicon.svg${v}" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/assets/favicon.svg${v}">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="alternate" type="application/atom+xml" title="Aegis changelog" href="/changelog.xml">
-
-<link rel="stylesheet" href="/assets/site.css${v}">
-<script src="/assets/theme-init.js${v}"></script>
-${o.headExtra || ""}
-</head>
-<body>
-<a class="skip-link" href="#main">Skip to content</a>
-
-<nav class="nav" aria-label="Main navigation">
+  const siteNav = `<nav class="nav" aria-label="Main navigation">
   <div class="wrap nav-inner">
     <a class="brand" href="/">
       <span class="brand-mark" aria-hidden="true">A</span>
@@ -179,32 +157,9 @@ ${o.headExtra || ""}
       </button>
     </div>
   </div>
-</nav>
+</nav>`;
 
-<div class="site-search" id="site-search-dialog" role="dialog" aria-modal="true" aria-labelledby="site-search-title" hidden>
-  <div class="site-search-backdrop" data-site-search-close></div>
-  <section class="site-search-panel" role="document">
-    <div class="site-search-head">
-      <label id="site-search-title" for="site-search-input">Search Aegis</label>
-      <button class="icon-btn" type="button" data-site-search-close aria-label="Close search">×</button>
-    </div>
-    <div class="site-search-input-wrap">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-      <input id="site-search-input" type="search" autocomplete="off" placeholder="ban, automod, tickets…" aria-describedby="site-search-help">
-      <kbd>Esc</kbd>
-    </div>
-    <p class="site-search-help" id="site-search-help">Type two characters or more. ↑/↓ to move, Enter to open, Esc to close.</p>
-    <div class="site-search-results" id="site-search-results" role="listbox" aria-live="polite"></div>
-  </section>
-</div>
-
-<div id="toast-container"></div>
-
-<main id="main">
-${o.body}
-</main>
-
-<footer class="site">
+  const siteFooter = `<footer class="site">
   <div class="wrap">
     <div class="footer-grid">
       <div class="footer-brand">
@@ -272,7 +227,70 @@ ${o.body}
       </nav>
     </div>
   </div>
-</footer>
+</footer>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${title}</title>
+<meta name="description" content="${description}">
+${o.omitCanonical ? "" : `<link rel="canonical" href="${canonical}">`}
+${o.noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="robots" content="index, follow">'}
+<meta name="theme-color" content="#fbfaf8">
+<meta name="color-scheme" content="light dark">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Aegis">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${description}">
+<meta property="og:url" content="${canonical}">
+${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Aegis: a moderation bot for Discord">` : ""}
+<meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
+<meta name="twitter:title" content="${title}">
+<meta name="twitter:description" content="${description}">
+${ogImage ? `<meta name="twitter:image" content="${esc(ogImage)}">` : ""}
+
+<link rel="icon" href="/assets/favicon.svg${v}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/favicon.svg${v}">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="alternate" type="application/atom+xml" title="Aegis changelog" href="/changelog.xml">
+
+<link rel="stylesheet" href="/assets/site.css${v}">
+<script src="/assets/theme-init.js${v}"></script>
+${o.headExtra || ""}
+</head>
+<body${o.app ? ' class="app-body"' : ""}>
+<a class="skip-link" href="#main">Skip to content</a>
+
+${o.app ? "" : siteNav}
+
+<div class="site-search" id="site-search-dialog" role="dialog" aria-modal="true" aria-labelledby="site-search-title" hidden>
+  <div class="site-search-backdrop" data-site-search-close></div>
+  <section class="site-search-panel" role="document">
+    <div class="site-search-head">
+      <label id="site-search-title" for="site-search-input">Search Aegis</label>
+      <button class="icon-btn" type="button" data-site-search-close aria-label="Close search">×</button>
+    </div>
+    <div class="site-search-input-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input id="site-search-input" type="search" autocomplete="off" placeholder="ban, automod, tickets…" aria-describedby="site-search-help">
+      <kbd>Esc</kbd>
+    </div>
+    <p class="site-search-help" id="site-search-help">Type two characters or more. ↑/↓ to move, Enter to open, Esc to close.</p>
+    <div class="site-search-results" id="site-search-results" role="listbox" aria-live="polite"></div>
+  </section>
+</div>
+
+<div id="toast-container"></div>
+
+${o.app ? o.body : `<main id="main">\n${o.body}\n</main>`}
+
+${o.app ? "" : siteFooter}
 
 <script src="/assets/site.js${v}" defer></script>
 ${o.scripts || ""}

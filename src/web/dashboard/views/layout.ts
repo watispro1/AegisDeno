@@ -1,4 +1,6 @@
 import { layout, themePicker } from "../../layout";
+import { icon } from "./icons";
+import { APP_CHROME, userMenu } from "./appChrome";
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
@@ -103,17 +105,19 @@ function iconOrInitial(url: string | null | undefined, name: string, cls: string
     : `<span class="${cls}" aria-hidden="true">${initial(name)}</span>`;
 }
 
-export function serverSwitcher(ctx: GuildContext, cls = "switcher"): string {
+export function serverSwitcher(ctx: GuildContext, cls = "switcher", meta = ""): string {
   const g = ctx.guild;
   const others = (ctx.servers ?? []).filter(s => s.id !== g.id).slice(0, 50);
+  const idBase = cls.split(" ")[0];
   return `<details class="${cls}" data-menu>
       <summary class="switcher-current" aria-label="Switch server, current: ${esc(g.name)}">
         ${iconOrInitial(g.iconUrl, g.name, "g-icon")}
-        <span class="g-name">${esc(g.name)}</span>
+        ${meta ? `<span class="g-text"><span class="g-name">${esc(g.name)}</span><span class="g-meta">${meta}</span></span>` : `<span class="g-name">${esc(g.name)}</span>`}
         <span class="caret" aria-hidden="true">▾</span>
       </summary>
       <ul class="switcher-list" data-switcher-list>
-        ${others.length > 6 ? `<li class="switcher-filter" data-js-only><label class="visually-hidden" for="${cls}-q">Find a server</label><input type="search" id="${cls}-q" data-switcher-filter placeholder="Find a server…" autocomplete="off"></li>` : ""}
+        ${others.length > 6 ? `<li class="switcher-filter" data-js-only><label class="visually-hidden" for="${idBase}-q">Find a server</label><input type="search" id="${idBase}-q" data-switcher-filter placeholder="Find a server…" autocomplete="off"></li>` : ""}
+        ${others.length ? `<li class="switcher-heading" aria-hidden="true">Switch to</li>` : ""}
         ${others.map(s => `<li><a href="/dashboard/${esc(s.id)}">${iconOrInitial(s.iconUrl, s.name, "g-icon sm")}${esc(s.name)}</a></li>`).join("")}
         <li class="switcher-all"><a href="/dashboard">All servers</a></li>
       </ul>
@@ -139,22 +143,26 @@ function sidebar(ctx: GuildContext, active: GuildSection): string {
     return `<li class="nav-group"><details class="nav-group-details" open data-nav-group="${esc(grp.group)}"${hasActive ? ' data-active-group=""' : ""}>
       <summary class="nav-group-title"><span>${esc(grp.group)}</span><span class="nav-caret" aria-hidden="true">▾</span></summary>
       <ul class="nav-group-items">
-        ${grp.items.map(i => `<li data-nav-item><a class="side-link" data-nav-key="${esc(i.key)}" title="${esc(i.label)}" href="${base}${i.href}"${i.key === active ? ' aria-current="page"' : ""}><span class="side-icon" aria-hidden="true">${i.icon}</span>${esc(i.label)}</a></li>`).join("")}
+        ${grp.items.map(i => `<li data-nav-item><a class="side-link" data-nav-key="${esc(i.key)}" title="${esc(i.label)}" href="${base}${i.href}"${i.key === active ? ' aria-current="page"' : ""}><span class="side-icon" aria-hidden="true">${icon(i.key)}</span>${esc(i.label)}</a></li>`).join("")}
       </ul>
     </details></li>`;
   }).join("");
+  const meta = `${esc(memberLabel(g.memberCount))}${ctx.premium ? ` · <span class="premium-badge">${esc(PREMIUM_BADGE)}</span>` : ""}`;
 
   return `<aside class="app-side" id="dash-sidebar" data-drawer aria-label="Server menu">
     <div class="side-head">
-      <a class="side-brand" href="${base}" title="${esc(g.name)} overview">${iconOrInitial(g.iconUrl, g.name, "g-icon")}<span class="side-brand-text"><span class="side-brand-name">${esc(g.name)}</span><span class="side-brand-meta">${esc(memberLabel(g.memberCount))}${ctx.premium ? ` · <span class="premium-badge">${esc(PREMIUM_BADGE)}</span>` : ""}</span></span></a>
-      <button class="drawer-close" type="button" data-drawer-close aria-label="Close menu">✕</button>
+      <a class="side-logo" href="/dashboard" title="All servers"><span class="brand-mark" aria-hidden="true">A</span><span class="side-logo-text">Aegis<span class="side-logo-tag">Dashboard</span></span></a>
+      <button class="drawer-close" type="button" data-drawer-close aria-label="Close menu">${icon("close")}</button>
+    </div>
+    <div class="side-server">
+      <a class="side-brand" href="${base}" title="${esc(g.name)} overview">${iconOrInitial(g.iconUrl, g.name, "g-icon")}<span class="side-brand-text"><span class="side-brand-name">${esc(g.name)}</span><span class="side-brand-meta">${meta}</span></span></a>
     </div>
     <div class="side-filter" data-js-only>
       <label class="visually-hidden" for="side-filter-q">Filter the menu</label>
       <input type="search" id="side-filter-q" class="side-filter-input" data-nav-filter placeholder="Filter menu…" autocomplete="off" aria-controls="dash-side-nav">
       <p class="side-filter-empty faint" data-nav-filter-empty hidden>No page matches.</p>
     </div>
-    <nav aria-label="Modules"><ul class="side-nav" id="dash-side-nav">${groups}</ul></nav>
+    <nav class="side-scroll" aria-label="Modules"><ul class="side-nav" id="dash-side-nav">${groups}</ul></nav>
     <div class="side-foot">
       <a class="side-foot-link" href="/docs">Docs</a>
       <a class="side-foot-link" href="/status">Status</a>
@@ -163,63 +171,6 @@ function sidebar(ctx: GuildContext, active: GuildSection): string {
   </aside>
   <div class="drawer-backdrop" data-drawer-close aria-hidden="true"></div>`;
 }
-
-function userMenu(viewer: Viewer): string {
-  const shown = viewer.globalName || viewer.username;
-  return `<details class="user-menu" data-menu>
-      <summary aria-label="Account menu">${iconOrInitial(viewer.avatarUrl, shown, "avatar")}<span class="user-name">${esc(shown)}</span></summary>
-      <div class="user-panel">
-        <p>Signed in as <strong>${esc(shown)}</strong> <span class="faint">(${esc(viewer.username)})</span></p>
-        <p><a href="/dashboard">Your servers</a> · <a href="/dashboard/changelog">What's new</a></p>
-        <div class="user-theme-picker">
-          <span class="faint">Theme:</span>
-          <button class="btn ghost xs" type="button" data-set-theme="system">System</button>
-          <button class="btn ghost xs" type="button" data-set-theme="light">Light</button>
-          <button class="btn ghost xs" type="button" data-set-theme="dark">Dark</button>
-          <button class="btn ghost xs" type="button" data-set-theme="steel">Steel &amp; Ink</button>
-          <button class="btn ghost xs" type="button" data-set-theme="glass">Glass (beta)</button>
-        </div>
-        <form method="post" action="/dashboard/logout">
-          ${csrfField(viewer)}
-          <button class="btn ghost sm" type="submit">Log out</button>
-        </form>
-      </div>
-    </details>`;
-}
-
-/** Shared page furniture: toasts, the unsaved-changes bar and the confirm dialog (all driven by dashboard.js). */
-const APP_CHROME = `<div class="nav-progress" data-nav-progress aria-hidden="true"></div>
-  <div class="toast-region" data-toasts aria-live="polite" aria-atomic="false"></div>
-  <div class="unsaved-bar" data-unsaved-bar hidden role="region" aria-label="Unsaved changes">
-    <span class="unsaved-text"><span class="unsaved-dot" aria-hidden="true"></span>You have unsaved changes <span class="unsaved-count" data-unsaved-count></span></span>
-    <span class="btn-row"><button class="btn ghost sm" type="button" data-unsaved-reset>Discard</button><button class="btn sm" type="button" data-unsaved-save>Save <kbd class="unsaved-kbd">Ctrl S</kbd></button></span>
-  </div>
-  <dialog class="palette" data-palette aria-label="Jump to a page">
-    <label class="visually-hidden" for="palette-q">Jump to</label>
-    <input type="search" id="palette-q" data-palette-input placeholder="Jump to a module or setting… (Enter to search cases)" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list">
-    <ul id="palette-list" class="palette-list" role="listbox" data-palette-list></ul>
-    <p class="faint palette-hint">↑ ↓ to move · Enter to open · Esc to close</p>
-  </dialog>
-  <dialog class="palette shortcuts" data-shortcuts aria-labelledby="shortcuts-h">
-    <h2 id="shortcuts-h">Keyboard shortcuts</h2>
-    <dl class="shortcut-list">
-      <div><dt><kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd></dt><dd>Jump to a page or search cases</dd></div>
-      <div><dt><kbd>/</kbd></dt><dd>Focus the table filter on this page</dd></div>
-      <div><dt><kbd>Ctrl</kbd> <kbd>S</kbd> / <kbd>⌘</kbd> <kbd>S</kbd></dt><dd>Save the form you changed</dd></div>
-      <div><dt><kbd>G</kbd> then <kbd>O</kbd> / <kbd>S</kbd> / <kbd>C</kbd> / <kbd>A</kbd> / <kbd>M</kbd></dt><dd>Go to Overview, Settings, Cases, Activity or Members</dd></div>
-      <div><dt><kbd>[</kbd></dt><dd>Collapse or expand the sidebar</dd></div>
-      <div><dt><kbd>?</kbd></dt><dd>Show this list</dd></div>
-      <div><dt><kbd>Esc</kbd></dt><dd>Close dialogs and menus</dd></div>
-    </dl>
-    <form method="dialog"><button class="btn sm" type="submit">Close</button></form>
-  </dialog>
-  <dialog class="confirm-dialog" data-confirm-dialog aria-labelledby="confirm-title">
-    <form method="dialog">
-      <h2 id="confirm-title">Are you sure?</h2>
-      <p data-confirm-text></p>
-      <div class="btn-row"><button class="btn ghost" value="cancel" type="submit">Cancel</button><button class="btn danger" value="ok" type="submit" data-confirm-ok>Confirm</button></div>
-    </form>
-  </dialog>`;
 
 /* Shell */
 
@@ -232,21 +183,24 @@ export function shell(cfg: SiteConfig, o: { title: string; path: string; body: s
     body = `<div class="app" data-app data-guild="${esc(o.guild.guild.id)}">
     ${sidebar(o.guild, o.active ?? "overview")}
     <div class="app-main">
-      <div class="app-top">
-        <button class="btn ghost sm drawer-toggle" type="button" aria-controls="dash-sidebar" aria-expanded="false" data-drawer-toggle>☰ <span>Menu</span></button>
-        <button class="icon-btn side-collapse" type="button" data-side-collapse aria-controls="dash-sidebar" aria-pressed="false" aria-keyshortcuts="BracketLeft" title="Collapse sidebar ([)"><span aria-hidden="true">⇤</span><span class="visually-hidden">Collapse sidebar</span></button>
+      <header class="app-top">
+        <button class="btn ghost sm drawer-toggle" type="button" aria-controls="dash-sidebar" aria-expanded="false" data-drawer-toggle>${icon("menu")}<span>Menu</span></button>
+        <button class="icon-btn side-collapse" type="button" data-side-collapse aria-controls="dash-sidebar" aria-pressed="false" aria-keyshortcuts="BracketLeft" title="Collapse sidebar ([)">${icon("collapse")}<span class="visually-hidden">Collapse sidebar</span></button>
         <div class="app-top-switcher">${serverSwitcher(o.guild, "top-switcher")}</div>
         <form class="top-search" method="get" action="/dashboard/${esc(o.guild.guild.id)}/search" role="search">
           <label class="visually-hidden" for="top-q">Search cases and members</label>
+          <span class="top-search-icon" aria-hidden="true">${icon("search")}</span>
           <input type="search" id="top-q" name="q" maxlength="64" placeholder="Search cases, members…" autocomplete="off">
         </form>
-        <button class="btn ghost sm palette-btn" type="button" data-palette-open aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" title="Jump to (Ctrl+K)">⌘K</button>
-        <button class="btn ghost sm" type="button" data-shortcuts-open aria-haspopup="dialog" aria-keyshortcuts="Shift+Slash" title="Keyboard shortcuts (?)">?</button>
-        ${themePicker()}
-        ${userMenu(o.viewer)}
-      </div>
-      <div class="app-content">${o.body}</div>
-      ${footer}
+        <div class="app-top-actions">
+          <button class="btn ghost sm palette-btn" type="button" data-palette-open aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" title="Jump to (Ctrl+K)">${icon("command")}<span class="palette-btn-text">Jump to</span><kbd class="palette-kbd">Ctrl K</kbd></button>
+          <button class="icon-btn shortcuts-btn" type="button" data-shortcuts-open aria-haspopup="dialog" aria-keyshortcuts="Shift+Slash" title="Keyboard shortcuts (?)">${icon("keyboard")}<span class="visually-hidden">Keyboard shortcuts</span></button>
+          ${themePicker()}
+          ${userMenu(o.viewer)}
+        </div>
+      </header>
+      <main class="app-content" id="main" tabindex="-1">${o.body}</main>
+      <footer class="dash-foot-wrap">${footer}</footer>
     </div>
   </div>${APP_CHROME}`;
   } else {
@@ -275,6 +229,7 @@ export function shell(cfg: SiteConfig, o: { title: string; path: string; body: s
     noindex: true,
     omitCanonical: true,
     assetVersion: cfg.assetVersion,
+    app: Boolean(o.guild && o.viewer),
     scripts: o.scripts === false ? "" : `<script src="/assets/dashboard.js${v}" defer></script>${o.extraScripts ?? ""}`,
   });
 }
@@ -343,7 +298,7 @@ export function relTime(d: Date | null | undefined, now = Date.now()): string {
 
 /** A small button that copies an ID (dashboard.js); the ID stays selectable without JavaScript. */
 export function copyId(id: string, label = "Copy ID"): string {
-  return `<button class="btn sm ghost copy-id" type="button" data-copy="${esc(id)}" aria-label="${esc(label)} ${esc(id)}">⧉</button>`;
+  return `<button class="btn sm ghost copy-id" type="button" data-copy="${esc(id)}" aria-label="${esc(label)} ${esc(id)}">${icon("copy")}</button>`;
 }
 
 /** relTime for an optional date, with a dash when there is none. */
