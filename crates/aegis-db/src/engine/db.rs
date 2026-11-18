@@ -26,7 +26,13 @@ pub struct AegisDatabase {
     data_dir: PathBuf,
     rotated_wal_path: PathBuf,
     collections: RwLock<BTreeMap<String, Arc<Collection>>>,
-    /// Lock order: a scope stripe (if any) -> `wal` -> `collections`.
+    /// Serializes whole compactions (timer, size trigger and
+    /// `POST /api/db/compact`), so an older snapshot can never be renamed over
+    /// a newer one after the rotated WAL it depended on was deleted.
+    ///
+    /// Lock order: `compact_lock` -> a scope stripe (if any) -> `wal` ->
+    /// `collections`. Never take `compact_lock` while holding any of the others.
+    compact_lock: Mutex<()>,
     wal: Mutex<WalWriter>,
     snapshot: SnapshotManager,
     scope_locks: Vec<Mutex<()>>,
@@ -121,6 +127,7 @@ impl AegisDatabase {
             data_dir: dir,
             rotated_wal_path,
             collections: RwLock::new(collections_map),
+            compact_lock: Mutex::new(()),
             wal: Mutex::new(wal_writer),
             snapshot,
             scope_locks: (0..LOCK_STRIPES).map(|_| Mutex::new(())).collect(),
@@ -209,7 +216,11 @@ impl AegisDatabase {
     /// collection and rotates the WAL aside, so no write can land between the
     /// copy and the rotation. The snapshot is then written durably, and only
     /// after that is the rotated WAL removed.
+    ///
+    /// Whole compactions are serialized by `compact_lock`: a second caller
+    /// waits for the first to finish, then checkpoints the newer state itself.
     pub fn compact(&self) -> std::io::Result<()> {
+        let _compact_guard = self.compact_lock.lock();
         tracing::info!("Starting database compaction & checkpoint...");
 
         let mut snap_cols = BTreeMap::new();
