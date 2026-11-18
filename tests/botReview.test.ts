@@ -82,3 +82,51 @@ test("poll vote refresh renders the newest votes and never re-opens a closed pol
   await refreshPollMessage("g", "m1", message as never, load);
   assert.equal(edits.length, 0, "closed poll is left to closePoll's final render");
 });
+
+test("giveaway entry edit is skipped once the giveaway ended (it used to restore the running embed)", async () => {
+  const { mock } = await import("node:test");
+  const { EmbedBuilder } = await import("discord.js");
+  const { GiveawayModel } = await import("../src/database/mongo");
+  const { handleGiveawayButton } = await import("../src/services/giveawayService");
+  const running = { guildId: "g", messageId: "gm1", ended: false, entrants: [], hostId: "h", prize: "p", boosterMultiplier: 1 };
+  let endedNow = false;
+  const findOne = mock.method(GiveawayModel, "findOne", () => ({ lean: async () => running }) as never);
+  const enter = mock.method(GiveawayModel, "findOneAndUpdate", () => ({ lean: async () => ({ entrants: ["u1", "u2"] }) }) as never);
+  const exists = mock.method(GiveawayModel, "exists", () => Promise.resolve(endedNow ? null : { _id: "x" }) as never);
+  const edits: unknown[] = [];
+  const embed = new EmbedBuilder().setTitle("GIVEAWAY").addFields(
+    { name: "a", value: "1" }, { name: "b", value: "2" }, { name: "c", value: "3" }, { name: "📊 Entries", value: "**1** entered" },
+  ).toJSON();
+  const interaction = {
+    guildId: "g", guild: { members: { fetch: async () => null } }, customId: "giveaway_enter",
+    user: { id: "u2", createdAt: new Date(0) }, client: {},
+    message: { id: "gm1", embeds: [{ ...embed, fields: embed.fields }], edit: async (o: unknown) => { edits.push(o); } },
+    deferReply: async () => undefined, editReply: async () => undefined, reply: async () => undefined,
+  };
+  try {
+    await handleGiveawayButton(interaction as never);
+    assert.equal(edits.length, 1, "open giveaway: entry count refreshed");
+    assert.match(JSON.stringify(edits[0]), /\*\*2\*\* entered/);
+    endedNow = true;
+    edits.length = 0;
+    await handleGiveawayButton(interaction as never);
+    assert.equal(edits.length, 0, "ended meanwhile: the ended embed is left alone");
+  } finally {
+    findOne.mock.restore();
+    enter.mock.restore();
+    exists.mock.restore();
+  }
+});
+
+test("a malformed role panel button answers instead of leaving the deferred reply on 'thinking…'", async () => {
+  const { roleRoutes } = await import("../src/bot/interactions/roles");
+  const route = roleRoutes.find((r) => r.name === "rolepanel-button")!;
+  const replies: unknown[] = [];
+  const interaction = {
+    isButton: () => true, guild: {}, member: {}, customId: "rolepanel_nounderscore",
+    deferReply: async () => undefined, editReply: async (o: unknown) => { replies.push(o); },
+  };
+  await route.handle(interaction as never, null as never);
+  assert.equal(replies.length, 1);
+  assert.match(JSON.stringify(replies[0]), /out of date/);
+});
