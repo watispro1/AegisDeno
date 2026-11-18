@@ -132,44 +132,6 @@ fn bad_op_with_valid_checksum_stops_replay() {
 }
 
 #[test]
-fn compaction_racing_writes_loses_nothing() {
-    let dir = tmp("compact_race");
-    {
-        let db = AegisDatabase::open(&dir).unwrap();
-        let mut handles = Vec::new();
-        for t in 0..4 {
-            let db = db.clone();
-            handles.push(std::thread::spawn(move || {
-                for i in 0..150 {
-                    db.put("bench", format!("t{}:{}", t, i), json!({ "i": i }))
-                        .unwrap();
-                }
-            }));
-        }
-        let compactor = {
-            let db = db.clone();
-            std::thread::spawn(move || {
-                for _ in 0..20 {
-                    db.compact().unwrap();
-                }
-            })
-        };
-        for h in handles {
-            h.join().unwrap();
-        }
-        compactor.join().unwrap();
-        assert_eq!(db.collection("bench").len(), 600);
-    }
-    let db = AegisDatabase::open(&dir).unwrap();
-    assert_eq!(
-        db.collection("bench").len(),
-        600,
-        "every acknowledged write survives restart"
-    );
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
 fn data_dir_lock_blocks_second_open() {
     let dir = tmp("lock");
     let db = AegisDatabase::open(&dir).unwrap();

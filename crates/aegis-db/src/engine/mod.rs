@@ -1,6 +1,7 @@
 pub mod collection;
 pub mod compactor;
 pub mod db;
+mod maintenance;
 pub mod snapshot;
 pub mod wal;
 

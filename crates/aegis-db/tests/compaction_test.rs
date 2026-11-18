@@ -95,6 +95,45 @@ fn concurrent_compactions_lose_no_data() {
     let _ = fs::remove_dir_all(&dir);
 }
 
+/// A single compactor racing several writers (moved from hardening_test.rs).
+#[test]
+fn compaction_racing_writes_loses_nothing() {
+    let dir = tmp("racing_writes");
+    {
+        let db = AegisDatabase::open(&dir).unwrap();
+        let mut handles = Vec::new();
+        for t in 0..4 {
+            let db = db.clone();
+            handles.push(std::thread::spawn(move || {
+                for i in 0..150 {
+                    db.put("bench", format!("t{}:{}", t, i), json!({ "i": i }))
+                        .unwrap();
+                }
+            }));
+        }
+        let compactor = {
+            let db = db.clone();
+            std::thread::spawn(move || {
+                for _ in 0..20 {
+                    db.compact().unwrap();
+                }
+            })
+        };
+        for h in handles {
+            h.join().unwrap();
+        }
+        compactor.join().unwrap();
+        assert_eq!(db.collection("bench").len(), 600);
+    }
+    let db = AegisDatabase::open(&dir).unwrap();
+    assert_eq!(
+        db.collection("bench").len(),
+        600,
+        "every acknowledged write survives restart"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
 /// Back-to-back compactions with no writes in between leave a loadable
 /// snapshot and no stale rotated WAL behind.
 #[test]
