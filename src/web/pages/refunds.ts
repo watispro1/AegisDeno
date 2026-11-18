@@ -6,8 +6,10 @@
 import { SUPPORT_SERVER_INVITE } from "../layout";
 import { type SiteConfig, breadcrumb, escapeHtml as esc, page, safeUrl } from "./shared";
 import { LEGAL_LAST_UPDATED } from "./legal";
+import { premiumBillingPolicy, premiumNotForSaleNotice } from "./premiumCopy";
 
-export function renderRefunds(cfg: SiteConfig): string {
+/** `premiumForSale` is premiumOffered(); while it is false the policy says sales are paused. */
+export function renderRefunds(cfg: SiteConfig, premiumForSale = false): string {
   const supportUrl = safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE);
   const email = cfg.contactEmail ? `<a href="mailto:${esc(cfg.contactEmail)}">${esc(cfg.contactEmail)}</a>` : "";
 
@@ -22,7 +24,8 @@ export function renderRefunds(cfg: SiteConfig): string {
 
   <section class="panel-card" aria-labelledby="policy-summary-h">
     <h2 id="policy-summary-h">Policy summary</h2>
-    <p class="refund-policy">Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. Paddle processes all refunds.</p>
+    ${premiumForSale ? "" : premiumNotForSaleNotice()}
+    <p class="refund-policy">${premiumBillingPolicy(supportUrl, premiumForSale)}</p>
   </section>
 
   <section class="panel-card" aria-labelledby="refund-guarantee-h">

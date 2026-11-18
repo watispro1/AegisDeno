@@ -1,9 +1,13 @@
 /**
  * Public /pricing page: clear comparison between Free and Premium tiers,
  * limit comparison table, FAQ, and link to checkout and refund policies.
+ * `offered` is premiumOffered(); while it is false (PREMIUM_SALES_ENABLED off,
+ * the default) the Premium card is marked "In development", shows no price and
+ * has no way to buy.
  */
 import { PREMIUM_LIMITS, PREMIUM_PRICE_LABEL } from "../../config/premium";
 import { SUPPORT_SERVER_INVITE } from "../layout";
+import { premiumBillingPolicy, premiumDevBadge, premiumNotForSaleNotice } from "./premiumCopy";
 import { type SiteConfig, breadcrumb, escapeHtml as esc, faqBlock, page, safeUrl } from "./shared";
 
 export function renderPricing(cfg: SiteConfig, offered: boolean): string {
@@ -17,12 +21,16 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
   const premiumCta = offered
     ? `<div class="btn-row"><a class="btn" href="/dashboard">Upgrade on Dashboard</a><a class="btn ghost" href="/premium">Checkout details</a></div>
        <p class="faint">Pick your server on the dashboard and open <strong>Premium</strong>, or run <code class="inline">/premium</code> in your Discord server.</p>`
-    : `<p class="notice"><strong>Not on sale yet.</strong> Aegis Premium isn&#39;t available on this site yet. Everything Aegis does is free in the meantime.</p>`;
+    : premiumNotForSaleNotice();
 
   const faqs = [
     { q: "Is Aegis really free?", a: "<p>Yes. Every single moderation, automod, logging, verification, ticket, leveling, and utility command is 100% free and will always remain free. Premium only raises quantitative limits and adds a server badge.</p>" },
-    { q: "How much does Premium cost?", a: `<p>Aegis Premium is <strong>${esc(PREMIUM_PRICE_LABEL)}</strong> (USD) per Discord server. It is billed monthly and you can cancel anytime.</p>` },
-    { q: "Can anyone in the server buy Premium?", a: "<p>Yes. Any member of the server can subscribe to Premium on behalf of the server through the dashboard. The server enjoys the benefits, and the subscriber manages the billing.</p>" },
+    offered
+      ? { q: "How much does Premium cost?", a: `<p>Aegis Premium is <strong>${esc(PREMIUM_PRICE_LABEL)}</strong> (USD) per Discord server. It is billed monthly and you can cancel anytime.</p>` }
+      : { q: "Can I buy Premium now?", a: "<p>Not yet. Aegis Premium is in development and not for sale. Everything Aegis does is free in the meantime, and nothing free will move behind Premium.</p>" },
+    offered
+      ? { q: "Can anyone in the server buy Premium?", a: "<p>Yes. Any member of the server can subscribe to Premium on behalf of the server through the dashboard. The server enjoys the benefits, and the subscriber manages the billing.</p>" }
+      : { q: "Who will be able to buy Premium?", a: "<p>Once it is for sale, any member of a server will be able to subscribe on behalf of that server through the dashboard. The server gets the benefits, and the subscriber manages the billing.</p>" },
     { q: "Who processes payments?", a: `<p>Paddle, our merchant of record. Paddle processes the payment, charges any sales tax or VAT, sends the receipt and handles refunds. Aegis never sees or stores your payment card details. See our <a href="/terms#premium">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>.</p>` },
     { q: "What is your refund policy?", a: `<p>We offer a <strong>full 14-day money-back guarantee</strong> on any payment. You can request a refund directly through Paddle at <a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a> or by contacting us on our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>. Full details are on our <a href="/refunds">Refund Policy page</a>.</p>` },
     { q: "What happens if I cancel Premium?", a: "<p>Your subscription remains active until the end of the paid month. After that, nothing is deleted or disabled. Existing autoresponders, shop items, or snippets keep working; you just cannot create new ones beyond the free limits until you are below the free caps.</p>" },
@@ -34,7 +42,9 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
   ${breadcrumb("Pricing")}
   <div class="page-head">
     <h1>Simple, transparent pricing</h1>
-    <p class="lead">Everything in Aegis is free. Upgrade your Discord server to Premium for higher caps, priority processing, and a server badge.</p>
+    ${offered
+      ? `<p class="lead">Everything in Aegis is free. Upgrade your Discord server to Premium for higher caps, priority processing, and a server badge.</p>`
+      : `<p class="lead">Everything in Aegis is free. Premium, for higher caps and a server badge, is in development and not for sale yet.</p>`}
   </div>
 
   <div class="pricing-grid">
@@ -66,12 +76,12 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
     </div>
 
     <!-- Premium Tier Card -->
-    <div class="pricing-card recommended">
-      <div class="pricing-tag">✦ Recommended</div>
+    <div class="pricing-card${offered ? " recommended" : ""}">
+      ${offered ? `<div class="pricing-tag">✦ Recommended</div>` : ""}
       <div>
-        <span class="pill ok">✦ Premium</span>
-        <h2 class="pricing-price">${esc(PREMIUM_PRICE_LABEL)}</h2>
-        <p class="faint">For larger servers that need doubled limits and extra power.</p>
+        <span class="pill ok">✦ Premium</span>${offered ? "" : ` ${premiumDevBadge()}`}
+        <h2 class="pricing-price">${offered ? esc(PREMIUM_PRICE_LABEL) : `Not for sale yet`}</h2>
+        <p class="faint">${offered ? "For larger servers that need doubled limits and extra power." : "In development. Planned for larger servers that need doubled limits."}</p>
         <ul class="pricing-features">
           <li>&#10003; <strong>Everything in Free included</strong></li>
           <li>&#10003; <strong>100 Autoresponders</strong> (2&times; limit)</li>
@@ -128,7 +138,7 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
 
   <section class="panel-card" aria-labelledby="billing-summary-h">
     <h2 id="billing-summary-h">Billing &amp; refund policy</h2>
-    <p class="refund-policy">Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. Paddle processes all refunds.</p>
+    <p class="refund-policy">${premiumBillingPolicy(supportUrl, offered)}</p>
     <p class="faint">See our dedicated <a href="/refunds">Refund Policy</a> and <a href="/terms#premium">Terms of Service</a> for full details.</p>
   </section>
 
@@ -140,7 +150,9 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
 
   return page(cfg, {
     title: "Pricing & Plans | Aegis",
-    description: `Aegis pricing: 100% free core Discord moderation bot. Premium tier is ${PREMIUM_PRICE_LABEL} per server for higher limits and a server badge.`,
+    description: offered
+      ? `Aegis pricing: 100% free core Discord moderation bot. Premium tier is ${PREMIUM_PRICE_LABEL} per server for higher limits and a server badge.`
+      : "Aegis pricing: 100% free core Discord moderation bot. Premium, for higher limits and a server badge, is in development and not for sale yet.",
     path: "/pricing",
     body,
   });

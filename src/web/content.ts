@@ -265,7 +265,7 @@ export const features: Feature[] = [
 export const faqs: { q: string; a: string }[] = [
   {
     q: "Is it free?",
-    a: `<p>Yes. Every feature is free. An optional <a href="/premium">Aegis Premium</a> subscription only raises a few limits and adds a badge; nothing is locked behind it.</p>`,
+    a: `<p>Yes. Every feature is free. An optional <a href="/premium">Aegis Premium</a> subscription, in development and not for sale yet, will only raise a few limits and add a badge; nothing is locked behind it.</p>`,
   },
   {
     q: "What permissions does it ask for?",

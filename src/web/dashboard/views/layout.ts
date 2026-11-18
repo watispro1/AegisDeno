@@ -6,7 +6,7 @@ import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
 import { NOTICES } from "./notices";
 import { isDiscordCdnUrl } from "../cdn";
-import { premiumOffered } from "../../../config/paddle";
+import { premiumVisible } from "../../../config/paddle";
 import { PREMIUM_BADGE } from "../../../config/premium";
 
 export interface Viewer {
@@ -130,13 +130,13 @@ export function memberLabel(n: number): string {
   return `${v.toLocaleString("en-US")} member${v === 1 ? "" : "s"}`;
 }
 
-/** Shown at the end of General only when Paddle is configured (Premium is hidden otherwise). */
+/** Shown at the end of General while Premium is in development (as not for sale) or for sale with Paddle configured. */
 export const PREMIUM_NAV_ITEM: NavItem = { key: "premium", label: "Premium", href: "/premium", icon: "✦" };
 
 function sidebar(ctx: GuildContext, active: GuildSection): string {
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}`;
-  const offered = premiumOffered();
+  const offered = premiumVisible();
   const groups = MODULE_NAV.map(group => {
     const grp = offered && group.group === "General" ? { ...group, items: [...group.items, PREMIUM_NAV_ITEM] } : group;
     const hasActive = grp.items.some(i => i.key === active);

@@ -328,9 +328,24 @@ URL as a redirect in the portal. The two must match character for character.
 
 ## Aegis Premium (Paddle Billing)
 
-Premium is $5/month per server, sold through Paddle as merchant of record. It stays hidden (no dashboard page, no sidebar link, `/premium` says it isn't offered, the webhook answers 503) until all five secrets below are set. Benefits live in `src/config/premium.ts`.
+Premium is planned at $5/month per server, sold through Paddle as merchant of record. **It is currently in development and not for sale.** Benefits live in `src/config/premium.ts`.
 
-Billing and refund policy (shown in the Terms "Aegis Premium and payments" section and on the public `/premium` page; keep all three in sync): Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (paddle.net) or our support server; refunds after 14 days are not given except where required by law. Paddle processes all refunds.
+### Sales switch: `PREMIUM_SALES_ENABLED`
+
+One environment variable decides whether anyone can start a new purchase. It is **off by default** (unset or anything other than `true`, `1`, `yes` or `on`).
+
+| | `PREMIUM_SALES_ENABLED` off (default) | on (and all five Paddle secrets set) |
+|---|---|---|
+| `/pricing`, `/premium` | "In development — not for sale yet" badge, no price, no buy links | Price and "Upgrade on Dashboard" |
+| Dashboard Premium page | Shown with the badge; no checkout, Paddle.js not loaded | Subscribe button (Paddle overlay) |
+| `GET /dashboard/<server>/premium/checkout` | `403 {"error":"premium_not_for_sale"}`, so no Paddle checkout can open | Checkout settings for Paddle.js |
+| `/premium` command | Says it's in development, no "Get Premium" button | Price and "Get Premium" |
+| Terms, `/refunds` | Policy notes sales are paused; refund and cancel terms still cover existing subscriptions | Full policy with price |
+| Webhook, entitlements, badge, billing portal | **Keep working** for any existing subscription (renewals, cancellations, refunds) | Same |
+
+To open sales later: `fly secrets set PREMIUM_SALES_ENABLED=true` (this restarts the app). With it on but a Paddle secret missing, the dashboard Premium page is hidden and nothing can be bought.
+
+Billing and refund policy (shown in the Terms "Aegis Premium and payments" section, on `/refunds` and on the public `/premium` page; keep all three in sync; `src/web/pages/premiumCopy.ts` holds both versions). While sales are paused the policy opens with "Aegis Premium is in development and not for sale yet: no new subscriptions can be started. If you already have a subscription, it is still billed by Paddle as merchant of record." and continues with the cancel and refund terms below. While for sale: Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (paddle.net) or our support server; refunds after 14 days are not given except where required by law. Paddle processes all refunds.
 
 1. In Paddle (start in a sandbox account): **Catalog > Products**: create "Aegis Premium" (tax category: standard/SaaS) with a recurring price of USD 5.00 every 1 month. Copy the price ID (`pri_...`).
 2. **Developer tools > Authentication**: create a client-side token (`test_...` in sandbox, `live_...` in production) and an API key with at least `customer_portal_session.write`.
@@ -347,7 +362,7 @@ fly secrets set \
   PADDLE_WEBHOOK_SECRET=pdl_ntfset_...
 ```
 
-6. Test with Paddle's webhook simulator and a sandbox checkout (card 4242 4242 4242 4242), then repeat steps 1–5 in the live account with `PADDLE_ENV=production`.
+6. Test with Paddle's webhook simulator and a sandbox checkout (card 4242 4242 4242 4242; needs `PREMIUM_SALES_ENABLED=true` on a sandbox deploy), then repeat steps 1–5 in the live account with `PADDLE_ENV=production`. Leave `PREMIUM_SALES_ENABLED` off in production until Premium is ready to sell.
 
 ## Automatic deploys from GitHub
 

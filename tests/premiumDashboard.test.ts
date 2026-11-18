@@ -22,7 +22,9 @@ import type { Entitlement } from "../src/services/premiumState";
 import type { PaddleConfig } from "../src/config/paddle";
 import { CONTENT_SECURITY_POLICY, PREMIUM_CONTENT_SECURITY_POLICY, isPremiumCheckoutPath, securityHeaders } from "../src/web/securityHeaders";
 import { premiumScript } from "../src/web/dashboard/clientPremium";
-import { command as premiumCommand, premiumStatusLine } from "../src/commands/general/premium";
+import { command as premiumCommand, premiumEmbed, premiumStatusLine } from "../src/commands/general/premium";
+import { premiumCheckoutConfig, premiumOffered, premiumVisible } from "../src/config/paddle";
+import { premiumSalesEnabled } from "../src/config/premium";
 import { portalUrl } from "../src/services/paddleApi";
 
 const SECRET = "s".repeat(64);
@@ -49,6 +51,8 @@ const fakePaddle = async (url: string, init: { headers: Record<string, string>; 
 let server: Server, url = "";
 const cookies: Record<string, string> = {}, csrfs: Record<string, string> = {};
 let offered = true;
+/** PREMIUM_SALES_ENABLED for the router under test; most tests run with sales on. */
+let salesOn = true;
 
 before(async () => {
   const config = readDashboardConfig({ DISCORD_APPLICATION_ID: "123456789012345678", DISCORD_CLIENT_SECRET: "x", DASHBOARD_SESSION_SECRET: SECRET, DASHBOARD_REDIRECT_URI: "http://127.0.0.1/dashboard/callback" })!;
@@ -63,7 +67,7 @@ before(async () => {
   const app = express();
   app.use((req, res, next) => { for (const [k, v] of Object.entries(securityHeaders(req.path))) res.setHeader(k, v); next(); });
   app.use("/dashboard", createDashboardRouter({ site, config, bot, data, sessions, audit: memoryAuditStore(), limits: { auth: 100, post: 1000, page: 2000 },
-    premium: { store, paddle: () => (offered ? paddle : null), paddleFetch: fakePaddle } }));
+    premium: { store, paddle: () => (offered ? paddle : null), paddleFetch: fakePaddle, salesEnabled: () => salesOn } }));
   server = app.listen(0);
   await new Promise(r => server.once("listening", r));
   url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -87,8 +91,9 @@ test("a plain member can open the Premium page and gets the checkout, with Paddl
   assert.equal(res.status, 200);
   const html = await res.text();
   assert.ok(html.includes('data-premium-checkout'));
-  assert.ok(html.includes(`data-guild="${GUILD}"`) && html.includes(`data-user="${MEMBER}"`));
-  assert.ok(html.includes(`data-price="${paddle.priceId}"`) && html.includes('data-env="sandbox"'));
+  assert.ok(html.includes(`data-checkout-url="/dashboard/${GUILD}/premium/checkout"`));
+  assert.ok(html.includes("Subscribe for $5 / month"));
+  assert.ok(!html.includes("In development"));
   assert.ok(html.includes('src="https://cdn.paddle.com/paddle/v2/paddle.js"'));
   assert.ok(html.includes("Test &lt;b&gt;Guild&lt;/b&gt;"), "server name escaped");
   assert.ok(!html.includes(paddle.apiKey) && !html.includes(paddle.webhookSecret), "server secrets never reach the page");
@@ -96,6 +101,85 @@ test("a plain member can open the Premium page and gets the checkout, with Paddl
   assert.equal(res.headers.get("content-security-policy"), PREMIUM_CONTENT_SECURITY_POLICY);
   const other = await get(`/dashboard/${GUILD}/digest`, STAFF);
   assert.equal(other.headers.get("content-security-policy"), CONTENT_SECURITY_POLICY, "every other page keeps the strict policy");
+});
+
+test("with sales on, the checkout endpoint gives premium.js the Paddle settings and IDs from the session", async () => {
+  const res = await get(`/dashboard/${GUILD}/premium/checkout`, MEMBER);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("cache-control"), "no-store");
+  const body = await res.json() as Record<string, unknown>;
+  assert.equal(body.environment, "sandbox");
+  assert.equal(body.clientToken, paddle.clientToken);
+  assert.equal(body.priceId, paddle.priceId);
+  assert.equal(body.guildId, GUILD);
+  assert.equal(body.userId, MEMBER);
+  assert.match(String(body.successUrl), new RegExp(`/dashboard/${GUILD}/premium\\?notice=premium-thanks$`));
+  const raw = JSON.stringify(body);
+  assert.ok(!raw.includes(paddle.apiKey) && !raw.includes(paddle.webhookSecret), "server secrets never reach the browser");
+  assert.equal((await get(`/dashboard/${GUILD}/premium/checkout`, STRANGER)).status, 403, "strangers still refused");
+});
+
+test("sales off (the default): no checkout anywhere on the dashboard, shown as In development", async () => {
+  salesOn = false;
+  try {
+    const res = await get(`/dashboard/${GUILD}/premium`, MEMBER);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.ok(!html.includes("data-premium-checkout"), "no checkout widget");
+    assert.ok(!html.includes("cdn.paddle.com/paddle/v2/paddle.js"), "Paddle.js not loaded");
+    assert.ok(!html.includes("/assets/premium.js"), "checkout script not loaded");
+    assert.ok(!html.includes("$5"), "no price advertised");
+    assert.ok(!html.includes(paddle.clientToken) && !html.includes(paddle.priceId), "no Paddle checkout settings on the page");
+    assert.ok(html.includes('class="premium-badge premium-dev-badge"') || html.includes("In development"));
+    assert.ok(html.includes("not for sale yet"));
+    assert.doesNotMatch(html, /<script>(?!\s*\{)|\sstyle=|\son[a-z]+=/i);
+
+    // The checkout endpoint refuses before any Paddle settings are read: no Paddle checkout can be created.
+    const checkout = await get(`/dashboard/${GUILD}/premium/checkout`, MEMBER);
+    assert.equal(checkout.status, 403);
+    assert.equal(checkout.headers.get("cache-control"), "no-store");
+    const body = await checkout.json() as Record<string, unknown>;
+    assert.equal(body.error, "premium_not_for_sale");
+    assert.match(String(body.message), /in development and not for sale yet/);
+    assert.ok(!("clientToken" in body) && !("priceId" in body));
+
+    // Even without Paddle set up, the page explains it is in development instead of 404.
+    offered = false;
+    try {
+      const noPaddle = await get(`/dashboard/${GUILD}/premium`, MEMBER);
+      assert.equal(noPaddle.status, 200);
+      assert.ok((await noPaddle.text()).includes("not for sale yet"));
+      assert.equal((await get(`/dashboard/${GUILD}/premium/checkout`, MEMBER)).status, 403);
+    } finally { offered = true; }
+  } finally { salesOn = true; }
+});
+
+test("sales off: an existing subscriber keeps Premium, the badge and the billing portal", async () => {
+  await store.save(active());
+  salesOn = false;
+  try {
+    const buyer = await (await get(`/dashboard/${GUILD}/premium`, MEMBER)).text();
+    assert.ok(buyer.includes("Manage billing") && buyer.includes("Cancel subscription"));
+    assert.ok(!buyer.includes("data-premium-checkout"));
+    const staff = await (await get(`/dashboard/${GUILD}/digest`, STAFF)).text();
+    assert.ok(staff.includes('class="premium-badge"'), "sidebar badge still shows");
+    const res = await post(`/dashboard/${GUILD}/premium/portal`, MEMBER, { action: "cancel" });
+    assert.equal(res.status, 303);
+    assert.match(res.headers.get("location") ?? "", /action=cancel_subscription/);
+  } finally { salesOn = true; }
+});
+
+test("PREMIUM_SALES_ENABLED: off unless explicitly on; checkout config needs both the switch and Paddle", () => {
+  const full = { PADDLE_ENV: "sandbox", PADDLE_CLIENT_TOKEN: paddle.clientToken, PADDLE_PRICE_ID: paddle.priceId, PADDLE_API_KEY: "k", PADDLE_WEBHOOK_SECRET: "s" };
+  for (const v of [undefined, "", "false", "0", "no", "off", "maybe"]) assert.equal(premiumSalesEnabled({ PREMIUM_SALES_ENABLED: v }), false, String(v));
+  for (const v of ["true", "TRUE", "1", "yes", "on", " true "]) assert.equal(premiumSalesEnabled({ PREMIUM_SALES_ENABLED: v }), true, v);
+  assert.equal(premiumOffered(full), false, "Paddle alone does not put Premium on sale");
+  assert.equal(premiumCheckoutConfig(full), null);
+  assert.equal(premiumOffered({ ...full, PREMIUM_SALES_ENABLED: "true" }), true);
+  assert.equal(premiumCheckoutConfig({ ...full, PREMIUM_SALES_ENABLED: "true" })?.priceId, paddle.priceId);
+  assert.equal(premiumOffered({ PREMIUM_SALES_ENABLED: "true" }), false, "the switch alone does not either");
+  assert.equal(premiumVisible({}), true, "shown as in development while sales are off");
+  assert.equal(premiumVisible({ PREMIUM_SALES_ENABLED: "true" }), false, "hidden when on but Paddle is missing");
 });
 
 test("staff see the page in the sidebar layout; strangers are refused; hidden without Paddle", async () => {
@@ -167,7 +251,10 @@ test("Premium CSP: Paddle allowed only where needed, still no unsafe-inline", ()
   assert.match(securityHeaders("/")["Permissions-Policy"], /payment=\(\)/);
 });
 
-test("premium.js passes custom_data {guildId, userId} into the overlay checkout", () => {
+test("premium.js gets its settings from the checkout endpoint and passes custom_data {guildId, userId} into the overlay checkout", () => {
+  assert.match(premiumScript, /getAttribute\('data-checkout-url'\)/);
+  assert.match(premiumScript, /fetch\(url, \{ credentials: 'same-origin'/);
+  assert.match(premiumScript, /if \(!r\.ok \|\| !r\.body\.clientToken \|\| !r\.body\.priceId\)/, "a refused (not for sale) answer never opens a checkout");
   assert.match(premiumScript, /customData: \{ guildId: cfg\.guild, userId: cfg\.user \}/);
   assert.match(premiumScript, /displayMode: 'overlay'/);
   assert.match(premiumScript, /Environment\.set\('sandbox'\)/);
@@ -185,27 +272,51 @@ test("/premium command is guild-only and its status lines cover every state", ()
   assert.match(premiumStatusLine({ premium: false, entitlement: active({ status: "canceled" }) }), /has ended/);
 });
 
+test("/premium command: in development and not for sale while sales are off; price only when on", () => {
+  const off = premiumEmbed({ premium: false, entitlement: null }, false, "G").toJSON();
+  const offText = `${off.title} ${off.description} ${JSON.stringify(off.fields)} ${off.footer?.text}`;
+  assert.match(offText, /In development/);
+  assert.match(offText, /not for sale yet/);
+  assert.doesNotMatch(offText, /\$5/);
+  const on = premiumEmbed({ premium: false, entitlement: null }, true, "G").toJSON();
+  assert.match(on.description ?? "", /\$5 \/ month per server/);
+  assert.match(premiumCommand.data.toJSON().description, /not for sale yet/);
+});
+
 test("public /premium page shows the price and limits, and says when it is not on sale", () => {
   const on = renderPremium(site, true);
   assert.ok(on.includes("$5 / month") && on.includes("Autoresponders") && on.includes('href="/dashboard"'));
   assert.ok(on.includes("merchant of record"));
-  assert.ok(renderPremium(site, false).includes("Not on sale yet"));
+  const off = renderPremium(site, false);
+  assert.ok(off.includes("Not for sale yet") && off.includes("In development"));
+  assert.ok(!off.includes("$5"), "no price advertised while not for sale");
+  assert.ok(!off.includes("Open the dashboard") && !off.includes("Any member of the server can buy it"), "no way to buy");
   assert.doesNotMatch(on, /\sstyle=|\son[a-z]+=/i);
+  assert.doesNotMatch(off, /\sstyle=|\son[a-z]+=/i);
 });
 
-test("refund policy: the same 14-day policy is on /premium (on sale or not) and in the Terms Premium section", () => {
-  const policy = "Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (paddle.net) or our support server; refunds after 14 days are not given except where required by law. Paddle processes all refunds.";
+test("refund policy: the same 14-day policy is on /premium, /refunds and in the Terms, noting when sales are paused", () => {
+  const terms14 = "You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (paddle.net) or our support server; refunds after 14 days are not given except where required by law. Paddle processes all refunds.";
+  const forSale = `Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. ${terms14}`;
+  const paused = `Aegis Premium is in development and not for sale yet: no new subscriptions can be started. If you already have a subscription, it is still billed by Paddle as merchant of record. ${terms14}`;
   const text = (html: string) => html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
-  for (const html of [renderPremium(site, true), renderPremium(site, false)]) {
-    assert.ok(text(html).includes(policy), "policy on /premium");
-    assert.ok(html.includes('href="https://paddle.net"'));
+  const termsSection = (html: string) => html.slice(html.indexOf('id="premium"'), html.indexOf('id="acceptable-use"'));
+  for (const [sale, policy] of [[true, forSale], [false, paused]] as const) {
+    const premium = renderPremium(site, sale);
+    assert.ok(text(premium).includes(policy), `policy on /premium (for sale: ${sale})`);
+    assert.ok(premium.includes('href="https://paddle.net"'));
+    const section = termsSection(renderTerms(site, sale));
+    assert.ok(text(section).includes(policy), `policy in the Terms Premium section (for sale: ${sale})`);
+    assert.doesNotMatch(section, /handled by Paddle under its buyer terms/);
+    assert.ok(text(renderRefunds(site, sale)).includes(policy), `policy on /refunds (for sale: ${sale})`);
   }
-  const terms = renderTerms(site);
-  const premiumSection = terms.slice(terms.indexOf('id="premium"'), terms.indexOf('id="acceptable-use"'));
-  assert.ok(text(premiumSection).includes(policy), "policy in the Terms Premium section");
-  assert.doesNotMatch(premiumSection, /handled by Paddle under its buyer terms/);
+  // Defaults (sales off): the paused wording, and no $5 advertised as purchasable.
+  assert.ok(text(termsSection(renderTerms(site))).includes(paused));
+  assert.match(text(termsSection(renderTerms(site))), /Sales paused\./);
+  assert.ok(!text(termsSection(renderTerms(site))).includes("$5"));
   const refunds = renderRefunds(site);
-  assert.ok(text(refunds).includes(policy), "policy on /refunds");
+  assert.ok(text(refunds).includes(paused), "policy on /refunds");
+  assert.ok(refunds.includes("Not for sale yet"));
   assert.ok(refunds.includes('href="https://paddle.net"'));
   assert.doesNotMatch(refunds, /\sstyle=|\son[a-z]+=/i);
 });
@@ -222,7 +333,9 @@ test("public /pricing page compares Free vs Premium, lists limits, and is CSP-cl
   assert.doesNotMatch(on, /\sstyle=|\son[a-z]+=/i);
 
   const off = renderPricing(site, false);
-  assert.ok(off.includes("Not on sale yet"));
+  assert.ok(off.includes("Not for sale yet") && off.includes("In development"));
+  assert.ok(!off.includes("$5"), "no price advertised while not for sale");
+  assert.ok(!off.includes("Upgrade on Dashboard") && !off.includes("✦ Recommended"));
   assert.doesNotMatch(off, /\sstyle=|\son[a-z]+=/i);
 });
 

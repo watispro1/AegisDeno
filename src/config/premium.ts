@@ -7,8 +7,29 @@
  * switched off); it just can't add more past the free cap until it is under it.
  */
 
-/** Shown on the dashboard, the public /premium page and /premium. Must match the Paddle price. */
+/**
+ * The price, shown only while Premium is for sale (see premiumSalesEnabled). Must
+ * match the Paddle price. While sales are paused nothing advertises it.
+ */
 export const PREMIUM_PRICE_LABEL = "$5 / month";
+
+type Env = Record<string, string | undefined>;
+
+/**
+ * The single switch for selling Premium: PREMIUM_SALES_ENABLED=true (or 1, yes,
+ * on). Off by default, so Premium is "in development, not for sale yet": no new
+ * checkout can start anywhere. Existing subscriptions keep working either way
+ * (the webhook, entitlements, the badge and the billing portal are not gated).
+ */
+export function premiumSalesEnabled(env: Env = process.env): boolean {
+  return /^(1|true|yes|on)$/i.test((env.PREMIUM_SALES_ENABLED ?? "").trim());
+}
+
+/** The badge shown next to Premium wherever it appears while sales are paused. */
+export const PREMIUM_DEV_BADGE = "In development";
+
+/** One line for every place that would otherwise offer Premium for sale. */
+export const PREMIUM_NOT_FOR_SALE = "Aegis Premium is in development and not for sale yet. Everything Aegis does stays free.";
 
 /** Days a server keeps Premium after a renewal payment fails (Paddle status past_due). */
 export const PREMIUM_GRACE_DAYS = 3;

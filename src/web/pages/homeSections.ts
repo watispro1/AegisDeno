@@ -13,7 +13,7 @@ export const DIFFERENTIATORS: Array<{ icon: IconId; title: string; text: string;
   { icon: "alert", title: "Exact restore", text: "Incident Mode records every channel before it touches it, then puts each slowmode and permission back exactly when it ends.", href: "/why#incident" },
   { icon: "gauge", title: "A Trust Score you can read", text: "A 0–100 score where every point is listed. Counts and dates only, never message content.", href: "/why#explainable" },
   { icon: "lock", title: "No Administrator", text: "The invite asks only for the permissions its commands use. Administrator is never requested.", href: "/why#permissions" },
-  { icon: "star", title: "Free, nothing locked", text: "Every command works in every server. Optional Premium only raises a few limits.", href: "/why#free" },
+  { icon: "star", title: "Free, nothing locked", text: "Every command works in every server. Optional Premium, in development, will only raise a few limits.", href: "/why#free" },
 ];
 
 export function differentiators(): string {

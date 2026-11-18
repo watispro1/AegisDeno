@@ -291,7 +291,8 @@ test("POST /api/paddle/webhook: rejects unauthorized IPs with 403", async () => 
 test("readPaddleConfig needs every value and a token that matches PADDLE_ENV", () => {
   const full = { PADDLE_ENV: "sandbox", PADDLE_CLIENT_TOKEN: "test_7d279f61a3499fed520f7cd8c08", PADDLE_PRICE_ID: "pri_01gsz8x8sawmvhz1pv30nge1ke", PADDLE_API_KEY: "pdl_sdbx_apikey_x", PADDLE_WEBHOOK_SECRET: SECRET };
   assert.equal(readPaddleConfig(full)?.environment, "sandbox");
-  assert.equal(premiumOffered(full), true);
+  assert.equal(premiumOffered(full), false, "sales are off unless PREMIUM_SALES_ENABLED is on");
+  assert.equal(premiumOffered({ ...full, PREMIUM_SALES_ENABLED: "true" }), true);
   assert.equal(readPaddleConfig({ ...full, PADDLE_ENV: "production" }), null);
   assert.ok(missingPaddleSettings({ ...full, PADDLE_ENV: "production" })[0].includes("does not match"));
   assert.equal(readPaddleConfig({ ...full, PADDLE_API_KEY: "" }), null);

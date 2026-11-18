@@ -51,6 +51,7 @@ import { databaseConnected } from "../services/statusMonitor";
 import { registerApiRoutes, startBackendProbe } from "./apiRoutes";
 import { registerPaddleWebhook } from "./paddleWebhook";
 import { missingPaddleSettings, premiumOffered, readPaddleConfig } from "../config/paddle";
+import { premiumSalesEnabled } from "../config/premium";
 import { registerSiteRoutes } from "./siteRoutes";
 import { apiRateLimit, compression, siteErrorHandler } from "./serverMiddleware";
 
@@ -136,9 +137,9 @@ const ROUTES: RouteDef[] = [
   { path: "/status", render: async (c, x) => renderStatus(c, await x.status()), priority: "0.6", live: true },
   { path: "/pricing", render: c => renderPricing(c, premiumOffered()), priority: "0.8" },
   { path: "/premium", render: c => renderPremium(c, premiumOffered()), priority: "0.5" },
-  { path: "/refunds", render: c => renderRefunds(c), priority: "0.4" },
+  { path: "/refunds", render: c => renderRefunds(c, premiumOffered()), priority: "0.4" },
   { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },
-  { path: "/terms", render: c => renderTerms(c), priority: "0.4" },
+  { path: "/terms", render: c => renderTerms(c, premiumOffered()), priority: "0.4" },
   { path: "/security", render: c => renderSecurity(c), priority: "0.3" },
 ];
 
@@ -223,7 +224,8 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   });
   // Aegis Premium (Paddle Billing). Raw body, verified signature; 503 until PADDLE_WEBHOOK_SECRET is set.
   registerPaddleWebhook(app);
-  if (!readPaddleConfig()) logger.info(`Aegis Premium hidden; Paddle settings missing: ${missingPaddleSettings().join(", ")}`);
+  if (!premiumSalesEnabled()) logger.info("Aegis Premium is in development: sales are paused (set PREMIUM_SALES_ENABLED=true to sell). Existing subscriptions and the webhook still work.");
+  else if (!readPaddleConfig()) logger.info(`Aegis Premium hidden; Paddle settings missing: ${missingPaddleSettings().join(", ")}`);
   registerSiteRoutes(app, { origin, inviteUrl: cfg.inviteUrl, startedAt: STARTED_AT, sitemap: ROUTES });
 
   const send = (res: Response, html: string, code = 200, cacheControl?: string) => {

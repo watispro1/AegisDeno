@@ -38,7 +38,7 @@ export function renderSecurity(cfg: SiteConfig): string {
     <h2 id="glance-title">At a glance</h2>
     <ul class="sec-glance-list">
       <li>Report vulnerabilities privately through GitHub's <strong>Report a vulnerability</strong> button, not in public.</li>
-      <li>A strict content security policy: no inline scripts or styles, no framing, and no third-party scripts except Paddle.js on the dashboard's Premium page.</li>
+      <li>A strict content security policy: no inline scripts or styles, no framing, and no third-party scripts except Paddle.js on the dashboard's Premium page, and only while Premium is for sale.</li>
       <li>Dashboard session IDs are stored only as hashes; Discord access tokens never reach your browser.</li>
       <li>Secrets live in environment variables (Fly.io secrets in production), never in the code, and are redacted from logs.</li>
     </ul>

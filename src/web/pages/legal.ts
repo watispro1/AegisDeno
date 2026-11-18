@@ -1,5 +1,6 @@
 import { REPO_URL, SUPPORT_SERVER_INVITE } from "../layout";
 import { type SiteConfig, breadcrumb, escapeHtml, page, safeUrl } from "./shared";
+import { premiumBillingPolicy } from "./premiumCopy";
 
 /* Legal */
 
@@ -72,7 +73,12 @@ function legalPage(cfg: SiteConfig, o: {
   });
 }
 
-export function renderTerms(cfg: SiteConfig): string {
+/**
+ * The Terms. `premiumForSale` is premiumOffered() (PREMIUM_SALES_ENABLED on and
+ * Paddle configured); while it is false the Premium section says sales are paused.
+ */
+export function renderTerms(cfg: SiteConfig, premiumForSale = false): string {
+  const support = safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE);
   return legalPage(cfg, {
     crumb: "Terms",
     title: "Terms of Service",
@@ -82,7 +88,9 @@ export function renderTerms(cfg: SiteConfig): string {
     description: "The terms for using the Aegis Discord bot, its web dashboard and the aegisdeno.fly.dev website.",
     glance: [
       "Every Aegis feature is free. Aegis Premium is an optional subscription for a server that only raises a few limits and adds a badge; nothing free is locked behind it.",
-      `Premium is sold and billed by Paddle, our merchant of record. Paddle processes the payment, charges any tax and handles invoices and refunds (see <a href="#premium">Aegis Premium and payments</a>).`,
+      premiumForSale
+        ? `Premium is sold and billed by Paddle, our merchant of record. Paddle processes the payment, charges any tax and handles invoices and refunds (see <a href="#premium">Aegis Premium and payments</a>).`
+        : `Premium is in development and not for sale yet. Any subscription that exists is billed by Paddle, our merchant of record, which processes the payment, charges any tax and handles invoices and refunds (see <a href="#premium">Aegis Premium and payments</a>).`,
       "You must be old enough to use Discord, and you must follow Discord's own terms.",
       "Server staff decide how Aegis is used in their server and are responsible for the actions they take with it.",
       "Aegis is provided as is, without a guaranteed uptime.",
@@ -117,19 +125,20 @@ export function renderTerms(cfg: SiteConfig): string {
         id: "dashboard",
         title: "The web dashboard",
         html: `<p>You log in to the dashboard with Discord. It only lets you manage servers where you have the Manage Server or Administrator permission, and it re-reads your permissions from Discord while you use it. Changes you make there have the same effect as the matching slash command, and each one is recorded on that server's Activity page with your Discord user ID and username. Do not share your session or try to reach servers you do not manage.</p>
-      <p>One page is open to every member of a server, not only its staff: the server's Premium page, so anyone in the server can buy Premium for it. It shows only the server's Premium status; billing details are shown only to the person who bought the subscription.</p>`,
+      <p>One page is open to every member of a server, not only its staff: the server's Premium page, so anyone in the server can see its Premium status${premiumForSale ? " and buy Premium for it" : " (Premium is not for sale yet)"}. It shows only the server's Premium status; billing details are shown only to the person who bought the subscription.</p>`,
       },
       {
         id: "premium",
         title: "Aegis Premium and payments",
         html: `<p>Aegis Premium is an optional monthly subscription for one Discord server. What it adds is listed on the <a href="/premium">Premium page</a> and <a href="/pricing">Pricing page</a>; it raises a few existing limits and adds a badge, and never locks a feature that is free.</p>
-      <p>Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. Paddle processes all refunds.</p>
+      <p>${premiumBillingPolicy(support, premiumForSale)}</p>
       <ul>
+        ${premiumForSale ? "" : `<li><strong>Sales paused.</strong> Premium is in development and not for sale: no new subscription can be started on the site, the dashboard or in Discord. The terms below apply to any subscription that already exists, and will apply to new ones once sales open.</li>`}
         <li><strong>Merchant of record.</strong> Our order process is conducted by our online reseller Paddle.com. Paddle.com is the merchant of record for all our orders. Paddle provides all customer service inquiries and handles returns. Paddle's <a href="https://www.paddle.com/legal/checkout-buyer-terms" rel="noopener noreferrer">buyer terms</a> apply to the purchase, alongside these terms.</li>
         <li><strong>Billing.</strong> Premium renews every month until cancelled. The price is shown before you pay. Paddle may add sales tax or VAT where it applies. If we change the price, the new price applies from the next renewal after we announce it.</li>
         <li><strong>Cancelling.</strong> You can cancel anytime from the dashboard Premium page (the person who bought Premium cancels there; it opens Paddle's customer portal). Premium stays active until the end of the paid period and is not renewed.</li>
         <li><strong>Failed payments.</strong> If a renewal payment fails, Premium stays on for 3 days while Paddle retries the payment, then switches off until the payment goes through.</li>
-        <li><strong>Refunds.</strong> If you're not happy, request a full refund within 14 days of any payment through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. Paddle processes all refunds. See our full <a href="/refunds">Refund Policy</a>.</li>
+        <li><strong>Refunds.</strong> If you're not happy, request a full refund within 14 days of any payment through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${support}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. Paddle processes all refunds. See our full <a href="/refunds">Refund Policy</a>.</li>
         <li><strong>When Premium ends.</strong> Nothing a server made is deleted or switched off. It simply cannot add more past the free limits until it is back under them.</li>
         <li><strong>Per server.</strong> Premium belongs to the server it was bought for and cannot be moved to another server. If Aegis is removed from the server, or access is suspended under <a href="#ending">Stopping and suspension</a>, cancel the subscription to stop renewals.</li>
       </ul>`,
@@ -291,7 +300,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
         <li><code class="inline">__Host-aegis_oauth</code> (<code class="inline">aegis_oauth</code> locally): protects the Discord login step against forgery and expires after 10 minutes.</li>
       </ul>
       <p>Both are needed for login to work, so there is no option to turn them off other than not using the dashboard.</p>
-      <p>The dashboard's Premium page, and only that page, loads Paddle.js from Paddle (<code class="inline">cdn.paddle.com</code>) to show the checkout. Paddle's checkout runs in a frame served by Paddle and may set its own cookies, under Paddle's privacy policy. No other page loads anything from Paddle.</p>`,
+      <p>The dashboard's Premium page, and only that page, loads Paddle.js from Paddle (<code class="inline">cdn.paddle.com</code>) to show the checkout, and only while Premium is for sale (it is in development and not for sale yet). Paddle's checkout runs in a frame served by Paddle and may set its own cookies, under Paddle's privacy policy. No other page loads anything from Paddle.</p>`,
       },
       {
         id: "discord-login",
