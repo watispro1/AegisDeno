@@ -5,6 +5,6 @@ pub mod snapshot;
 pub mod wal;
 
 pub use collection::Collection;
-pub use compactor::CompactTrigger;
+pub use compactor::{CompactTrigger, CompactionRecord};
 pub use db::{AegisDatabase, DbOptions, DEFAULT_COMPACT_WAL_BYTES};
 pub use wal::{WalEntry, WalOp, WalWriter};

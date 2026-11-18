@@ -8,7 +8,7 @@ use serde_json::json;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::engine::AegisDatabase;
+use crate::engine::{AegisDatabase, CompactTrigger};
 
 pub struct AppState {
     pub db: Arc<AegisDatabase>,
@@ -45,12 +45,19 @@ pub async fn metrics_handler(
 }
 
 pub async fn compact_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    match state.db.compact() {
-        Ok(_) => (
+    // compact() may wait on compact_lock behind a background compaction and
+    // then does blocking file I/O: run it on the blocking pool.
+    let db = state.db.clone();
+    let result = tokio::task::spawn_blocking(move || db.compact_with(CompactTrigger::Manual))
+        .await
+        .unwrap_or_else(|e| Err(std::io::Error::other(e)));
+    match result {
+        Ok(()) => (
             StatusCode::OK,
             Json(json!({
                 "status": "success",
-                "message": "Snapshot written and WAL compacted successfully"
+                "message": "Snapshot written and WAL compacted successfully",
+                "compaction": state.db.last_compaction()
             })),
         ),
         Err(e) => (

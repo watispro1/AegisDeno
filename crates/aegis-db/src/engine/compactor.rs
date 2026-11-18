@@ -42,6 +42,34 @@ impl fmt::Display for CompactTrigger {
     }
 }
 
+/// Outcome of a finished compaction, reported under `last_compaction` in
+/// `GET /api/db/stats` (and authorized `/metrics`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CompactionRecord {
+    /// When it finished, Unix milliseconds.
+    pub timestamp_ms: i64,
+    /// When it finished, RFC 3339 (UTC).
+    pub finished_at: String,
+    /// Wall-clock time spent, lock wait excluded.
+    pub duration_ms: u64,
+    pub trigger: CompactTrigger,
+    /// Size of the snapshot it wrote.
+    pub snapshot_bytes: u64,
+}
+
+impl CompactionRecord {
+    pub fn finished(trigger: CompactTrigger, took: Duration, snapshot_bytes: u64) -> Self {
+        let now = chrono::Utc::now();
+        Self {
+            timestamp_ms: now.timestamp_millis(),
+            finished_at: now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            duration_ms: u64::try_from(took.as_millis()).unwrap_or(u64::MAX),
+            trigger,
+            snapshot_bytes,
+        }
+    }
+}
+
 /// Ticks `timer` if there is one; otherwise never resolves.
 async fn tick(timer: &mut Option<Interval>) {
     match timer {

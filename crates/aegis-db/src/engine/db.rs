@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tokio::sync::Notify;
 
 use super::collection::Collection;
-use super::compactor::CompactTrigger;
+use super::compactor::{CompactTrigger, CompactionRecord};
 use super::snapshot::{SnapshotData, SnapshotFormat, SnapshotManager};
 use super::wal::{sync_dir, WalEntry, WalOp, WalReader, WalWriter};
 
@@ -63,6 +63,9 @@ pub struct AegisDatabase {
     snapshot: SnapshotManager,
     scope_locks: Vec<Mutex<()>>,
     options: DbOptions,
+    /// Outcome of the most recent successful compaction (leaf lock, held
+    /// only to copy in or out).
+    last_compaction: Mutex<Option<CompactionRecord>>,
     /// Set once a write pushes the WAL past `compact_wal_bytes`, cleared when
     /// a compaction starts; keeps a burst of writes from notifying repeatedly.
     size_compaction_pending: AtomicBool,
@@ -175,6 +178,7 @@ impl AegisDatabase {
             snapshot,
             scope_locks: (0..LOCK_STRIPES).map(|_| Mutex::new(())).collect(),
             options,
+            last_compaction: Mutex::new(None),
             size_compaction_pending: AtomicBool::new(false),
             size_notify: Notify::new(),
             _dir_lock: dir_lock,
@@ -337,6 +341,7 @@ impl AegisDatabase {
             "Starting database compaction & checkpoint (trigger={})...",
             trigger
         );
+        let started = std::time::Instant::now();
 
         let snapshot_data = {
             let mut wal_lock = self.wal.lock();
@@ -344,7 +349,7 @@ impl AegisDatabase {
             wal_lock.rotate(&self.rotated_wal_path)?;
             data
         };
-        self.snapshot.save(&snapshot_data)?;
+        let snapshot_bytes = self.snapshot.save(&snapshot_data)?;
 
         match std::fs::remove_file(&self.rotated_wal_path) {
             Ok(()) => sync_dir(&self.data_dir)?,
@@ -352,7 +357,14 @@ impl AegisDatabase {
             Err(e) => return Err(e),
         }
 
-        tracing::info!("Compaction completed successfully.");
+        let record = CompactionRecord::finished(trigger, started.elapsed(), snapshot_bytes);
+        tracing::info!(
+            "Compaction completed successfully (trigger={}, {} ms, snapshot {} bytes).",
+            trigger,
+            record.duration_ms,
+            snapshot_bytes
+        );
+        *self.last_compaction.lock() = Some(record);
         Ok(())
     }
 
@@ -387,10 +399,20 @@ impl AegisDatabase {
         Ok((data.timestamp, bytes))
     }
 
+    /// The most recent successful compaction since this process started.
+    pub fn last_compaction(&self) -> Option<CompactionRecord> {
+        self.last_compaction.lock().clone()
+    }
+
     pub fn stats(&self) -> Value {
-        // Read the WAL counter first and release it: holding `collections` while
-        // waiting on `wal` would invert the lock order used by `put`.
-        let wal_entries = self.wal.lock().entries_count();
+        // Read the WAL counters first and release the lock: holding
+        // `collections` while waiting on `wal` would invert the lock order.
+        let (wal_entries, wal_bytes) = {
+            let wal = self.wal.lock();
+            (wal.entries_count(), wal.bytes())
+        };
+        let last_compaction = self.last_compaction();
+        let compaction_pending = self.size_compaction_pending();
 
         let lock = self.collections.read();
         let mut col_stats = serde_json::Map::new();
@@ -409,6 +431,12 @@ impl AegisDatabase {
             "collections_count": lock.len(),
             "total_documents": total_docs,
             "wal_pending_entries": wal_entries,
+            "wal_bytes": wal_bytes,
+            "snapshot_bytes": self.snapshot.size_bytes(),
+            "snapshot_format": self.snapshot.format().as_str(),
+            "compact_wal_bytes": self.options.compact_wal_bytes,
+            "size_compaction_pending": compaction_pending,
+            "last_compaction": last_compaction,
             "data_directory": self.data_dir.to_string_lossy(),
             "collections": col_stats
         })

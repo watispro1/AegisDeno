@@ -38,6 +38,13 @@ impl SnapshotFormat {
         }
     }
 
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Json => "json",
+            Self::Zstd => "zstd",
+        }
+    }
+
     /// MIME type used when the snapshot is served over HTTP.
     pub fn content_type(self) -> &'static str {
         match self {
