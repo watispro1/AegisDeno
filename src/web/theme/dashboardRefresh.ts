@@ -3,7 +3,7 @@
  * unsaved-changes bar, the overview's Common settings strip, foldable case
  * filters on phones, and phone fixes for tabs and the top bar. Colours come
  * from the theme tokens only, so Light, Dark, Steel & Ink and Glass all work;
- * Glass-specific touches are at the end.
+ * Glass touches are in glassDashboard.ts.
  */
 export const cssDashboardRefresh = String.raw`/* ── Dashboard refresh ───────────────────────────────────────────── */
 /* Empty states. Older markup without the icon/body wrapper stacks as one block
@@ -88,11 +88,5 @@ body:has(.unsaved-bar:not([hidden])) .toast-region { bottom: 5.5rem; }
 .picker-invite .invite-help { margin-bottom: 0; font-size: .88rem; }
 .picker-foot { font-size: .88rem; }
 
-/* Glass (beta) */
-[data-theme="glass"] .quick-tile { border-color: rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .03); border-radius: var(--r); }
-[data-theme="glass"] .quick-tile:hover { border-color: var(--accent); background: rgba(255, 255, 255, .06); }
-[data-theme="glass"] .landing-steps { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .12); }
-[data-theme="glass"] .landing-facts .dash-fact { border-color: rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .025); }
-[data-theme="glass"] .picker-invite { border-color: rgba(255, 255, 255, .18); }
-[data-theme="glass"] .filter-panel-summary { border-color: rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .04); }
+/* Glass touches for these pieces live in glassDashboard.ts with the rest of Glass. */
 `;

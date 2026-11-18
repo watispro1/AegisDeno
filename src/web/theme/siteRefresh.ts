@@ -51,7 +51,7 @@ export const cssSiteRefresh = String.raw`/* ── Site refresh ─────�
   .sec-report { padding: 1rem; }
 }
 
-/* Glass (beta) */
+/* Glass */
 [data-theme="glass"] .sec-glance-list li,
 [data-theme="glass"] .why-card { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .12); border-radius: var(--r-lg); }
 [data-theme="glass"] .sec-report { background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .12); border-left-color: var(--accent); border-radius: var(--r-lg); }

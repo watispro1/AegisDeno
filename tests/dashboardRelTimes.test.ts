@@ -89,7 +89,7 @@ test("incident report and analytics: relative times and copy buttons", () => {
 
 test("overview tickets, trust and incident pages use the shared helpers (source check)", () => {
   const read = (f: string) => fs.readFileSync(`src/web/dashboard/views/${f}`, "utf8");
-  assert.match(read("overview.ts"), /copyId\(String\(t\.id\), "Copy ticket ID"\)\} opened by \$\{personId\(ctx, t\.userId\)\}, \$\{relTime\(t\.createdAt\)\}/);
+  assert.match(read("overviewHero.ts"), /copyId\(String\(t\.id\), "Copy ticket ID"\)\} opened by \$\{personId\(ctx, t\.userId\)\}, \$\{relTime\(t\.createdAt\)\}/);
   assert.match(read("trust.ts"), /copyId\(m\.userId, "Copy user ID"\)/);
   assert.match(read("incident.ts"), /Started \$\{relTime\(new Date\(a\.startedAt\)\)\}/);
   for (const f of ["cases.ts", "members.ts", "appeals.ts", "activity.ts"]) assert.doesNotMatch(read(f), /fmtDate\(/, f);

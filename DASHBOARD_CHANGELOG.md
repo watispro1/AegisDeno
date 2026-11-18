@@ -8,6 +8,58 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [2.0.0] - 2026-11-18
+
+Dashboard 2.0.0. A redesigned dashboard, Glass out of beta, and a new Aurora
+theme in beta. Every route, form field and setting works as before: this is a
+presentation rewrite with no data, permission or behaviour changes. Released
+alongside bot version 3.14.1. No new environment variables or OAuth scopes.
+
+### Added
+- Aurora theme (beta): a bright light theme with white cards on a still dawn
+  wash of lilac, mint and peach, an indigo-violet accent and rounder corners.
+  No blur and no animation; the wash goes flat with reduced transparency. Pick
+  it from the theme menu, where it carries a Beta badge.
+- Server health card at the top of the overview: everything looks good, things
+  to finish setting up, or problems to fix, worked out from the setup checklist
+  and module readiness, with the modules that are on, bot latency, open tickets
+  and pending appeals.
+- Quick actions on the overview: find a case, review appeals (with the pending
+  count), Incident Mode, post an announcement, look up a member and back up
+  settings.
+- Line icons for the sidebar, stat cards, quick actions and module cards, drawn
+  in the theme's colours instead of symbol characters that some systems lack.
+
+### Changed
+- Dashboard 2.0 layout: server pages are a full-height app with their own
+  sidebar, sticky top bar and footer instead of the public site's header and
+  footer. The sidebar has the Aegis logo, a server card with the member count,
+  the menu filter, a scrolling module list and Docs, Status and version links.
+- Top bar: the server switcher, a search box with an icon, Jump to (Ctrl K),
+  keyboard shortcuts, the theme menu and the account menu. On phones the menu
+  button, switcher and account stay on the first row and search gets a full
+  row of its own.
+- Overview: health first, then stat cards, Common settings, and two columns
+  with recent cases, the 30-day chart and open tickets on the left and quick
+  actions, the setup checklist and recent activity on the right, then the
+  module board.
+- One look across every server page: page headers with an eyebrow and actions,
+  cards, stat cards, tables, fieldsets and fields, empty states and module
+  cards share one radius scale, one shadow and one focus ring.
+- Accessibility: a main landmark that the skip link targets, a header and
+  footer landmark, visible focus rings on every control, reduced motion turns
+  transitions off, and the current page stays marked in forced colours.
+- Glass is out of beta and rebuilt: three materials (resting cards, a raised
+  top bar and header, near-opaque overlays) with one rim and shadow treatment,
+  a slower drift, and blur limited to the sidebar, top bar, header, menus,
+  toasts, the unsaved-changes bar and dialogs. Cards and stat panels no longer
+  blur. Solid fallbacks without backdrop-filter, and reduced transparency and
+  reduced motion turn the effects off.
+
+### Fixed
+- The theme button showed the sun icon next to the chosen theme's icon for
+  every theme except Light.
+
 ## [1.9.0] - 2026-11-14
 
 Dashboard 1.9.0. Glass v3: a deeper glass treatment on the public site and a

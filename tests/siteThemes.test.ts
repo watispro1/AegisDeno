@@ -63,7 +63,7 @@ function resolve(t: Tokens, v: string): string {
 }
 
 test("themes: every theme has a token block and a browser colour", () => {
-  assert.deepEqual([...THEME_IDS], ["light", "dark", "steel", "glass"]);
+  assert.deepEqual([...THEME_IDS], ["light", "dark", "steel", "glass", "aurora"]);
   for (const id of THEME_IDS) {
     const t = theme(id);
     for (const k of [...TEXT, ...BACKGROUNDS, "--accent", "--accent-ink", "--border"]) assert.ok(t[k], `${id}: ${k} defined`);
@@ -86,7 +86,7 @@ for (const id of THEME_IDS) {
     if (btn < AA) failures.push(`--accent-ink on --accent: ${btn.toFixed(2)}`);
     /* Danger buttons, required-option pills and check icons put text on a status fill:
        white in light themes, the page ink in dark ones (see themes.ts). */
-    const onFill = id === "dark" || id === "steel" || id === "glass" ? resolve(t, t["--bg"]) : "#ffffff";
+    const onFill = id === "dark" || id === "steel" || id === "glass" ? resolve(t, t["--bg"]) : "#ffffff"; // light and aurora: white
     for (const fill of ["--danger", "--warn", "--accent"]) {
       const r = ratio(over(onFill, "#000000"), over(resolve(t, t[fill]), "#000000"));
       if (r < AA) failures.push(`on-fill text on ${fill}: ${r.toFixed(2)}`);
@@ -137,7 +137,38 @@ test("glass: blur only where supported, solid under prefers-reduced-transparency
   assert.match(styles, /@supports \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\)/);
   assert.match(styles, /@media \(prefers-reduced-transparency: reduce\)/);
   const outside = styles.replace(/@supports (not )?\(\(backdrop-filter[\s\S]*?\n}\n/g, "").replace(/@media \(prefers-reduced-transparency: reduce\)[\s\S]*?\n}\n/g, "");
-  assert.ok(!/backdrop-filter:\s*blur/.test(outside.slice(outside.indexOf("Glass (beta)"))), "no unconditional blur for glass");
+  assert.ok(outside.includes("── Glass ──"), "glass section marker");
+  assert.ok(!/backdrop-filter:\s*blur/.test(outside.slice(outside.indexOf("── Glass ──"))), "no unconditional blur for glass");
+});
+
+test("glass: generally available, no beta wording left in its styles, labels or picker", () => {
+  const glassCss = styles.slice(styles.indexOf("── Glass ──"), styles.indexOf("── Aurora (beta)"));
+  assert.ok(glassCss.length > 0);
+  assert.doesNotMatch(glassCss.replace(/\.theme-beta/g, ""), /beta/i, "the only beta left is the badge class Aurora uses");
+  assert.doesNotMatch(clientScript, /Glass \(beta\)/);
+  assert.match(clientScript, /glass: 'Glass'/);
+});
+
+test("contrast (aurora): text stays AA directly on every colour of the dawn wash", () => {
+  const t = theme("aurora");
+  for (const stop of ["--aurora-a", "--aurora-b", "--aurora-c", "--bg"]) {
+    const under = rgb(resolve(t, t[stop])).slice(0, 3) as [number, number, number];
+    for (const fg of TEXT) {
+      const r = ratio(over(resolve(t, t[fg]), "#000000"), under);
+      assert.ok(r >= AA, `${fg} on ${stop}: ${r.toFixed(2)}`);
+    }
+  }
+});
+
+test("aurora: a light theme with a still wash, no blur, no animation, flat under reduced transparency", () => {
+  const t = theme("aurora");
+  assert.ok(luminance(rgb(t["--bg"]).slice(0, 3) as [number, number, number]) > 0.85, "aurora is a light theme");
+  assert.ok(luminance(rgb(t["--text"]).slice(0, 3) as [number, number, number]) < 0.03, "dark text");
+  assert.notEqual(t["--accent"], theme("light")["--accent"], "its own accent, not Light's teal");
+  const css = styles.slice(styles.indexOf("── Aurora (beta)"));
+  assert.match(css, /\[data-theme="aurora"\] body::before \{/);
+  assert.doesNotMatch(css.slice(0, css.indexOf("── Responsive")), /backdrop-filter|animation:/, "no blur and no animation");
+  assert.match(css, /@media \(prefers-reduced-transparency: reduce\) \{\s*\[data-theme="aurora"\] body::before \{ display: none; \}/);
 });
 
 test("steel: editorial palette, no purple or neon in its tokens", () => {
@@ -160,11 +191,13 @@ const html = layout({
   ogImage: "/assets/og.png", assetVersion: "abc",
 });
 
-test("picker: every theme offered, Glass labelled Beta, no inline script, style or handlers", () => {
+test("picker: every theme offered, Glass out of beta, Aurora labelled Beta, no inline script, style or handlers", () => {
   assert.match(html, /<details class="theme-picker">\s*<summary class="icon-btn theme-toggle"/);
   for (const id of ["system", ...THEME_IDS]) assert.ok(html.includes(`data-set-theme="${id}"`), `offers ${id}`);
   assert.match(html, /data-set-theme="steel"[^>]*>[\s\S]*?Steel &amp; Ink<\/button>/);
-  assert.match(html, /data-set-theme="glass"[^>]*>[\s\S]*?Glass <span class="theme-beta">Beta<\/span><\/button>/);
+  assert.match(html, /data-set-theme="glass"[^>]*><span class="theme-swatch" data-swatch="glass" aria-hidden="true"><\/span>Glass<\/button>/);
+  assert.match(html, /data-set-theme="aurora"[^>]*>[\s\S]*?Aurora <span class="theme-beta">Beta<\/span><\/button>/);
+  assert.equal((html.match(/class="theme-beta"/g) ?? []).length, 1, "only Aurora carries the Beta badge");
   assert.ok(!/<script(?![^>]*type="application\/ld\+json")[^>]*>[^<]+<\/script>/.test(html), "no inline executable script");
   assert.ok(!/\sstyle="/.test(html), "no inline styles");
   assert.ok(!/\son[a-z]+="/.test(html), "no inline handlers");
@@ -187,6 +220,7 @@ test("theme-init: applies every saved theme before paint and falls back to the s
   };
   assert.deepEqual(run("steel"), { "data-theme": "steel", "data-theme-setting": "steel", meta: "#0c0d0f" });
   assert.deepEqual(run("glass"), { "data-theme": "glass", "data-theme-setting": "glass", meta: "#0b0d12" });
+  assert.deepEqual(run("aurora"), { "data-theme": "aurora", "data-theme-setting": "aurora", meta: "#f7f5fb" });
   assert.deepEqual(run(null, true), { "data-theme": "dark", "data-theme-setting": "system", meta: "#161716" });
   assert.deepEqual(run("bogus"), { "data-theme": "light", "data-theme-setting": "system", meta: "#fbfaf8" });
 });

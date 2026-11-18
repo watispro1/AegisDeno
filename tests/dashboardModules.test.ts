@@ -161,7 +161,7 @@ test("pages render in the sidebar shell with the right entry marked, escaped, wi
     assert.equal(res.status, 200, path);
     const html = await res.text();
     assert.match(html, /class="app-side"/, `${path} has the sidebar`);
-    assert.match(html, new RegExp(`aria-current="page"><span class="side-icon" aria-hidden="true">[^<]*</span>${label}<`), `${path} marks ${label}`);
+    assert.match(html, new RegExp(`aria-current="page"><span class="side-icon" aria-hidden="true">(?:<svg class="ico"[^>]*>[\\s\\S]*?</svg>|[^<]*)</span>${label}<`), `${path} marks ${label}`);
     assert.ok(html.includes("Mod &lt;b&gt;Hub&lt;/b&gt;") && !html.includes("Mod <b>Hub</b>"), `${path} escapes the server name`);
     assert.match(html, /Signed in as <strong>AJ<\/strong>/);
     assert.doesNotMatch(html, /\sstyle=|\son[a-z]+=|<script(?![^>]*\bsrc=)(?![^>]*application\/ld\+json)/i, `${path} has no inline script, style or handlers`);

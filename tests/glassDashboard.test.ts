@@ -1,5 +1,5 @@
 /**
- * Glass (beta) in the dashboard: the dashboard surfaces have glass rules,
+ * Glass in the dashboard: the dashboard surfaces have glass rules,
  * blur stays on floating chrome (not on repeated cards, rows or tables), the
  * translucent overlays have a solid fallback and a reduced-transparency
  * reset, and every Glass rule is scoped so Light (the default) is untouched.
@@ -28,7 +28,9 @@ test("glass dashboard: included after the shared glass rules", () => {
 test("glass dashboard: every dashboard surface has a glass rule", () => {
   for (const sel of [".app-side", ".app-top", ".side-link[aria-current=\"page\"]", ".dash-form fieldset", ".item-card", ".field select",
     ".field textarea", ".filter-bar input", ".top-search input", ".mod-toggle-track", "th", ".chip", ".check-icon", ".feed li",
-    ".chart .bar", ".embed-preview", ".empty-state", ".toast", ".unsaved-bar", ".palette", ".confirm-dialog", "select option"]) {
+    ".chart .bar", ".embed-preview", ".empty-state", ".toast", ".unsaved-bar", ".palette", ".confirm-dialog", "select option",
+    /* Dashboard 2.0 surfaces */
+    ".ov-health", ".stat-ico", ".qa-ico", ".qa-item:hover", ".app-body .side-brand", ".app-body .stat-grid > *", ".palette-kbd", ".quick-tile"]) {
     assert.ok(cssGlassDashboard.includes(`[data-theme="glass"] ${sel}`), `glass rule for ${sel}`);
   }
 });
@@ -48,7 +50,10 @@ test("glass: every rule is scoped to [data-theme=\"glass\"]", () => {
 
 test("glass: blur only on floating chrome and single panels, never on repeated cards, rows or tables", () => {
   const sels = [...blurred(cssGlass), ...blurred(cssGlassDashboard)];
-  assert.ok(sels.length > 0 && sels.length <= 20, `blur budget: ${sels.length} selectors`);
+  assert.ok(sels.length > 0 && sels.length <= 14, `blur budget: ${sels.length} selectors`);
+  for (const resting of [".stat-grid", ".whats-new", ".status-banner", ".cl-stats", ".help-ask", ".ov-health", ".panel-card"]) {
+    assert.ok(!sels.some(s => s.endsWith(resting)), `no blur on resting surface ${resting}`);
+  }
   for (const repeated of [".mod-card", ".item-card", ".table-wrap", ".card", ".callout", ".component", ".guild-item", ".btn.ghost", "fieldset", "tr"]) {
     assert.ok(!sels.some(s => s.endsWith(repeated)), `no blur on ${repeated}`);
   }
@@ -79,4 +84,13 @@ test("glass: no gradient text, no images, no imports", () => {
   for (const css of [cssGlass, cssGlassDashboard]) {
     assert.doesNotMatch(css, /background-clip:\s*text|url\(|@import/);
   }
+});
+
+test("glass: GA, three material levels and reduced-transparency resets on every frosted dashboard part", () => {
+  /* .theme-beta is the badge Aurora wears in the picker, styled for Glass too. */
+  for (const css of [cssGlass, cssGlassDashboard]) assert.doesNotMatch(uncomment(css).replace(/\.theme-beta/g, ""), /beta/i);
+  for (const token of ["--glass-surface", "--glass-raised", "--glass-strong", "--glass-blur"]) assert.ok(styles.includes(`${token}:`), `${token} defined`);
+  assert.match(cssGlass, /\[data-theme="glass"\] \* \{ -webkit-backdrop-filter: none !important; backdrop-filter: none !important; \}/);
+  const rt = /@media \(prefers-reduced-transparency: reduce\) \{([\s\S]*?)\n}\n/.exec(cssGlassDashboard)!;
+  for (const sel of [".unsaved-bar", ".confirm-dialog", ".top-search input"]) assert.ok(rt[1].includes(`[data-theme="glass"] ${sel}`), `${sel} reset`);
 });

@@ -28,15 +28,16 @@ export const cssChrome = String.raw`/* ── Header ─────────
 .nav-actions { display: flex; align-items: center; gap: .25rem; margin-left: auto; }
 .nav-actions .btn { margin-left: .5rem; }
 .nav-toggle { display: none; }
-.theme-toggle .icon-moon, .theme-toggle .icon-sun, .theme-toggle .icon-system, .theme-toggle .icon-steel, .theme-toggle .icon-glass { display: none; }
+.theme-toggle .icon-moon, .theme-toggle .icon-sun, .theme-toggle .icon-system, .theme-toggle .icon-steel, .theme-toggle .icon-glass, .theme-toggle .icon-aurora { display: none; }
 [data-theme-setting="system"] .theme-toggle .icon-system { display: block; }
 [data-theme-setting="light"] .theme-toggle .icon-sun { display: block; }
 [data-theme-setting="dark"] .theme-toggle .icon-moon { display: block; }
 [data-theme-setting="steel"] .theme-toggle .icon-steel { display: block; }
 [data-theme-setting="glass"] .theme-toggle .icon-glass { display: block; }
-:not([data-theme-setting]) .theme-toggle .icon-sun { display: block; }
-:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
-:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+[data-theme-setting="aurora"] .theme-toggle .icon-aurora { display: block; }
+html:not([data-theme-setting]) .theme-toggle .icon-sun { display: block; }
+html:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+html:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
 
 /* Seven nav links plus the theme picker, search and CTA need ~975px once the
    spacing is tightened (1041-1200px; measured headless at 1040-1200px), so
