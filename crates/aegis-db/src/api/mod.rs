@@ -3,6 +3,7 @@ pub mod routes_cases;
 pub mod routes_economy;
 pub mod routes_guilds;
 pub mod routes_health;
+pub mod routes_snapshot;
 
 use axum::{
     middleware::from_fn_with_state,
@@ -82,6 +83,10 @@ pub fn create_router(db: Arc<AegisDatabase>, config: Arc<Config>) -> Router {
         // DB admin
         .route("/db/stats", get(routes_health::stats_handler))
         .route("/db/compact", post(routes_health::compact_handler))
+        .route(
+            "/db/snapshot/export",
+            get(routes_snapshot::export_snapshot_handler),
+        )
         .layer(from_fn_with_state(
             config.clone(),
             middleware::auth_middleware,

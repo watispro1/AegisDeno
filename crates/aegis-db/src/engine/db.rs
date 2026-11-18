@@ -272,6 +272,11 @@ impl AegisDatabase {
         self.options
     }
 
+    /// Format new snapshots (and default exports) are written in.
+    pub fn snapshot_format(&self) -> SnapshotFormat {
+        self.snapshot.format()
+    }
+
     /// Current size of the live WAL in bytes.
     pub fn wal_bytes(&self) -> u64 {
         self.wal.lock().bytes()
@@ -333,25 +338,11 @@ impl AegisDatabase {
             trigger
         );
 
-        let mut snap_cols = BTreeMap::new();
-        {
+        let snapshot_data = {
             let mut wal_lock = self.wal.lock();
-            {
-                let lock = self.collections.read();
-                for (col_name, col) in lock.iter() {
-                    snap_cols.insert(
-                        col_name.clone(),
-                        col.all().into_iter().collect::<BTreeMap<_, _>>(),
-                    );
-                }
-            }
+            let data = self.capture_locked();
             wal_lock.rotate(&self.rotated_wal_path)?;
-        }
-
-        let snapshot_data = SnapshotData {
-            version: 1,
-            timestamp: chrono::Utc::now().timestamp_millis(),
-            collections: snap_cols,
+            data
         };
         self.snapshot.save(&snapshot_data)?;
 
@@ -363,6 +354,37 @@ impl AegisDatabase {
 
         tracing::info!("Compaction completed successfully.");
         Ok(())
+    }
+
+    /// Copies every collection into a [`SnapshotData`]. The caller must hold
+    /// the WAL lock so no write is half-applied while the copy is taken.
+    fn capture_locked(&self) -> SnapshotData {
+        let lock = self.collections.read();
+        let collections = lock
+            .iter()
+            .map(|(name, col)| (name.clone(), col.all().into_iter().collect()))
+            .collect();
+        SnapshotData {
+            version: 1,
+            timestamp: chrono::Utc::now().timestamp_millis(),
+            collections,
+        }
+    }
+
+    /// A consistent point-in-time copy of the whole database, taken under the
+    /// WAL lock (so every acknowledged write up to that point is included)
+    /// without touching the files on disk.
+    pub fn export_snapshot(&self) -> SnapshotData {
+        let _wal_lock = self.wal.lock();
+        self.capture_locked()
+    }
+
+    /// [`export_snapshot`](Self::export_snapshot) encoded in `format`, ready
+    /// to download; returns the snapshot timestamp alongside the bytes.
+    pub fn export_snapshot_bytes(&self, format: SnapshotFormat) -> std::io::Result<(i64, Vec<u8>)> {
+        let data = self.export_snapshot();
+        let bytes = super::snapshot::encode(&data, format)?;
+        Ok((data.timestamp, bytes))
     }
 
     pub fn stats(&self) -> Value {
