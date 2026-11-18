@@ -10,6 +10,7 @@
 import { EmbedBuilder, MessageFlags, type ButtonInteraction } from "discord.js";
 import type { ComponentRoute } from "./router";
 import { handleGiveawayButton } from "../../commands/community/giveaway";
+import { runLatest } from "../../utils/latestOnly";
 import {
   buildSuggestionComponents,
   handleSuggestionReviewButton,
@@ -46,16 +47,28 @@ async function handleSuggestionButton(interaction: ButtonInteraction): Promise<v
   if (action !== "up" && action !== "down") return;
 
   await interaction.deferUpdate().catch(() => null);
-  const suggestion = await voteOnSuggestion(interaction.guildId, id, interaction.user.id, action);
+  const guildId = interaction.guildId;
+  const suggestion = await voteOnSuggestion(guildId, id, interaction.user.id, action);
   if (!suggestion) return;
 
+  // Re-read inside a per-message queue so the last edit always shows the
+  // newest counts, and a vote edit never brings back the vote buttons on a
+  // suggestion a moderator reviewed meanwhile.
   const msg = interaction.message;
-  const oldEmbed = msg.embeds[0];
-  if (!oldEmbed) return;
-
-  const newEmbed = EmbedBuilder.from(oldEmbed).spliceFields(1, 1, suggestionVotesField(suggestion));
-  await msg.edit({ embeds: [newEmbed], components: buildSuggestionComponents(suggestion) }).catch(() => null);
+  await runLatest(`suggestion:${msg.id}`, async () => {
+    const latest = await getSuggestion(guildId, id).catch(() => null);
+    if (!latest || !OPEN_STATUSES.has(latest.status)) return;
+    // The clicked message's embed may predate a "considered" review; start from the current one.
+    const current = await msg.fetch().catch(() => msg);
+    const oldEmbed = current.embeds[0];
+    if (!oldEmbed) return;
+    const newEmbed = EmbedBuilder.from(oldEmbed).spliceFields(1, 1, suggestionVotesField(latest));
+    await current.edit({ embeds: [newEmbed], components: buildSuggestionComponents(latest) }).catch(() => null);
+  });
 }
+
+/** Statuses that still take votes (matches voteOnSuggestion's filter). */
+const OPEN_STATUSES = new Set(["pending", "considered"]);
 
 export const communityRoutes: ComponentRoute[] = [
   {

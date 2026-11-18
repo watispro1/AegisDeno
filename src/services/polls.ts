@@ -23,6 +23,7 @@ import { cancelTask, scheduleTask } from "./schedulerRunner";
 import { sendGuildLog } from "./logging";
 import { isSendableChannel, isObfuscatedChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
+import { runLatest } from "../utils/latestOnly";
 import {
   applyPollVote,
   buildResultBar,
@@ -185,10 +186,13 @@ export async function closePoll(client: Client, guildId: string, messageId: stri
   if (channel && !isObfuscatedChannel(channel) && channel.isTextBased() && "messages" in channel) {
     const msg = await channel.messages.fetch(messageId).catch(() => null);
     if (msg) {
-      await msg.edit({
-        embeds: [renderPollEmbed(poll, true)],
-        components: renderPollComponents(poll.options.length, poll.options, true),
-      }).catch(err => logger.warn(`Poll ${messageId}: could not freeze poll message`, err));
+      // Queued with vote refreshes so a slower vote edit can never land after this and re-open the embed.
+      await runLatest(pollEditKey(messageId), async () => {
+        await msg.edit({
+          embeds: [renderPollEmbed(poll, true)],
+          components: renderPollComponents(poll.options.length, poll.options, true),
+        }).catch(err => logger.warn(`Poll ${messageId}: could not freeze poll message`, err));
+      }, { coalesce: false });
     }
     if (isSendableChannel(channel)) {
       await channel.send({
@@ -278,6 +282,9 @@ export async function handlePollButton(interaction: ButtonInteraction): Promise<
   // Compare-and-set on this user's picks: two quick clicks on a multi-select
   // poll must both count, so each update only applies if the picks it was
   // computed from are still the stored ones; otherwise re-read and retry.
+  // Up to three database round trips follow; acknowledge first so a slow
+  // database never shows the member "This interaction failed".
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   let picks = (poll.votes ?? {})[interaction.user.id] ?? [];
   let added = false;
   let updated: PollRecord | null = null;
@@ -299,20 +306,40 @@ export async function handlePollButton(interaction: ButtonInteraction): Promise<
 
   if (!updated) {
     const stillOpen = await PollModel.exists({ guildId: interaction.guildId, messageId, ended: false });
-    await interaction.reply({
+    await interaction.editReply({
       content: stillOpen ? "⏳ Too many clicks at once. Please try that vote again." : "🔒 This poll just closed.",
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
   const label = `${NUMBER_EMOJIS[optionIndex]} ${poll.options[optionIndex]}`;
-  await interaction.reply({
+  await interaction.editReply({
     content: added
       ? (poll.anonymous ? "✅ Vote recorded. Nobody can see who you voted for." : `✅ Voted for **${label}**.`)
       : `↩️ Removed your vote for **${label}**.`,
-    flags: MessageFlags.Ephemeral,
   });
 
-  await interaction.message.edit({ embeds: [renderPollEmbed(updated)] }).catch(() => null);
+  await refreshPollMessage(interaction.guildId, messageId, interaction.message);
+}
+
+/** Per-message key shared by vote refreshes and the closing edit. */
+export function pollEditKey(messageId: string): string {
+  return `poll:${messageId}`;
+}
+
+/**
+ * Re-render the poll message from the latest stored votes. Concurrent votes
+ * share one queued refresh, and a closed poll is left to closePoll's final render.
+ */
+export function refreshPollMessage(
+  guildId: string,
+  messageId: string,
+  message: { edit(o: { embeds: EmbedBuilder[] }): Promise<unknown> },
+  load: () => Promise<PollRecord | null> = () => PollModel.findOne({ guildId, messageId }).lean() as Promise<PollRecord | null>,
+): Promise<void> {
+  return runLatest(pollEditKey(messageId), async () => {
+    const latest = await load().catch(() => null);
+    if (!latest || latest.ended) return;
+    await message.edit({ embeds: [renderPollEmbed(latest)] }).catch(() => null);
+  });
 }
