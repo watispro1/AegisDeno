@@ -3,11 +3,14 @@
  *
  * - Steel & Ink: near-black ink, warm paper text, steel accent and stone
  *   secondary text, serif headings. Editorial, no saturated colour.
- * - Glass (beta): dark frosted glass in the spirit of Apple's Liquid Glass and
- *   YouTube's player menus, over slowly drifting colour glows. The tokens
- *   below are solid; translucency and blur live in glass.ts and are only
+ * - Glass: dark frosted glass over slowly drifting colour glows, with three
+ *   material levels (resting, raised, overlay). The tokens below are solid;
+ *   translucency and blur live in glass.ts / glassDashboard.ts and are only
  *   switched on where backdrop-filter is supported and the visitor has not
  *   asked for reduced transparency, so the fallback is the solid palette.
+ * - Aurora (beta): a bright, airy light theme: white cards on a still dawn
+ *   wash of lilac, mint and peach, an indigo-violet accent and rounder
+ *   corners. Tokens and surfaces are in aurora.ts.
  *
  * Light (:root) and Dark live in base.ts. tests/siteThemes.test.ts checks the
  * text and status tokens of every theme against WCAG AA.
@@ -43,64 +46,44 @@ export const cssThemeTokens = String.raw`
   /* Solid palette: what everyone gets without backdrop-filter or with
      prefers-reduced-transparency. Deep blue-black, light text. */
   --bg: #0b0d12;
-  --bg-sunk: #11141b;
-  --surface: #161a22;
-  --text: #f4f6fa;
-  --text-2: #dde2ea;
-  --muted: #b6bdc8;
-  --faint: #a6aebb;
-  --border: #272c37;
-  --border-strong: #3b4250;
+  --bg-sunk: #10131a;
+  --surface: #151922;
+  --text: #f5f7fb;
+  --text-2: #dfe4ec;
+  --muted: #b8bfcb;
+  --faint: #a8b0bd;
+  --border: #262b36;
+  --border-strong: #3a414f;
   --accent: #a9c8ff;
-  --accent-hover: #c8dcff;
+  --accent-hover: #cadeff;
   --accent-ink: #0b0d12;
-  --accent-soft: #1c2638;
-  --link: #a9c8ff;
-  --ok: #7fdca6;
-  --warn: #f2c26b;
-  --danger: #ff9a92;
-  --code-bg: #141821;
+  --accent-soft: #1b2539;
+  --link: #b0ccff;
+  --ok: #80dca8;
+  --warn: #f2c46e;
+  --danger: #ff9e96;
+  --code-bg: #131720;
   --mark: #4d4224;
   --r: 12px;
   --r-lg: 20px;
   /* Ambient glow colours behind the glass, at their brightest (already
      flattened over --bg); tests check text against each of them. */
-  --glass-a: #1b2a55;
-  --glass-b: #3a1d48;
-  --glass-c: #0e3b3d;
-  --glass-d: #3d2a14;
-  /* Frosted surfaces used when blur is available. */
-  --glass-surface: rgba(22, 25, 34, .55);
-  --glass-strong: rgba(18, 21, 29, .82);
-  --glass-edge: rgba(255, 255, 255, .14);
-  --glass-hi: rgba(255, 255, 255, .16);
+  --glass-a: #1a2a56;
+  --glass-b: #36204a;
+  --glass-c: #0d3a3e;
+  --glass-d: #3a2a16;
+  /* Materials, used only where backdrop-filter is available:
+     resting (cards, sidebar), raised (top bar, header pill) and overlay
+     (menus, dialogs, toasts). Each is dark enough on its own for AA text. */
+  --glass-surface: rgba(21, 25, 34, .52);
+  --glass-raised: rgba(19, 23, 31, .66);
+  --glass-strong: rgba(15, 18, 25, .84);
+  --glass-edge: rgba(255, 255, 255, .13);
+  --glass-hi: rgba(255, 255, 255, .17);
+  --glass-blur: 22px;
   color-scheme: dark;
 }
 
-[data-theme="aurora"] {
-  --bg: #080d14;
-  --bg-sunk: #0e1520;
-  --surface: #121c2b;
-  --text: #f0fdf4;
-  --text-2: #dcfce7;
-  --muted: #9bb3c7;
-  --faint: #8eb0c9;
-  --border: #1e293b;
-  --border-strong: #334155;
-  --accent: #34d399;
-  --accent-hover: #6ee7b7;
-  --accent-ink: #041d13;
-  --accent-soft: #064e3b;
-  --link: #5eead4;
-  --ok: #4ade80;
-  --warn: #fbbf24;
-  --danger: #f87171;
-  --code-bg: #0f1724;
-  --mark: #064e3b;
-  --r: 8px;
-  --r-lg: 12px;
-  color-scheme: dark;
-}
 `;
 
 /** Component overrides and the picker; included near the end so they win. */
@@ -146,7 +129,8 @@ html:not(.js) .theme-picker { display: none; }
 .theme-swatch[data-swatch="dark"] { background: #161716; }
 .theme-swatch[data-swatch="steel"] { background: linear-gradient(135deg, #0c0d0f 55%, #c5cdc8 55%); }
 .theme-swatch[data-swatch="glass"] { background: radial-gradient(circle at 30% 30%, #6d8fe0, transparent 60%), radial-gradient(circle at 75% 70%, #a46cc0, transparent 55%), #0b0d12; }
-.theme-swatch[data-swatch="aurora"] { background: linear-gradient(135deg, #080d14 0%, #059669 45%, #06b6d4 100%); }
+.theme-swatch[data-swatch="aurora"] { background: radial-gradient(circle at 25% 30%, #c9b8ff, transparent 62%), radial-gradient(circle at 75% 35%, #a9e6cf, transparent 58%), radial-gradient(circle at 50% 85%, #ffc9a8, transparent 60%), #f7f5fb; }
+/* Beta badge: themes still being tuned (BETA_THEMES in layout.ts). */
 .theme-beta {
   margin-left: .1rem; padding: 0 .3rem; border: 1px solid var(--border-strong); border-radius: 3px;
   font: 600 .64rem/1.5 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted);

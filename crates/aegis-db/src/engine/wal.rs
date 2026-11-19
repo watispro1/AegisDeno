@@ -1,7 +1,7 @@
+use crc32fast::Hasher;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use crc32fast::Hasher;
 
 /// Largest payload a single WAL record may carry. Anything bigger is treated as
 /// a corrupt length prefix (a torn or garbage header), never allocated.
@@ -46,7 +46,9 @@ pub struct WalEntry {
 pub fn encode_record(entry: &WalEntry) -> io::Result<Vec<u8>> {
     let col_bytes = entry.collection.as_bytes();
     let key_bytes = entry.key.as_bytes();
-    let mut payload = Vec::with_capacity(MIN_PAYLOAD_BYTES + col_bytes.len() + key_bytes.len() + entry.value.len());
+    let mut payload = Vec::with_capacity(
+        MIN_PAYLOAD_BYTES + col_bytes.len() + key_bytes.len() + entry.value.len(),
+    );
     payload.push(entry.op as u8);
     payload.extend_from_slice(&entry.timestamp.to_le_bytes());
     payload.extend_from_slice(&(col_bytes.len() as u32).to_le_bytes());
@@ -57,7 +59,10 @@ pub fn encode_record(entry: &WalEntry) -> io::Result<Vec<u8>> {
     payload.extend_from_slice(&entry.value);
 
     if payload.len() > MAX_RECORD_BYTES {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "wal record exceeds MAX_RECORD_BYTES"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "wal record exceeds MAX_RECORD_BYTES",
+        ));
     }
 
     let mut hasher = Hasher::new();
@@ -85,6 +90,9 @@ pub struct WalWriter {
     file: File,
     path: PathBuf,
     entries_count: usize,
+    /// Current size of the live WAL file in bytes (records already on disk
+    /// when it was opened included).
+    bytes: u64,
 }
 
 impl WalWriter {
@@ -94,7 +102,13 @@ impl WalWriter {
             fs::create_dir_all(parent)?;
         }
         let file = OpenOptions::new().create(true).append(true).open(&path)?;
-        Ok(Self { file, path, entries_count: 0 })
+        let bytes = file.metadata()?.len();
+        Ok(Self {
+            file,
+            path,
+            entries_count: 0,
+            bytes,
+        })
     }
 
     pub fn path(&self) -> &Path {
@@ -108,6 +122,7 @@ impl WalWriter {
         self.file.write_all(&record)?;
         self.file.sync_data()?;
         self.entries_count += 1;
+        self.bytes += record.len() as u64;
         Ok(())
     }
 
@@ -115,13 +130,23 @@ impl WalWriter {
         self.entries_count
     }
 
+    /// Size of the live WAL in bytes.
+    pub fn bytes(&self) -> u64 {
+        self.bytes
+    }
+
     /// Truncates the live WAL in place (only safe when nothing in it is needed).
     pub fn reset(&mut self) -> io::Result<()> {
         self.file.sync_all()?;
-        self.file = OpenOptions::new().create(true).write(true).truncate(true).open(&self.path)?;
+        self.file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&self.path)?;
         self.file.sync_all()?;
         self.file = OpenOptions::new().append(true).open(&self.path)?;
         self.entries_count = 0;
+        self.bytes = 0;
         Ok(())
     }
 
@@ -136,7 +161,11 @@ impl WalWriter {
             let mut old = OpenOptions::new().append(true).open(old_path)?;
             old.write_all(&current)?;
             old.sync_all()?;
-            self.file = OpenOptions::new().create(true).write(true).truncate(true).open(&self.path)?;
+            self.file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&self.path)?;
             self.file.sync_all()?;
         } else {
             fs::rename(&self.path, old_path)?;
@@ -145,8 +174,12 @@ impl WalWriter {
         if let Some(parent) = self.path.parent() {
             sync_dir(parent)?;
         }
-        self.file = OpenOptions::new().create(true).append(true).open(&self.path)?;
+        self.file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
         self.entries_count = 0;
+        self.bytes = 0;
         Ok(())
     }
 }
@@ -162,7 +195,8 @@ pub struct ReplayOutcome {
 }
 
 fn read_u32(buf: &[u8], at: usize) -> Option<u32> {
-    buf.get(at..at + 4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+    buf.get(at..at + 4)
+        .map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
 }
 
 fn decode_payload(payload: &[u8]) -> Option<WalEntry> {
@@ -183,7 +217,13 @@ fn decode_payload(payload: &[u8]) -> Option<WalEntry> {
     if at != payload.len() {
         return None;
     }
-    Some(WalEntry { op, timestamp, collection, key, value })
+    Some(WalEntry {
+        op,
+        timestamp,
+        collection,
+        key,
+        value,
+    })
 }
 
 pub struct WalReader;
@@ -195,7 +235,11 @@ impl WalReader {
     pub fn read<P: AsRef<Path>>(path: P) -> io::Result<ReplayOutcome> {
         let path = path.as_ref();
         if !path.exists() {
-            return Ok(ReplayOutcome { entries: Vec::new(), valid_len: 0, file_len: 0 });
+            return Ok(ReplayOutcome {
+                entries: Vec::new(),
+                valid_len: 0,
+                file_len: 0,
+            });
         }
         let buf = fs::read(path)?;
         let mut entries = Vec::new();
@@ -208,18 +252,26 @@ impl WalReader {
                 break;
             }
             let start = offset + HEADER_BYTES;
-            let Some(payload) = buf.get(start..start + length) else { break };
+            let Some(payload) = buf.get(start..start + length) else {
+                break;
+            };
             let mut hasher = Hasher::new();
             hasher.update(payload);
             if hasher.finalize() != expected {
                 break;
             }
-            let Some(entry) = decode_payload(payload) else { break };
+            let Some(entry) = decode_payload(payload) else {
+                break;
+            };
             entries.push(entry);
             offset = start + length;
         }
 
-        Ok(ReplayOutcome { entries, valid_len: offset as u64, file_len: buf.len() as u64 })
+        Ok(ReplayOutcome {
+            entries,
+            valid_len: offset as u64,
+            file_len: buf.len() as u64,
+        })
     }
 
     /// Like `read`, then truncates the file at the last intact record so new

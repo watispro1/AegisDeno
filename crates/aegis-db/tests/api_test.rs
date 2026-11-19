@@ -1,15 +1,18 @@
-use std::fs;
-use std::sync::Arc;
+use aegis_db::{api, AegisDatabase, Config};
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use std::fs;
+use std::sync::Arc;
 use tower::ServiceExt; // for oneshot
-use aegis_db::{api, Config, AegisDatabase};
 
 #[tokio::test]
 async fn test_api_health_and_stats() {
-    let tmp_dir = std::env::temp_dir().join(format!("aegis_api_test_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)));
+    let tmp_dir = std::env::temp_dir().join(format!(
+        "aegis_api_test_{}",
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+    ));
     let _ = fs::remove_dir_all(&tmp_dir);
 
     let db = AegisDatabase::open(&tmp_dir).expect("failed to open db");
@@ -39,7 +42,10 @@ async fn test_api_health_and_stats() {
 
 #[tokio::test]
 async fn test_api_guild_config_and_cases() {
-    let tmp_dir = std::env::temp_dir().join(format!("aegis_api_cases_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)));
+    let tmp_dir = std::env::temp_dir().join(format!(
+        "aegis_api_cases_{}",
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+    ));
     let _ = fs::remove_dir_all(&tmp_dir);
 
     let db = AegisDatabase::open(&tmp_dir).expect("failed to open db");
@@ -51,10 +57,13 @@ async fn test_api_guild_config_and_cases() {
         .uri("/api/guilds/999/config")
         .method("PUT")
         .header("content-type", "application/json")
-        .body(Body::from(serde_json::to_vec(&serde_json::json!({
-            "prefix": "?",
-            "mod_log_channel_id": "112233"
-        })).unwrap()))
+        .body(Body::from(
+            serde_json::to_vec(&serde_json::json!({
+                "prefix": "?",
+                "mod_log_channel_id": "112233"
+            }))
+            .unwrap(),
+        ))
         .unwrap();
 
     let put_res = router.clone().oneshot(put_req).await.unwrap();
@@ -75,12 +84,15 @@ async fn test_api_guild_config_and_cases() {
         .uri("/api/guilds/999/cases")
         .method("POST")
         .header("content-type", "application/json")
-        .body(Body::from(serde_json::to_vec(&serde_json::json!({
-            "target_id": "user_456",
-            "mod_id": "mod_123",
-            "action": "warn",
-            "reason": "Test warning"
-        })).unwrap()))
+        .body(Body::from(
+            serde_json::to_vec(&serde_json::json!({
+                "target_id": "user_456",
+                "mod_id": "mod_123",
+                "action": "warn",
+                "reason": "Test warning"
+            }))
+            .unwrap(),
+        ))
         .unwrap();
 
     let case_res = router.clone().oneshot(case_req).await.unwrap();
@@ -101,7 +113,10 @@ async fn test_api_guild_config_and_cases() {
 
 #[tokio::test]
 async fn test_api_economy_and_leaderboard() {
-    let tmp_dir = std::env::temp_dir().join(format!("aegis_api_eco_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)));
+    let tmp_dir = std::env::temp_dir().join(format!(
+        "aegis_api_eco_{}",
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+    ));
     let _ = fs::remove_dir_all(&tmp_dir);
 
     let db = AegisDatabase::open(&tmp_dir).expect("failed to open db");
@@ -113,11 +128,14 @@ async fn test_api_economy_and_leaderboard() {
         .uri("/api/guilds/555/economy/player1/transact")
         .method("POST")
         .header("content-type", "application/json")
-        .body(Body::from(serde_json::to_vec(&serde_json::json!({
-            "kind": "add_wallet",
-            "amount": 1500,
-            "description": "Daily reward"
-        })).unwrap()))
+        .body(Body::from(
+            serde_json::to_vec(&serde_json::json!({
+                "kind": "add_wallet",
+                "amount": 1500,
+                "description": "Daily reward"
+            }))
+            .unwrap(),
+        ))
         .unwrap();
 
     let add_res = router.clone().oneshot(add_req).await.unwrap();
@@ -138,12 +156,17 @@ async fn test_api_economy_and_leaderboard() {
 
 #[tokio::test]
 async fn test_api_auth_protection() {
-    let tmp_dir = std::env::temp_dir().join(format!("aegis_api_auth_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)));
+    let tmp_dir = std::env::temp_dir().join(format!(
+        "aegis_api_auth_{}",
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+    ));
     let _ = fs::remove_dir_all(&tmp_dir);
 
     let db = AegisDatabase::open(&tmp_dir).expect("failed to open db");
-    let mut config = Config::default();
-    config.secret = "super-secret-key".into();
+    let config = Config {
+        secret: "super-secret-key".into(),
+        ..Default::default()
+    };
     let router = api::create_router(db, Arc::new(config));
 
     // Request without auth fails with 401

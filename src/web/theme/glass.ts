@@ -1,82 +1,75 @@
 /**
- * Glass (beta): dark frosted glass in the spirit of Apple's visionOS / macOS
- * materials and YouTube's translucent player menus. Site-wide rules; the
- * dashboard surfaces are in glassDashboard.ts.
+ * Glass: dark frosted glass over slowly drifting colour light. Site-wide
+ * rules; the dashboard's own surfaces are in glassDashboard.ts.
  *
- * - Background: a deep blue-black page with a CSS-only colour mesh (four soft
- *   glows on body::before that drift slowly, plus a static top light and
- *   bottom vignette on body::after). No images. The drift stops under
- *   prefers-reduced-motion; both layers go away under
- *   prefers-reduced-transparency.
- * - Surfaces: translucent panels with a faint top-to-bottom sheen, a hairline
- *   edge, a 1px specular highlight on top, a dark inner line at the bottom and
- *   a soft two-step depth shadow. Hovering a card or button slides a specular
- *   highlight across it; controls move on a gentle spring curve.
- * - Blur budget: backdrop-filter (blur + saturate) is kept for the floating
- *   chrome only (the header pill and its sheet, menus, dialogs, a few single
- *   hero panels). Repeated cards, tables and lists stay translucent without
- *   blur: over soft glows it looks the same and keeps scrolling cheap.
+ * Materials. Three levels, each a token in themes.ts:
+ * - resting (--glass-surface): cards, panels, the sidebar. Translucent,
+ *   never blurred, so long pages of cards scroll as cheaply as solid ones.
+ * - raised (--glass-raised): the header pill and the dashboard top bar.
+ * - overlay (--glass-strong): menus, dialogs, toasts. Nearly opaque.
+ * Every surface gets the same edge: a hairline rim, a specular top line and
+ * a faint dark bottom line (--glass-rim), plus a soft two-step shadow.
  *
- * The solid tokens in themes.ts are the fallback: translucency and blur are
- * only switched on inside the @supports block below, an @supports not block
- * makes the menus fully opaque, and the prefers-reduced-transparency block
- * puts the solid palette back. Every rule that uses backdrop-filter is scoped
- * to [data-theme="glass"] (scripts/smoke-web.ts checks this).
- * tests/siteThemes.test.ts checks text contrast on the glass surface over
- * every glow colour.
+ * Light. One fixed layer of four glows (body::before) drifts with transform
+ * only; a static top light and vignette sit on body::after. The drift stops
+ * under prefers-reduced-motion; both layers go under
+ * prefers-reduced-transparency.
+ *
+ * Blur budget. backdrop-filter is used only on floating chrome: the header
+ * pill, the phone menu sheet, menus and the search panel here, and the
+ * sidebar, top bar, overlays and dialogs in glassDashboard.ts. It is only
+ * switched on inside @supports; an @supports not block makes the menus
+ * opaque, and prefers-reduced-transparency puts the solid palette back and
+ * removes every backdrop-filter. Every rule is scoped to [data-theme="glass"]
+ * (scripts/smoke-web.ts and tests/glassDashboard.test.ts check this).
  */
 export const cssGlass = String.raw`
-/* ── Glass (beta) ─────────────────────────────────────────────────────── */
+/* ── Glass ────────────────────────────────────────────────────────────── */
 [data-theme="glass"] {
   --k-changed: #9cc0f5;
   --k-fixed: #d4b2f0;
-  /* Motion: a soft spring for movement, a long ease-out for light. */
-  --spring: cubic-bezier(.34, 1.36, .64, 1);
+  --spring: cubic-bezier(.34, 1.3, .64, 1);
   --ease-glass: cubic-bezier(.22, 1, .36, 1);
-  /* Depth: a tight contact shadow plus a wide, soft ambient one. */
-  --shadow-glass: 0 1px 2px rgba(0, 0, 0, .22), 0 12px 32px -8px rgba(0, 0, 0, .5), 0 32px 64px -24px rgba(0, 0, 0, .45);
-  --shadow-float: 0 2px 6px rgba(0, 0, 0, .3), 0 24px 60px -12px rgba(0, 0, 0, .65);
-  /* Rim: specular top line, hairline all round, a dark line at the bottom. */
-  --glass-rim: inset 0 1px 0 var(--glass-hi), inset 0 0 0 1px rgba(255, 255, 255, .03), inset 0 -1px 0 rgba(0, 0, 0, .25);
-  /* Sheen painted on every surface, and the highlight that slides on hover. */
-  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .065), rgba(255, 255, 255, .018) 42%, rgba(255, 255, 255, 0) 70%);
-  --glass-spec: linear-gradient(110deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, .075) 50%, rgba(255, 255, 255, 0) 60%);
+  --shadow-glass: 0 1px 2px rgba(0, 0, 0, .2), 0 10px 30px -10px rgba(0, 0, 0, .55);
+  --shadow-float: 0 2px 6px rgba(0, 0, 0, .3), 0 24px 56px -14px rgba(0, 0, 0, .7);
+  --glass-rim: inset 0 1px 0 var(--glass-hi), inset 0 0 0 1px rgba(255, 255, 255, .025), inset 0 -1px 0 rgba(0, 0, 0, .28);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .015) 40%, rgba(255, 255, 255, 0) 72%);
+  --glass-tint: rgba(169, 200, 255, .16);
 }
 [data-theme="glass"] body { background-color: var(--bg); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
-/* Ambient mesh: one fixed layer of glows, drifted with transform only. */
+/* Ambient light: one fixed layer, drifted with transform only. */
 [data-theme="glass"] body::before {
-  content: ""; position: fixed; z-index: -1; inset: -15vmax; pointer-events: none;
+  content: ""; position: fixed; z-index: -1; inset: -12vmax; pointer-events: none;
   background-image:
-    radial-gradient(38vmax 30vmax at 18% 22%, var(--glass-a), transparent 70%),
-    radial-gradient(34vmax 28vmax at 82% 18%, var(--glass-b), transparent 70%),
-    radial-gradient(40vmax 30vmax at 70% 82%, var(--glass-c), transparent 70%),
-    radial-gradient(28vmax 22vmax at 22% 85%, var(--glass-d), transparent 70%),
-    radial-gradient(30vmax 24vmax at 50% 50%, rgba(27, 42, 85, .35), transparent 75%);
-  animation: glass-drift 48s ease-in-out infinite alternate;
+    radial-gradient(36vmax 28vmax at 16% 20%, var(--glass-a), transparent 70%),
+    radial-gradient(32vmax 26vmax at 84% 16%, var(--glass-b), transparent 70%),
+    radial-gradient(38vmax 28vmax at 72% 84%, var(--glass-c), transparent 70%),
+    radial-gradient(26vmax 20vmax at 20% 86%, var(--glass-d), transparent 70%);
+  animation: glass-drift 60s ease-in-out infinite alternate;
   will-change: transform;
 }
-/* A static top light and bottom vignette give the mesh depth (no animation). */
 [data-theme="glass"] body::after {
   content: ""; position: fixed; z-index: -1; inset: 0; pointer-events: none;
   background-image:
-    radial-gradient(120% 60% at 50% -12%, rgba(150, 175, 255, .07), transparent 62%),
-    radial-gradient(140% 90% at 50% 125%, rgba(0, 0, 0, .5), transparent 60%);
+    radial-gradient(120% 60% at 50% -14%, rgba(150, 175, 255, .07), transparent 62%),
+    radial-gradient(140% 90% at 50% 128%, rgba(0, 0, 0, .5), transparent 60%);
 }
 @keyframes glass-drift {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
-  50% { transform: translate3d(3vmax, -2vmax, 0) rotate(8deg) scale(1.06); }
-  100% { transform: translate3d(-3vmax, 2.5vmax, 0) rotate(-6deg) scale(1.03); }
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(2.5vmax, -2vmax, 0) scale(1.05); }
+  100% { transform: translate3d(-2.5vmax, 2vmax, 0) scale(1.02); }
 }
 @media (prefers-reduced-motion: reduce) {
   [data-theme="glass"] body::before { animation: none; will-change: auto; }
 }
 
-/* Vibrancy: headings sit slightly "lifted" off the glass. */
-[data-theme="glass"] h1, [data-theme="glass"] h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, .35); letter-spacing: -0.015em; }
-[data-theme="glass"] .muted, [data-theme="glass"] .faint { text-shadow: 0 1px 1px rgba(0, 0, 0, .2); }
+/* Type on glass: a hairline shadow lifts headings off the light. */
+[data-theme="glass"] h1, [data-theme="glass"] h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, .35); letter-spacing: -.015em; }
+[data-theme="glass"] ::selection { background: rgba(169, 200, 255, .35); color: var(--text); }
+[data-theme="glass"] :focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; box-shadow: 0 0 0 5px rgba(169, 200, 255, .2); }
 
-/* Shape: generous radii, pill controls. */
+/* Controls: pills with a lit top edge; the press springs. */
 [data-theme="glass"] .btn,
 [data-theme="glass"] .icon-btn,
 [data-theme="glass"] .site-search-trigger,
@@ -87,30 +80,25 @@ export const cssGlass = String.raw`
 [data-theme="glass"] .live-pill { border-radius: 999px; }
 [data-theme="glass"] .btn {
   position: relative; overflow: hidden;
-  transition: background-color .25s var(--ease-glass), border-color .25s var(--ease-glass), box-shadow .3s var(--ease-glass), transform .45s var(--spring);
+  transition: background-color .25s var(--ease-glass), border-color .25s var(--ease-glass), box-shadow .3s var(--ease-glass), transform .4s var(--spring);
 }
-[data-theme="glass"] .btn:not(.ghost):not(.danger) { background-image: linear-gradient(180deg, rgba(255, 255, 255, .3), rgba(255, 255, 255, 0) 60%); }
-[data-theme="glass"] .btn:not(.ghost) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 6px 18px -4px rgba(0, 0, 0, .45); }
-[data-theme="glass"] .btn:not(.ghost):hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), 0 10px 26px -6px rgba(120, 160, 255, .35), 0 6px 18px -4px rgba(0, 0, 0, .45); }
+[data-theme="glass"] .btn:not(.ghost):not(.danger) { background-image: linear-gradient(180deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0) 62%); }
+[data-theme="glass"] .btn:not(.ghost) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 6px 18px -6px rgba(0, 0, 0, .5); }
+[data-theme="glass"] .btn:not(.ghost):hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), 0 10px 26px -8px rgba(120, 160, 255, .4), 0 6px 18px -6px rgba(0, 0, 0, .5); }
 [data-theme="glass"] .btn.ghost { background-color: rgba(255, 255, 255, .06); border-color: var(--glass-edge); color: var(--text); box-shadow: inset 0 1px 0 var(--glass-hi); }
-[data-theme="glass"] .btn.ghost:hover { background-color: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .24); }
+[data-theme="glass"] .btn.ghost:hover { background-color: rgba(255, 255, 255, .11); border-color: rgba(255, 255, 255, .24); }
 [data-theme="glass"] .btn:active, [data-theme="glass"] .icon-btn:active { transform: scale(.97); transition-duration: .08s; }
-/* Sheen: a soft diagonal highlight slides across on hover. */
+/* A highlight sweeps across a button on hover. */
 [data-theme="glass"] .btn::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .24) 50%, transparent 70%);
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .2) 50%, transparent 70%);
   transform: translateX(-120%); transition: transform .7s var(--ease-glass);
 }
 [data-theme="glass"] .btn:hover::after { transform: translateX(120%); }
-[data-theme="glass"] .icon-btn { transition: background-color .2s var(--ease-glass), border-color .2s var(--ease-glass), transform .45s var(--spring); }
-[data-theme="glass"] .icon-btn:hover { background: rgba(255, 255, 255, .1); border-color: var(--glass-edge); }
+[data-theme="glass"] .icon-btn { transition: background-color .2s var(--ease-glass), border-color .2s var(--ease-glass), transform .4s var(--spring); }
+[data-theme="glass"] .icon-btn:hover { background: rgba(255, 255, 255, .09); border-color: var(--glass-edge); }
 
-/* Focus stays obvious on glass: a light ring plus a soft halo. */
-[data-theme="glass"] :focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; box-shadow: 0 0 0 5px rgba(169, 200, 255, .22); }
-[data-theme="glass"] ::selection { background: rgba(169, 200, 255, .35); color: var(--text); }
-
-/* Floating pill header: the pill is drawn on a pseudo-element so the
-   header itself is not a backdrop root and its menus can blur the page. */
+/* Header: a floating pill, drawn on ::before so its menus can blur too. */
 [data-theme="glass"] .nav { background: transparent; border-bottom: 0; padding: calc(env(safe-area-inset-top) + .6rem) .75rem 0; }
 [data-theme="glass"] .nav-inner { position: relative; isolation: isolate; padding-left: 1.1rem; padding-right: .5rem; }
 [data-theme="glass"] .nav-inner::before {
@@ -120,13 +108,13 @@ export const cssGlass = String.raw`
 }
 [data-theme="glass"] .nav-link { border-radius: 999px; padding: 0 .75rem; min-height: 38px; transition: background-color .2s var(--ease-glass), color .2s var(--ease-glass); }
 [data-theme="glass"] .nav-link:hover { background: rgba(255, 255, 255, .07); }
-[data-theme="glass"] .nav-link[aria-current="page"] { background: rgba(255, 255, 255, .13); box-shadow: inset 0 1px 0 var(--glass-hi), 0 1px 4px rgba(0, 0, 0, .25); border-radius: 999px; }
+[data-theme="glass"] .nav-link[aria-current="page"] { background: rgba(255, 255, 255, .12); box-shadow: inset 0 1px 0 var(--glass-hi); border-radius: 999px; }
 [data-theme="glass"] .nav-actions .btn { min-height: 40px; }
 @media (min-width: 1041px) and (max-width: 1200px) {
   [data-theme="glass"] .nav-link { padding: 0 .5rem; }
 }
 
-/* Cards and panels: radius, sheen, rim and depth. */
+/* Resting surfaces: radius, sheen, rim and depth, no blur. */
 [data-theme="glass"] .card,
 [data-theme="glass"] .panel,
 [data-theme="glass"] .panel-card,
@@ -158,36 +146,33 @@ export const cssGlass = String.raw`
 [data-theme="glass"] .component,
 [data-theme="glass"] .status-banner,
 [data-theme="glass"] .cl-stats,
-[data-theme="glass"] .stat-grid,
 [data-theme="glass"] .mod-card {
-  background-image: var(--glass-spec), var(--glass-sheen);
-  background-size: 260% 100%, 100% 100%; background-position: 115% 0, 0 0; background-repeat: no-repeat;
+  background-image: var(--glass-sheen);
   box-shadow: var(--glass-rim), var(--shadow-glass);
-  transition: background-position 1.1s var(--ease-glass), border-color .3s var(--ease-glass), box-shadow .3s var(--ease-glass);
+  transition: border-color .3s var(--ease-glass), box-shadow .3s var(--ease-glass);
 }
 [data-theme="glass"] .callout,
 [data-theme="glass"] .feature-cmds,
 [data-theme="glass"] .cmd-facts,
 [data-theme="glass"] .table-wrap { background-image: var(--glass-sheen); box-shadow: var(--glass-rim); }
-/* Specular sheen on hover. */
 [data-theme="glass"] .card:hover,
 [data-theme="glass"] .panel-card:hover,
 [data-theme="glass"] .home-feature:hover,
 [data-theme="glass"] .diff-card:hover,
 [data-theme="glass"] .audience-card:hover,
 [data-theme="glass"] .help-ask:hover,
-[data-theme="glass"] .mod-card:hover { background-position: -15% 0, 0 0; border-color: rgba(255, 255, 255, .22); }
-/* The Discord mock keeps Discord's colours; it only floats like a window. */
+[data-theme="glass"] .mod-card:hover { border-color: rgba(255, 255, 255, .2); }
 [data-theme="glass"] .dc { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), var(--shadow-float); border-color: rgba(255, 255, 255, .1); }
 
-/* Menus and overlays. */
+/* Menus (overlay material). */
 [data-theme="glass"] .theme-menu,
 [data-theme="glass"] .site-search-panel,
 [data-theme="glass"] .switcher-list,
-[data-theme="glass"] .user-panel { border-radius: 18px; background-image: var(--glass-sheen); box-shadow: var(--glass-rim), 0 18px 50px rgba(0, 0, 0, .5); }
+[data-theme="glass"] .user-panel { border-radius: 18px; background-image: var(--glass-sheen); box-shadow: var(--glass-rim), 0 18px 50px rgba(0, 0, 0, .55); }
 [data-theme="glass"] .theme-opt { transition: background-color .15s var(--ease-glass); }
 [data-theme="glass"] .theme-opt:hover { background: rgba(255, 255, 255, .08); }
 [data-theme="glass"] .theme-opt[aria-pressed="true"] { background: rgba(255, 255, 255, .1); box-shadow: inset 0 1px 0 var(--glass-hi); }
+[data-theme="glass"] .theme-beta { border-color: var(--glass-edge); }
 [data-theme="glass"] .top-switcher summary,
 [data-theme="glass"] .switcher summary { border-radius: 999px; }
 [data-theme="glass"] input[type="search"],
@@ -196,8 +181,7 @@ export const cssGlass = String.raw`
 [data-theme="glass"] input[type="url"],
 [data-theme="glass"] select,
 [data-theme="glass"] textarea { border-radius: 12px; }
-[data-theme="glass"] .site-search-backdrop { background: rgba(4, 5, 8, .55); }
-[data-theme="glass"] .app-side { border-right-color: var(--border); }
+[data-theme="glass"] .site-search-backdrop { background: rgba(4, 5, 8, .6); }
 [data-theme="glass"] footer.site { background: rgba(8, 10, 14, .55); border-top-color: var(--border); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
 
 /* Header menu below 1040px: a glass sheet under the pill. */
@@ -205,7 +189,7 @@ export const cssGlass = String.raw`
   [data-theme="glass"] .nav-links {
     left: 0; right: 0; top: calc(100% + .5rem);
     background: var(--surface); border: 1px solid var(--border-strong); border-radius: 22px;
-    box-shadow: var(--glass-rim), 0 18px 50px rgba(0, 0, 0, .5);
+    box-shadow: var(--glass-rim), 0 18px 50px rgba(0, 0, 0, .55);
     padding: .5rem;
   }
   [data-theme="glass"] .nav-link { min-height: 44px; border-bottom: 0; border-radius: 14px; }
@@ -215,37 +199,26 @@ export const cssGlass = String.raw`
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   [data-theme="glass"] {
     --surface: var(--glass-surface);
-    --bg-sunk: rgba(255, 255, 255, .06);
+    --bg-sunk: rgba(255, 255, 255, .055);
     --code-bg: rgba(255, 255, 255, .07);
-    --border: rgba(255, 255, 255, .12);
+    --border: rgba(255, 255, 255, .11);
     --border-strong: rgba(255, 255, 255, .18);
   }
-  /* Floating chrome and single hero panels only (the blur budget). */
+  /* Floating chrome only (the blur budget). */
   [data-theme="glass"] .nav-inner::before,
-  [data-theme="glass"] .nav-links,
-  [data-theme="glass"] .whats-new,
-  [data-theme="glass"] .status-banner,
-  [data-theme="glass"] .cl-stats,
-  [data-theme="glass"] .stat-grid,
-  [data-theme="glass"] .help-ask {
-    -webkit-backdrop-filter: blur(24px) saturate(170%);
-    backdrop-filter: blur(24px) saturate(170%);
+  [data-theme="glass"] .nav-links {
+    background-color: var(--glass-raised);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(165%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(165%);
   }
   [data-theme="glass"] .theme-menu,
   [data-theme="glass"] .site-search-panel,
   [data-theme="glass"] .switcher-list,
   [data-theme="glass"] .user-panel {
     background-color: var(--glass-strong);
-    -webkit-backdrop-filter: blur(30px) saturate(180%);
-    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(175%);
+    backdrop-filter: blur(28px) saturate(175%);
   }
-  [data-theme="glass"] .site-search-backdrop {
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
-  }
-  [data-theme="glass"] .nav-links { background-color: var(--glass-strong); }
-  [data-theme="glass"] .live-pill { background: var(--glass-surface); border-color: var(--glass-edge); }
-  [data-theme="glass"] .callout { background: var(--glass-surface); border-color: var(--glass-edge); }
   @media (min-width: 1041px) {
     [data-theme="glass"] .nav-links { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
   }
@@ -256,16 +229,16 @@ export const cssGlass = String.raw`
   [data-theme="glass"] .site-search-panel,
   [data-theme="glass"] .switcher-list,
   [data-theme="glass"] .user-panel { background-color: #12151d; }
-  [data-theme="glass"] .site-search-backdrop { background: rgba(4, 5, 8, .8); }
+  [data-theme="glass"] .site-search-backdrop { background: rgba(4, 5, 8, .82); }
 }
-/* Visitors who ask for less transparency get the solid palette. */
+/* Less transparency: the solid palette, no light layers, no blur anywhere. */
 @media (prefers-reduced-transparency: reduce) {
   [data-theme="glass"] {
-    --surface: #161a22;
-    --bg-sunk: #11141b;
-    --code-bg: #141821;
-    --border: #272c37;
-    --border-strong: #3b4250;
+    --surface: #151922;
+    --bg-sunk: #10131a;
+    --code-bg: #131720;
+    --border: #262b36;
+    --border-strong: #3a414f;
   }
   [data-theme="glass"] body::before { display: none; }
   [data-theme="glass"] body::after { display: none; }
@@ -273,19 +246,16 @@ export const cssGlass = String.raw`
   [data-theme="glass"] .site-search-panel,
   [data-theme="glass"] .switcher-list,
   [data-theme="glass"] .user-panel { background-color: var(--surface); }
-  [data-theme="glass"] .nav-links { background-color: var(--bg); }
+  [data-theme="glass"] .nav-inner::before, [data-theme="glass"] .nav-links { background-color: var(--surface); }
   [data-theme="glass"] .btn.ghost { background-color: transparent; }
   [data-theme="glass"] footer.site { background: var(--bg-sunk); }
-  [data-theme="glass"] .site-search-backdrop { background: rgba(4, 5, 8, .85); }
+  [data-theme="glass"] .site-search-backdrop { background: rgba(4, 5, 8, .88); }
   [data-theme="glass"] * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }
-/* Less motion: no sliding sheen, no spring, no press. */
+/* Less motion: no sweep, no spring, no press. */
 @media (prefers-reduced-motion: reduce) {
   [data-theme="glass"] .btn::after { display: none; }
   [data-theme="glass"] .btn, [data-theme="glass"] .icon-btn { transition: background-color .15s linear, border-color .15s linear; }
   [data-theme="glass"] .btn:active, [data-theme="glass"] .icon-btn:active { transform: none; }
-  [data-theme="glass"] .card, [data-theme="glass"] .panel-card, [data-theme="glass"] .home-feature,
-  [data-theme="glass"] .diff-card, [data-theme="glass"] .audience-card, [data-theme="glass"] .help-ask,
-  [data-theme="glass"] .mod-card { transition: border-color .15s linear; }
 }
 `;

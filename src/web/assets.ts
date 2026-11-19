@@ -15,7 +15,7 @@ export const THEME_COLORS: Record<ThemeId, string> = {
   dark: "#161716",
   steel: "#0c0d0f",
   glass: "#0b0d12",
-  aurora: "#080d14",
+  aurora: "#f7f5fb",
 };
 
 /* Geometric shield on a 32-unit grid: a faceted outline with the left half solid. */

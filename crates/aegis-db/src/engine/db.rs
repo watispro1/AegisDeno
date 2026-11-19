@@ -1,15 +1,18 @@
+use parking_lot::{Mutex, MutexGuard, RwLock};
+use serde_json::Value;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions, TryLockError};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use parking_lot::{Mutex, MutexGuard, RwLock};
-use serde_json::Value;
+use tokio::sync::Notify;
 
 use super::collection::Collection;
-use super::snapshot::{SnapshotData, SnapshotManager};
-use super::wal::{sync_dir, WalEntry, WalOp, WalReader, WalWriter};
+use super::compactor::CompactionRecord;
+use super::snapshot::{SnapshotFormat, SnapshotManager};
+use super::wal::{WalEntry, WalOp, WalReader, WalWriter};
 
 /// File names used by the Rust service inside its data directory. The embedded
 /// TypeScript engine uses different (`ts-*`) names, so pointing both at one
@@ -22,14 +25,52 @@ pub const LOCK_FILE: &str = "aegis-db.lock";
 
 const LOCK_STRIPES: usize = 64;
 
+/// Default WAL size that triggers a compaction: 64 MiB.
+pub const DEFAULT_COMPACT_WAL_BYTES: u64 = 64 * 1024 * 1024;
+
+/// Engine tuning knobs. `Default` matches the service defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DbOptions {
+    /// Write snapshots zstd-compressed (`AEGIS_DB_SNAPSHOT_ZSTD`). Snapshots in
+    /// either format are always readable.
+    pub snapshot_zstd: bool,
+    /// Request a compaction once the live WAL reaches this many bytes
+    /// (`AEGIS_DB_COMPACT_WAL_BYTES`). 0 disables the size trigger.
+    pub compact_wal_bytes: u64,
+}
+
+impl Default for DbOptions {
+    fn default() -> Self {
+        Self {
+            snapshot_zstd: true,
+            compact_wal_bytes: DEFAULT_COMPACT_WAL_BYTES,
+        }
+    }
+}
+
 pub struct AegisDatabase {
-    data_dir: PathBuf,
-    rotated_wal_path: PathBuf,
-    collections: RwLock<BTreeMap<String, Arc<Collection>>>,
-    /// Lock order: a scope stripe (if any) -> `wal` -> `collections`.
-    wal: Mutex<WalWriter>,
-    snapshot: SnapshotManager,
+    pub(super) data_dir: PathBuf,
+    pub(super) rotated_wal_path: PathBuf,
+    pub(super) collections: RwLock<BTreeMap<String, Arc<Collection>>>,
+    /// Serializes whole compactions (timer, size trigger and
+    /// `POST /api/db/compact`), so an older snapshot can never be renamed over
+    /// a newer one after the rotated WAL it depended on was deleted.
+    ///
+    /// Lock order: `compact_lock` -> a scope stripe (if any) -> `wal` ->
+    /// `collections`. Never take `compact_lock` while holding any of the others.
+    pub(super) compact_lock: Mutex<()>,
+    pub(super) wal: Mutex<WalWriter>,
+    pub(super) snapshot: SnapshotManager,
     scope_locks: Vec<Mutex<()>>,
+    pub(super) options: DbOptions,
+    /// Outcome of the most recent successful compaction (leaf lock, held
+    /// only to copy in or out).
+    pub(super) last_compaction: Mutex<Option<CompactionRecord>>,
+    /// Set once a write pushes the WAL past `compact_wal_bytes`, cleared when
+    /// a compaction starts; keeps a burst of writes from notifying repeatedly.
+    pub(super) size_compaction_pending: AtomicBool,
+    /// Wakes the background compactor when the size threshold is crossed.
+    pub(super) size_notify: Notify,
     /// Held for the life of the database; the OS releases it if the process dies.
     _dir_lock: File,
 }
@@ -54,32 +95,54 @@ fn apply(collections_map: &mut BTreeMap<String, Arc<Collection>>, entries: Vec<W
 }
 
 fn lock_data_dir(dir: &Path) -> std::io::Result<File> {
-    let lock = OpenOptions::new().create(true).truncate(false).write(true).open(dir.join(LOCK_FILE))?;
+    let lock = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join(LOCK_FILE))?;
     match lock.try_lock() {
         Ok(()) => Ok(lock),
         Err(TryLockError::WouldBlock) => Err(std::io::Error::new(
             std::io::ErrorKind::WouldBlock,
-            format!("data directory {} is already in use by another AegisDB process", dir.display()),
+            format!(
+                "data directory {} is already in use by another AegisDB process",
+                dir.display()
+            ),
         )),
         Err(TryLockError::Error(e)) => Err(e),
     }
 }
 
 impl AegisDatabase {
+    /// Opens the database with the default [`DbOptions`].
     pub fn open<P: AsRef<Path>>(data_dir: P) -> std::io::Result<Arc<Self>> {
+        Self::open_with_options(data_dir, DbOptions::default())
+    }
+
+    pub fn open_with_options<P: AsRef<Path>>(
+        data_dir: P,
+        options: DbOptions,
+    ) -> std::io::Result<Arc<Self>> {
         let dir = data_dir.as_ref().to_path_buf();
         std::fs::create_dir_all(&dir)?;
         let dir_lock = lock_data_dir(&dir)?;
 
         let wal_path = dir.join(WAL_FILE);
         let rotated_wal_path = dir.join(WAL_ROTATED_FILE);
-        let snapshot = SnapshotManager::new(&dir);
+        let snapshot = SnapshotManager::with_format(
+            &dir,
+            SnapshotFormat::from_compress(options.snapshot_zstd),
+        );
 
         let mut collections_map: BTreeMap<String, Arc<Collection>> = BTreeMap::new();
 
         // 1. Load snapshot if available
         if let Some(snap) = snapshot.load()? {
-            tracing::info!("Loaded snapshot timestamp={} collections={}", snap.timestamp, snap.collections.len());
+            tracing::info!(
+                "Loaded snapshot timestamp={} collections={}",
+                snap.timestamp,
+                snap.collections.len()
+            );
             for (col_name, docs) in snap.collections {
                 let col = Arc::new(Collection::new(&col_name));
                 for (k, v) in docs {
@@ -95,7 +158,11 @@ impl AegisDatabase {
         let rotated = WalReader::replay(&rotated_wal_path)?;
         let live = WalReader::replay(&wal_path)?;
         if !rotated.is_empty() || !live.is_empty() {
-            tracing::info!("Replaying {} rotated + {} live WAL entries...", rotated.len(), live.len());
+            tracing::info!(
+                "Replaying {} rotated + {} live WAL entries...",
+                rotated.len(),
+                live.len()
+            );
         }
         apply(&mut collections_map, rotated);
         apply(&mut collections_map, live);
@@ -106,9 +173,14 @@ impl AegisDatabase {
             data_dir: dir,
             rotated_wal_path,
             collections: RwLock::new(collections_map),
+            compact_lock: Mutex::new(()),
             wal: Mutex::new(wal_writer),
             snapshot,
             scope_locks: (0..LOCK_STRIPES).map(|_| Mutex::new(())).collect(),
+            options,
+            last_compaction: Mutex::new(None),
+            size_compaction_pending: AtomicBool::new(false),
+            size_notify: Notify::new(),
             _dir_lock: dir_lock,
         });
 
@@ -165,9 +237,13 @@ impl AegisDatabase {
 
         // Log and apply under the WAL lock, so a compaction (which also takes
         // it) always sees either both or neither.
-        let mut wal_lock = self.wal.lock();
-        wal_lock.append(&entry)?;
-        self.collection(collection_name).put(key, value);
+        let wal_bytes = {
+            let mut wal_lock = self.wal.lock();
+            wal_lock.append(&entry)?;
+            self.collection(collection_name).put(key, value);
+            wal_lock.bytes()
+        };
+        self.note_wal_size(wal_bytes);
         Ok(())
     }
 
@@ -185,68 +261,13 @@ impl AegisDatabase {
             value: Vec::new(),
         };
 
-        let mut wal_lock = self.wal.lock();
-        wal_lock.append(&entry)?;
-        Ok(self.collection(collection_name).delete(key).is_some())
-    }
-
-    /// Checkpoints the in-memory state. Under the WAL lock it copies every
-    /// collection and rotates the WAL aside, so no write can land between the
-    /// copy and the rotation. The snapshot is then written durably, and only
-    /// after that is the rotated WAL removed.
-    pub fn compact(&self) -> std::io::Result<()> {
-        tracing::info!("Starting database compaction & checkpoint...");
-
-        let mut snap_cols = BTreeMap::new();
-        {
+        let (existed, wal_bytes) = {
             let mut wal_lock = self.wal.lock();
-            {
-                let lock = self.collections.read();
-                for (col_name, col) in lock.iter() {
-                    snap_cols.insert(col_name.clone(), col.all().into_iter().collect::<BTreeMap<_, _>>());
-                }
-            }
-            wal_lock.rotate(&self.rotated_wal_path)?;
-        }
-
-        let snapshot_data = SnapshotData {
-            version: 1,
-            timestamp: chrono::Utc::now().timestamp_millis(),
-            collections: snap_cols,
+            wal_lock.append(&entry)?;
+            let existed = self.collection(collection_name).delete(key).is_some();
+            (existed, wal_lock.bytes())
         };
-        self.snapshot.save(&snapshot_data)?;
-
-        match std::fs::remove_file(&self.rotated_wal_path) {
-            Ok(()) => sync_dir(&self.data_dir)?,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e),
-        }
-
-        tracing::info!("Compaction completed successfully.");
-        Ok(())
-    }
-
-    pub fn stats(&self) -> Value {
-        // Read the WAL counter first and release it: holding `collections` while
-        // waiting on `wal` would invert the lock order used by `put`.
-        let wal_entries = self.wal.lock().entries_count();
-
-        let lock = self.collections.read();
-        let mut col_stats = serde_json::Map::new();
-        let mut total_docs = 0;
-
-        for (col_name, col) in lock.iter() {
-            let count = col.len();
-            total_docs += count;
-            col_stats.insert(col_name.clone(), serde_json::json!({ "document_count": count }));
-        }
-
-        serde_json::json!({
-            "collections_count": lock.len(),
-            "total_documents": total_docs,
-            "wal_pending_entries": wal_entries,
-            "data_directory": self.data_dir.to_string_lossy(),
-            "collections": col_stats
-        })
+        self.note_wal_size(wal_bytes);
+        Ok(existed)
     }
 }

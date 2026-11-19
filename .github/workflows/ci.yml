@@ -26,6 +26,27 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+      # AegisDB Rust service (crates/aegis-db)
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/aegis-db
+
+      - name: cargo fmt --check
+        run: cargo fmt --check
+        working-directory: crates/aegis-db
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+        working-directory: crates/aegis-db
+
+      - name: cargo test
+        run: cargo test --locked
+        working-directory: crates/aegis-db
+
   deploy:
     name: Deploy to Fly.io
     needs: check

@@ -35,9 +35,9 @@ export const cssChrome = String.raw`/* ── Header ─────────
 [data-theme-setting="steel"] .theme-toggle .icon-steel { display: block; }
 [data-theme-setting="glass"] .theme-toggle .icon-glass { display: block; }
 [data-theme-setting="aurora"] .theme-toggle .icon-aurora { display: block; }
-:not([data-theme-setting]) .theme-toggle .icon-sun { display: block; }
-:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
-:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+html:not([data-theme-setting]) .theme-toggle .icon-sun { display: block; }
+html:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+html:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
 
 /* Seven nav links plus the theme picker, search and CTA need ~975px once the
    spacing is tightened (1041-1200px; measured headless at 1040-1200px), so

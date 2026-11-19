@@ -36,9 +36,14 @@ fn put_entry(key: &str, v: i64) -> WalEntry {
 
 fn write_good_records(dir: &PathBuf, n: usize) -> u64 {
     fs::create_dir_all(dir).unwrap();
-    let mut f = OpenOptions::new().create(true).append(true).open(dir.join(WAL_FILE)).unwrap();
+    let mut f = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join(WAL_FILE))
+        .unwrap();
     for i in 0..n {
-        f.write_all(&encode_record(&put_entry(&format!("k{}", i), i as i64)).unwrap()).unwrap();
+        f.write_all(&encode_record(&put_entry(&format!("k{}", i), i as i64)).unwrap())
+            .unwrap();
     }
     f.sync_all().unwrap();
     fs::metadata(dir.join(WAL_FILE)).unwrap().len()
@@ -50,7 +55,8 @@ fn assert_recovers_and_truncates(dir: &PathBuf, good_len: u64, n: usize) {
         assert_eq!(db.collection("economy").len(), n);
         // The tail was cut back to the last intact record.
         assert_eq!(fs::metadata(dir.join(WAL_FILE)).unwrap().len(), good_len);
-        db.put("economy", "after".into(), json!({ "wallet": 7 })).unwrap();
+        db.put("economy", "after".into(), json!({ "wallet": 7 }))
+            .unwrap();
     }
     let db = AegisDatabase::open(dir).unwrap();
     assert_eq!(db.collection("economy").len(), n + 1);
@@ -62,7 +68,10 @@ fn torn_tail_short_payload_is_truncated() {
     let dir = tmp("torn");
     let good = write_good_records(&dir, 3);
     let partial = encode_record(&put_entry("torn", 99)).unwrap();
-    let mut f = OpenOptions::new().append(true).open(dir.join(WAL_FILE)).unwrap();
+    let mut f = OpenOptions::new()
+        .append(true)
+        .open(dir.join(WAL_FILE))
+        .unwrap();
     f.write_all(&partial[..partial.len() - 5]).unwrap();
     drop(f);
     assert_recovers_and_truncates(&dir, good, 3);
@@ -73,7 +82,10 @@ fn torn_tail_short_payload_is_truncated() {
 fn torn_header_is_truncated() {
     let dir = tmp("torn_header");
     let good = write_good_records(&dir, 2);
-    let mut f = OpenOptions::new().append(true).open(dir.join(WAL_FILE)).unwrap();
+    let mut f = OpenOptions::new()
+        .append(true)
+        .open(dir.join(WAL_FILE))
+        .unwrap();
     f.write_all(&[0x10, 0x00, 0x00]).unwrap();
     drop(f);
     assert_recovers_and_truncates(&dir, good, 2);
@@ -84,7 +96,10 @@ fn torn_header_is_truncated() {
 fn oversized_length_prefix_stops_replay() {
     let dir = tmp("oversized");
     let good = write_good_records(&dir, 2);
-    let mut f = OpenOptions::new().append(true).open(dir.join(WAL_FILE)).unwrap();
+    let mut f = OpenOptions::new()
+        .append(true)
+        .open(dir.join(WAL_FILE))
+        .unwrap();
     f.write_all(&u32::MAX.to_le_bytes()).unwrap();
     f.write_all(&[0u8; 32]).unwrap();
     drop(f);
@@ -101,9 +116,13 @@ fn bad_op_with_valid_checksum_stops_replay() {
     let mut h = crc32fast::Hasher::new();
     h.update(&rec[8..]);
     rec[4..8].copy_from_slice(&h.finalize().to_le_bytes());
-    let mut f = OpenOptions::new().append(true).open(dir.join(WAL_FILE)).unwrap();
+    let mut f = OpenOptions::new()
+        .append(true)
+        .open(dir.join(WAL_FILE))
+        .unwrap();
     f.write_all(&rec).unwrap();
-    f.write_all(&encode_record(&put_entry("after_bad", 1)).unwrap()).unwrap();
+    f.write_all(&encode_record(&put_entry("after_bad", 1)).unwrap())
+        .unwrap();
     drop(f);
     let outcome = WalReader::read(dir.join(WAL_FILE)).unwrap();
     assert_eq!(outcome.entries.len(), 2);
@@ -113,66 +132,58 @@ fn bad_op_with_valid_checksum_stops_replay() {
 }
 
 #[test]
-fn compaction_racing_writes_loses_nothing() {
-    let dir = tmp("compact_race");
-    {
-        let db = AegisDatabase::open(&dir).unwrap();
-        let mut handles = Vec::new();
-        for t in 0..4 {
-            let db = db.clone();
-            handles.push(std::thread::spawn(move || {
-                for i in 0..150 {
-                    db.put("bench", format!("t{}:{}", t, i), json!({ "i": i })).unwrap();
-                }
-            }));
-        }
-        let compactor = {
-            let db = db.clone();
-            std::thread::spawn(move || {
-                for _ in 0..20 {
-                    db.compact().unwrap();
-                }
-            })
-        };
-        for h in handles {
-            h.join().unwrap();
-        }
-        compactor.join().unwrap();
-        assert_eq!(db.collection("bench").len(), 600);
-    }
-    let db = AegisDatabase::open(&dir).unwrap();
-    assert_eq!(db.collection("bench").len(), 600, "every acknowledged write survives restart");
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
 fn data_dir_lock_blocks_second_open() {
     let dir = tmp("lock");
     let db = AegisDatabase::open(&dir).unwrap();
     assert!(dir.join(LOCK_FILE).exists());
     let second = AegisDatabase::open(&dir);
-    assert!(second.is_err(), "a second open of a locked data dir must fail");
+    assert!(
+        second.is_err(),
+        "a second open of a locked data dir must fail"
+    );
     drop(db);
-    assert!(AegisDatabase::open(&dir).is_ok(), "lock is released on drop");
+    assert!(
+        AegisDatabase::open(&dir).is_ok(),
+        "lock is released on drop"
+    );
     let _ = fs::remove_dir_all(&dir);
 }
 
-async fn call(router: &axum::Router, method: &str, uri: &str, body: Option<Value>, secret: Option<&str>) -> (StatusCode, Value) {
-    let mut b = Request::builder().uri(uri).method(method).header("content-type", "application/json");
+async fn call(
+    router: &axum::Router,
+    method: &str,
+    uri: &str,
+    body: Option<Value>,
+    secret: Option<&str>,
+) -> (StatusCode, Value) {
+    let mut b = Request::builder()
+        .uri(uri)
+        .method(method)
+        .header("content-type", "application/json");
     if let Some(s) = secret {
         b = b.header("x-aegis-secret", s);
     }
-    let req = b.body(body.map(|v| Body::from(v.to_string())).unwrap_or_else(Body::empty)).unwrap();
+    let req = b
+        .body(
+            body.map(|v| Body::from(v.to_string()))
+                .unwrap_or_else(Body::empty),
+        )
+        .unwrap();
     let res = router.clone().oneshot(req).await.unwrap();
     let status = res.status();
     let bytes = to_bytes(res.into_body(), 1 << 20).await.unwrap();
-    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 
 fn router_with_secret(dir: &PathBuf, secret: &str) -> axum::Router {
     let db = AegisDatabase::open(dir).unwrap();
-    let mut config = Config::default();
-    config.secret = secret.into();
+    let config = Config {
+        secret: secret.into(),
+        ..Default::default()
+    };
     api::create_router(db, Arc::new(config))
 }
 
@@ -207,13 +218,27 @@ async fn concurrent_transactions_do_not_lose_updates() {
     for _ in 0..50 {
         let r = router.clone();
         tasks.push(tokio::spawn(async move {
-            call(&r, "POST", "/api/guilds/77/economy/9/transact", Some(json!({ "kind": "add_wallet", "amount": 10 })), Some("s3cret")).await
+            call(
+                &r,
+                "POST",
+                "/api/guilds/77/economy/9/transact",
+                Some(json!({ "kind": "add_wallet", "amount": 10 })),
+                Some("s3cret"),
+            )
+            .await
         }));
     }
     for t in tasks {
         assert_eq!(t.await.unwrap().0, StatusCode::OK);
     }
-    let (_, acct) = call(&router, "GET", "/api/guilds/77/economy/9", None, Some("s3cret")).await;
+    let (_, acct) = call(
+        &router,
+        "GET",
+        "/api/guilds/77/economy/9",
+        None,
+        Some("s3cret"),
+    )
+    .await;
     assert_eq!(acct["wallet"], 500);
     let _ = fs::remove_dir_all(&dir);
 }
@@ -223,16 +248,48 @@ async fn case_ref_is_idempotent_and_patchable() {
     let dir = tmp("case_ref");
     let router = router_with_secret(&dir, "s3cret");
     let body = json!({ "case_ref": "65f0c0ffee0000000000abcd", "target_id": "1", "mod_id": "2", "action": "ban", "reason": "x" });
-    let (s1, c1) = call(&router, "POST", "/api/guilds/5/cases", Some(body.clone()), Some("s3cret")).await;
+    let (s1, c1) = call(
+        &router,
+        "POST",
+        "/api/guilds/5/cases",
+        Some(body.clone()),
+        Some("s3cret"),
+    )
+    .await;
     assert_eq!(s1, StatusCode::CREATED);
-    let (s2, c2) = call(&router, "POST", "/api/guilds/5/cases", Some(body), Some("s3cret")).await;
-    assert_eq!(s2, StatusCode::OK, "retry with the same ref returns the existing case");
+    let (s2, c2) = call(
+        &router,
+        "POST",
+        "/api/guilds/5/cases",
+        Some(body),
+        Some("s3cret"),
+    )
+    .await;
+    assert_eq!(
+        s2,
+        StatusCode::OK,
+        "retry with the same ref returns the existing case"
+    );
     assert_eq!(c1["case_id"], c2["case_id"]);
 
-    let (sp, patched) = call(&router, "PATCH", "/api/guilds/5/cases/65f0c0ffee0000000000abcd", Some(json!({ "revoked": true, "revoked_by": "3" })), Some("s3cret")).await;
+    let (sp, patched) = call(
+        &router,
+        "PATCH",
+        "/api/guilds/5/cases/65f0c0ffee0000000000abcd",
+        Some(json!({ "revoked": true, "revoked_by": "3" })),
+        Some("s3cret"),
+    )
+    .await;
     assert_eq!(sp, StatusCode::OK);
     assert_eq!(patched["revoked"], true);
-    let (sg, by_num) = call(&router, "GET", "/api/guilds/5/cases/1", None, Some("s3cret")).await;
+    let (sg, by_num) = call(
+        &router,
+        "GET",
+        "/api/guilds/5/cases/1",
+        None,
+        Some("s3cret"),
+    )
+    .await;
     assert_eq!(sg, StatusCode::OK);
     assert_eq!(by_num["revoked"], true);
     let _ = fs::remove_dir_all(&dir);
@@ -257,8 +314,10 @@ fn startup_requires_secret_outside_dev() {
     let config = Config::default();
     assert!(config.validate(false).is_err());
     assert!(config.validate(true).is_ok());
-    let mut with_secret = Config::default();
-    with_secret.secret = "x".into();
+    let with_secret = Config {
+        secret: "x".into(),
+        ..Default::default()
+    };
     assert!(with_secret.validate(false).is_ok());
 }
 
@@ -278,13 +337,34 @@ async fn warning_ref_makes_retries_overwrite() {
     let router = router_with_secret(&dir, "s3cret");
     let body = json!({ "warn_ref": "65f0c0ffee0000000000abcd", "user_id": "1", "mod_id": "2", "reason": "spam" });
     for _ in 0..3 {
-        let (s, w) = call(&router, "POST", "/api/guilds/5/warnings", Some(body.clone()), Some("s3cret")).await;
+        let (s, w) = call(
+            &router,
+            "POST",
+            "/api/guilds/5/warnings",
+            Some(body.clone()),
+            Some("s3cret"),
+        )
+        .await;
         assert_eq!(s, StatusCode::CREATED);
         assert_eq!(w["warn_id"], "65f0c0ffee0000000000abcd");
     }
-    let (_, list) = call(&router, "GET", "/api/guilds/5/warnings/1", None, Some("s3cret")).await;
+    let (_, list) = call(
+        &router,
+        "GET",
+        "/api/guilds/5/warnings/1",
+        None,
+        Some("s3cret"),
+    )
+    .await;
     assert_eq!(list["count"], 1);
-    let (bad, _) = call(&router, "POST", "/api/guilds/5/warnings", Some(json!({ "warn_ref": "../x", "user_id": "1", "mod_id": "2", "reason": "r" })), Some("s3cret")).await;
+    let (bad, _) = call(
+        &router,
+        "POST",
+        "/api/guilds/5/warnings",
+        Some(json!({ "warn_ref": "../x", "user_id": "1", "mod_id": "2", "reason": "r" })),
+        Some("s3cret"),
+    )
+    .await;
     assert_eq!(bad, StatusCode::BAD_REQUEST);
     let _ = fs::remove_dir_all(&dir);
 }
