@@ -188,4 +188,6 @@ tbody tr:last-child td { border-bottom: 0; }
 .tag.warn { color: var(--warn); border-color: currentColor; }
 .tag.danger { color: var(--danger); border-color: currentColor; }
 
+[data-theme="dark"] .live-pill { background: var(--surface); }
+
 `;

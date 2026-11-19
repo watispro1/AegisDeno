@@ -15,7 +15,7 @@ export function renderPremium(cfg: SiteConfig, offered: boolean): string {
   const cta = offered
     ? `<div class="btn-row"><a class="btn" href="/dashboard">Open the dashboard</a><a class="btn ghost" href="/terms#premium">Billing terms</a></div>
       <p class="faint">In the dashboard, pick your server and open <strong>Premium</strong>, or run <code class="inline">/premium</code> in the server for a direct link. Any member of the server can buy it.</p>`
-    : `<p class="notice"><strong>Not on sale yet.</strong> Aegis Premium isn't available on this site yet. Everything Aegis does is free in the meantime.</p>`;
+    : `<p class="notice"><strong>Not on sale yet.</strong> The $5/month Premium subscription is currently in development and not for sale. Everything Aegis does is free in the meantime.</p>`;
   const supportUrl = safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE);
   const faqs = [
     { q: "Is anything free being moved behind Premium?", a: "<p>No. Every command and feature stays free. Premium only raises a few limits that already exist and adds a badge.</p>" },
@@ -31,7 +31,7 @@ export function renderPremium(cfg: SiteConfig, offered: boolean): string {
   ${breadcrumb("Premium")}
   <div class="page-head">
     <h1>Aegis Premium</h1>
-    <p class="lead">An optional ${esc(PREMIUM_PRICE_LABEL)} subscription for one server. It raises a few limits and adds a badge. Everything else in Aegis is, and stays, free.</p>
+    <p class="lead">An upcoming ${esc(PREMIUM_PRICE_LABEL)} subscription for one server (currently in development and not for sale). It raises a few limits and adds a badge. Everything else in Aegis is, and stays, free.</p>
   </div>
   <section class="panel-card premium-price" aria-labelledby="price-h">
     <h2 id="price-h">${esc(PREMIUM_PRICE_LABEL)} per server</h2>

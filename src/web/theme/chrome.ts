@@ -28,12 +28,13 @@ export const cssChrome = String.raw`/* ── Header ─────────
 .nav-actions { display: flex; align-items: center; gap: .25rem; margin-left: auto; }
 .nav-actions .btn { margin-left: .5rem; }
 .nav-toggle { display: none; }
-.theme-toggle .icon-moon, .theme-toggle .icon-sun, .theme-toggle .icon-system, .theme-toggle .icon-steel, .theme-toggle .icon-glass { display: none; }
+.theme-toggle .icon-moon, .theme-toggle .icon-sun, .theme-toggle .icon-system, .theme-toggle .icon-steel, .theme-toggle .icon-glass, .theme-toggle .icon-aurora { display: none; }
 [data-theme-setting="system"] .theme-toggle .icon-system { display: block; }
 [data-theme-setting="light"] .theme-toggle .icon-sun { display: block; }
 [data-theme-setting="dark"] .theme-toggle .icon-moon { display: block; }
 [data-theme-setting="steel"] .theme-toggle .icon-steel { display: block; }
 [data-theme-setting="glass"] .theme-toggle .icon-glass { display: block; }
+[data-theme-setting="aurora"] .theme-toggle .icon-aurora { display: block; }
 :not([data-theme-setting]) .theme-toggle .icon-sun { display: block; }
 :not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 :not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
@@ -141,7 +142,7 @@ main { display: block; min-height: 60vh; }
 .section-head h2 { margin: 0; }
 .section-head p { margin: 0; color: var(--muted); }
 .callout {
-  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border: 1px solid var(--border); border-left: 4px solid var(--accent);
   background: var(--surface); border-radius: var(--r);
   padding: .75rem 1rem; margin: 0 0 1.25rem; font-size: .93rem;
 }

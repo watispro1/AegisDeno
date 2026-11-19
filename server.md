@@ -1,6 +1,6 @@
-# Aegis Support & Community Server Setup
+# Aegis Support & Community Server Manual
 
-> Comprehensive operational manual, architecture guide, and configuration blueprint for the official **Aegis Support & Community** Discord server: roles, categories, channels, permission overrides, forum tag workflows, Discord Community Onboarding, automations, and bot integrations.
+> Official architecture guide, operational manual, and configuration blueprint for the **Aegis Support & Community** Discord server (`v3.14.0`). Covers role hierarchy, permission boundaries, channel architecture, copy-paste topics, bot automation commands, and staff operating procedures.
 
 ---
 
@@ -47,48 +47,50 @@
 
 ### Server Metadata
 - **Server Name:** `Aegis Support & Community`
-- **Community Enabled:** Yes *(Enables Announcement channels, Forums, Welcome Screens, Server Insights, and Native AutoMod)*
-- **Description:** *Official technical support, development updates, documentation, and community hub for the Aegis Discord moderation and management platform.*
-- **Server Region / Preferred Locale:** `English (US)`
-- **Server Icon & Banner:** High-contrast Aegis shield insignia in blurple (`#5865F2`) and deep dark slate (`#1E1F1E`).
+- **Community Enabled:** Yes *(Unlocks Announcements, Forums, Community Onboarding, and Server Insights)*
+- **Description:** Official technical support, release notes, documentation, and community hub for Aegis.
+- **Preferred Locale:** `English (US)`
+- **Server Icon & Banner:** Aegis shield insignia in blurple (`#5865F2`) and dark slate (`#1E1F1E`).
 
-### Safety & Moderation Settings
-- **Verification Level:** `High` *(Must be a member of the server for longer than 10 minutes to post in public channels)*
+### Core Safety Settings
+- **Verification Level:** `High` *(Member of the server for > 10 minutes to post in public channels)*
 - **Explicit Media Content Filter:** `Scan media content from all members`
 - **Default Notification Settings:** `Only @mentions`
-- **2FA Requirement for Moderation:** `Enabled` *(All staff with administrative, kick, ban, timeout, or role management powers must have 2FA enabled)*
-- **Safety Setup:** Native Discord AutoMod rules enabled in tandem with Aegis's real-time filter engine.
+- **2FA Requirement for Moderation:** `Enabled` *(Mandatory for all staff roles)*
+- **Automod Defense:** Native Discord AutoMod active in tandem with Aegis's real-time link, mention, and spam filters.
 
 ---
 
 ## 2. Role Hierarchy & Specifications
 
-Roles must be arranged in the exact order shown below (highest position first) to preserve permission and moderation role hierarchy. Discord prevents any user or bot from modifying, muting, or banning members holding equal or higher roles.
+Roles **must** stay in the exact vertical order below (highest position first). In Discord, no user or bot can manage, timeout, kick, or ban anyone with an equal or higher role.
 
-| Position | Role Name | Color Hex | Hoist | Mentionable | Purpose & Qualifications |
+| Pos | Role Name | Color Hex | Hoist | Mentionable | Purpose |
 |:---:|---|---|:---:|:---:|---|
-| **1** | `Founder / Owner` | `#E74C3C` (Ruby Red) | Yes | No | Server owner & core creator. Unrestricted administrative control. |
-| **2** | `Lead Developer` | `#9B59B6` (Purple) | Yes | Yes | Core software engineers, release managers & infrastructure administrators. |
-| **3** | `Head Moderator` | `#E67E22` (Orange) | Yes | Yes | Leads moderation team, handles escalations, oversees staff actions. |
-| **4** | `Moderator` | `#3498DB` (Cyan Blue) | Yes | Yes | Daily community moderation, chat management, purge/mute/warn enforcement. |
-| **5** | `Support Specialist` | `#2ECC71` (Emerald) | Yes | Yes | Technical support staff answering tickets and community questions. |
-| **6** | `Aegis Bot` | `#5865F2` (Blurple) | Yes | Yes | The official production Aegis bot instance. Elevated permissions. |
-| **7** | `System Bots` | `#7289DA` (Steel Blue) | Yes | No | Auxiliary utility bots (GitHub webhooks, uptime monitor, audio test). |
-| **8** | `Contributor / Dev` | `#1ABC9C` (Turquoise) | Yes | No | Contributors with accepted PRs or code contributions. |
-| **9** | `Bug Hunter` | `#F1C40F` (Gold) | Yes | No | Members who discover and verify critical bugs or security flaws. |
-| **10** | `Server Booster` | `#F47FFF` (Nitro Pink) | Yes | No | Nitro boosters supporting the community (auto-managed by Discord). |
-| **11** | `VIP / Partner` | `#E91E63` (Magenta) | Yes | No | Verified server owners running Aegis in 1,000+ member guilds or sponsors. |
-| **12** | `Active Member` | `#6782B4` (Slate Blue) | No | No | Established active community members rewarded for engagement. |
-| **13** | `Community Member` | `#95A5A6` (Light Gray) | No | No | Verified standard member role. Baseline access to public channels. |
-| **14** | `Announcement Ping` | `#A0B0C0` (Muted) | No | No | Opt-in role for major release announcements. |
-| **15** | `Bot Updates Ping` | `#A0B0C0` (Muted) | No | No | Opt-in role for patch notes, feature updates, and changelogs. |
-| **16** | `Outage / Status Ping` | `#A0B0C0` (Muted) | No | No | Opt-in role for maintenance notices and downtime alerts. |
-| **17** | `Muted / Quarantine` | `#4F545C` (Dark Gray) | No | No | Restricted role for members placed in cooldown or under investigation. |
-| **18** | `@everyone` | None | No | No | Baseline pre-verification role. Restricted read-only view of landing channels. |
+| **1** | `Founder / Owner` | `#E74C3C` | Yes | No | Server owner; complete administrative control |
+| **2** | `Lead Developer` | `#9B59B6` | Yes | Yes | Engineering, releases, infrastructure & production bot management |
+| **3** | `Head Moderator` | `#E67E22` | Yes | Yes | Leads moderation team, handles escalations & policy audits |
+| **4** | `Moderator` | `#3498DB` | Yes | Yes | Daily chat moderation, purge/timeout/warn enforcement |
+| **5** | `Support Specialist` | `#2ECC71` | Yes | Yes | Technical support staff answering tickets and community questions |
+| **6** | `Aegis Bot` | `#5865F2` | Yes | Yes | Production Aegis bot instance; must sit above all managed roles |
+| **7** | `System Bots` | `#7289DA` | Yes | No | Auxiliary bots (webhooks, GitHub notifications, uptime) |
+| **8** | `Contributor / Dev` | `#1ABC9C` | Yes | No | Contributors with accepted pull requests or integrations |
+| **9** | `Bug Hunter` | `#F1C40F` | Yes | No | Members who have verified critical security or bug reports |
+| **10** | `Server Booster` | `#F47FFF` | Yes | No | Nitro boosters supporting the community (auto-managed) |
+| **11** | `VIP / Partner` | `#E91E63` | Yes | No | Server owners running Aegis in 1,000+ member guilds or sponsors |
+| **12** | `Active Member` | `#6782B4` | No | No | Established community members rewarded for positive engagement |
+| **13** | `Community Member` | `#95A5A6` | No | No | Verified standard member role; baseline access to public channels |
+| **14** | `Announcement Ping` | `#A0B0C0` | No | No | Opt-in role for major release announcements |
+| **15** | `Bot Updates Ping` | `#A0B0C0` | No | No | Opt-in role for version changelogs and patch notes |
+| **16** | `Outage / Status Ping` | `#A0B0C0` | No | No | Opt-in role for maintenance notices and downtime alerts |
+| **17** | `Muted / Quarantine` | `#4F545C` | No | No | Restricted role for members placed in cooldown or under investigation |
+| **18** | `@everyone` | None | No | No | Baseline pre-verification role; restricted read-only view of landing channels |
 
 ---
 
 ## 3. Global Permissions Matrix
+
+Key permission delegations across the role tiers:
 
 | Role | Admin | Manage Guild | Manage Roles | Manage Chans | Kick / Ban | Timeout | Mod Messages | View Audit | Send Messages |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -109,12 +111,12 @@ Roles must be arranged in the exact order shown below (highest position first) t
 
 ```
 📂 ─── 📌 INFORMATION & WELCOME ───
-  ├─ 📜・rules-and-info        [Text | Read-only | Server guide & guidelines]
+  ├─ 📜・rules-and-info        [Text | Read-only | Server rules, guidelines & docs link]
   ├─ 👋・welcome               [Text | Read-only | Aegis welcome target]
   ├─ 📢・announcements         [Announcement | Read-only | Major news & events]
   ├─ 🚀・bot-updates           [Announcement | Read-only | Version changelogs]
-  ├─ 🚨・status-and-incidents  [Announcement | Read-only | Maintenance & uptime]
-  └─ 🔗・official-links        [Text | Read-only | Trusted repository & web links]
+  ├─ 🚨・status-and-incidents  [Announcement | Read-only | Maintenance & uptime notices]
+  └─ 🔗・official-links        [Text | Read-only | Trusted repository, docs & web links]
 
 📂 ─── 🛡️ VERIFICATION & ROLES ───
   ├─ 🛡️・verify                [Text | Interactive verification gate panel]
@@ -122,9 +124,9 @@ Roles must be arranged in the exact order shown below (highest position first) t
 
 📂 ─── 💬 COMMUNITY CHAT ───
   ├─ 💬・general-discussion    [Text | Slowmode 3s | Main community discussion]
-  ├─ 🤖・bot-discussion        [Text | Slowmode 5s | Aegis bot setup & Q&A]
-  ├─ 🎨・showcase-setups       [Text | Slowmode 15s | Server configs & layouts]
-  ├─ ⭐・highlights            [Text | Starboard feed for community stars]
+  ├─ 🤖・bot-discussion        [Text | Slowmode 5s | Aegis bot setup, features & Q&A]
+  ├─ 🎨・showcase-setups       [Text | Slowmode 15s | Server configs & layouts showcase]
+  ├─ ⭐・highlights            [Text | Starboard feed for community-starred posts]
   └─ 📷・media-and-memes       [Text | Slowmode 10s | Safe images, media & clips]
 
 📂 ─── 🧪 TESTING & PLAYGROUND ───
@@ -162,9 +164,9 @@ Roles must be arranged in the exact order shown below (highest position first) t
 
 ## 5. Channel Reference & Descriptions
 
-Every channel has one distinct responsibility. Below is the operational table for each category, followed by the exact, ready-to-copy **Channel Topic / Description** (plain text, under Discord's 1024-character limit).
+Every channel has one clear role. Below is the operational specification for each category, followed by paste-ready **Channel Topics** (plain text, under Discord's 1024-character limit).
 
-The shared official web links used across topics are:
+Official links used across topics:
 - Website: https://aegisdeno.fly.dev/
 - Status: https://aegisdeno.fly.dev/status
 - Features: https://aegisdeno.fly.dev/features
@@ -175,10 +177,10 @@ The shared official web links used across topics are:
 - Invite: https://aegisdeno.fly.dev/invite
 - Why Aegis: https://aegisdeno.fly.dev/why
 - Roadmap: https://aegisdeno.fly.dev/roadmap
-- Security (how to report a vulnerability privately): https://aegisdeno.fly.dev/security
+- Security: https://aegisdeno.fly.dev/security
 - Terms and Privacy: https://aegisdeno.fly.dev/terms and https://aegisdeno.fly.dev/privacy
 - Support server invite: https://discord.gg/HwTbCYC4PM
-- Source (public for review; proprietary, all rights reserved): https://github.com/watispro1/AegisDeno
+- Source (proprietary, all rights reserved): https://github.com/watispro1/AegisDeno
 
 ---
 
@@ -186,12 +188,12 @@ The shared official web links used across topics are:
 
 | Channel | Who posts | Slowmode | Permissions | Aegis |
 |---|---|---|---|---|
-| `#rules-and-info` | Staff | Off | Read-only for `@everyone`; reactions off | None; staff pin the rules embed (`/embed builder`) |
-| `#welcome` | Aegis | Off | Read-only for `@everyone` | `/welcome` greets each join here |
-| `#announcements` | Staff | Off | Read-only; reactions on; announcement channel | `/announce crosspost:true` publishes to followers |
-| `#bot-updates` | Staff | Off | Read-only; reactions on; announcement channel | `/announce` with a changelog link per release |
-| `#status-and-incidents` | Staff | Off | Read-only; announcement channel | None; staff post outages and maintenance and link the status page |
-| `#official-links` | Staff | Off | Read-only; reactions off | None; one pinned embed with every trusted link |
+| `#rules-and-info` | Staff | Off | Read-only for `@everyone`; reactions off | Staff pin rules embed via `/embed builder` |
+| `#welcome` | Aegis | Off | Read-only for `@everyone` | `/welcome` greets joins here |
+| `#announcements` | Staff | Off | Read-only; announcement channel | `/announce crosspost:true` publishes updates |
+| `#bot-updates` | Staff | Off | Read-only; announcement channel | `/announce` with changelog link |
+| `#status-and-incidents` | Staff | Off | Read-only; announcement channel | Staff post outages linking status page |
+| `#official-links` | Staff | Off | Read-only; reactions off | Pinned embed with official links |
 
 `#rules-and-info`
 ```text
@@ -229,8 +231,8 @@ The only trusted Aegis links. Invite: https://aegisdeno.fly.dev/invite - Dashboa
 
 | Channel | Who posts | Slowmode | Permissions | Aegis |
 |---|---|---|---|---|
-| `#verify` | Aegis | Off | `@everyone` view + read history, no send; `@Community Member` view off (hides after verifying) | `/verify setup` panel; grants `@Community Member`; kicks unverified accounts after 30 min |
-| `#get-roles` | Aegis | Off | `@everyone` view off; `@Community Member` view, no send | `/rolepanel create` dropdown for the three ping roles |
+| `#verify` | Aegis | Off | `@everyone` read-only; hides after verified | `/verify setup` panel; grants `@Community Member` |
+| `#get-roles` | Aegis | Off | `@Community Member` read-only | `/rolepanel create` dropdown for ping roles |
 
 `#verify`
 ```text
@@ -285,9 +287,9 @@ Images, clips and memes. Safe for work only. Support questions belong in #bot-di
 
 | Channel | Who posts | Slowmode | Permissions | Aegis |
 |---|---|---|---|---|
-| `#bot-playground-1` | `@Community Member` | 3s | Send on; Use Application Commands on | Automod-exempt channel; purge it weekly |
+| `#bot-playground-1` | `@Community Member` | 3s | Send on; Use Application Commands on | Automod-exempt channel; purged regularly |
 | `#bot-playground-2` | `@Community Member` | 3s | Same as playground 1 | Same as playground 1 |
-| `#mod-commands-testing` | Staff | Off | Staff roles only | Real cases and logs are created; use a test account |
+| `#mod-commands-testing` | Staff | Off | Staff roles only | Rehearsals create real cases; use test accounts |
 
 `#bot-playground-1`
 ```text
@@ -310,10 +312,10 @@ Staff sandbox. Rehearse /warn, /timeout, /case, /purge, /massban, /lock and /inc
 
 | Channel | Who posts | Slowmode | Permissions | Aegis |
 |---|---|---|---|---|
-| `#create-ticket` | Aegis | Off | `@Community Member` view, no send | `/ticket setup` panel; tickets ping `@Support Specialist` |
-| `#faq-quick-help` | Staff | Off | Read-only | None; pinned FAQ embed linking the docs |
-| `#self-hosting` | `@Community Member` | 5s per thread | Forum; tag required; Create Posts on | None; threads auto-archive after 7 days |
-| `#api-and-dev-help` | `@Community Member` | 5s per thread | Forum; tag required; Create Posts on | None; threads auto-archive after 7 days |
+| `#create-ticket` | Aegis | Off | `@Community Member` read-only | `/ticket setup` panel; pings `@Support Specialist` |
+| `#faq-quick-help` | Staff | Off | Read-only | Pinned FAQ embed linking docs |
+| `#self-hosting` | `@Community Member` | 5s / thread | Forum; tag required; Create Posts on | Auto-archives after 7 days |
+| `#api-and-dev-help` | `@Community Member` | 5s / thread | Forum; tag required; Create Posts on | Auto-archives after 7 days |
 
 `#create-ticket`
 ```text
@@ -341,8 +343,8 @@ Building around Aegis or contributing? Ask about the public JSON (/api/status, /
 
 | Channel | Who posts | Slowmode | Permissions | Aegis |
 |---|---|---|---|---|
-| `#suggestions` | Aegis (members use `/suggest submit`) | Off | `@Community Member` Send off, Use Application Commands on, reactions off | Suggestion embeds with votes; staff decisions update the post |
-| `#bug-reports` | `@Community Member` | 10s per thread | Forum; tags New, Confirmed, Fixed, Not a bug | None |
+| `#suggestions` | Aegis | Off | `@Community Member` App commands on, send off | Suggestion embeds with buttons; updates on staff triage |
+| `#bug-reports` | `@Community Member` | 10s / thread | Forum; status tags | Staff triage and lifecycle tags |
 
 `#suggestions`
 ```text
@@ -358,17 +360,17 @@ Found a bug? One post each: what you did, what you expected, what happened, and 
 
 ### 5.7 🔐 Staff Command & Audit
 
-`@everyone` and `@Community Member` have View Channel off for this whole category. Staff roles can read every channel; only `#staff-chat` and `#modmail` allow staff to send.
+`@everyone` and `@Community Member` have View Channel **denied** for this category.
 
 | Channel | Who posts | Slowmode | Permissions | Aegis |
 |---|---|---|---|---|
-| `#staff-chat` | Staff | Off | Staff send on | None |
-| `#modmail` | Aegis + staff | Off | Forum; staff Send in Posts on; Aegis Manage Threads | `/modmail setup` opens one post per member DM |
-| `#mod-logs` | Aegis | Off | Staff send off | Every moderation action, Incident Mode step, ModMail close summary, Trust settings change |
-| `#staff-digest` | Aegis | Off | Staff send off | `/digest setup` posts one summary a week |
+| `#staff-chat` | Staff | Off | Staff send on | Internal team coordination |
+| `#modmail` | Aegis + staff | Off | Forum; staff send in posts; Aegis manages threads | `/modmail setup` routes member DMs here |
+| `#mod-logs` | Aegis | Off | Staff send off | Moderation log target |
+| `#staff-digest` | Aegis | Off | Staff send off | `/digest setup` weekly scheduled operations digest |
 | `#watchlist-alerts` | Aegis | Off | Staff send off | Ghost Watch alerts from `/watchlist add` |
-| `#ticket-transcripts` | Aegis | Off | Staff send off | HTML transcript of every closed ticket |
-| `#bot-debug-logs` | Aegis + webhooks | Off | Staff send off | Deploy and runtime notices from the host |
+| `#ticket-transcripts` | Aegis | Off | Staff send off | HTML ticket transcripts posted on ticket close |
+| `#bot-debug-logs` | Aegis + webhooks | Off | Staff send off | Deploy and runtime notices from host |
 
 `#staff-chat`
 ```text
@@ -409,7 +411,7 @@ Deploy notices and runtime errors for the production bot. Not for member reports
 
 ### 5.8 🔊 Voice Lounges
 
-Voice channels have no topic. Set the channel **status** instead.
+Voice channels do not have topics. Set the channel **status**:
 
 | Channel | Access | Status to set |
 |---|---|---|
@@ -422,13 +424,13 @@ Voice channels have no topic. Set the channel **status** instead.
 
 ### 5.9 Channel Conventions
 
-- **Names:** `emoji・kebab-case`; voice channels may use title case.
+- **Names:** `emoji・kebab-case`; voice channels use title case.
 - **Order:** Information -> Verification -> Community -> Testing -> Support -> Feedback -> Staff -> Voice. Staff channels never sit above public ones.
-- **Topics are documentation:** paste them from this section, and update this file first when a channel changes.
-- **Slowmode:** 3s general chat, 5s discussion and support forums, 10–15s media and showcases, off for read-only and staff channels. During a raid, `/incident start` adds slowmode everywhere and removes it again when it ends.
-- **Read-only means read-only:** staff post through Aegis or with an explicit override.
-- **Archive, don't delete:** forum posts auto-archive after 7 days; retired channels are archived so old links keep working.
-- **One bot per job:** Aegis owns moderation, ModMail, tickets, verification, role panels, starboard and logging.
+- **Topics are documentation:** Paste them from §5 and update this manual first whenever a channel changes.
+- **Slowmode:** 3s general chat, 5s discussion & support forums, 10–15s media & showcases, off for read-only and staff channels. During raids, `/incident start` adds slowmode server-wide and restores it upon conclusion.
+- **Read-only is strict:** Staff post through Aegis (`/announce`, `/embed builder`) or with explicit administrator overrides.
+- **Archive, don't delete:** Forum threads auto-archive after 7 days; retired channels are hidden/archived to preserve message links.
+- **Single bot ownership:** Aegis handles moderation, tickets, verification, role panels, starboard, ModMail, and audit logs.
 
 ---
 
@@ -455,98 +457,44 @@ Voice channels have no topic. Set the channel **status** instead.
 
 ### 5.11 Forum Architecture & Tag Workflows
 
-Discord Forum channels organize technical discussions, self-hosting inquiries, bug reports, and inbound member communications. Configure each forum with the following tag definitions and workflows:
+Four specialized Forum channels keep community technical questions and bug reports cleanly triaged:
 
-#### 1. 🔧 #self-hosting Forum Tags
-- **Tag Requirement:** `Require members to select at least one tag` -> **Enabled**
+#### 1. 🔧 `#self-hosting` Forum
+- **Tag Requirement:** Enabled (at least one tag required)
+- **Default Sort:** Recent Activity
 - **Default Reaction:** 💡
-- **Default Sort Order:** `Recent Activity`
-- **Post Guidelines:** *Specify your deployment host (Docker, Fly.io, Bare Metal VPS), Node.js and MongoDB versions, and the exact error output with all secrets redacted.*
+- **Tags:** `Docker` 🐳, `Fly.io` 🚀, `MongoDB` 🍃, `Node.js` 🟩, `Environment` ⚙️, `Permissions` 🔒, `Upgrades` 🔄, `Resolved` ✅ *(Moderator only)*
 
-| Tag Name | Emoji | Moderator Only | Purpose & Usage Guidelines |
-|---|:---:|:---:|---|
-| `Docker` | 🐳 | No | Container setup, `Dockerfile`, `docker-compose.yml`, and container runtime issues. |
-| `Fly.io` | 🚀 | No | Fly.io app deployments, `fly.toml`, secrets configuration, and region routing. |
-| `MongoDB` | 🍃 | No | MongoDB connection URI, Atlas network access, replica sets, and Mongoose errors. |
-| `Node.js` | 🟩 | No | Node runtime version, dependencies (`package.json`), and TypeScript execution. |
-| `Environment` | ⚙️ | No | `.env` variables, missing flags, and Discord application token configuration. |
-| `Permissions` | 🔒 | No | Discord Developer Portal bot permissions, invite bitfields, and gateway intents. |
-| `Upgrades` | 🔄 | No | Version migration steps, database schema adjustments, and upgrade procedures. |
-| `Resolved` | ✅ | **Yes** | Applied by staff when the troubleshooting issue has been successfully answered and resolved. |
-
-#### 2. 💻 #api-and-dev-help Forum Tags
-- **Tag Requirement:** `Require members to select at least one tag` -> **Enabled**
+#### 2. 💻 `#api-and-dev-help` Forum
+- **Tag Requirement:** Enabled (at least one tag required)
+- **Default Sort:** Recent Activity
 - **Default Reaction:** 💻
-- **Default Sort Order:** `Recent Activity`
-- **Post Guidelines:** *Specify the endpoint or service involved. Include relevant code snippets in markdown code blocks. Never share production API keys.*
+- **Tags:** `REST API` 📡, `Webhooks` 🪝, `Architecture` 🏗️, `Slash Commands` ⌨️, `Dashboard` 📊, `Contributing` 🤝, `Solved` ✅ *(Moderator only)*
 
-| Tag Name | Emoji | Moderator Only | Purpose & Usage Guidelines |
-|---|:---:|:---:|---|
-| `REST API` | 📡 | No | Questions regarding JSON endpoints (/api/status, /api/commands, /api/stats) or custom routes. |
-| `Webhooks` | 🪝 | No | Inbound/outbound webhook integrations, GitHub deploy notifications, or logging hooks. |
-| `Architecture` | 🏗️ | No | Questions about Aegis codebase structure, event dispatchers, or service boundaries. |
-| `Slash Commands` | ⌨️ | No | Adding, modifying, or registering custom Discord slash commands and option builders. |
-| `Dashboard` | 📊 | No | Questions regarding the Express web dashboard, SSR templates, or session cookies. |
-| `Contributing` | 🤝 | No | PR discussion, code reviews, local testing harnesses, or contribution guidelines. |
-| `Solved` | ✅ | **Yes** | Applied by staff when the architectural or API question has been satisfactorily answered. |
-
-#### 3. 🐛 #bug-reports Forum Tags & Lifecycle Workflow
-- **Tag Requirement:** `Require members to select at least one tag` -> **Enabled**
+#### 3. 🐛 `#bug-reports` Forum
+- **Tag Requirement:** Enabled (at least one tag required)
+- **Default Sort:** Creation Date (Newest first)
 - **Default Reaction:** 🔍
-- **Default Sort Order:** `Creation Date` (Newest First)
-- **Post Guidelines:** *Provide your /about version, steps to reproduce, expected vs. actual behavior, and screenshots or non-sensitive log traces. One bug per thread.*
+- **Tags & Lifecycle:**
+  - `New` 🆕 *(Member selects on submit)*
+  - `Investigating` 🔍 *(Staff diagnosing)*
+  - `Confirmed` ⚠️ *(Bug verified; queued for fix)*
+  - `Fixed` ✅ *(Fix pushed and verified)*
+  - `Not a Bug` ❌ *(Invalid or working as intended)*
+  - `Needs Info` ❓ *(Missing logs, steps or version)*
+  - `Duplicate` 🚫 *(Already tracked in an open thread or issue)*
 
-```
-[ Member Submits Bug ] ──> Tag: 🆕 New
-                                │
-        ┌───────────────────────┴───────────────────────┐
-        ▼                                               ▼
-[ Staff Diagnosing ] ──> 🔍 Investigating        [ Invalid/Expected ] ──> ❌ Not a Bug
-        │                                               ▼
-        ├──> [ Missing Reproduction Info ] ────> ❓ Needs Info
-        │                                               ▼
-        ├──> [ Tracked in Existing Issue ] ───> 🚫 Duplicate
-        │
-        ▼
-[ Verified by Team ] ──> ⚠️ Confirmed
-        │
-        ▼
-[ PR Merged / Deployed ] ──> ✅ Fixed
-```
-
-| Tag Name | Emoji | Moderator Only | Purpose & Usage Guidelines |
-|---|:---:|:---:|---|
-| `New` | 🆕 | No | Default tag for newly opened member bug reports awaiting staff review. |
-| `Investigating` | 🔍 | **Yes** | Applied by developers/moderators actively diagnosing or reproducing the bug. |
-| `Confirmed` | ⚠️ | **Yes** | Applied when the bug is confirmed and added to the engineering development queue. |
-| `Fixed` | ✅ | **Yes** | Applied when a fix is implemented, tested, and pushed to the release branch. |
-| `Not a Bug` | ❌ | **Yes** | Working as designed or caused by missing Discord permissions / invalid server settings. |
-| `Needs Info` | ❓ | **Yes** | Applied when the reporter must provide missing logs, reproduction steps, or bot version. |
-| `Duplicate` | 🚫 | **Yes** | Applied when the reported issue is already tracked in an existing thread or GitHub issue. |
-
-#### 4. 📬 #modmail Forum Tags
-- **Tag Requirement:** `Require members to select at least one tag` -> **Disabled** *(Aegis auto-creates threads on DM)*
+#### 4. 📬 `#modmail` Forum
+- **Tag Requirement:** Disabled *(Aegis manages threads on inbound DM)*
+- **Default Sort:** Recent Activity
 - **Default Reaction:** 📬
-- **Default Sort Order:** `Recent Activity`
-- **Post Guidelines:** *Staff only. Use /modmail reply or =message to reply to members. Internal comments require no prefix. Close threads with /modmail close.*
-
-| Tag Name | Emoji | Moderator Only | Purpose & Usage Guidelines |
-|---|:---:|:---:|---|
-| `Open` | 📩 | **Yes** | Active ticket currently awaiting staff response or action. |
-| `Pending Member` | ⏳ | **Yes** | Staff have replied and are waiting on the user for additional details. |
-| `Appeal` | ⚖️ | **Yes** | Inbound member inquiry appealing a moderation action (warning, timeout, or ban). |
-| `Urgent` | 🚨 | **Yes** | High-priority safety issue, active raid, or harassment report requiring immediate attention. |
-| `General` | ❓ | **Yes** | General inquiry or administrative question not requiring an engineering ticket. |
-| `Closed` | 🔒 | **Yes** | Applied automatically or manually when the conversation has been finalized and archived. |
+- **Staff Tags:** `Open` 📩, `Pending Member` ⏳, `Appeal` ⚖️, `Urgent` 🚨, `General` ❓, `Closed` 🔒
 
 ---
 
 ### 5.12 Discord Community Onboarding & Server Guide
 
-Discord Community Onboarding streamlines arrival and grants immediate access to relevant content while maintaining server security:
-
-#### 1. Default Channels (Visible to All Pre-Verification)
-New members automatically view these landing channels upon joining:
+#### Default Landing Channels (Pre-Verification)
 - `#rules-and-info`
 - `#welcome`
 - `#announcements`
@@ -555,60 +503,54 @@ New members automatically view these landing channels upon joining:
 - `#official-links`
 - `#verify`
 
-#### 2. Pre-Join Customization Questions
-Discord prompts joining members with two onboarding questions:
-- **Question 1:** *"What brings you to the Aegis community?"*
-  - Option A: `💬 Community & Chat` -> Unlocks `#general-discussion`, `#showcase-setups`, `#media-and-memes`
-  - Option B: `🔧 Self-Hosting & Deployment` -> Unlocks `#self-hosting` forum
-  - Option C: `🤖 Bot Setup & Moderation` -> Unlocks `#bot-discussion` & `#faq-quick-help`
-  - Option D: `💻 Developer & API Integrations` -> Unlocks `#api-and-dev-help`
-- **Question 2:** *"Which updates would you like to receive?"*
-  - Option A: `📢 Major Announcements` -> Assigns `@Announcement Ping`
-  - Option B: `🔄 Bot Patch Notes` -> Assigns `@Bot Updates Ping`
-  - Option C: `🚨 Outages & Incidents` -> Assigns `@Outage / Status Ping`
+#### Pre-Join Customization Questions
+1. *"What brings you to the Aegis community?"*
+   - `💬 Community & Chat` -> Channels: `#general-discussion`, `#showcase-setups`, `#media-and-memes`
+   - `🔧 Self-Hosting & Deployment` -> Forum: `#self-hosting`
+   - `🤖 Bot Setup & Moderation` -> Channels: `#bot-discussion`, `#faq-quick-help`
+   - `💻 Developer & API Integrations` -> Forum: `#api-and-dev-help`
+2. *"Which updates would you like to receive?"*
+   - `📢 Major Announcements` -> Role: `@Announcement Ping`
+   - `🔄 Bot Patch Notes` -> Role: `@Bot Updates Ping`
+   - `🚨 Outages & Incidents` -> Role: `@Outage / Status Ping`
 
-#### 3. Server Guide (To-Do List & Resources)
-Discord's Server Guide tab presents three onboarding steps for new arrivals:
-- **Step 1:** Complete Verification in `#verify` to unlock full server participation.
-- **Step 2:** Review notifications in `#get-roles` to customize optional ping roles.
-- **Step 3:** Test your first command in `#bot-playground-1` with `/help`.
-- **Resource Page:** *"Official Documentation"* -> Highlights `#official-links` and https://aegisdeno.fly.dev/docs.
+#### Server Guide Onboarding Tasks
+- **Task 1:** Complete verification in `#verify` to unlock full server access.
+- **Task 2:** Select notification roles in `#get-roles`.
+- **Task 3:** Run `/help` in `#bot-playground-1` to test the bot.
 
 ---
 
 ## 6. Channel Permissions Breakdown
 
-Category defaults; the per-channel rows in §5 override these.
+Category-level permission inheritance:
 
 | Category | `@everyone` | `@Community Member` | Staff roles | `Aegis Bot` |
 |---|---|---|---|---|
-| 📌 Information & Welcome | View, read history; no send, threads or reactions | Same; reactions on in announcement channels | Send (Head Moderator and above) | Send, Embed Links, Attach Files |
-| 🛡️ Verification & Roles | `#verify` only | `#get-roles` only | View | Send, Embed Links, Manage Roles (below its own role) |
-| 💬 Community Chat | View off | View, send, Embed Links; Mention @everyone off | Manage Messages, Moderate Members | View, Manage Messages, Moderate Members |
+| 📌 Information & Welcome | View, read history; no send, threads or reactions | Same; reactions in announcements | Send (Head Moderator+) | Send, Embed Links, Attach Files |
+| 🛡️ Verification & Roles | `#verify` only | `#get-roles` only | View | Send, Embed Links, Manage Roles |
+| 💬 Community Chat | View off | View, send, Embed Links; no @everyone pings | Manage Messages, Moderate Members | View, Manage Messages, Moderate Members |
 | 🧪 Testing & Playground | View off | Playgrounds only | All three channels | View, send |
-| 🎫 Support & Tickets | View off | View; forum Create Posts; panel channel no send | View, Manage Threads | Manage Channels (creates `ticket-` channels), Manage Roles (adds members), Attach Files (transcripts) |
-| 💡 Feedback & Bugs | View off | Use Application Commands; forum Create Posts | Manage Threads | Send, Embed Links |
-| 🔐 Staff Command & Audit | View off | View off | View; send in `#staff-chat` and `#modmail` | Send, Embed Links, Attach Files, Create Private Threads, Manage Threads |
-
-- `Muted / Quarantine` has Send Messages, Add Reactions, Create Threads and Connect off in every category.
-- Ticket channels (`ticket-<username>`, created by Aegis) deny `@everyone` and allow the opener and the ticket staff role.
+| 🎫 Support & Tickets | View off | View; forum Create Posts; panel read-only | View, Manage Threads | Manage Channels, Manage Roles, Attach Files |
+| 💡 Feedback & Bugs | View off | App Commands; forum Create Posts | Manage Threads | Send, Embed Links |
+| 🔐 Staff Command & Audit | View off | View off | View; send in `#staff-chat` & `#modmail` | Full staff permissions |
 
 ---
 
 ## 7. Official Aegis Bot Setup & Integration
 
-Run the following commands inside the server using the bot to configure its native subsystems. Option names below match the registered slash commands; if a command changes, `/help` and the public command catalog (`aegisdeno.fly.dev/commands`) are the source of truth.
+Run these commands inside Discord to configure all native bot systems. All option names match the live command catalog (`aegisdeno.fly.dev/commands`).
 
 ### 7.1 Setup Order
 
-1. **Invite Aegis** from https://aegisdeno.fly.dev/invite (`bot` and `applications.commands` scopes) and drag `Aegis Bot` above every role it must manage (§2).
-2. **Run `/diagnostics`** and fix every missing permission. Aegis needs what its invite asks for (permissions integer `1460691659798`): View Channels, Send Messages, Send Messages in Threads, Create Private Threads, Manage Threads, Embed Links, Attach Files, Read Message History, Manage Messages, Moderate Members, Kick Members, Ban Members, Manage Nicknames, Manage Channels (slowmode, tickets) and Manage Roles (locks, roles, ticket members). `/lock` needs Manage Roles, not Manage Channels. Manage Server is optional: only Incident Mode's "pause invites" uses it. Built-in Apps context menus (Report Message, Remind Me About This, User Info, Avatar) require no extra permissions.
-3. **Logging** (7.2), then **verification** and **role panels** (7.3–7.4).
+1. **Invite Aegis** from https://aegisdeno.fly.dev/invite (`bot` and `applications.commands` scopes) and drag `Aegis Bot` above all roles it manages (§2).
+2. **Run `/diagnostics`** and resolve any missing permissions. Required bitfield: `1460691659798`.
+3. **Audit Logging** (7.2), then **verification** and **role panels** (7.3–7.4).
 4. **Tickets, welcome, suggestions and starboard** (7.5–7.8).
 5. **Automod and escalation** (7.9–7.10).
 6. **Staff tools:** ModMail, staff digest, Incident Mode, Trust Score and Ghost Watch (7.11).
-7. **Optional:** the playground economy (7.12).
-8. **Test everything** with the checklist in §10.
+7. **Optional:** Playground economy (7.12).
+8. **Verify everything** using the QA checklist in §10.
 
 ### 7.2 General & Audit Logging Setup
 
@@ -620,7 +562,7 @@ Run the following commands inside the server using the bot to configure its nati
 /logging test
 ```
 
-`/logging status` opens the interactive category manager. Use the buttons to toggle mod actions, member joins/leaves, message edits/deletes, role changes, and channel events. There is no `/logging categories` subcommand - the buttons replace it. When member joins logging is active, Aegis automatically attaches join-risk intelligence flags (new accounts under 1d/7d/30d, default avatars, generated names, returning members with prior infractions).
+`/logging status` opens the interactive category manager. Use buttons to toggle mod actions, member joins/leaves, message edits/deletes, role changes, and channel events. When member joins logging is active, Aegis automatically attaches join-risk intelligence flags (new accounts under 1d/7d/30d, default avatars, generated names, returning members with prior infractions).
 
 ### 7.3 Verification Gate
 
@@ -628,9 +570,9 @@ Run the following commands inside the server using the bot to configure its nati
 /verify setup channel:#verify verified_role:@Community Member type:One-Click Button kick_unverified_minutes:30
 ```
 
-- `type:One-Click Button` is the one-click panel. Use `type:CAPTCHA Verification` if the server is under active raid pressure.
-- `kick_unverified_minutes:0` disables auto-kick. Change it later with `/verify autokick minutes:30`.
-- `/verify user target:@member` manually verifies a member; `/verify batch` handles a trusted list; `/verify info` shows current settings.
+- `type:One-Click Button` is the standard zero-friction panel. Use `type:CAPTCHA Verification` during active raids.
+- Set `kick_unverified_minutes:0` to disable auto-kick, or update later with `/verify autokick minutes:30`.
+- `/verify user target:@member` verifies an individual; `/verify batch` verifies multiple accounts.
 
 ### 7.4 Role Selection Panels (Opt-In Pings)
 
@@ -638,9 +580,8 @@ Run the following commands inside the server using the bot to configure its nati
 /rolepanel create channel:#get-roles role1:@Announcement Ping role2:@Bot Updates Ping role3:@Outage / Status Ping style:Dropdown menu exclusive:false
 ```
 
-- `style:Buttons` is the default. `style:Dropdown menu` is better for three or more roles.
-- `exclusive:true` lets a member hold only one role from the panel; keep `false` for independent notification pings.
-- Add `required_role:@Community Member` if the panel should stay gated.
+- `style:Dropdown menu` is clean for 3+ roles; `style:Buttons` is available for short lists.
+- `exclusive:false` allows members to pick multiple independent pings.
 - Inspect or remove panels with `/rolepanel list` and `/rolepanel delete id:<panel-id>`.
 
 ### 7.5 Support Ticket Launcher & Settings
@@ -651,9 +592,8 @@ Run the following commands inside the server using the bot to configure its nati
 /ticket setup channel:#create-ticket staff_role:@Support Specialist title:"Aegis Technical Support" description:"Click the button below to open a private support ticket with our engineering and support staff."
 ```
 
-- `autoclose_hours:0` turns inactivity closing off.
-- `transcripts:false` keeps transcripts out of the log channel while still DMing the member.
-- `/ticket claim`, `/ticket add`, `/ticket remove`, `/ticket rename`, `/ticket transcript`, and `/ticket close` are used inside the ticket channel.
+- `autoclose_hours:0` disables automatic inactivity closure.
+- Inside ticket channels: `/ticket claim`, `/ticket add`, `/ticket remove`, `/ticket rename`, `/ticket transcript`, and `/ticket close`.
 
 ### 7.6 Welcome & Orientation
 
@@ -664,13 +604,13 @@ Run the following commands inside the server using the bot to configure its nati
 /welcome preview
 ```
 
-`/welcome message` opens a form rather than taking the text as an option. Paste this into the form, replacing `RULES_CHANNEL_ID` and `VERIFY_CHANNEL_ID` with the real channel IDs:
+`/welcome message` opens a modal form. Paste this message body:
 
 ```text
 Welcome {user} to the official **{server}**! Please read <#RULES_CHANNEL_ID> and then verify in <#VERIFY_CHANNEL_ID>. You are member #{count}.
 ```
 
-Supported variables: `{user}` mentions the member, `{username}` is their display name without a mention, `{server}` is the server name, and `{count}` is the member count. `{member_count}` is kept as an alias. `/welcome preview` renders the message exactly as members will see it before you enable it.
+Supported placeholders: `{user}` (mention), `{username}` (plain name), `{server}` (guild name), `{count}` (member count). Test anytime with `/welcome preview`.
 
 ### 7.7 Suggestions
 
@@ -678,7 +618,7 @@ Supported variables: `{user}` mentions the member, `{username}` is their display
 /suggest setup channel:#suggestions
 ```
 
-Members submit with `/suggest submit`. Staff triage with `/suggest consider`, `/suggest approve`, and `/suggest deny`, each with an optional public `reason`. `/suggest info id:<id>` shows the full review history.
+Members submit with `/suggest submit`. Staff triage with `/suggest consider`, `/suggest approve`, and `/suggest deny`, each supporting an optional public `reason`.
 
 ### 7.8 Starboard Highlights
 
@@ -690,9 +630,8 @@ Members submit with `/suggest submit`. Staff triage with `/suggest consider`, `/
 /starboard toggle enabled:true
 ```
 
-- Star a message with ⭐ to nominate it. At four reactions it is copied to `#highlights`.
-- `/starboard ignore action:add channel:#media-and-memes` keeps noisy channels out.
-- `/starboard config` and `/starboard list` verify the setup.
+- At 4 star reactions, messages are posted to `#highlights`.
+- `/starboard ignore action:add channel:#media-and-memes` excludes noisy channels.
 
 ### 7.9 Automod & Spam Protection
 
@@ -715,7 +654,7 @@ Members submit with `/suggest submit`. Staff triage with `/suggest consider`, `/
 /automod status
 ```
 
-Links, mention floods, message floods and caps are filtered everywhere except the exempt roles and the two playgrounds. Each filter's `action` is Delete message, Delete and warn, or Delete and timeout. Exemptions can also be edited on the dashboard's Automod settings.
+Exempt staff roles and the playground channels from filters so tests run without triggering penalties.
 
 ### 7.10 Escalation Safety Nets
 
@@ -728,7 +667,7 @@ Links, mention floods, message floods and caps are filtered everywhere except th
 /escalation status
 ```
 
-`duration` is in minutes and only applies to the `timeout` action. `expiry days:0` makes warnings count forever.
+Automatically escalates repeat infractions (3 warnings -> 1h timeout, 5 warnings -> 24h timeout, 7 warnings -> permanent ban). Warnings expire after 30 days.
 
 ### 7.11 Staff Tools: ModMail, Digest, Incident Mode, Trust Score, Ghost Watch
 
@@ -747,16 +686,16 @@ Links, mention floods, message floods and caps are filtered everywhere except th
 /trust user user:@member
 ```
 
-- **ModMail:** members DM Aegis; each conversation becomes a post in `#modmail`. Reply with `/modmail reply`, the Reply buttons, a snippet (`/modmail snippet use`) or a message starting with `=`. `/modmail close` asks to confirm, DMs the member and posts a summary to `#mod-logs`. Use `/modmail block` for abuse. Greeting and close messages are edited on the dashboard's ModMail page.
-- **Staff digest:** posts once a week; `/digest disable` stops it. It names members but never pings anyone.
-- **Incident Mode:** `/incident auto` starts it when 10 accounts join within 30 seconds. Start it by hand during a raid with `/incident start` (defaults: 1 hour, gates accounts younger than 7 days) and end it early with `/incident end`, which puts back every slowmode, lock and invite it changed. Each step is logged to `#mod-logs`.
-- **Trust Score:** `/trust user` shows a member's 0-100 score and why. With `incident_gate:true`, Incident Mode's join gate also catches low-trust joins. The link-filter and low-trust-role integrations stay off unless you turn them on.
-- **Ghost Watch:** `/watchlist add user:@member reason:Suspected alt account alert_channel:#watchlist-alerts`, then `/watchlist list` to review.
+- **ModMail:** Inbound member DMs create private forum threads in `#modmail`. Reply with `/modmail reply`, quick buttons, snippets (`/modmail snippet use`), or messages prefixed with `=`. Close with `/modmail close`.
+- **Staff Digest:** Weekly operational summary posted Mondays at 09:00 Central to `#staff-digest`.
+- **Incident Mode:** Auto-triggers during join bursts (10 joins in 30s) or manually via `/incident start`. Restores exact previous slowmodes and permissions via `/incident end`.
+- **Trust Score:** `/trust user` evaluates member risk (0–100) based on tenure, verified status, infractions, and activity.
+- **Ghost Watch:** `/watchlist add user:@member reason:Suspected alt account alert_channel:#watchlist-alerts`.
 - **Mass Ban:** `/massban user_ids:"ID1 ID2" reason:"Raid cleanup"` quickly purges up to 50 bad actors by ID with confirmation and a single audit case.
 
 ### 7.12 Economy (Optional, for the Playground)
 
-The economy is off by default. Turn it on here so visitors can try it in `#bot-playground-1`; it is a demo, so keep rewards modest and never sell staff or ping roles.
+Demo economy for `#bot-playground-1`:
 
 ```bash
 /economy toggle enabled:true
@@ -766,40 +705,37 @@ The economy is off by default. Turn it on here so visitors can try it in `#bot-p
 /leaderboard
 ```
 
-- Members use `/daily` (with streak deadlines), `/work`, `/pay`, `/balance`, `/shop buy`, `/inventory` (with interactive use and sell menus), `/transactions` (paged audit trail), `/rob`, and `/interest`. The leaderboard never pings.
-- `/economy give`, `/economy take` and `/economy reset` are posted to `#mod-logs`. Use them for event prizes, not to settle disputes.
-- The badge is an inventory item with no role. If you ever sell a role, keep it cosmetic and below `Aegis Bot` and your own role; Aegis refuses anything higher.
+Members use `/daily`, `/work`, `/pay`, `/balance`, `/shop buy`, `/inventory`, `/transactions`, `/rob`, and `/interest`.
 
 ---
 
 ## 8. Onboarding & Member Journey
 
-1. **Arrival:** New member joins, sees only `#rules-and-info`, `#welcome`, `#announcements`, `#status-and-incidents`, and `#verify`.
-2. **Verification:** Member reviews the rules and clicks the button in `#verify`.
-3. **Role Assignment:** Aegis grants `@Community Member` and automatically hides `#verify`.
-4. **Notification Setup:** Member visits `#get-roles` and selects opt-in pings (release notices, bot updates, outages).
-5. **Support Interaction:** For help, the member posts in `#self-hosting` / `#api-and-dev-help`, presses **Create Ticket** in `#create-ticket`, or DMs Aegis to reach staff through ModMail.
+1. **Arrival:** New member joins and sees only the read-only information category and `#verify`.
+2. **Verification:** Member reviews `#rules-and-info` and clicks **Verify** in `#verify`.
+3. **Access Granted:** Aegis assigns `@Community Member` and automatically hides `#verify`.
+4. **Role Customization:** Member visits `#get-roles` and selects opt-in notifications.
+5. **Support:** For technical help, members use `#self-hosting` / `#api-and-dev-help`, launch a private ticket in `#create-ticket`, or DM Aegis for ModMail assistance.
 
 ---
 
 ## 9. Staff Standard Operating Procedures (SOP)
 
 ### Incident & Escalation Flow
-- **Minor** (caps, off-topic, light spam): redirect in chat, then `/warn` with severity Low.
-- **Moderate** (disrespect, NSFW link attempt, toxicity): `/warn` with severity Medium; repeat within 10 minutes -> `/timeout` for 10 minutes.
-- **Severe** (malicious links, token grabbers, hate speech): `/ban` with `delete_messages` and a `proof` attachment.
-- **Raid:** `/incident start` (locks public channels, adds slowmode, gates new accounts), clean up with `/massban` or `/purge` (filter: links or bots), and `/incident end` once it is over. Post an update in `#status-and-incidents` only if the bot itself is affected.
+- **Minor (caps, light off-topic, spam):** Friendly chat redirection; if repeated, `/warn` with Low severity.
+- **Moderate (disrespect, harassment, toxicity):** `/warn` Medium severity; repeat within 10 minutes -> `/timeout` for 10 minutes.
+- **Severe (malicious links, token stealers, hate speech):** Immediate `/ban` with `delete_messages` and evidence attachments.
+- **Raid:** Start Incident Mode with `/incident start` (locks public channels, gates new joins, slows chats), clean up via `/massban` or `/purge`, then run `/incident end` to restore channels automatically.
 
-### Ticket Resolution Etiquette
-1. **Claiming:** Staff members must press **Claim** on the ticket embed (`/ticket claim`) before providing in-depth support to avoid duplicate staff intervention.
-2. **Diagnostics:** When troubleshooting user instances, direct them to run `/diagnostics` and provide non-sensitive logs. Never ask for bot tokens or database passwords.
-3. **Closing:** When resolved, notify the user and invoke `/ticket close reason:"Issue resolved after configuration update"`. The bot automatically generates an HTML transcript and sends it to `#ticket-transcripts`.
+### Ticket Handling Protocol
+1. **Claiming:** Click **Claim** on the ticket embed or run `/ticket claim` before replying to prevent duplicate staff intervention.
+2. **Confidentiality:** Direct users to run `/diagnostics` for setup issues. Never request bot tokens, API keys, or database credentials.
+3. **Closing:** When solved, notify the user and invoke `/ticket close reason:"Issue resolved"`. Aegis generates an HTML transcript and delivers it to `#ticket-transcripts`.
 
 ### Case Hygiene
-- Every action gets a reason. "No reason provided" is not an audit trail.
-- Use `/case edit case_id:<id> reason:"..."` when new context appears; do not delete a case to hide a mistake.
-- Link the case ID in `#staff-chat` when escalating so the next moderator can read the history.
-- Use `/note add user:@member` for context that should not count toward warnings.
+- Every moderation action requires an informative reason.
+- Use `/case edit case_id:<id> reason:"..."` when additional context arises; never attempt to delete cases.
+- Use `/note add user:@member` for staff notes that should not penalize member Trust Scores.
 
 ---
 
@@ -832,4 +768,4 @@ The economy is off by default. Turn it on here so visitors can try it in `#bot-p
 
 ---
 
-*Document version: 3.14.0 (2026-11-14) • Maintained by the Aegis team • Source (proprietary, for review): https://github.com/watispro1/AegisDeno*
+*Document version: 3.14.0 • Maintained by the Aegis team • Source (proprietary, for review): https://github.com/watispro1/AegisDeno*

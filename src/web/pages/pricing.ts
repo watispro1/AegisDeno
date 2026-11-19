@@ -17,7 +17,7 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
   const premiumCta = offered
     ? `<div class="btn-row"><a class="btn" href="/dashboard">Upgrade on Dashboard</a><a class="btn ghost" href="/premium">Checkout details</a></div>
        <p class="faint">Pick your server on the dashboard and open <strong>Premium</strong>, or run <code class="inline">/premium</code> in your Discord server.</p>`
-    : `<p class="notice"><strong>Not on sale yet.</strong> Aegis Premium isn&#39;t available on this site yet. Everything Aegis does is free in the meantime.</p>`;
+    : `<p class="notice"><strong>Not on sale yet.</strong> The $5/month Premium subscription is currently in development and not for sale. Everything Aegis does is 100% free in the meantime.</p>`;
 
   const faqs = [
     { q: "Is Aegis really free?", a: "<p>Yes. Every single moderation, automod, logging, verification, ticket, leveling, and utility command is 100% free and will always remain free. Premium only raises quantitative limits and adds a server badge.</p>" },
@@ -27,6 +27,7 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
     { q: "What is your refund policy?", a: `<p>We offer a <strong>full 14-day money-back guarantee</strong> on any payment. You can request a refund directly through Paddle at <a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a> or by contacting us on our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>. Full details are on our <a href="/refunds">Refund Policy page</a>.</p>` },
     { q: "What happens if I cancel Premium?", a: "<p>Your subscription remains active until the end of the paid month. After that, nothing is deleted or disabled. Existing autoresponders, shop items, or snippets keep working; you just cannot create new ones beyond the free limits until you are below the free caps.</p>" },
     { q: "Which payment methods are supported?", a: "<p>Paddle accepts major credit and debit cards (Visa, MasterCard, American Express), PayPal, Apple Pay, Google Pay, and supported regional payment methods depending on your location.</p>" },
+    { q: "What happens to my data when Premium ends?", a: "<p>Nothing is deleted. Your autoresponders, shop items, snippets and scheduled messages continue to work. You just cannot create new ones beyond the free tier limits until your usage drops below those limits naturally.</p>" },
   ];
 
   const body = `
@@ -67,11 +68,11 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
 
     <!-- Premium Tier Card -->
     <div class="pricing-card recommended">
-      <div class="pricing-tag">✦ Recommended</div>
+      <div class="pricing-tag">In Development</div>
       <div>
-        <span class="pill ok">✦ Premium</span>
+        <span class="pill ok">✦ Premium</span> <span class="pill warn">In Development · Not for Sale</span>
         <h2 class="pricing-price">${esc(PREMIUM_PRICE_LABEL)}</h2>
-        <p class="faint">For larger servers that need doubled limits and extra power.</p>
+        <p class="faint">For larger servers that need doubled limits and extra power (currently in development and not for sale).</p>
         <ul class="pricing-features">
           <li>&#10003; <strong>Everything in Free included</strong></li>
           <li>&#10003; <strong>100 Autoresponders</strong> (2&times; limit)</li>

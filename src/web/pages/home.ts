@@ -104,6 +104,7 @@ export function renderHome(cfg: SiteConfig, stats: Stats, online: boolean): stri
         <li>${icon("check", "f-icon sm")}No Administrator permission</li>
         <li>${icon("check", "f-icon sm")}Free, nothing locked</li>
         <li>${icon("check", "f-icon sm")}Records expire after a year</li>
+        <li>${icon("check", "f-icon sm")}Web dashboard included</li>
       </ul>
     </div>
 

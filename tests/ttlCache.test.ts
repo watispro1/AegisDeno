@@ -24,6 +24,20 @@ test("TtlCache evicts the oldest entry past its size bound", () => {
   assert.equal(cache.size, 2);
 });
 
+test("TtlCache.prune removes expired entries and preserves active ones", () => {
+  let now = 0;
+  const cache = new TtlCache<number>(1000, 10, () => now);
+  cache.set("a", 1);
+  now = 500;
+  cache.set("b", 2);
+  now = 1001;
+  const pruned = cache.prune();
+  assert.equal(pruned, 1);
+  assert.equal(cache.get("a"), undefined);
+  assert.equal(cache.get("b"), 2);
+  assert.equal(cache.size, 1);
+});
+
 test("TtlCache.getOrLoad coalesces concurrent misses", async () => {
   const cache = new TtlCache<number>(60_000);
   let loads = 0;

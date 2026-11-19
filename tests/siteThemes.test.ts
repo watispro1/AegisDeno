@@ -63,7 +63,7 @@ function resolve(t: Tokens, v: string): string {
 }
 
 test("themes: every theme has a token block and a browser colour", () => {
-  assert.deepEqual([...THEME_IDS], ["light", "dark", "steel", "glass"]);
+  assert.deepEqual([...THEME_IDS], ["light", "dark", "steel", "glass", "aurora"]);
   for (const id of THEME_IDS) {
     const t = theme(id);
     for (const k of [...TEXT, ...BACKGROUNDS, "--accent", "--accent-ink", "--border"]) assert.ok(t[k], `${id}: ${k} defined`);
@@ -86,7 +86,7 @@ for (const id of THEME_IDS) {
     if (btn < AA) failures.push(`--accent-ink on --accent: ${btn.toFixed(2)}`);
     /* Danger buttons, required-option pills and check icons put text on a status fill:
        white in light themes, the page ink in dark ones (see themes.ts). */
-    const onFill = id === "dark" || id === "steel" || id === "glass" ? resolve(t, t["--bg"]) : "#ffffff";
+    const onFill = id === "dark" || id === "steel" || id === "glass" || id === "aurora" ? resolve(t, t["--bg"]) : "#ffffff";
     for (const fill of ["--danger", "--warn", "--accent"]) {
       const r = ratio(over(onFill, "#000000"), over(resolve(t, t[fill]), "#000000"));
       if (r < AA) failures.push(`on-fill text on ${fill}: ${r.toFixed(2)}`);
@@ -187,6 +187,7 @@ test("theme-init: applies every saved theme before paint and falls back to the s
   };
   assert.deepEqual(run("steel"), { "data-theme": "steel", "data-theme-setting": "steel", meta: "#0c0d0f" });
   assert.deepEqual(run("glass"), { "data-theme": "glass", "data-theme-setting": "glass", meta: "#0b0d12" });
+  assert.deepEqual(run("aurora"), { "data-theme": "aurora", "data-theme-setting": "aurora", meta: "#080d14" });
   assert.deepEqual(run(null, true), { "data-theme": "dark", "data-theme-setting": "system", meta: "#161716" });
   assert.deepEqual(run("bogus"), { "data-theme": "light", "data-theme-setting": "system", meta: "#fbfaf8" });
 });

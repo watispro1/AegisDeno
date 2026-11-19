@@ -3,8 +3,8 @@ export const jsTheme = String.raw`
   /* Theme picker: System (default), Light, Dark, Steel & Ink, Glass (beta).
      theme-init.js applies the saved choice before paint; this keeps it in sync. */
   var STORAGE_KEY = 'aegis-theme';
-  var THEME_LABELS = { system: 'System', light: 'Light', dark: 'Dark', steel: 'Steel & Ink', glass: 'Glass (beta)' };
-  var THEME_COLORS = { light: '#fbfaf8', dark: '#161716', steel: '#0c0d0f', glass: '#0b0d12' };
+  var THEME_LABELS = { system: 'System', light: 'Light', dark: 'Dark', steel: 'Steel & Ink', glass: 'Glass (beta)', aurora: 'Aurora' };
+  var THEME_COLORS = { light: '#fbfaf8', dark: '#161716', steel: '#0c0d0f', glass: '#0b0d12', aurora: '#080d14' };
 
   function getSavedTheme() {
     var t = null;

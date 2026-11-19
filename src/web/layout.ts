@@ -72,6 +72,7 @@ export const moonIcon = `<svg class="icon-moon" width="17" height="17" viewBox="
 export const systemIcon = `<svg class="icon-system" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`;
 export const steelIcon = `<svg class="icon-steel" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>`;
 export const glassIcon = `<svg class="icon-glass" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="13" height="13" rx="2"/><rect x="8" y="8" width="13" height="13" rx="2"/></svg>`;
+export const auroraIcon = `<svg class="icon-aurora" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12c3-4 6-4 9 0s6 4 9 0"/><path d="M3 7c3-3 6-3 9 0s6 3 9 0"/><path d="M3 17c3-3 6-3 9 0s6 3 9 0"/></svg>`;
 
 /** Picker options: [setting, label]. "system" follows the OS light/dark preference. */
 export const THEME_OPTIONS: ReadonlyArray<readonly [string, string]> = [
@@ -80,6 +81,7 @@ export const THEME_OPTIONS: ReadonlyArray<readonly [string, string]> = [
   ["dark", "Dark"],
   ["steel", "Steel &amp; Ink"],
   ["glass", "Glass"],
+  ["aurora", "Aurora"],
 ];
 
 /**
@@ -92,7 +94,7 @@ export function themePicker(): string {
   ).join("\n          ");
   return `<details class="theme-picker">
         <summary class="icon-btn theme-toggle" aria-label="Choose theme" title="Theme">
-          ${sunIcon}${moonIcon}${systemIcon}${steelIcon}${glassIcon}
+          ${sunIcon}${moonIcon}${systemIcon}${steelIcon}${glassIcon}${auroraIcon}
         </summary>
         <div class="theme-menu" role="group" aria-label="Theme">
           <p class="theme-menu-title" aria-hidden="true">Theme</p>

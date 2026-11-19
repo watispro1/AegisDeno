@@ -6,7 +6,7 @@
 export { ogImagePng } from "./ogImagePng";
 
 /** Theme ids the picker offers ("system" follows prefers-color-scheme). */
-export const THEME_IDS = ["light", "dark", "steel", "glass"] as const;
+export const THEME_IDS = ["light", "dark", "steel", "glass", "aurora"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
 /** Browser chrome colour (meta theme-color) for each theme. */
@@ -15,6 +15,7 @@ export const THEME_COLORS: Record<ThemeId, string> = {
   dark: "#161716",
   steel: "#0c0d0f",
   glass: "#0b0d12",
+  aurora: "#080d14",
 };
 
 /* Geometric shield on a 32-unit grid: a faceted outline with the left half solid. */

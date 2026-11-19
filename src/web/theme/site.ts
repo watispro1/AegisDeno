@@ -67,7 +67,9 @@ html.js .nojs-only { display: none; }
 .home-feature {
   display: flex; flex-direction: column; gap: .5rem; padding: 1rem 1.1rem;
   border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface);
+  transition: border-color .15s ease;
 }
+.home-feature:hover { border-color: var(--accent); }
 .home-feature-head { display: flex; align-items: center; gap: .6rem; }
 .home-feature-head h3 { margin: 0; font-size: 1rem; }
 .home-feature-head h3 a { color: var(--text); text-decoration: none; }

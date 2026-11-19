@@ -29,12 +29,29 @@ export class TtlCache<V> {
     return hit.value;
   }
 
+  /** Remove all entries that have already expired. Called lazily to bound staleness. */
+  prune(): number {
+    const now = this.now();
+    let removed = 0;
+    for (const [key, entry] of this.entries) {
+      if (now >= entry.expiresAt) {
+        this.entries.delete(key);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
   set(key: string, value: V): void {
     this.entries.delete(key);
     this.entries.set(key, { value, expiresAt: this.now() + this.ttlMs });
     if (this.entries.size > this.maxEntries) {
-      const oldest = this.entries.keys().next().value;
-      if (oldest !== undefined) this.entries.delete(oldest);
+      // Try to clear expired entries first before evicting valid ones.
+      if (this.entries.size > Math.floor(this.maxEntries * 0.9)) this.prune();
+      if (this.entries.size > this.maxEntries) {
+        const oldest = this.entries.keys().next().value;
+        if (oldest !== undefined) this.entries.delete(oldest);
+      }
     }
   }
 

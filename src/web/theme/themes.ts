@@ -76,6 +76,31 @@ export const cssThemeTokens = String.raw`
   --glass-hi: rgba(255, 255, 255, .16);
   color-scheme: dark;
 }
+
+[data-theme="aurora"] {
+  --bg: #080d14;
+  --bg-sunk: #0e1520;
+  --surface: #121c2b;
+  --text: #f0fdf4;
+  --text-2: #dcfce7;
+  --muted: #9bb3c7;
+  --faint: #8eb0c9;
+  --border: #1e293b;
+  --border-strong: #334155;
+  --accent: #34d399;
+  --accent-hover: #6ee7b7;
+  --accent-ink: #041d13;
+  --accent-soft: #064e3b;
+  --link: #5eead4;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --code-bg: #0f1724;
+  --mark: #064e3b;
+  --r: 8px;
+  --r-lg: 12px;
+  color-scheme: dark;
+}
 `;
 
 /** Component overrides and the picker; included near the end so they win. */
@@ -121,6 +146,7 @@ html:not(.js) .theme-picker { display: none; }
 .theme-swatch[data-swatch="dark"] { background: #161716; }
 .theme-swatch[data-swatch="steel"] { background: linear-gradient(135deg, #0c0d0f 55%, #c5cdc8 55%); }
 .theme-swatch[data-swatch="glass"] { background: radial-gradient(circle at 30% 30%, #6d8fe0, transparent 60%), radial-gradient(circle at 75% 70%, #a46cc0, transparent 55%), #0b0d12; }
+.theme-swatch[data-swatch="aurora"] { background: linear-gradient(135deg, #080d14 0%, #059669 45%, #06b6d4 100%); }
 .theme-beta {
   margin-left: .1rem; padding: 0 .3rem; border: 1px solid var(--border-strong); border-radius: 3px;
   font: 600 .64rem/1.5 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
@@ -131,8 +157,9 @@ html:not(.js) .theme-picker { display: none; }
 [data-theme="dark"] .btn.danger, [data-theme="dark"] .btn.danger:hover,
 [data-theme="steel"] .btn.danger, [data-theme="steel"] .btn.danger:hover,
 [data-theme="glass"] .btn.danger, [data-theme="glass"] .btn.danger:hover,
-[data-theme="dark"] .opt-req, [data-theme="steel"] .opt-req, [data-theme="glass"] .opt-req,
-[data-theme="dark"] .check-icon, [data-theme="steel"] .check-icon, [data-theme="glass"] .check-icon { color: var(--bg); }
+[data-theme="aurora"] .btn.danger, [data-theme="aurora"] .btn.danger:hover,
+[data-theme="dark"] .opt-req, [data-theme="steel"] .opt-req, [data-theme="glass"] .opt-req, [data-theme="aurora"] .opt-req,
+[data-theme="dark"] .check-icon, [data-theme="steel"] .check-icon, [data-theme="glass"] .check-icon, [data-theme="aurora"] .check-icon { color: var(--bg); }
 
 /* ── Steel & Ink ──────────────────────────────────────────────────────── */
 [data-theme="steel"] {
@@ -146,4 +173,41 @@ html:not(.js) .theme-picker { display: none; }
 [data-theme="steel"] .dc-avatar.bot { background: #c5cdc8; color: #0c0d0f; }
 [data-theme="steel"] .dcx .dcx-av { background: #0c0d0f; color: #c5cdc8; box-shadow: inset 0 0 0 1px #3a3e43; }
 [data-theme="steel"] .home-assurances .f-icon { stroke: #c5cdc8; }
+
+/* ── Aurora ─────────────────────────────────────────────────────────────── */
+[data-theme="aurora"] {
+  --k-changed: #34d399;
+  --k-fixed: #a78bfa;
+}
+[data-theme="aurora"] ::selection { background: #34d399; color: #041d13; }
+[data-theme="aurora"] .dc-avatar.bot { background: #34d399; color: #041d13; }
+[data-theme="aurora"] .dcx .dcx-av { background: #080d14; color: #34d399; box-shadow: inset 0 0 0 1px #334155; }
+[data-theme="aurora"] .home-assurances .f-icon { stroke: #34d399; }
+[data-theme="aurora"] .nav-link[aria-current="page"] { box-shadow: inset 0 -1px 0 var(--accent); }
+[data-theme="aurora"] body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 65% 45% at 50% -12%, rgba(52, 211, 153, .14), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 90% 20%, rgba(94, 234, 212, .1), transparent 60%),
+    radial-gradient(ellipse 55% 35% at 10% 70%, rgba(167, 139, 250, .08), transparent 65%);
+  background-attachment: fixed;
+}
+[data-theme="aurora"] .panel-card,
+[data-theme="aurora"] .pricing-card {
+  box-shadow: 0 4px 20px -2px rgba(8, 13, 20, .6), 0 0 0 1px rgba(52, 211, 153, .08);
+}
+[data-theme="aurora"] .pricing-card.recommended {
+  box-shadow: 0 8px 32px -4px rgba(52, 211, 153, .22), 0 0 0 1px var(--accent);
+}
+[data-theme="aurora"] .nav { border-bottom-color: rgba(52, 211, 153, .15); }
+[data-theme="aurora"] .live-pill { border-color: rgba(52, 211, 153, .2); }
+[data-theme="aurora"] a:focus-visible { outline-color: var(--accent); outline-offset: 3px; }
+[data-theme="aurora"] .home-step-n { box-shadow: 0 0 10px rgba(52, 211, 153, .18); }
+[data-theme="aurora"] .callout { box-shadow: inset 0 0 0 0 transparent, 0 0 8px rgba(52, 211, 153, .1); }
+[data-theme="aurora"] .tag { background: rgba(52, 211, 153, .12); border-color: rgba(52, 211, 153, .25); color: var(--accent); }
+
+/* ── Steel surface polish ───────────────────────────────────────────────── */
+[data-theme="steel"] .live-pill { border-color: var(--border-strong); background: var(--bg-sunk); }
+[data-theme="steel"] .callout { border-left-color: var(--accent); }
+[data-theme="steel"] .home-step-n { font-family: var(--serif); }
 `;

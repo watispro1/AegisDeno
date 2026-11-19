@@ -75,6 +75,7 @@ function actions(v: PremiumView): string {
   const customerId = v.entitlement?.customerId ?? "";
   const custAttr = customerId ? ` data-customer="${esc(customerId)}"` : "";
   return `<div class="premium-checkout" data-premium-checkout data-env="${esc(d.environment)}" data-token="${esc(d.clientToken)}" data-price="${esc(d.priceId)}" data-guild="${esc(v.guild.id)}" data-user="${esc(v.viewer.userId)}"${custAttr} data-success="${esc(v.successUrl)}">
+      <p class="notice"><strong>In development &middot; Not for sale yet.</strong> Aegis Premium subscriptions are currently in active development and not open for live checkout. All core moderation and protection features remain 100% free.</p>
       <button class="btn" type="button" data-premium-subscribe disabled>Subscribe for ${esc(PREMIUM_PRICE_LABEL)}</button>
       <p class="faint" data-premium-status role="status" aria-live="polite">Loading the secure checkout…</p>
       <noscript><p class="notice bad">The checkout needs JavaScript. Turn it on for this page, or run /premium in the server for help.</p></noscript>

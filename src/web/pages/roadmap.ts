@@ -22,6 +22,15 @@ export interface RoadmapGroup {
 
 export const ROADMAP: RoadmapGroup[] = [
   {
+    id: "premium",
+    icon: "star",
+    title: "Premium (In Development)",
+    items: [
+      { title: "Aegis Premium subscription", text: "The $5/month per-server subscription is in active development. It raises quantitative limits (autoresponders, shop items, ModMail snippets, scheduled messages, role panel choices) and adds a Premium badge in /help and the dashboard." },
+      { title: "Paddle billing integration", text: "Payments, cancellation and the customer portal are handled by Paddle as merchant of record. No card details are stored by Aegis." },
+    ],
+  },
+  {
     id: "economy",
     icon: "star",
     title: "Economy",
@@ -29,6 +38,7 @@ export const ROADMAP: RoadmapGroup[] = [
       { title: "Blackjack", text: "A blackjack game for the server economy, with the bet limits and daily loss cap the other games already use." },
       { title: "Daily quests", text: "Small daily goals that pay out coins, so there is a reason to come back beyond the daily claim." },
       { title: "Buy more than one", text: "A quantity option on the shop's buy command, instead of buying the same item one at a time." },
+      { title: "Slots minigame", text: "A slot machine game using the economy's existing bet-limit and daily-loss-cap rules." },
     ],
   },
   {
@@ -38,6 +48,7 @@ export const ROADMAP: RoadmapGroup[] = [
     items: [
       { title: "Paging follow-ups", text: "More of the long lists in Discord replies get Prev and Next buttons, and the existing pagers get small consistency fixes." },
       { title: "Snooze keeps the jump link", text: "Snoozing a personal reminder from its DM keeps the link back to the message it was set from." },
+      { title: "Richer /status command", text: "The /status bot reply shows the same component breakdown as the public /status page, plus the shard the guild is on." },
     ],
   },
   {
@@ -46,6 +57,17 @@ export const ROADMAP: RoadmapGroup[] = [
     title: "Website",
     items: [
       { title: "Legal pages redesign", text: "The terms and privacy policy get the same layout as the rest of the site, with the plain-language summaries kept." },
+      { title: "Command changelog", text: "A filtered view of the changelog that shows only entries tagged with added, changed, or fixed commands, one per command." },
+    ],
+  },
+  {
+    id: "dashboard-roadmap",
+    icon: "layout",
+    title: "Dashboard",
+    items: [
+      { title: "Bulk case management", text: "Select multiple cases from the Cases page and act on all of them at once: revoke, export or change the reason." },
+      { title: "Mobile dashboard", text: "The dashboard layout adapts better to phone screens, with sticky action bars and swipe-friendly tables." },
+      { title: "Notification inbox", text: "Staff can opt in to receive a summary of open modmail threads and pending appeals directly in the dashboard." },
     ],
   },
 ];

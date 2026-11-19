@@ -8,13 +8,25 @@ import type { AutomodConfig } from "./automod";
 const LINK_REGEX = /https?:\/\/[^\s]+/i;
 const ZERO_WIDTH = /[\u200B-\u200D\uFEFF\u00AD]/g;
 
+/** Map common visually-similar Unicode characters to ASCII equivalents before word-checking. */
+const HOMOGLYPH_MAP: Record<string, string> = {
+  "\u0430": "a", "\u04b1": "u", "\u03b5": "e", "\u0456": "i", "\u043e": "o",
+  "\u0501": "d", "\u0455": "s", "\u03bd": "v", "\u0442": "t", "\u0440": "r",
+  "\u0441": "c", "\u03c1": "p", "\u0282": "s", "\u026a": "i",
+};
+
+function normalizeHomoglyphs(s: string): string {
+  return s.split("").map(c => HOMOGLYPH_MAP[c] ?? c).join("");
+}
+
 /** A blocked word or phrase appears in the message (case-insensitive, zero-width characters ignored). */
 export function blockedWordHit(list: readonly string[], content: string): string | null {
   const raw = content.toLowerCase();
   const normalized = raw.replace(ZERO_WIDTH, "");
+  const homoglyphed = normalizeHomoglyphs(normalized);
   for (const w of list) {
     const needle = w.toLowerCase().trim();
-    if (needle && (raw.includes(needle) || normalized.includes(needle))) return needle;
+    if (needle && (raw.includes(needle) || normalized.includes(needle) || homoglyphed.includes(needle))) return needle;
   }
   return null;
 }

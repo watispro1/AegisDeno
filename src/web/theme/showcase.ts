@@ -51,14 +51,16 @@ export const cssShowcase = String.raw`
 
 /* ── Home: differentiators, audience split, what's new ────────────────── */
 .diff-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
-.diff-card { display: grid; gap: .35rem; align-content: start; padding: 1rem; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.diff-card { display: grid; gap: .35rem; align-content: start; padding: 1rem; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); transition: border-color .15s ease, transform .15s ease; }
+.diff-card:hover { border-color: var(--accent); }
 .diff-grid > li, .whats-new li, .audience-card li { margin: 0; }
 .diff-card .f-icon { width: 24px; height: 24px; }
 .diff-card h3 { margin: 0; font-size: 1.02rem; }
 .diff-card p { margin: 0; font-size: .92rem; color: var(--text-2); }
 .diff-card .text-link { font-size: .88rem; }
 .audience { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.audience-card { padding: 1.1rem 1.2rem; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.audience-card { padding: 1.1rem 1.2rem; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); transition: border-color .15s ease; }
+.audience-card:hover { border-color: var(--accent); }
 .audience-card h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
 .audience-card ul { margin: 0 0 .6rem; padding-left: 1.1rem; display: grid; gap: .3rem; font-size: .93rem; }
 .audience-card p { margin: 0; font-size: .9rem; }

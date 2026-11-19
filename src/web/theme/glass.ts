@@ -244,6 +244,8 @@ export const cssGlass = String.raw`
     backdrop-filter: blur(6px);
   }
   [data-theme="glass"] .nav-links { background-color: var(--glass-strong); }
+  [data-theme="glass"] .live-pill { background: var(--glass-surface); border-color: var(--glass-edge); }
+  [data-theme="glass"] .callout { background: var(--glass-surface); border-color: var(--glass-edge); }
   @media (min-width: 1041px) {
     [data-theme="glass"] .nav-links { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
   }

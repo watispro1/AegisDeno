@@ -53,7 +53,7 @@ export const command: Command = {
   execute: async (interaction: ChatInputCommandInteraction) => {
     if (!interaction.guildId) return;
     if (!premiumOffered()) {
-      await interaction.reply({ content: "Aegis Premium isn't offered on this Aegis yet. Everything Aegis does stays free.", flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: "Aegis Premium ($5/month) is currently in development and not for sale yet. Everything Aegis does stays free.", flags: MessageFlags.Ephemeral });
       return;
     }
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });

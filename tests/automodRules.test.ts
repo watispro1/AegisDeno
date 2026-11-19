@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cleanDomain, cleanInviteCode, mergeAutomodConfig, normalizeAutomodConfig } from "../src/services/automod";
 import {
-  blockedInvite, blockedLinkHost, duplicateKey, DuplicateTracker, emojiCount, emojiOrZalgo, inviteCodes, isZalgo, linkHosts, previewAutomod,
+  blockedInvite, blockedLinkHost, blockedWordHit, duplicateKey, DuplicateTracker, emojiCount, emojiOrZalgo, inviteCodes, isZalgo, linkHosts, previewAutomod,
 } from "../src/services/automodChecks";
 import { automodEdit } from "../src/services/automodSettings";
 import { automodData } from "../src/commands/automod/automod/builder";
@@ -193,4 +193,13 @@ test("a backslash ends the hostname, as it does in browsers", () => {
   assert.equal(blockedLinkHost("https://evil.example\\.youtube.com", allowed), "evil.example");
   assert.equal(blockedLinkHost("https://evil.example\\@youtube.com/x", allowed), "evil.example");
   assert.equal(blockedLinkHost("https://youtube.com\\watch", allowed), null);
+});
+
+test("blockedWordHit catches homoglyph substitutions for common Latin letters", () => {
+  // Cyrillic 'о' (U+043E) looks like Latin 'o'
+  assert.ok(blockedWordHit(["bad"], "b\u0430d") !== null, "Cyrillic а → a");
+  // Cyrillic 'с' (U+0441) looks like 'c'; not in our map, so a plain word still matches
+  assert.ok(blockedWordHit(["bad"], "bad") !== null, "plain ASCII still matches");
+  // A completely different word should not match
+  assert.equal(blockedWordHit(["bad"], "good"), null, "non-matching word stays null");
 });
