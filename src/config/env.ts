@@ -15,7 +15,7 @@
  * only source, so a stray `.env` baked into an image can never override them.
  */
 import * as dotenv from "dotenv";
-import { missingStripeSettings } from "./stripe";
+import { missingStripeSettings, webCheckoutEnabled } from "./stripe";
 import { MIN_SESSION_SECRET_LENGTH } from "../web/dashboard/config";
 
 type Env = Record<string, string | undefined>;
@@ -79,13 +79,14 @@ export function dashboardEnabled(env: Env): boolean {
 }
 
 /**
- * Premium sales through Stripe are on as soon as any checkout setting is
- * present. 0c1f773 offers Stripe checkout only when all four STRIPE_* values
- * are set and well-formed (readStripeConfig) and otherwise hides Premium
- * silently; here a partial set is treated as a misconfiguration instead.
- * STRIPE_WEBHOOK_SECRET on its own stays valid: it only arms the webhook.
+ * Premium sales through Stripe are on only when web checkout is switched on in
+ * code (WEB_CHECKOUT_ENABLED, false today: Premium is sold only through Discord)
+ * and a checkout setting is present. Then a partial set is a misconfiguration.
+ * With web checkout off, leftover STRIPE_* secrets are never fatal: they only
+ * keep earlier Stripe subscribers' webhook and billing portal working.
  */
-export function stripeSalesEnabled(env: Env): boolean {
+export function stripeSalesEnabled(env: Env, checkoutOn: boolean = webCheckoutEnabled()): boolean {
+  if (!checkoutOn) return false;
   return Boolean(clean(env.STRIPE_SECRET_KEY) || clean(env.STRIPE_PUBLISHABLE_KEY) || clean(env.STRIPE_PRICE_ID));
 }
 
@@ -122,7 +123,7 @@ export const ENV_SCHEMA: readonly EnvRule[] = [
   {
     name: "SITE_URL",
     description: "public site origin (required when Stripe premium sales are on, for checkout return URLs)",
-    required: stripeSalesEnabled,
+    required: env => stripeSalesEnabled(env),
     check: v => (isHttpUrl(v) ? null : "must be an http(s) URL"),
   },
   { name: "DISCORD_PREMIUM_SKU_ID", description: "Discord premium SKU", check: v => (SNOWFLAKE.test(v) ? null : "must be a Discord SKU ID") },

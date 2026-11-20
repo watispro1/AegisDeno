@@ -236,9 +236,9 @@ required variables:
 
 - `AEGIS_BACKEND_SECRET`: required unless `BOT_ENV`/`NODE_ENV` is `development` or `test`.
 - `DASHBOARD_SESSION_SECRET` (32+ characters): required once `DISCORD_CLIENT_SECRET` is set.
-- `SITE_URL` and all four `STRIPE_*` checkout values: required once any of
-  `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` or `STRIPE_PRICE_ID` is set (Stripe premium
-  sales on). `STRIPE_WEBHOOK_SECRET` alone is allowed.
+- `STRIPE_*` values are optional and never stop startup while web checkout is off
+  (`WEB_CHECKOUT_ENABLED` in `src/config/stripe.ts`, false today). If web checkout is ever
+  switched back on, `SITE_URL` and all four `STRIPE_*` values become required.
 
 A `.env` file is read only when `NODE_ENV` is not `production`; the Docker image sets
 `NODE_ENV=production`, so on Fly only `fly secrets` count.
@@ -257,7 +257,7 @@ A `.env` file is read only when `NODE_ENV` is not `production`; the Docker image
 | `DISCORD_OWNER_ID`        | Optional | Legacy single owner ID, added to `BOT_OWNER_IDS`                |
 | `AEGIS_BACKEND_SECRET`    | Production | AegisDB shared secret; required outside development/test      |
 | `PORT`                    | Optional | HTTP port for web server (default: `3000`)                      |
-| `SITE_URL`                | Stripe   | Public site URL, used for SEO and canonical links; required when Stripe premium sales are on |
+| `SITE_URL`                | Stripe   | Public site URL, used for SEO and canonical links; required only if web checkout is switched back on |
 | `BOT_INVITE_URL`          | Optional | Custom OAuth2 invite URL                                        |
 | `SUPPORT_SERVER_URL`      | Optional | Discord support server invite (default: `https://discord.gg/HwTbCYC4PM`) |
 | `JOIN_WELCOME`            | Optional | `off` disables the one-time welcome posted on server join     |

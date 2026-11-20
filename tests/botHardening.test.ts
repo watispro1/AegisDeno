@@ -59,18 +59,17 @@ test("env: the dashboard session secret is required once the dashboard client se
   assert.deepEqual(envProblems({ ...BASE, DISCORD_CLIENT_SECRET: "cs", DASHBOARD_SESSION_SECRET: "x".repeat(32) }), []);
 });
 
-test("env: Stripe values and SITE_URL are required only when Stripe sales are on", () => {
-  // Webhook secret alone keeps the webhook armed without turning sales on.
-  assert.equal(stripeSalesEnabled({ STRIPE_WEBHOOK_SECRET: "whsec_abc" }), false);
+test("env: leftover Stripe secrets never block startup while web checkout is off", () => {
+  // Web checkout is off in code, so stray STRIPE_* values (kept for earlier subscribers) are fine.
+  const partial = { ...BASE, STRIPE_SECRET_KEY: "sk_test_abc", STRIPE_PUBLISHABLE_KEY: "pk_test_abc", STRIPE_PRICE_ID: "price_abc" };
+  assert.equal(stripeSalesEnabled(partial), false);
+  assert.deepEqual(envProblems(partial), []);
   assert.deepEqual(envProblems({ ...BASE, STRIPE_WEBHOOK_SECRET: "whsec_abc" }), []);
-
-  const partial = envProblems({ ...BASE, STRIPE_SECRET_KEY: "sk_test_abc" });
-  for (const n of ["SITE_URL", "STRIPE_PUBLISHABLE_KEY", "STRIPE_PRICE_ID", "STRIPE_WEBHOOK_SECRET"]) assert.ok(partial.some(p => p.startsWith(n)), n);
-
-  const full = { ...BASE, SITE_URL: "https://aegis.example", STRIPE_SECRET_KEY: "sk_test_abc", STRIPE_PUBLISHABLE_KEY: "pk_test_abc", STRIPE_PRICE_ID: "price_abc", STRIPE_WEBHOOK_SECRET: "whsec_abc" };
-  assert.deepEqual(envProblems(full), []);
-  assert.ok(envProblems({ ...full, STRIPE_PUBLISHABLE_KEY: "pk_live_abc" }).some(p => p.includes("live/test")));
-  assert.ok(envProblems({ ...full, SITE_URL: "not a url" }).some(p => p.startsWith("SITE_URL")));
+  // If checkout were switched back on, the same values would count as sales on.
+  assert.equal(stripeSalesEnabled(partial, true), true);
+  assert.equal(stripeSalesEnabled({ STRIPE_WEBHOOK_SECRET: "whsec_abc" }, true), false);
+  // A SITE_URL that is set must still be a URL.
+  assert.ok(envProblems({ ...BASE, SITE_URL: "not a url" }).some(p => p.startsWith("SITE_URL")));
 });
 
 test("env: owner IDs come from BOT_OWNER_IDS/DISCORD_OWNER_ID with a documented fallback", () => {
