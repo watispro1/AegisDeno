@@ -1,10 +1,8 @@
 /**
- * Aegis Premium CSS. The badge, pricing cards, and checkout styling.
+ * Aegis Premium CSS. The badge and pricing cards (no web checkout: Premium is sold in Discord).
  */
 export const cssPremium = `
 .premium-badge{display:inline-block;margin-left:.15em;padding:0 .4em;border:1px solid var(--accent,#0f766e);border-radius:4px;font-size:.85em;line-height:1.5;color:var(--accent,#0f766e);white-space:nowrap}
-.premium-checkout{margin:.75rem 0}
-.premium-checkout [data-premium-status]:empty{display:none}
 .pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(20rem,100%),1fr));gap:1.5rem;margin:2rem 0}
 .pricing-card{border:1px solid var(--border);border-radius:var(--r-lg);padding:2rem;background:var(--surface);display:flex;flex-direction:column;justify-content:space-between;transition:transform .2s ease,box-shadow .2s ease}
 .pricing-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px -4px rgba(0,0,0,.12)}
@@ -14,8 +12,5 @@ export const cssPremium = `
 .pricing-price{font-size:2rem;margin:.75rem 0 .25rem;font-weight:700}
 .pricing-period{font-size:1rem;color:var(--muted,#666);font-weight:normal}
 .pricing-features{list-style:none;padding:0;margin:0 0 1.5rem;line-height:1.8}
-.refund-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(18rem,100%),1fr));gap:1rem;margin:1rem 0}
-.refund-card{border:1px solid var(--border);border-radius:8px;padding:1.2rem;background:var(--surface);transition:border-color .2s ease}
-.refund-card:hover{border-color:var(--border-strong)}
 .center{text-align:center}
 `;
