@@ -175,7 +175,7 @@ Official links referenced across channel topics:
 - Security: https://aegisdeno.fly.dev/security
 - Terms and Privacy: https://aegisdeno.fly.dev/terms and https://aegisdeno.fly.dev/privacy
 - Support server invite: https://discord.gg/HwTbCYC4PM
-- Source (proprietary, all rights reserved): https://github.com/watispro1/AegisDeno
+- Source (proprietary, all rights reserved): https://github.com/watispro1/aegis-discord-bot
 
 ---
 
@@ -253,7 +253,7 @@ Outages, degraded service and planned maintenance, with an all-clear when it is 
 
 `#official-links`
 ```text
-The only trusted Aegis links. Invite: https://aegisdeno.fly.dev/invite - Dashboard: https://aegisdeno.fly.dev/dashboard - Docs: https://aegisdeno.fly.dev/docs - Status: https://aegisdeno.fly.dev/status - Security: https://aegisdeno.fly.dev/security - Support server: https://discord.gg/HwTbCYC4PM - Source (for review, all rights reserved): https://github.com/watispro1/AegisDeno - Anyone posting other "Aegis" links is not us.
+The only trusted Aegis links. Invite: https://aegisdeno.fly.dev/invite - Dashboard: https://aegisdeno.fly.dev/dashboard - Docs: https://aegisdeno.fly.dev/docs - Status: https://aegisdeno.fly.dev/status - Security: https://aegisdeno.fly.dev/security - Support server: https://discord.gg/HwTbCYC4PM - Source (for review, all rights reserved): https://github.com/watispro1/aegis-discord-bot - Anyone posting other "Aegis" links is not us.
 ```
 
 ---
@@ -426,7 +426,7 @@ Quick answers: missing slash commands, permissions Aegis needs, hidden channels,
 
 `#self-hosting`
 ```text
-Help running your own Aegis: Node.js, MongoDB, Docker, Fly.io and environment variables. Aegis is proprietary: running your own copy needs the maintainer's written permission first (https://aegisdeno.fly.dev/terms#source). One problem per post, pick a tag, include your error with secrets removed. Source and setup: https://github.com/watispro1/AegisDeno
+Help running your own Aegis: Node.js, MongoDB, Docker, Fly.io and environment variables. Aegis is proprietary: running your own copy needs the maintainer's written permission first (https://aegisdeno.fly.dev/terms#source). One problem per post, pick a tag, include your error with secrets removed. Source and setup: https://github.com/watispro1/aegis-discord-bot
 ```
 
 #### `#api-and-dev-help` — Forum: REST Endpoints, Webhooks & Architecture
@@ -437,7 +437,7 @@ Help running your own Aegis: Node.js, MongoDB, Docker, Fly.io and environment va
 
 `#api-and-dev-help`
 ```text
-Building around Aegis or contributing? Ask about the public JSON (/api/status, /api/commands), the codebase and pull requests. One question per post. Repo: https://github.com/watispro1/AegisDeno
+Building around Aegis or contributing? Ask about the public JSON (/api/status, /api/commands), the codebase and pull requests. One question per post. Repo: https://github.com/watispro1/aegis-discord-bot
 ```
 
 ---
@@ -1065,4 +1065,4 @@ Optional virtual economy for engagement testing in `#bot-playground-1`.
 
 ---
 
-*Document version: 3.15.0 • Maintained by the Aegis team • Source (proprietary, for review): https://github.com/watispro1/AegisDeno*
+*Document version: 3.15.0 • Maintained by the Aegis team • Source (proprietary, for review): https://github.com/watispro1/aegis-discord-bot*

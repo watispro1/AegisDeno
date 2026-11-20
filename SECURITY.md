@@ -23,9 +23,9 @@ discussions or Discord, including the support server.**
 Report them privately through GitHub:
 
 1. Go to the repository's
-   [Security tab](https://github.com/watispro1/AegisDeno/security).
+   [Security tab](https://github.com/watispro1/aegis-discord-bot/security).
 2. Click **Report a vulnerability**
-   ([direct link](https://github.com/watispro1/AegisDeno/security/advisories/new)).
+   ([direct link](https://github.com/watispro1/aegis-discord-bot/security/advisories/new)).
    This opens a private security advisory that only the maintainers can see.
 
 If the **Report a vulnerability** button is not available, open a public issue
