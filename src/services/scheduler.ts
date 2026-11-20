@@ -1,6 +1,7 @@
 import { TaskModel } from "../database/mongo";
 
-const MAX_RESTORED_TASKS = 10_000;
+/** Most non-critical tasks restored on boot (MUST_RUN_TYPES are not counted). */
+export const MAX_RESTORED_TASKS = 10_000;
 const OVERDUE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -28,8 +29,21 @@ export type TaskType =
   | "staff_digest"
   | "slowmode_revert";
 
+export const ALL_TASK_TYPES: readonly TaskType[] = [
+  "timed_unban", "temprole_remove", "slowmode_revert",
+  "channel_unlock", "poll_close", "verify_kick", "ticket_autoclose", "staff_digest",
+  "scheduled", "reminder", "personal_reminder",
+];
+
+/**
+ * Undo a punishment or restriction. Always restored and run when overdue,
+ * however old, and never subject to MAX_RESTORED_TASKS: a ban, temp role or
+ * slowmode must never outlive its duration because the bot was down.
+ */
+export const MUST_RUN_TYPES: readonly TaskType[] = ["timed_unban", "temprole_remove", "slowmode_revert"];
+
 /** Restored on boot however overdue: each re-checks current state before acting. */
-const ALWAYS_RESTORE_TYPES: readonly TaskType[] = ["channel_unlock", "ticket_autoclose", "verify_kick", "poll_close", "timed_unban", "temprole_remove", "staff_digest", "slowmode_revert"];
+export const ALWAYS_RESTORE_TYPES: readonly TaskType[] = [...MUST_RUN_TYPES, "channel_unlock", "ticket_autoclose", "verify_kick", "poll_close", "staff_digest"];
 
 /** Most tasks one listing returns (a guild's automation list, a user's reminders). */
 export const MAX_LISTED_TASKS = 200;
@@ -209,26 +223,98 @@ export function planRestore(task: Pick<ScheduledTask, "type" | "executeAt" | "in
   return { kind: "drop" };
 }
 
-/** Delete one-off tasks too old to ever run. */
-export async function deleteStaleTasks(nowMs = Date.now()): Promise<number> {
+/** One-off tasks (reminders, one-off scheduled posts) overdue by more than a day: skipped on boot. */
+function staleFilter(nowMs: number) {
   const cutoff = new Date(nowMs - OVERDUE_RESTORE_WINDOW_MS);
-  const r = await TaskModel.deleteMany({ executeAt: { $lt: cutoff }, type: { $nin: [...ALWAYS_RESTORE_TYPES] }, $or: [{ intervalMs: null }, { intervalMs: { $lte: 0 } }] });
-  return r.deletedCount ?? 0;
+  return { executeAt: { $lt: cutoff }, type: { $nin: [...ALWAYS_RESTORE_TYPES] }, $or: [{ intervalMs: null }, { intervalMs: { $lte: 0 } }] };
 }
 
-export async function getAllPendingTasks(): Promise<ScheduledTask[]> {
-  const cutoff = new Date(Date.now() - OVERDUE_RESTORE_WINDOW_MS);
-  // Auto-unlocks and poll closes are always restored, however overdue: a channel
-  // must never stay locked (or a poll open) forever because the bot was down a day.
-  // Ticket inactivity checks and verification kicks re-check state, so they are too.
-  const docs = await TaskModel.find({
-    // Recurring tasks are restored too: before 3.7.0 a repeating message whose run
-    // was missed by more than a day was never loaded again and silently stopped.
-    $or: [{ executeAt: { $gte: cutoff } }, { type: { $in: [...ALWAYS_RESTORE_TYPES] } }, { intervalMs: { $gt: 0 } }],
-  })
-    .select("guildId channelId creatorId type payload executeAt intervalMs createdAt")
-    .sort({ executeAt: 1 })
-    .limit(MAX_RESTORED_TASKS)
-    .lean();
-  return docs.map(doc => toTask(doc));
+export type CountByType = Partial<Record<TaskType, number>>;
+
+/** "reminder=3, personal_reminder=1" (types with a zero count left out), or "none". */
+export function formatCounts(counts: CountByType): string {
+  const parts = Object.entries(counts).filter(([, n]) => (n ?? 0) > 0).map(([t, n]) => `${t}=${n}`);
+  return parts.length ? parts.join(", ") : "none";
+}
+
+/**
+ * Delete one-off tasks too old to ever run (only reminder-like types: every
+ * type that undoes an action is restored instead) and report how many of each
+ * type were skipped, so the startup log says what was dropped.
+ */
+export async function deleteStaleTasks(nowMs = Date.now()): Promise<{ total: number; byType: CountByType }> {
+  const filter = staleFilter(nowMs);
+  const groups = await TaskModel.aggregate<{ _id: TaskType; n: number }>([{ $match: filter }, { $group: { _id: "$type", n: { $sum: 1 } } }]);
+  const byType: CountByType = {};
+  for (const g of groups) byType[g._id] = g.n;
+  const r = await TaskModel.deleteMany(filter);
+  return { total: r.deletedCount ?? 0, byType };
+}
+
+export interface PendingTaskSource {
+  /** Restorable tasks of one type, oldest first; `limit` null means all of them. */
+  find(type: TaskType, limit: number | null): Promise<ScheduledTask[]>;
+  /** How many restorable tasks of one type exist. */
+  count(type: TaskType): Promise<number>;
+}
+
+export interface PendingTasks {
+  tasks: ScheduledTask[];
+  loaded: CountByType;
+  /** Restorable tasks left unloaded because MAX_RESTORED_TASKS was reached (they stay in the database). */
+  capped: CountByType;
+  capHit: boolean;
+}
+
+/** Which saved tasks of one type boot restores. */
+function restorableFilter(type: TaskType, nowMs: number) {
+  if (ALWAYS_RESTORE_TYPES.includes(type)) return { type };
+  const cutoff = new Date(nowMs - OVERDUE_RESTORE_WINDOW_MS);
+  // Recurring tasks are restored too: before 3.7.0 a repeating message whose run
+  // was missed by more than a day was never loaded again and silently stopped.
+  return { type, $or: [{ executeAt: { $gte: cutoff } }, { intervalMs: { $gt: 0 } }] };
+}
+
+function mongoSource(nowMs: number): PendingTaskSource {
+  return {
+    async find(type, limit) {
+      let q = TaskModel.find(restorableFilter(type, nowMs))
+        .select("guildId channelId creatorId type payload executeAt intervalMs createdAt")
+        .sort({ executeAt: 1 });
+      if (limit !== null) q = q.limit(limit);
+      const docs = await q.lean();
+      return docs.map(doc => toTask(doc));
+    },
+    count: type => TaskModel.countDocuments(restorableFilter(type, nowMs)),
+  };
+}
+
+/**
+ * Load the tasks boot restores, one type at a time so a flood of one type
+ * (say 10,000 reminders) can never crowd out another. MUST_RUN_TYPES load in
+ * full and do not count against MAX_RESTORED_TASKS; the remaining types share
+ * it in ALL_TASK_TYPES order (state-checking types, then recurring posts, then
+ * reminders). When the cap is reached, how many of each type were left
+ * unloaded is returned for the startup log instead of being dropped silently.
+ */
+export async function loadPendingTasks(nowMs = Date.now(), source: PendingTaskSource = mongoSource(nowMs), maxTasks = MAX_RESTORED_TASKS): Promise<PendingTasks> {
+  const tasks: ScheduledTask[] = [];
+  const loaded: CountByType = {};
+  const capped: CountByType = {};
+  let budget = maxTasks;
+  for (const type of ALL_TASK_TYPES) {
+    const mustRun = MUST_RUN_TYPES.includes(type);
+    const limit = mustRun ? null : budget;
+    const found = limit === 0 ? [] : await source.find(type, limit);
+    tasks.push(...found);
+    if (found.length) loaded[type] = found.length;
+    if (!mustRun) {
+      budget -= found.length;
+      if (limit !== null && found.length >= limit) {
+        const left = (await source.count(type)) - found.length;
+        if (left > 0) capped[type] = left;
+      }
+    }
+  }
+  return { tasks, loaded, capped, capHit: Object.keys(capped).length > 0 };
 }

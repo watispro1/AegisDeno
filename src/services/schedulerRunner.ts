@@ -1,7 +1,7 @@
 import { decodeScheduledPayload } from "./scheduledPayload";
 import { buildEmbedFromSpec } from "./embedSpec";
-import { Client, TextChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import { getAllPendingTasks, deleteTask, updateTaskNextRun, ScheduledTask, planRestore, deleteStaleTasks } from "./scheduler";
+import { Client, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { loadPendingTasks, deleteTask, updateTaskNextRun, ScheduledTask, planRestore, deleteStaleTasks, formatCounts, MAX_RESTORED_TASKS, type CountByType } from "./scheduler";
 import {
   afterTaskFailure,
   decodeTimedUnban,
@@ -14,7 +14,7 @@ import {
   SNOOZE_OPTIONS_MINUTES,
 } from "./timedActions";
 import { sendGuildLog } from "./logging";
-import { isSendableChannel, isObfuscatedChannel } from "../utils/channels";
+import { isSendableChannel, isObfuscatedChannel, isGuildPostChannel } from "../utils/channels";
 import { logger } from "../utils/logger";
 import { auditReason } from "../utils/safeText";
 import { formatDurationLong } from "../utils/duration";
@@ -113,8 +113,9 @@ async function executeTask(client: Client, task: ScheduledTask): Promise<void> {
       throw new Error(`Channel ${task.channelId} is hidden from Aegis (no View Channel).`);
     }
 
-    if (!(channel instanceof TextChannel)) {
-      logger.warn(`Task ${taskId}: channel ${task.channelId} is not a text channel — removing task.`);
+    // Text, announcement and thread channels can all take a scheduled post.
+    if (!isGuildPostChannel(channel)) {
+      logger.warn(`Task ${taskId}: channel ${task.channelId} is not a text, announcement or thread channel — removing task.`);
       await deleteTask(task.guildId, taskId).catch(err =>
         logger.error(`Task ${taskId}: failed to delete invalid-channel task`, err)
       );
@@ -254,18 +255,24 @@ export async function initScheduler(client: Client): Promise<void> {
   let scheduled = 0;
   let expired = 0;
   let failed = 0;
+  const skipped: CountByType = {};
 
-  let tasks: ScheduledTask[];
+  let pending: Awaited<ReturnType<typeof loadPendingTasks>>;
   try {
-    tasks = await getAllPendingTasks();
+    pending = await loadPendingTasks();
   } catch (err) {
     logger.error("Scheduler: failed to load pending tasks from DB — scheduler will not start.", err);
     return;
   }
+  if (pending.capHit) {
+    logger.warn(
+      `Scheduler: restore cap of ${MAX_RESTORED_TASKS} tasks reached; left in the database until the next restart: ${formatCounts(pending.capped)}.`,
+    );
+  }
 
   const now = new Date();
 
-  for (const task of tasks) {
+  for (const task of pending.tasks) {
     const executeAt = new Date(task.executeAt);
 
     // Sanity-check: skip tasks with malformed data
@@ -286,13 +293,21 @@ export async function initScheduler(client: Client): Promise<void> {
     } else if (plan.kind === "schedule") {
       scheduleTask(client, task);
       scheduled++;
+    } else {
+      skipped[task.type] = (skipped[task.type] ?? 0) + 1;
     }
   }
 
-  const pruned = await deleteStaleTasks(now.getTime()).catch(() => 0);
-  if (pruned) logger.info(`Scheduler: removed ${pruned} stale one-off task(s) older than a day.`);
+  try {
+    const pruned = await deleteStaleTasks(now.getTime());
+    for (const [type, n] of Object.entries(pruned.byType) as [keyof CountByType, number][]) skipped[type] = (skipped[type] ?? 0) + n;
+  } catch (err) {
+    logger.warn("Scheduler: could not prune stale one-off tasks:", err);
+  }
+  const skippedLine = formatCounts(skipped);
+  if (skippedLine !== "none") logger.info(`Scheduler: skipped one-off task(s) overdue by more than a day: ${skippedLine}.`);
   logger.info(
-    `Scheduler initialised: ${scheduled} pending, ${expired} overdue (fired), ${failed} skipped (malformed).`
+    `Scheduler initialised: ${scheduled} pending, ${expired} overdue (fired), ${failed} skipped (malformed). Restored by type: ${formatCounts(pending.loaded)}.`
   );
 }
 

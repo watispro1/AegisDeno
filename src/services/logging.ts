@@ -1,7 +1,7 @@
-import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, Client, TextChannel, EmbedBuilder, EmbedData, PermissionFlagsBits } from "discord.js";
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, Client, EmbedBuilder, EmbedData, PermissionFlagsBits } from "discord.js";
 import { getGuildConfig } from "./configuration";
 import { logger } from "../utils/logger";
-import { isObfuscatedChannel } from "../utils/channels";
+import { isObfuscatedChannel, isGuildPostChannel } from "../utils/channels";
 import { isLogCategoryOn } from "./logCategories";
 import { logAttachmentPlan } from "./logFormat";
 
@@ -36,7 +36,8 @@ export async function sendGuildLog(
     // A category may have its own channel (set on the dashboard); otherwise the main log channel.
     const channelId = (category && config.logChannels?.[category]) || config.loggingChannelId;
     const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel || !(channel instanceof TextChannel)) return false;
+    // Text, announcement and thread channels all take log entries.
+    if (!channel || !isGuildPostChannel(channel)) return false;
     if (isObfuscatedChannel(channel)) {
       logger.warn(`Log channel ${channelId} in guild ${guildId} is hidden from Aegis (no View Channel); log entry skipped.`);
       return false;
