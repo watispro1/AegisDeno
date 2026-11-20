@@ -173,7 +173,7 @@ export const cssPages = String.raw`/* ── Home ──────────
 }
 .synopsis .opt { color: var(--faint); }
 .opt-table td:first-child code { font-family: var(--mono); font-size: .84rem; }
-.opt-req { display: inline-block; padding: .1rem .4rem; border-radius: 999px; background: var(--warn); color: #fff; font: 600 .72rem var(--mono); text-transform: uppercase; }
+.opt-req { display: inline-block; padding: .1rem .4rem; border-radius: 999px; background: var(--warn); color: var(--on-fill); font: 600 .72rem var(--mono); text-transform: uppercase; }
 .opt-opt { display: inline-block; padding: .1rem .4rem; border-radius: 999px; background: var(--bg-sunk); color: var(--faint); font: 400 .72rem var(--mono); text-transform: uppercase; }
 .cmd-jump { margin: 0 0 1.25rem; }
 .cmd-jump ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .25rem 1.1rem; font-size: .9rem; }

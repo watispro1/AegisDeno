@@ -66,8 +66,8 @@ export const cssGlass = String.raw`
 
 /* Type on glass: a hairline shadow lifts headings off the light. */
 [data-theme="glass"] h1, [data-theme="glass"] h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, .35); letter-spacing: -.015em; }
-[data-theme="glass"] ::selection { background: rgba(169, 200, 255, .35); color: var(--text); }
-[data-theme="glass"] :focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; box-shadow: 0 0 0 5px rgba(169, 200, 255, .2); }
+[data-theme="glass"] :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; box-shadow: 0 0 0 5px rgba(169, 200, 255, .2); }
+[data-theme="glass"] .dc-avatar.bot { background: var(--accent); color: var(--accent-ink); }
 
 /* Controls: pills with a lit top edge; the press springs. */
 [data-theme="glass"] .btn,
@@ -203,6 +203,8 @@ export const cssGlass = String.raw`
     --code-bg: rgba(255, 255, 255, .07);
     --border: rgba(255, 255, 255, .11);
     --border-strong: rgba(255, 255, 255, .18);
+    --hover: rgba(255, 255, 255, .07);
+    --scroll-thumb: rgba(255, 255, 255, .2);
   }
   /* Floating chrome only (the blur budget). */
   [data-theme="glass"] .nav-inner::before,
@@ -239,6 +241,8 @@ export const cssGlass = String.raw`
     --code-bg: #131720;
     --border: #262b36;
     --border-strong: #3a414f;
+    --hover: #1d2230;
+    --scroll-thumb: #3a414f;
   }
   [data-theme="glass"] body::before { display: none; }
   [data-theme="glass"] body::after { display: none; }
@@ -251,6 +255,12 @@ export const cssGlass = String.raw`
   [data-theme="glass"] footer.site { background: var(--bg-sunk); }
   [data-theme="glass"] .site-search-backdrop { background: rgba(4, 5, 8, .88); }
   [data-theme="glass"] * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}
+/* Forced colours: the system palette; no glow layers or sheen behind it. */
+@media (forced-colors: active) {
+  [data-theme="glass"] body::before, [data-theme="glass"] body::after { display: none; }
+  [data-theme="glass"] .nav-inner::before { border-color: CanvasText; }
+  [data-theme="glass"] .btn::after { display: none; }
 }
 /* Less motion: no sweep, no spring, no press. */
 @media (prefers-reduced-motion: reduce) {

@@ -31,13 +31,18 @@ export const cssThemeTokens = String.raw`
   --accent: #c5cdc8;
   --accent-hover: #e3e8e4;
   --accent-ink: #0c0d0f;
-  --accent-soft: #1c201f;
+  --accent-soft: #23292a;
   --link: #c5cdc8;
   --ok: #8cc59c;
   --warn: #d6ad6a;
   --danger: #e8938a;
   --code-bg: #1a1d20;
   --mark: #4a4334;
+  --on-fill: #0c0d0f;
+  --selection: #c5cdc8;
+  --selection-ink: #0c0d0f;
+  --scroll-thumb: #3a3e43;
+  --hover: #1f2225;
   --serif: "Iowan Old Style", Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
   color-scheme: dark;
 }
@@ -64,6 +69,12 @@ export const cssThemeTokens = String.raw`
   --danger: #ff9e96;
   --code-bg: #131720;
   --mark: #4d4224;
+  --on-fill: #0b0d12;
+  --selection: #3b4f78;
+  --selection-ink: #f5f7fb;
+  --focus: #cadeff;
+  --scroll-thumb: #3a414f;
+  --hover: #1d2230;
   --r: 12px;
   --r-lg: 20px;
   /* Ambient glow colours behind the glass, at their brightest (already
@@ -115,21 +126,24 @@ html:not(.js) .theme-picker { display: none; }
   font: 400 .9rem/1.2 var(--sans); color: var(--text-2); background: transparent;
   text-align: left; cursor: pointer;
 }
-.theme-opt:hover { background: var(--bg-sunk); color: var(--text); }
-.theme-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.theme-opt[aria-pressed="true"] { color: var(--text); font-weight: 500; }
+.theme-opt:hover { background: var(--hover); color: var(--text); }
+.theme-opt:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.theme-opt[aria-pressed="true"] { color: var(--text); font-weight: 500; background: var(--accent-soft); }
 .theme-opt[aria-pressed="true"]::after {
   content: ""; margin-left: auto; width: 9px; height: 5px;
   border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
   transform: translateY(-2px) rotate(-45deg);
 }
-.theme-swatch { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border-strong); }
+/* Each swatch is the theme's page colour with its accent in the corner; a
+   neutral ring keeps the light ones visible on light menus and the dark ones
+   on dark menus. */
+.theme-swatch { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 0; box-shadow: inset 0 0 0 1px rgba(128, 128, 128, .55); forced-color-adjust: none; }
 .theme-swatch[data-swatch="system"] { background: linear-gradient(135deg, #fbfaf8 50%, #161716 50%); }
-.theme-swatch[data-swatch="light"] { background: #fbfaf8; }
-.theme-swatch[data-swatch="dark"] { background: #161716; }
-.theme-swatch[data-swatch="steel"] { background: linear-gradient(135deg, #0c0d0f 55%, #c5cdc8 55%); }
+.theme-swatch[data-swatch="light"] { background: linear-gradient(135deg, #fbfaf8 58%, #17695a 58%); }
+.theme-swatch[data-swatch="dark"] { background: linear-gradient(135deg, #161716 58%, #5ec2a6 58%); }
+.theme-swatch[data-swatch="steel"] { background: linear-gradient(135deg, #0c0d0f 58%, #c5cdc8 58%); }
 .theme-swatch[data-swatch="glass"] { background: radial-gradient(circle at 30% 30%, #6d8fe0, transparent 60%), radial-gradient(circle at 75% 70%, #a46cc0, transparent 55%), #0b0d12; }
-.theme-swatch[data-swatch="aurora"] { background: radial-gradient(circle at 25% 30%, #c9b8ff, transparent 62%), radial-gradient(circle at 75% 35%, #a9e6cf, transparent 58%), radial-gradient(circle at 50% 85%, #ffc9a8, transparent 60%), #f7f5fb; }
+.theme-swatch[data-swatch="aurora"] { background: radial-gradient(circle at 25% 30%, #c9b8ff, transparent 62%), radial-gradient(circle at 75% 35%, #a9e6cf, transparent 58%), radial-gradient(circle at 50% 85%, #ffc9a8, transparent 60%), #f7f5fb; box-shadow: inset 0 0 0 1px rgba(90, 72, 208, .45); }
 /* Beta badge: themes still being tuned (BETA_THEMES in layout.ts). */
 .theme-beta {
   margin-left: .1rem; padding: 0 .3rem; border: 1px solid var(--border-strong); border-radius: 3px;
@@ -137,22 +151,45 @@ html:not(.js) .theme-picker { display: none; }
 }
 .user-theme-picker { flex-wrap: wrap; }
 
-/* ── On-fill text: dark themes use ink on their light status fills ────── */
-[data-theme="dark"] .btn.danger, [data-theme="dark"] .btn.danger:hover,
-[data-theme="steel"] .btn.danger, [data-theme="steel"] .btn.danger:hover,
-[data-theme="glass"] .btn.danger, [data-theme="glass"] .btn.danger:hover,
-[data-theme="aurora"] .btn.danger, [data-theme="aurora"] .btn.danger:hover,
-[data-theme="dark"] .opt-req, [data-theme="steel"] .opt-req, [data-theme="glass"] .opt-req, [data-theme="aurora"] .opt-req,
-[data-theme="dark"] .check-icon, [data-theme="steel"] .check-icon, [data-theme="glass"] .check-icon, [data-theme="aurora"] .check-icon { color: var(--bg); }
+/* ── Every theme: error summaries take a danger ring when focused ───── */
+.error-summary:focus, .error-summary:focus-visible { outline: 2px solid var(--danger); outline-offset: 2px; }
+@media (forced-colors: active) {
+  .theme-opt[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
+  :focus-visible { outline-color: Highlight; }
+}
 
 /* ── Steel & Ink ──────────────────────────────────────────────────────── */
+/* Editorial: serif display type at a book weight, hairline rules instead of
+   shadows, mono small caps for labels, numbers set like figures in a report. */
 [data-theme="steel"] {
   --k-changed: #a9bcc9;
   --k-fixed: #c9b9a0;
 }
 [data-theme="steel"] h1, [data-theme="steel"] h2 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.012em; }
+[data-theme="steel"] .app-body .dash-head h1 { font-weight: 500; letter-spacing: -.015em; font-size: clamp(1.7rem, 2.6vw, 2.2rem); }
+[data-theme="steel"] .app-body .ov-health h2, [data-theme="steel"] .app-body .panel-card > h2:first-child,
+[data-theme="steel"] .app-body .card-head h2, [data-theme="steel"] .app-body .quick-head h2, [data-theme="steel"] .error-summary h2 { font-weight: 500; font-size: 1.15rem; letter-spacing: 0; }
 [data-theme="steel"] .nav-link[aria-current="page"] { box-shadow: inset 0 -1px 0 var(--accent); }
-[data-theme="steel"] ::selection { background: #c5cdc8; color: #0c0d0f; }
+/* Labels: mono small caps, wide tracking. */
+[data-theme="steel"] th, [data-theme="steel"] .app-body .app-content th,
+[data-theme="steel"] .app-body .nav-group-title, [data-theme="steel"] .ov-health-kicker, [data-theme="steel"] .app-body .dash-eyebrow { font-family: var(--mono); font-weight: 500; letter-spacing: .1em; }
+/* Figures: serif, lining, tabular. */
+[data-theme="steel"] .app-body .stat dd, [data-theme="steel"] .pricing-price { font-family: var(--serif); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; letter-spacing: 0; }
+[data-theme="steel"] .app-body .ov-glance .stat dd { font-size: 1.8rem; }
+/* The accent is a quiet steel, so links keep a hairline underline to read as links. */
+[data-theme="steel"] .text-link { text-decoration: underline; text-decoration-color: var(--faint); text-underline-offset: 3px; }
+[data-theme="steel"] .text-link:hover, [data-theme="steel"] a:hover { color: var(--text); text-decoration-color: var(--text); }
+/* Hairlines carry the structure; hover strengthens the rule. */
+[data-theme="steel"] .app-body .app-content .panel-card:hover, [data-theme="steel"] .app-body .app-content .stat-grid > *:hover,
+[data-theme="steel"] .app-body .mod-card:hover, [data-theme="steel"] .card:hover { border-color: var(--border-strong); }
+[data-theme="steel"] .app-body .side-link[aria-current="page"] { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--border-strong); }
+[data-theme="steel"] .app-body .side-link[aria-current="page"]::before { background: var(--text); }
+[data-theme="steel"] .stat-ico, [data-theme="steel"] .qa-ico, [data-theme="steel"] .empty-icon, [data-theme="steel"] .app-body .mod-icon { background: transparent; color: var(--text-2); box-shadow: inset 0 0 0 1px var(--border-strong); }
+[data-theme="steel"] .app-body .tag, [data-theme="steel"] .tag { font-family: var(--mono); }
+[data-theme="steel"] .btn:not(.ghost):not(.danger):hover { background: var(--accent-hover); }
+[data-theme="steel"] code.inline, [data-theme="steel"] pre.block { border-color: var(--border-strong); }
+[data-theme="steel"] .chart .bar { fill: var(--accent); }
+[data-theme="steel"] .chart .bar.zero { fill: var(--border-strong); }
 /* Brand pieces inside the Discord mocks follow the palette: no leftover teal. */
 [data-theme="steel"] .dc-avatar.bot { background: #c5cdc8; color: #0c0d0f; }
 [data-theme="steel"] .dcx .dcx-av { background: #0c0d0f; color: #c5cdc8; box-shadow: inset 0 0 0 1px #3a3e43; }

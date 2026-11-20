@@ -31,7 +31,7 @@ export const cssDashboardModulePages = `
 .chip-row { display: flex; flex-wrap: wrap; gap: .35rem; flex: 1 0 100%; }
 .chip { display: inline-flex; align-items: center; gap: .35rem; min-height: 32px; padding: .2rem .7rem; font: 500 .82rem var(--sans); color: var(--muted); background: transparent; border: 1px solid var(--border-strong); border-radius: 999px; cursor: pointer; }
 .chip:hover { color: var(--text); border-color: var(--text); }
-.chip[aria-pressed="true"] { color: var(--accent-ink, var(--text)); background: var(--accent-soft); border-color: var(--accent); }
+.chip[aria-pressed="true"] { color: var(--text); background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
 .chip-count { font: 600 .72rem var(--mono); color: var(--faint); }
 .chip[aria-pressed="true"] .chip-count { color: inherit; }
 html:not(.js) .chip-row, html:not(.js) .list-sort { display: none; }

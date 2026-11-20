@@ -52,7 +52,7 @@ export const cssDashboardSurfaces = String.raw`/* ── Dashboard 2.0: surfaces
   .app-body .app-content th { padding: .6rem .9rem; background: var(--bg-sunk); font: 600 .72rem/1.3 var(--sans); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
   .app-body .app-content td { padding: .65rem .9rem; vertical-align: middle; }
   .app-body .app-content tbody tr { transition: background-color .12s var(--d-ease); }
-  .app-body .app-content tbody tr:hover { background: var(--bg-sunk); }
+  .app-body .app-content tbody tr:hover { background: var(--hover); }
 }
 .app-body td[data-label="When"], .app-body td[data-label="Action"] { white-space: nowrap; }
 .app-body td .faint { font-size: .78rem; }

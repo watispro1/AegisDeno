@@ -127,6 +127,10 @@ export const cssGlassDashboard = String.raw`
 }
 [data-theme="glass"] .stat dd, [data-theme="glass"] .ov-health h2 { text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
 [data-theme="glass"] .ov-health-badge { box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 18px color-mix(in srgb, var(--tone) 35%, transparent); }
+/* The health card glows faintly with its tone; stat cards light up on hover. */
+[data-theme="glass"] .ov-health { background-image: radial-gradient(70% 150% at 0% 50%, color-mix(in srgb, var(--tone) 15%, transparent), transparent 62%), var(--glass-sheen); }
+[data-theme="glass"] .ov-health::before { box-shadow: 0 0 14px color-mix(in srgb, var(--tone) 65%, transparent); }
+[data-theme="glass"] .app-body .stat:has(.stat-link:hover) { border-color: rgba(169, 200, 255, .45); box-shadow: var(--glass-rim), var(--shadow-float); }
 [data-theme="glass"] .qa-item:hover { background: rgba(255, 255, 255, .06); border-color: var(--glass-edge); }
 [data-theme="glass"] .quick-tile { border-color: rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .03); border-radius: var(--r); }
 [data-theme="glass"] .quick-tile:hover { border-color: var(--accent); background: rgba(255, 255, 255, .06); }

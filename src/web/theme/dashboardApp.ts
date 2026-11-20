@@ -110,7 +110,7 @@ details.panel-card > summary { cursor: pointer; font-weight: 600; min-height: 36
 .module-detail { font-size: .85rem; color: var(--muted); }
 .checklist { list-style: none; margin: 0; padding: 0; }
 .checklist li { display: flex; gap: .75rem; align-items: flex-start; margin: 0 0 .85rem; font-size: .92rem; line-height: 1.45; }
-.check-icon { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; flex-shrink: 0; border-radius: 50%; font-weight: 700; font-size: .8rem; color: #fff; background: var(--accent); }
+.check-icon { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; flex-shrink: 0; border-radius: 50%; font-weight: 700; font-size: .8rem; color: var(--on-fill); background: var(--accent); }
 .checklist li.warn .check-icon { background: var(--warn); }
 .checklist li.info .check-icon { background: var(--accent); }
 .check-ok { color: var(--ok); font-weight: 600; }
