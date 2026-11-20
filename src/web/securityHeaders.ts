@@ -27,25 +27,13 @@ export const CONTENT_SECURITY_POLICY = [
 ].join("; ");
 
 /**
- * The dashboard's Premium page (and its checkout/portal forms) only: the same policy
- * plus what Stripe.js needs for secure checkout. Still no 'unsafe-inline' anywhere.
+ * The dashboard's Premium page and its portal form only: the same strict
+ * policy, except that forms may also be sent on to Stripe's billing portal (the
+ * portal POST answers with a 303 to billing.stripe.com, for subscriptions bought
+ * earlier on the website). Web checkout is off, so no Stripe.js, no Stripe
+ * frames and no payment feature. Still no 'unsafe-inline' anywhere.
  */
-export const PREMIUM_CONTENT_SECURITY_POLICY = [
-  "default-src 'self'",
-  "script-src 'self' https://js.stripe.com",
-  "style-src 'self'",
-  "img-src 'self' data: https://cdn.discordapp.com https://*.stripe.com",
-  "font-src 'self'",
-  "connect-src 'self' https://api.stripe.com https://maps.googleapis.com",
-  "manifest-src 'self'",
-  "media-src 'none'",
-  "worker-src 'none'",
-  "object-src 'none'",
-  "frame-src https://js.stripe.com https://checkout.stripe.com",
-  "base-uri 'none'",
-  "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
-  "frame-ancestors 'none'",
-].join("; ");
+export const PREMIUM_CONTENT_SECURITY_POLICY = CONTENT_SECURITY_POLICY.replace("form-action 'self'", "form-action 'self' https://billing.stripe.com");
 
 /** /dashboard/<server ID>/premium, checkout, and portal. */
 export function isPremiumCheckoutPath(path: string): boolean {
@@ -53,8 +41,6 @@ export function isPremiumCheckoutPath(path: string): boolean {
 }
 
 const PERMISSIONS_POLICY = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()";
-/** Apple Pay and Google Pay inside Stripe's checkout need the payment feature delegated to it. */
-const PREMIUM_PERMISSIONS_POLICY = PERMISSIONS_POLICY.replace("payment=()", 'payment=(self "https://checkout.stripe.com")');
 
 /** Paths other sites may legitimately embed or fetch (share images, status badges, the public JSON API). */
 export function isCrossOriginResource(path: string): boolean {
@@ -69,7 +55,7 @@ export function securityHeaders(path: string): Record<string, string> {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": premium ? PREMIUM_PERMISSIONS_POLICY : PERMISSIONS_POLICY,
+    "Permissions-Policy": PERMISSIONS_POLICY,
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Resource-Policy": isCrossOriginResource(path) ? "cross-origin" : "same-origin",
     "X-Permitted-Cross-Domain-Policies": "none",

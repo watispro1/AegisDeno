@@ -45,12 +45,12 @@ import { rateLimitStoreFromEnv } from "./dashboard/rateLimitStore";
 import { mongoAuditStore } from "./dashboard/audit";
 import { mongoDashboardExtras } from "./dashboard/extrasMongo";
 import { dashboardScript } from "./dashboard/client";
-import { premiumScript } from "./dashboard/clientPremium";
 import { securityHeaders } from "./securityHeaders";
 import { databaseConnected } from "../services/statusMonitor";
 import { backendHealthy, registerApiRoutes, startBackendProbe } from "./apiRoutes";
 import { registerStripeWebhook } from "./stripeWebhook";
-import { missingStripeSettings, premiumOffered, readStripeConfig } from "../config/stripe";
+import { readStripeConfig } from "../config/stripe";
+import { discordPremiumOffer } from "../config/discordSku";
 import { registerSiteRoutes } from "./siteRoutes";
 import { apiRateLimit, assetCacheControl, compression, GZIP_MIN_BYTES, gzipAsync, HtmlCache, htmlCacheKey, prepareAsset, sendAsset, siteErrorHandler, type StaticAsset } from "./serverMiddleware";
 
@@ -71,7 +71,6 @@ const ASSET_VERSION = createHash("sha256")
   .update(themeInitScript)
   .update(dashboardScript)
   .update(statusScript)
-  .update(premiumScript)
   .digest("hex")
   .slice(0, 8);
 
@@ -131,16 +130,16 @@ const ROUTES: RouteDef[] = [
   { path: "/docs", render: c => renderDocs(c), priority: "0.8" },
   { path: "/troubleshooting", render: c => renderTroubleshooting(c), priority: "0.7" },
   { path: "/changelog", render: c => renderChangelog(c), priority: "0.6" },
-  { path: "/roadmap", render: c => renderRoadmap(c), priority: "0.5" },
+  { path: "/roadmap", render: c => renderRoadmap(c, discordPremiumOffer() !== null), priority: "0.5" },
   // Public and static, so it is served (and indexed) even when the dashboard is off.
   // Registered before the /dashboard router, which would otherwise treat it as a server ID.
   { path: "/dashboard/changelog", render: c => renderDashboardChangelog(c), priority: "0.4" },
   { path: "/status", render: async (c, x) => renderStatus(c, await x.status()), priority: "0.6", live: true },
-  { path: "/pricing", render: c => renderPricing(c, premiumOffered()), priority: "0.8" },
-  { path: "/premium", render: c => renderPremium(c, premiumOffered()), priority: "0.5" },
-  { path: "/refunds", render: c => renderRefunds(c), priority: "0.4" },
-  { path: "/privacy", render: c => renderPrivacy(c), priority: "0.4" },
-  { path: "/terms", render: c => renderTerms(c), priority: "0.4" },
+  { path: "/pricing", render: c => renderPricing(c, discordPremiumOffer()), priority: "0.8" },
+  { path: "/premium", render: c => renderPremium(c, discordPremiumOffer()), priority: "0.5" },
+  { path: "/refunds", render: c => renderRefunds(c, discordPremiumOffer()), priority: "0.4" },
+  { path: "/privacy", render: c => renderPrivacy(c, discordPremiumOffer()), priority: "0.4" },
+  { path: "/terms", render: c => renderTerms(c, discordPremiumOffer()), priority: "0.4" },
   { path: "/security", render: c => renderSecurity(c), priority: "0.3" },
 ];
 
@@ -211,7 +210,6 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
     ["/assets/site.css", prepareAsset("text/css", styles), YEAR],
     ["/assets/site.js", prepareAsset("text/javascript", clientScript), YEAR],
     ["/assets/dashboard.js", prepareAsset("text/javascript", dashboardScript), YEAR],
-    ["/assets/premium.js", prepareAsset("text/javascript", premiumScript), YEAR],
     ["/assets/status.js", prepareAsset("text/javascript", statusScript), YEAR],
     ["/assets/theme-init.js", prepareAsset("text/javascript", themeInitScript), YEAR],
     ["/assets/favicon.svg", prepareAsset("image/svg+xml", faviconSvg), YEAR],
@@ -227,9 +225,12 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   registerApiRoutes(app, {
     online, databaseReady: opts.databaseReady ?? databaseConnected, stats: () => collectStats(client), version: SITE_VERSION, startedAt: STARTED_AT,
   });
-  // Aegis Premium (Stripe Billing). Raw body, verified signature; 503 until STRIPE_WEBHOOK_SECRET is set.
+  // Stripe webhook, kept for subscriptions bought on the website before Premium moved to
+  // Discord. Raw body, verified signature; 503 until STRIPE_WEBHOOK_SECRET is set.
+  // Web checkout itself is off (WEB_CHECKOUT_ENABLED in src/config/stripe.ts).
   registerStripeWebhook(app);
-  if (!readStripeConfig()) logger.info(`Aegis Premium hidden; Stripe settings missing: ${missingStripeSettings().join(", ")}`);
+  if (!discordPremiumOffer()) logger.info("Aegis Premium shows \"Coming soon on Discord\": set DISCORD_PREMIUM_SKU_ID (and DISCORD_APPLICATION_ID) to sell it as a Discord in-app subscription.");
+  if (readStripeConfig()) logger.info("Stripe is configured for existing website subscribers only (webhook and billing portal); web checkout is disabled.");
   registerSiteRoutes(app, { origin, inviteUrl: cfg.inviteUrl, startedAt: STARTED_AT, sitemap: ROUTES });
 
   const send = (res: Response, html: string, code = 200, cacheControl?: string) => {
@@ -241,8 +242,8 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   };
 
   // Rendered public pages are cached briefly, keyed by everything that changes
-  // the markup: path, query string, whether the bot is online and whether
-  // Premium is offered. The theme is applied client-side (localStorage), so it
+  // the markup: path, query string, whether the bot is online and the Discord
+  // Premium store link (empty when Premium is not on sale). The theme is applied client-side (localStorage), so it
   // is not an input. Live stats on the home page may be up to the TTL stale.
   // /status stays uncached; the dashboard never passes through here.
   const htmlCache = new HtmlCache(PUBLIC_HTML_TTL_MS);
@@ -252,7 +253,7 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
       try {
         const query = (req.query ?? {}) as Record<string, unknown>;
         const isOnline = online();
-        const key = cacheable ? htmlCacheKey(route.path, query, [isOnline, premiumOffered()]) : "";
+        const key = cacheable ? htmlCacheKey(route.path, query, [isOnline, discordPremiumOffer()?.storeUrl ?? ""]) : "";
         let html = cacheable ? htmlCache.get(key) : undefined;
         res.setHeader("X-Page-Cache", html !== undefined ? "hit" : cacheable ? "miss" : "bypass");
         if (html === undefined) {

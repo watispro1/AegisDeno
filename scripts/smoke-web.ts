@@ -145,6 +145,32 @@ async function main() {
   }
   check("robots disallows /dashboard", (await (await fetch(origin + "/robots.txt")).text()).includes("Disallow: /dashboard"));
 
+  console.log("\nPremium (sold only through Discord)");
+  // No DISCORD_PREMIUM_SKU_ID here: every surface says "Coming soon on Discord", no web checkout.
+  for (const path of ["/premium", "/pricing"]) {
+    const html = await (await fetch(origin + path)).text();
+    check(`${path} says Coming soon on Discord without the SKU`, html.includes("Coming soon on Discord") && !html.includes("application-directory"));
+    check(`${path} has no web checkout or Stripe.js`, !/\/premium\/checkout|js\.stripe\.com|Upgrade on Dashboard/.test(html));
+  }
+  {
+    const saved = { sku: process.env.DISCORD_PREMIUM_SKU_ID, app: process.env.DISCORD_APPLICATION_ID };
+    process.env.DISCORD_PREMIUM_SKU_ID = "123456789012345678";
+    process.env.DISCORD_APPLICATION_ID = "223456789012345678";
+    try {
+      const store = "https://discord.com/application-directory/223456789012345678/store/123456789012345678";
+      for (const path of ["/premium", "/pricing"]) {
+        const html = await (await fetch(origin + path)).text();
+        check(`${path} links Subscribe in Discord to the SKU's store page`, html.includes(`href="${store}"`) && html.includes("Subscribe in Discord"));
+        check(`${path} drops the coming-soon notice once on sale`, !html.includes("Coming soon on Discord."));
+      }
+      check("/roadmap drops Premium once it is on sale", !(await (await fetch(origin + "/roadmap")).text()).includes('id="premium"'));
+    } finally {
+      if (saved.sku === undefined) delete process.env.DISCORD_PREMIUM_SKU_ID; else process.env.DISCORD_PREMIUM_SKU_ID = saved.sku;
+      process.env.DISCORD_APPLICATION_ID = saved.app;
+    }
+  }
+  check("/assets/premium.js is gone (no checkout script)", (await fetch(origin + "/assets/premium.js")).status === 404);
+
   console.log("\nSecurity headers");
   const home = await fetch(origin + "/", { headers: { "Accept-Encoding": "gzip" } });
   const csp = home.headers.get("content-security-policy") ?? "";

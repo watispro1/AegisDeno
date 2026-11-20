@@ -18,10 +18,11 @@ import type { SiteConfig } from "../src/web/pages";
 import { renderPremium, renderPricing, renderRefunds, renderTerms } from "../src/web/pages";
 import { normalizeGuildConfig } from "../src/services/guildConfigNormalize";
 import { memoryPremiumStore } from "../src/services/premiumStore";
+import { isStripeSubscription, renderPremiumPage } from "../src/web/dashboard/views/premium";
 import type { Entitlement } from "../src/services/premiumState";
 import type { StripeConfig } from "../src/config/stripe";
+import type { DiscordPremiumOffer } from "../src/config/discordSku";
 import { CONTENT_SECURITY_POLICY, PREMIUM_CONTENT_SECURITY_POLICY, isPremiumCheckoutPath, securityHeaders } from "../src/web/securityHeaders";
-import { premiumScript } from "../src/web/dashboard/clientPremium";
 import { command as premiumCommand, premiumStatusLine } from "../src/commands/general/premium";
 import { portalUrl } from "../src/services/stripeApi";
 
@@ -37,6 +38,9 @@ const stripe: StripeConfig = {
   webhookSecret: "whsec_testSecretKey1234567890abcdef",
   isLive: false,
 };
+const SKU = "123456789012345678", APP_ID = "223456789012345678";
+const STORE_URL = `https://discord.com/application-directory/${APP_ID}/store/${SKU}`;
+const discordOffer: DiscordPremiumOffer = { storeUrl: STORE_URL, skuId: SKU };
 const bot: BotView = {
   hasGuild: id => id === GUILD, guild: id => (id === GUILD ? { id, name: "Test <b>Guild</b>", memberCount: 10, iconUrl: null } : null),
   memberCanManage: async (g, u) => g === GUILD && u === STAFF, memberHasPermission: async () => true,
@@ -65,6 +69,7 @@ const fakeStripe = async (url: string, init: { headers: Record<string, string>; 
 let server: Server, url = "";
 const cookies: Record<string, string> = {}, csrfs: Record<string, string> = {};
 let offered = true;
+let onDiscord = true;
 
 before(async () => {
   const config = readDashboardConfig({ DISCORD_APPLICATION_ID: "123456789012345678", DISCORD_CLIENT_SECRET: "x", DASHBOARD_SESSION_SECRET: SECRET, DASHBOARD_REDIRECT_URI: "http://127.0.0.1/dashboard/callback" })!;
@@ -79,7 +84,7 @@ before(async () => {
   const app = express();
   app.use((req, res, next) => { for (const [k, v] of Object.entries(securityHeaders(req.path))) res.setHeader(k, v); next(); });
   app.use("/dashboard", createDashboardRouter({ site, config, bot, data, sessions, audit: memoryAuditStore(), limits: { auth: 100, post: 1000, page: 2000 },
-    premium: { store, stripe: () => (offered ? stripe : null), stripeFetch: fakeStripe } }));
+    premium: { store, stripe: () => (offered ? stripe : null), discord: () => (onDiscord ? discordOffer : null), stripeFetch: fakeStripe } }));
   server = app.listen(0);
   await new Promise(r => server.once("listening", r));
   url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -98,14 +103,19 @@ function active(over: Partial<Entitlement> = {}): Entitlement {
   return { guildId: GUILD, userId: MEMBER, subscriptionId: SUB, customerId: CTM, status: "active", currentPeriodEnd: new Date(Date.now() + 20 * 86_400_000), pastDueSince: null, cancelAt: null, lastEventAt: at, createdAt: at, updatedAt: at, ...over };
 }
 
-test("a plain member can open the Premium page and gets the checkout, with Stripe's CSP only there", async () => {
+test("a plain member gets Subscribe in Discord, never a checkout, and no Stripe.js even with every Stripe secret set", async () => {
+  assert.ok(offered && stripe.secretKey && stripe.publishableKey && stripe.priceId && stripe.webhookSecret, "Stripe fully configured");
   const res = await get(`/dashboard/${GUILD}/premium`, MEMBER);
   assert.equal(res.status, 200);
   const html = await res.text();
-  assert.ok(html.includes("data-premium-checkout"));
-  assert.ok(html.includes(`data-guild="${GUILD}"`) && html.includes(`data-user="${MEMBER}"`));
-  assert.ok(html.includes(`data-price="${stripe.priceId}"`));
-  assert.ok(html.includes('src="https://js.stripe.com/v3/"'));
+  assert.ok(html.includes(`href="${STORE_URL}"`), "links the SKU in the app's Discord store");
+  assert.ok(html.includes("Subscribe in Discord"));
+  assert.ok(html.includes("/premium") && html.includes("Subscribe</strong>"), "how-to copy");
+  assert.ok(!html.includes("data-premium-checkout") && !html.includes("data-premium-subscribe"), "no checkout UI");
+  assert.ok(!html.includes(`/premium/checkout`), "no checkout form");
+  assert.doesNotMatch(html, /js\.stripe\.com/, "Stripe.js never loads");
+  assert.ok(!html.includes("/assets/premium.js"));
+  assert.ok(!html.includes(stripe.publishableKey) && !html.includes(stripe.priceId), "no Stripe settings on the page");
   assert.ok(html.includes("Test &lt;b&gt;Guild&lt;/b&gt;"), "server name escaped");
   assert.ok(!html.includes(stripe.secretKey) && !html.includes(stripe.webhookSecret), "server secrets never reach the page");
   assert.doesNotMatch(html, /<script>(?!\s*\{)|\sstyle=|\son[a-z]+=/i, "no inline script, style or handlers");
@@ -114,22 +124,49 @@ test("a plain member can open the Premium page and gets the checkout, with Strip
   assert.equal(other.headers.get("content-security-policy"), CONTENT_SECURITY_POLICY, "every other page keeps the strict policy");
 });
 
-test("staff see the page in the sidebar layout; strangers are refused; hidden without Stripe", async () => {
+test("without the Discord SKU the page says Coming soon on Discord, with no price call to action", async () => {
+  onDiscord = false;
+  try {
+    const html = await (await get(`/dashboard/${GUILD}/premium`, MEMBER)).text();
+    assert.ok(html.includes("Coming soon on Discord"));
+    assert.ok(!html.includes("Subscribe in Discord") && !html.includes("application-directory"));
+    assert.doesNotMatch(html, /js\.stripe\.com|data-premium-checkout/);
+  } finally { onDiscord = true; }
+});
+
+test("checkout answers 403 web_checkout_disabled even with every Stripe secret set, and never calls Stripe", async () => {
+  const before = portalCalls.length;
+  for (const uid of [MEMBER, STAFF, STRANGER]) {
+    const res = await post(`/dashboard/${GUILD}/premium/checkout`, uid, {});
+    assert.equal(res.status, 403, uid);
+    assert.deepEqual(await res.json(), { error: "web_checkout_disabled" });
+  }
+  // Without a session or CSRF token too: the switch is checked first.
+  const anon = await fetch(`${url}/dashboard/${GUILD}/premium/checkout`, { method: "POST", redirect: "manual" });
+  assert.equal(anon.status, 403);
+  assert.deepEqual(await anon.json(), { error: "web_checkout_disabled" });
+  assert.equal(portalCalls.length, before, "no Stripe API call");
+  assert.ok(!portalCalls.some(c => c.url.includes("/checkout/sessions")), "never a checkout session");
+});
+
+test("staff see the page in the sidebar layout; strangers are refused; hidden with neither Discord nor Stripe", async () => {
   const staff = await (await get(`/dashboard/${GUILD}/premium`, STAFF)).text();
   assert.ok(staff.includes('id="dash-sidebar"'));
   assert.equal((await get(`/dashboard/${GUILD}/premium`, STRANGER)).status, 403);
   assert.equal((await get(`/dashboard/800000000000000009/premium`, MEMBER)).status, 404);
   offered = false;
   try {
+    assert.equal((await get(`/dashboard/${GUILD}/premium`, MEMBER)).status, 200, "Discord alone is enough");
+    onDiscord = false;
     assert.equal((await get(`/dashboard/${GUILD}/premium`, MEMBER)).status, 404);
-  } finally { offered = true; }
+  } finally { offered = true; onDiscord = true; }
 });
 
 test("an active server shows the badge and no second checkout; only the buyer gets billing controls", async () => {
   await store.save(active());
   const buyer = await (await get(`/dashboard/${GUILD}/premium`, MEMBER)).text();
-  assert.ok(!buyer.includes("data-premium-checkout"), "no double subscription");
-  assert.ok(!buyer.includes("js.stripe.com/v3/"));
+  assert.ok(!buyer.includes("data-premium-checkout") && !buyer.includes("Subscribe in Discord"), "no double subscription");
+  assert.ok(!buyer.includes("js.stripe.com"));
   assert.ok(buyer.includes("Manage billing") && buyer.includes("Cancel subscription"));
   const staff = await (await get(`/dashboard/${GUILD}/premium`, STAFF)).text();
   assert.ok(!staff.includes("Manage billing"));
@@ -139,6 +176,23 @@ test("an active server shows the badge and no second checkout; only the buyer ge
   // A stranger who bought it (left the server since) may still open it to cancel
   await store.save(active({ subscriptionId: "sub_1ABCDEF01234567890abcdez", userId: STRANGER, customerId: "cus_1ABCDEF01234567890abcdez", status: "canceled" }));
   assert.equal((await get(`/dashboard/${GUILD}/premium`, STRANGER)).status, 200);
+});
+
+test("a Discord subscription is managed in Discord: no Stripe portal buttons, and the portal refuses it", async () => {
+  const discordSub = active({ subscriptionId: "discord_987654321098765432", customerId: `discord_${MEMBER}` });
+  const html = renderPremiumPage(site, {
+    guild: { id: GUILD, name: "Test", memberCount: 1, iconUrl: null },
+    viewer: { userId: MEMBER, username: "m", globalName: null, csrf: "x" },
+    premium: true,
+    entitlement: discordSub,
+    discord: discordOffer,
+    stripePortal: true,
+    buyerName: "buyer-name",
+    noticeCode: null,
+  });
+  assert.ok(html.includes("Subscribed in Discord"));
+  assert.ok(!html.includes("Manage billing") && !html.includes("/premium/portal"));
+  assert.ok(!isStripeSubscription(discordSub) && isStripeSubscription(active()));
 });
 
 test("portal: buyer is redirected to Stripe customer portal; others get 403; failures fall back", async () => {
@@ -162,17 +216,6 @@ test("portal: buyer is redirected to Stripe customer portal; others get 403; fai
   } finally { portalOk = true; }
 });
 
-test("checkout: buyer POST creates Stripe checkout session and redirects", async () => {
-  const store2 = memoryPremiumStore();
-  const res = await post(`/dashboard/${GUILD}/premium/checkout`, MEMBER, {});
-  assert.equal(res.status, 303);
-  assert.match(res.headers.get("location") ?? "", /^https:\/\/checkout\.stripe\.com\/c\/pay\/cs_test/);
-  const call = portalCalls.at(-1)!;
-  assert.equal(call.url, "https://api.stripe.com/v1/checkout/sessions");
-  assert.equal(call.auth, `Bearer ${stripe.secretKey}`);
-  assert.ok(call.body.includes(`client_reference_id=${GUILD}`));
-});
-
 test("portalUrl only follows https links on Stripe's portal hosts", () => {
   assert.ok(portalUrl("https://billing.stripe.com/session/abc123xyz"));
   assert.ok(portalUrl("https://checkout.stripe.com/c/pay/cs_test_abc123"));
@@ -181,24 +224,20 @@ test("portalUrl only follows https links on Stripe's portal hosts", () => {
   assert.equal(portalUrl("javascript:alert(1)"), null);
 });
 
-test("Premium CSP: Stripe allowed only where needed, still no unsafe-inline", () => {
+test("Premium CSP: only the portal redirect to Stripe is allowed; no Stripe.js, frames or payment feature", () => {
   assert.ok(isPremiumCheckoutPath(`/dashboard/${GUILD}/premium`));
   assert.ok(isPremiumCheckoutPath(`/dashboard/${GUILD}/premium/portal`));
   assert.ok(isPremiumCheckoutPath(`/dashboard/${GUILD}/premium/checkout`));
   for (const p of ["/premium", "/dashboard", `/dashboard/${GUILD}`, `/dashboard/${GUILD}/premiumx`, "/dashboard/abc/premium"]) assert.ok(!isPremiumCheckoutPath(p), p);
   assert.ok(!PREMIUM_CONTENT_SECURITY_POLICY.includes("unsafe"));
   assert.ok(!CONTENT_SECURITY_POLICY.includes("stripe"));
-  assert.match(PREMIUM_CONTENT_SECURITY_POLICY, /script-src 'self' https:\/\/js\.stripe\.com;/);
-  assert.match(PREMIUM_CONTENT_SECURITY_POLICY, /frame-src https:\/\/js\.stripe\.com https:\/\/checkout\.stripe\.com/);
+  assert.match(PREMIUM_CONTENT_SECURITY_POLICY, /script-src 'self';/);
+  assert.ok(!PREMIUM_CONTENT_SECURITY_POLICY.includes("js.stripe.com") && !PREMIUM_CONTENT_SECURITY_POLICY.includes("checkout.stripe.com"));
+  assert.match(PREMIUM_CONTENT_SECURITY_POLICY, /frame-src 'none'/);
+  assert.match(PREMIUM_CONTENT_SECURITY_POLICY, /form-action 'self' https:\/\/billing\.stripe\.com;/);
   assert.match(PREMIUM_CONTENT_SECURITY_POLICY, /frame-ancestors 'none'/);
-  assert.match(securityHeaders(`/dashboard/${GUILD}/premium`)["Permissions-Policy"], /payment=\(self "https:\/\/checkout\.stripe\.com"\)/);
+  assert.match(securityHeaders(`/dashboard/${GUILD}/premium`)["Permissions-Policy"], /payment=\(\)/);
   assert.match(securityHeaders("/")["Permissions-Policy"], /payment=\(\)/);
-});
-
-test("premium.js handles form submission and status message", () => {
-  assert.match(premiumScript, /data-premium-checkout/);
-  assert.match(premiumScript, /data-premium-subscribe/);
-  assert.match(premiumScript, /Redirecting to secure Stripe checkout/);
 });
 
 test("/premium command is guild-only and its status lines cover every state", () => {
@@ -212,52 +251,57 @@ test("/premium command is guild-only and its status lines cover every state", ()
   assert.match(premiumStatusLine({ premium: false, entitlement: active({ status: "canceled" }) }), /has ended/);
 });
 
-test("public /premium page shows the price and limits, and says when it is not on sale", () => {
-  const on = renderPremium(site, true);
-  assert.ok(on.includes("$5 / month") && on.includes("Autoresponders") && on.includes('href="/dashboard"'));
-  assert.ok(on.includes("Stripe"));
-  assert.ok(renderPremium(site, false).includes("Not on sale yet"));
-  assert.doesNotMatch(on, /\sstyle=|\son[a-z]+=/i);
-});
-
-test("refund policy: the same 14-day policy is on /premium (on sale or not) and in the Terms Premium section", () => {
-  const policy = "Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our support server; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.";
-  const text = (html: string) => html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
-  for (const html of [renderPremium(site, true), renderPremium(site, false)]) {
-    assert.ok(text(html).includes(policy), "policy on /premium");
+test("public /premium page: Subscribe in Discord when the SKU is set, Coming soon on Discord otherwise, never a web checkout", () => {
+  const on = renderPremium(site, discordOffer);
+  assert.ok(on.includes("$5 / month") && on.includes("Autoresponders"));
+  assert.ok(on.includes(`href="${STORE_URL}"`) && on.includes("Subscribe in Discord"), "Discord CTA rendered");
+  assert.ok(!on.includes("Coming soon on Discord"));
+  const off = renderPremium(site, null);
+  assert.ok(off.includes("Coming soon on Discord"));
+  assert.ok(!off.includes("Subscribe in Discord") && !off.includes("application-directory"), "no price CTA without the SKU");
+  for (const html of [on, off]) {
+    assert.doesNotMatch(html, /\/premium\/checkout|js\.stripe\.com|Open the dashboard/);
+    assert.doesNotMatch(html, /\sstyle=|\son[a-z]+=/i);
   }
-  const terms = renderTerms(site);
-  const premiumSection = terms.slice(terms.indexOf('id="premium"'), terms.indexOf('id="acceptable-use"'));
-  assert.ok(text(premiumSection).includes(policy), "policy in the Terms Premium section");
-  assert.doesNotMatch(premiumSection, /handled by Paddle/);
-  const refunds = renderRefunds(site);
-  assert.ok(text(refunds).includes(policy), "policy on /refunds");
-  assert.doesNotMatch(refunds, /\sstyle=|\son[a-z]+=/i);
 });
 
-test("public /pricing page compares Free vs Premium, lists limits, and is CSP-clean", () => {
-  const on = renderPricing(site, true);
+test("Discord billing copy is on /premium, /refunds and the Terms Premium section", () => {
+  const text = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&#39;/g, "'").replace(/\s+/g, " ");
+  for (const html of [renderPremium(site, discordOffer), renderPremium(site, null), renderRefunds(site, discordOffer), renderRefunds(site)]) {
+    const t = text(html);
+    assert.ok(t.includes("billed by Discord as an in-app subscription"));
+    assert.ok(t.includes("can't be bought on the Aegis website"));
+  }
+  const terms = renderTerms(site, discordOffer);
+  const premiumSection = terms.slice(terms.indexOf('id="premium"'), terms.indexOf('id="acceptable-use"'));
+  assert.ok(text(premiumSection).includes("sold only as a Discord in-app subscription"));
+  assert.doesNotMatch(premiumSection, /handled by Paddle|billed monthly via Stripe/);
+  assert.doesNotMatch(renderRefunds(site), /\sstyle=|\son[a-z]+=/i);
+});
+
+test("public /pricing page compares Free vs Premium with the Discord CTA, and is CSP-clean", () => {
+  const on = renderPricing(site, discordOffer);
   assert.ok(on.includes("$5 / month"));
   assert.ok(on.includes("Free forever"));
   assert.ok(on.includes("✦ Premium"));
   assert.ok(on.includes("Autoresponders"));
-  assert.ok(on.includes("Stripe"));
+  assert.ok(on.includes(`href="${STORE_URL}"`) && on.includes("Subscribe in Discord"));
   assert.ok(on.includes('href="/refunds"'));
-  assert.ok(on.includes('href="/dashboard"'));
+  assert.ok(!on.includes("Upgrade on Dashboard") && !on.includes("Checkout details"));
   assert.doesNotMatch(on, /\sstyle=|\son[a-z]+=/i);
 
-  const off = renderPricing(site, false);
-  assert.ok(off.includes("Not on sale yet"));
+  const off = renderPricing(site, null);
+  assert.ok(off.includes("Coming soon on Discord"));
+  assert.ok(!off.includes("application-directory"));
   assert.doesNotMatch(off, /\sstyle=|\son[a-z]+=/i);
 });
 
-test("dedicated /refunds page details 14-day guarantee and cancellation steps", () => {
+test("dedicated /refunds page: Discord handles refunds and cancellation", () => {
   const html = renderRefunds(site);
   assert.ok(html.includes("Refund and Cancellation Policy"));
-  assert.ok(html.includes("14-Day Money-Back Guarantee"));
   assert.ok(html.includes("Cancellation Policy"));
   assert.ok(html.includes("What Happens When Premium Ends"));
-  assert.ok(html.includes("Stripe"));
+  assert.ok(html.includes("https://discord.com/terms/paid-services-terms"));
   assert.ok(html.includes("/terms#premium"));
   assert.ok(html.includes("/pricing"));
   assert.doesNotMatch(html, /\sstyle=|\son[a-z]+=/i);

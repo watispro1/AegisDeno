@@ -6,7 +6,7 @@ import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
 import { NOTICES } from "./notices";
 import { isDiscordCdnUrl } from "../cdn";
-import { premiumOffered } from "../../../config/stripe";
+import { premiumPageAvailable } from "../../../config/stripe";
 import { PREMIUM_BADGE } from "../../../config/premium";
 
 export interface Viewer {
@@ -130,13 +130,13 @@ export function memberLabel(n: number): string {
   return `${v.toLocaleString("en-US")} member${v === 1 ? "" : "s"}`;
 }
 
-/** Shown at the end of General only when Stripe is configured (Premium is hidden otherwise). */
+/** Shown at the end of General when Premium is sold on Discord, or Stripe is configured for earlier website subscribers. */
 export const PREMIUM_NAV_ITEM: NavItem = { key: "premium", label: "Premium", href: "/premium", icon: "✦" };
 
 function sidebar(ctx: GuildContext, active: GuildSection): string {
   const g = ctx.guild;
   const base = `/dashboard/${esc(g.id)}`;
-  const offered = premiumOffered();
+  const offered = premiumPageAvailable();
   const groups = MODULE_NAV.map(group => {
     const grp = offered && group.group === "General" ? { ...group, items: [...group.items, PREMIUM_NAV_ITEM] } : group;
     const hasActive = grp.items.some(i => i.key === active);
