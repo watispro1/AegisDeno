@@ -13,6 +13,7 @@ import {
 import type { ComponentRoute } from "./router";
 import { captchaStore, getVerificationConfig, processVerification } from "../../services/verificationService";
 import { generateMathCaptcha } from "../../services/verificationLogic";
+import { INTERACTION_RESPONSE_BUDGET_MS, withinDeadline } from "../../utils/deadline";
 
 export const CAPTCHA_MODAL_ID = "verify_captcha_modal";
 export const CAPTCHA_INPUT_ID = "verify_captcha_answer";
@@ -25,7 +26,28 @@ export const verificationRoutes: ComponentRoute[] = [
     match: "verify_start",
     async handle(interaction) {
       if (!interaction.isButton() || !interaction.guild || !interaction.member) return;
-      const config = await getVerificationConfig(interaction.guild.id);
+      // The CAPTCHA modal must be the first response, so it cannot follow a defer.
+      // Read the config within the response budget; if the database is slower
+      // than that, defer and answer in text instead of letting the click expire.
+      const loading = getVerificationConfig(interaction.guild.id);
+      const quick = await withinDeadline(loading, INTERACTION_RESPONSE_BUDGET_MS);
+      if (!quick.ok) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const config = await loading;
+        if (config?.enabled && config.type === "captcha") {
+          await interaction.editReply({ content: "⌛ Verification took too long to load. Press the verify button again." });
+          return;
+        }
+        const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+        if (!member) {
+          await interaction.editReply({ content: MEMBER_NOT_FOUND });
+          return;
+        }
+        const result = await processVerification(interaction.guild, member);
+        await interaction.editReply({ content: result.message });
+        return;
+      }
+      const config = quick.value;
 
       // CAPTCHA mode: answer a small math problem in a modal before the role is granted.
       if (config?.enabled && config.type === "captcha") {
