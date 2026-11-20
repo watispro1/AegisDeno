@@ -115,8 +115,6 @@ export const cssGlass = String.raw`
 }
 
 /* Resting surfaces: radius, sheen, rim and depth, no blur. */
-[data-theme="glass"] .card,
-[data-theme="glass"] .panel,
 [data-theme="glass"] .panel-card,
 [data-theme="glass"] .callout,
 [data-theme="glass"] .home-feature,
@@ -125,7 +123,6 @@ export const cssGlass = String.raw`
 [data-theme="glass"] .audience-card,
 [data-theme="glass"] .help-block,
 [data-theme="glass"] .help-ask,
-[data-theme="glass"] .feature-cmds,
 [data-theme="glass"] .cmd-facts,
 [data-theme="glass"] .component,
 [data-theme="glass"] .status-banner,
@@ -134,8 +131,6 @@ export const cssGlass = String.raw`
 [data-theme="glass"] .mod-card,
 [data-theme="glass"] .table-wrap,
 [data-theme="glass"] .dc { border-radius: var(--r-lg); }
-[data-theme="glass"] .card,
-[data-theme="glass"] .panel,
 [data-theme="glass"] .panel-card,
 [data-theme="glass"] .home-feature,
 [data-theme="glass"] .whats-new,
@@ -152,10 +147,8 @@ export const cssGlass = String.raw`
   transition: border-color .3s var(--ease-glass), box-shadow .3s var(--ease-glass);
 }
 [data-theme="glass"] .callout,
-[data-theme="glass"] .feature-cmds,
 [data-theme="glass"] .cmd-facts,
 [data-theme="glass"] .table-wrap { background-image: var(--glass-sheen); box-shadow: var(--glass-rim); }
-[data-theme="glass"] .card:hover,
 [data-theme="glass"] .panel-card:hover,
 [data-theme="glass"] .home-feature:hover,
 [data-theme="glass"] .diff-card:hover,

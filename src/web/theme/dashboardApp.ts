@@ -11,7 +11,6 @@ export const cssDashboardApp = String.raw`/* ── Dashboard app shell ──�
 .app-side::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
 .app-main { min-width: 0; padding: 0 2rem 2.5rem; }
 .app-top { display: flex; align-items: center; gap: .85rem; min-height: 3.75rem; border-bottom: 1px solid var(--border); margin: 0 0 1.5rem; padding: 0 .25rem; }
-.app-top-title { font-weight: 600; font-size: 1.05rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-content > .breadcrumbs { margin-top: 0; }
 .drawer-toggle { display: none; }
 .dash-foot { margin-top: 3.5rem; font-size: .85rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
@@ -97,8 +96,6 @@ export const cssDashboardApp = String.raw`/* ── Dashboard app shell ──�
 .panel-card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 1.25rem 1.4rem; margin: 0 0 1.5rem; min-width: 0; box-shadow: 0 1px 3px rgba(0,0,0,.02); }
 .panel-card > h2:first-child, .panel-card > summary { margin-top: 0; font-size: 1.15rem; font-weight: 600; }
 details.panel-card > summary { cursor: pointer; font-weight: 600; min-height: 36px; }
-.overview-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; margin: 0 0 1.5rem; }
-.overview-grid .span-2 { grid-column: span 2; }
 .stat-link { display: block; color: inherit; text-decoration: none; }
 .stat-link:hover dd { color: var(--accent); }
 .stat:has(.stat-link:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -191,8 +188,6 @@ form[aria-busy="true"] [data-save-button]::after { content: " …"; }
 
 /* Small screens: the sidebar becomes a drawer */
 @media (max-width: 960px) {
-  .overview-grid { grid-template-columns: minmax(0, 1fr); }
-  .overview-grid .span-2 { grid-column: auto; }
   .embed-builder { grid-template-columns: minmax(0, 1fr); }
   .embed-preview-wrap { position: static; }
 }

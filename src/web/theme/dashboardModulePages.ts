@@ -40,7 +40,6 @@ tr[data-chip-out], tr[data-paged-out] { display: none; }
 .list-more[hidden], .list-empty[hidden] { display: none; }
 
 /* Cells: a main line and a faint second line */
-.cell-sub { display: block; margin-top: .1rem; font-size: .8rem; color: var(--faint); }
 .cell-actions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
 .cell-actions .inline-form { margin: 0; }
 
@@ -77,7 +76,6 @@ tr[data-chip-out], tr[data-paged-out] { display: none; }
 .quote-block { margin: 0; padding: .75rem 1rem; border-left: 3px solid var(--border-strong); background: var(--bg-sunk, var(--surface)); border-radius: 0 var(--r) var(--r) 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Collapsible filter form on small screens */
-.filter-toggle > summary { cursor: pointer; font-weight: 600; margin: 0 0 .5rem; }
 
 /* Panels: form beside a Discord-style preview */
 .panel-compose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem); gap: 1.25rem; align-items: start; margin-bottom: 1.5rem; }

@@ -14,8 +14,7 @@ export const cssDashboardRedesign = `
 .stat dd { font: 700 1.65rem/1.1 var(--mono); font-variant-numeric: tabular-nums; color: var(--text); }
 .stat dd small { font: 500 .8rem var(--sans); color: var(--muted); background: var(--bg-sunk); padding: .1rem .4rem; border-radius: 4px; vertical-align: middle; margin-left: .3rem; }
 .stat-link:hover .stat dd, .stat-link:hover dd { color: var(--accent); }
-.card, .panel, .guild-item, .dash-fact { box-shadow: none; }
-.card:hover { transform: none; box-shadow: none; }
+.guild-item, .dash-fact { box-shadow: none; }
 
 /* Sidebar: brand, filter, footer */
 .side-brand { display: flex; align-items: center; gap: .75rem; min-width: 0; color: var(--text); text-decoration: none; border-radius: var(--r-lg, var(--r)); padding: .35rem .45rem; transition: background .12s ease; }
@@ -90,12 +89,6 @@ export const cssDashboardRedesign = `
 /* Landing hero */
 .dash-landing { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 2.5rem; align-items: center; margin: 2.5rem 0 2rem; padding: 2.25rem 2rem; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 4px 24px rgba(0,0,0,.03); }
 .dash-landing-text h1 { margin: .25rem 0 .75rem; font-size: 2rem; letter-spacing: -.02em; }
-.dash-landing-preview { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); box-shadow: 0 4px 16px rgba(0,0,0,.04); }
-.dash-landing-preview li { display: flex; align-items: center; gap: .75rem; padding: .85rem 1.25rem; border-top: 1px solid var(--border); font-size: .92rem; font-weight: 500; }
-.dash-landing-preview li:first-child { border-top: 0; }
-.lp-dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--border-strong); flex: none; }
-.lp-dot.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.lp-n { margin-left: auto; font: 500 .8rem var(--mono); color: var(--faint); }
 .dash-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: 0; list-style: none; padding: 0; margin: 0 0 2.5rem; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .dash-fact { display: grid; grid-template-columns: auto 1fr; gap: .2rem .85rem; padding: 1.2rem 1.35rem; border-left: 1px solid var(--border); border-top: 1px solid var(--border); margin: -1px 0 0 -1px; background: var(--surface); }
 .dash-fact-icon { grid-row: span 2; color: var(--accent); font: 600 1.2rem var(--mono); }

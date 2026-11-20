@@ -73,17 +73,6 @@ export const cssPages = String.raw`/* ── Home ──────────
 .cmd-link { text-decoration: none; }
 .cmd-link:hover code { border-color: var(--accent); }
 
-.feature { padding: 0 0 2.5rem; margin-bottom: 2.5rem; border-bottom: 1px solid var(--border); }
-.feature:last-child { border-bottom: 0; margin-bottom: 0; }
-.feature h2 { margin-bottom: .4rem; }
-.feature > p { color: var(--text-2); max-width: 68ch; }
-.feature ul { max-width: 68ch; color: var(--text-2); }
-.feature-cmds { display: grid; gap: 0; margin: 1rem 0; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); }
-.feature-cmds div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; padding: .5rem .8rem; border-bottom: 1px solid var(--border); font-size: .9rem; }
-.feature-cmds div:last-child { border-bottom: 0; }
-.feature-cmds code { font-family: var(--mono); font-size: .84rem; color: var(--text); overflow-wrap: anywhere; }
-.feature-cmds span { color: var(--muted); }
-.feature-links { font-size: .9rem; }
 
 .prose { max-width: 72ch; }
 .prose h2 { margin-top: 2.75rem; padding-top: 1.75rem; border-top: 1px solid var(--border); }
@@ -226,21 +215,6 @@ export const cssPages = String.raw`/* ── Home ──────────
 .hierarchy-label { display: block; font: 500 .75rem var(--mono); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 .35rem; color: var(--faint); }
 
 /* Status */
-.status-line {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem;
-  padding: 1rem 1.1rem; margin-bottom: 2rem;
-  border: 1px solid var(--border); border-left: 3px solid var(--ok);
-  border-radius: var(--r); background: var(--surface);
-}
-.status-line.bad { border-left-color: var(--danger); }
-.status-line h2 { font-size: 1.15rem; margin: 0; }
-.status-line p { margin: 0; color: var(--muted); font-size: .92rem; flex: 1 1 260px; }
-.status-line .btn { margin-left: auto; }
-.metrics td:nth-child(2) { font-family: var(--mono); white-space: nowrap; }
-.metrics td:first-child { font-weight: 500; white-space: nowrap; }
-.metrics td.good { color: var(--ok); }
-.metrics td.warn { color: var(--warn); }
-.metrics tr.current td { background: var(--accent-soft); }
 .endpoints td:first-child { white-space: nowrap; }
 
 /* Legal */

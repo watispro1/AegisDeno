@@ -92,7 +92,7 @@ export const cssAurora = String.raw`
 [data-theme="aurora"] .btn.ghost:hover { background-color: #fff; border-color: #b9b0d8; }
 [data-theme="aurora"] .pricing-card.recommended { box-shadow: 0 18px 44px -20px rgba(90, 72, 208, .45); }
 [data-theme="aurora"] .pricing-tag { background-image: linear-gradient(135deg, #5a48d0, #6b3fc6); }
-[data-theme="aurora"] .card, [data-theme="aurora"] .panel, [data-theme="aurora"] .callout,
+[data-theme="aurora"] .callout,
 [data-theme="aurora"] .home-feature, [data-theme="aurora"] .component, [data-theme="aurora"] .table-wrap { border-radius: var(--r-lg); box-shadow: var(--shadow-aurora); }
 [data-theme="aurora"] .theme-menu, [data-theme="aurora"] .switcher-list, [data-theme="aurora"] .user-panel { border-radius: 16px; box-shadow: 0 18px 44px -12px rgba(60, 40, 150, .3); }
 [data-theme="aurora"] footer.site { background: rgba(255, 255, 255, .6); }

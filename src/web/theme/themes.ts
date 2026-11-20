@@ -181,7 +181,7 @@ html:not(.js) .theme-picker { display: none; }
 [data-theme="steel"] .text-link:hover, [data-theme="steel"] a:hover { color: var(--text); text-decoration-color: var(--text); }
 /* Hairlines carry the structure; hover strengthens the rule. */
 [data-theme="steel"] .app-body .app-content .panel-card:hover, [data-theme="steel"] .app-body .app-content .stat-grid > *:hover,
-[data-theme="steel"] .app-body .mod-card:hover, [data-theme="steel"] .card:hover { border-color: var(--border-strong); }
+[data-theme="steel"] .app-body .mod-card:hover { border-color: var(--border-strong); }
 [data-theme="steel"] .app-body .side-link[aria-current="page"] { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--border-strong); }
 [data-theme="steel"] .app-body .side-link[aria-current="page"]::before { background: var(--text); }
 [data-theme="steel"] .stat-ico, [data-theme="steel"] .qa-ico, [data-theme="steel"] .empty-icon, [data-theme="steel"] .app-body .mod-icon { background: transparent; color: var(--text-2); box-shadow: inset 0 0 0 1px var(--border-strong); }
