@@ -1,6 +1,6 @@
 /** Notice texts for ?notice= codes. Unknown codes show nothing. Shown as a banner and, with JavaScript, a toast. */
 export const NOTICES: Record<string, { text: string; bad?: boolean }> = {
-  "premium-thanks": { text: "Thanks! Premium turns on as soon as Stripe confirms the payment, usually within a few seconds. Reload this page to check." },
+  "premium-thanks": { text: "Thanks! Premium turns on as soon as the payment is confirmed, usually within a few seconds. Reload this page to check." },
   "premium-portal-failed": { text: "The Stripe billing portal could not be opened just now. Nothing changed. Try again in a minute.", bad: true },
   saved: { text: "Saved. Aegis uses the new settings from now on." },
   reason: { text: "Reason updated. The change was posted to your log channel if logging is on." },

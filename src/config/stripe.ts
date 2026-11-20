@@ -1,6 +1,11 @@
 /**
- * Stripe Billing settings, read from the environment. Every value is optional:
- * without them Premium is hidden everywhere and the webhook answers 503.
+ * Stripe Billing settings, read from the environment. Every value is optional.
+ *
+ * Aegis Premium is NOT sold on the website: it is sold only through Discord's
+ * in-app subscriptions (see ./discordSku). Stripe stays wired up only so any
+ * existing Stripe subscriber keeps working: the webhook keeps their status in
+ * sync and the buyer can still open Stripe's billing portal to manage or cancel.
+ * Web checkout is switched off by WEB_CHECKOUT_ENABLED below, whatever the env.
  *
  *   STRIPE_SECRET_KEY       server-side secret key (sk_test_… or sk_live_…)
  *   STRIPE_PUBLISHABLE_KEY  publishable key for Stripe.js (pk_test_… or pk_live_…)
@@ -75,9 +80,34 @@ export function missingStripeSettings(env: Env = process.env): string[] {
   return out;
 }
 
-import { isDiscordSkuConfigured } from "./discordSku";
+import { discordPremiumOffer } from "./discordSku";
 
-/** Whether Premium is configured and should be offered to users (via Stripe or Discord SKU). */
+/**
+ * Web (Stripe) checkout for Aegis Premium. Off by the owner's decision: Premium
+ * is sold only as a Discord in-app subscription. This is a code constant, not
+ * an environment variable, so setting every STRIPE_* secret cannot turn web
+ * checkout back on: the dashboard shows no Subscribe button and loads no
+ * Stripe.js, and POST /dashboard/:guildId/premium/checkout answers
+ * 403 {"error":"web_checkout_disabled"}. The Stripe webhook and billing portal
+ * keep working for existing Stripe subscribers.
+ */
+export const WEB_CHECKOUT_ENABLED: boolean = false;
+
+/** Whether the website may start a Stripe checkout. Always false today; see WEB_CHECKOUT_ENABLED. */
+export function webCheckoutEnabled(): boolean {
+  return WEB_CHECKOUT_ENABLED;
+}
+
+/** Whether Premium can be bought: only through Discord, so only when the Discord SKU (and app ID) are set. */
 export function premiumOffered(env: Env = process.env): boolean {
-  return readStripeConfig(env) !== null || isDiscordSkuConfigured(env);
+  return discordPremiumOffer(env) !== null;
+}
+
+/**
+ * Whether the dashboard's Premium page exists: when Premium is sold on Discord,
+ * or when Stripe is configured so an existing Stripe subscriber can still manage
+ * or cancel through Stripe's billing portal.
+ */
+export function premiumPageAvailable(env: Env = process.env): boolean {
+  return premiumOffered(env) || readStripeConfig(env) !== null;
 }

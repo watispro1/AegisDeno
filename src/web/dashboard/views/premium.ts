@@ -1,15 +1,18 @@
 /**
  * Premium page (/dashboard/:guildId/premium). Open to every member of the
  * server, not only staff: staff see it inside the usual sidebar layout,
- * members on a plain page. Billing controls show only for the buyer.
+ * members on a plain page.
  *
- * No inline scripts or styles. The checkout settings ride on data-* attributes
- * and Stripe handles secure checkout and customer portal management.
+ * Premium is sold only as a Discord in-app subscription: the page shows a
+ * "Subscribe in Discord" link (or "Coming soon on Discord") and never a web
+ * checkout, and it loads no Stripe.js. For a subscription bought earlier on
+ * the website, the buyer still gets Stripe billing-portal buttons.
+ * No inline scripts or styles.
  */
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { GuildSummary } from "../botView";
 import { PREMIUM_BADGE, PREMIUM_GRACE_DAYS, PREMIUM_LIMITS, PREMIUM_PRICE_LABEL } from "../../../config/premium";
-import type { StripeConfig } from "../../../config/stripe";
+import { DISCORD_BILLING_HTML, discordCtaHtml, type DiscordPremiumOffer } from "../../pages/billingCopy";
 import { graceEndsAt, type Entitlement } from "../../../services/premiumState";
 import { type GuildContext, type Viewer, csrfField, fmtDate, head, notice, shell } from "./layout";
 import { modulePage } from "./parts";
@@ -22,9 +25,10 @@ export interface PremiumView {
   ctx?: GuildContext;
   premium: boolean;
   entitlement: Entitlement | null;
-  stripe: Pick<StripeConfig, "publishableKey" | "priceId" | "isLive">;
-  /** Absolute URL Stripe sends the buyer back to after paying. */
-  successUrl: string;
+  /** Where to subscribe in Discord, or null while the Discord SKU isn't configured ("Coming soon on Discord"). */
+  discord: DiscordPremiumOffer | null;
+  /** Whether Stripe is configured, so an earlier website subscriber can open Stripe's billing portal. */
+  stripePortal: boolean;
   /** Display name of the buyer, if the bot knows them. */
   buyerName: string | null;
   noticeCode: string | null;
@@ -58,30 +62,29 @@ function benefitsTable(): string {
     <tbody>${rows}<tr><td>Premium badge in /help and on the dashboard</td><td>—</td><td><strong>Yes</strong></td></tr></tbody></table></div>`;
 }
 
+/** A subscription bought earlier on the website through Stripe (not a Discord entitlement). */
+export function isStripeSubscription(e: Entitlement | null): boolean {
+  return Boolean(e && !e.subscriptionId.startsWith("discord_") && e.customerId && !e.customerId.startsWith("discord_"));
+}
+
 function actions(v: PremiumView): string {
   const base = `/dashboard/${esc(v.guild.id)}/premium`;
   const e = v.entitlement;
-  const isBuyer = Boolean(e && e.userId === v.viewer.userId && e.customerId);
   if (v.premium) {
-    if (isBuyer) {
+    if (!isStripeSubscription(e)) {
+      return `<p class="muted">Subscribed in Discord${v.buyerName ? ` by <strong>${esc(v.buyerName)}</strong>` : ""}. Whoever subscribed manages or cancels it from the Subscriptions section of their Discord settings.</p>
+      <p class="faint">${DISCORD_BILLING_HTML}</p>`;
+    }
+    const isBuyer = Boolean(e && e.userId === v.viewer.userId);
+    if (isBuyer && v.stripePortal) {
       const portal = (action: string, label: string, cls: string, confirm?: string) => `<form class="inline-form" method="post" action="${base}/portal"${confirm ? ` data-confirm="${esc(confirm)}"` : ""}>
         ${csrfField(v.viewer)}<input type="hidden" name="action" value="${action}"><button class="btn ${cls}" type="submit">${esc(label)}</button></form>`;
       return `<div class="btn-row">${portal("overview", "Manage billing", "")}${e?.status === "past_due" ? portal("payment", "Update payment method", "ghost") : ""}${e?.cancelAt ? "" : portal("cancel", "Cancel subscription", "ghost danger", "Cancel Premium for this server? It stays on until the end of the month already paid for.")}</div>
-      <p class="faint">These open Stripe's customer portal, where you can see invoices, change your card or cancel.</p>`;
+      <p class="faint">This subscription was bought on the website before Premium moved to Discord. These open Stripe's billing portal, where you can see invoices, change your card or cancel.</p>`;
     }
     return `<p class="muted">Bought by ${v.buyerName ? `<strong>${esc(v.buyerName)}</strong>` : "another member"}. Only they can manage or cancel the subscription.</p>`;
   }
-  const d = v.stripe;
-  const customerId = v.entitlement?.customerId ?? "";
-  const custAttr = customerId ? ` data-customer="${esc(customerId)}"` : "";
-  return `<div class="premium-checkout" data-premium-checkout data-price="${esc(d.priceId)}" data-guild="${esc(v.guild.id)}" data-user="${esc(v.viewer.userId)}"${custAttr} data-success="${esc(v.successUrl)}">
-      <form method="post" action="${base}/checkout">
-        ${csrfField(v.viewer)}
-        <button class="btn" type="submit" data-premium-subscribe>Subscribe for ${esc(PREMIUM_PRICE_LABEL)}</button>
-      </form>
-      <p class="faint" data-premium-status role="status" aria-live="polite"></p>
-    </div>
-    <p class="faint">Payments are securely processed by Stripe. Aegis never sees your card details. By subscribing you agree to the <a href="/terms#premium">terms</a>.</p>`;
+  return discordCtaHtml(v.discord);
 }
 
 export function renderPremiumPage(cfg: SiteConfig, v: PremiumView): string {
@@ -100,16 +103,15 @@ export function renderPremiumPage(cfg: SiteConfig, v: PremiumView): string {
     ${benefitsTable()}
     <p class="faint">Every feature stays free; Premium only raises these limits. If it ends, nothing is deleted. <a href="/premium">More about Premium</a>.</p>
   </section>`;
-  const scripts = `<script src="https://js.stripe.com/v3/" defer></script><script src="/assets/premium.js${cfg.assetVersion ? `?v=${encodeURIComponent(cfg.assetVersion)}` : ""}" defer></script>`;
-  const lead = "Aegis Premium for this server: higher limits and a badge. Anyone in the server can buy it.";
+  const lead = "Aegis Premium for this server: higher limits and a badge. Anyone in the server can subscribe in Discord.";
   const path = `/dashboard/${v.guild.id}/premium`;
   if (v.ctx) {
-    return modulePage(cfg, v.ctx, { active: "premium", title: "Premium", lead, path, body, extraScripts: v.premium ? "" : scripts });
+    return modulePage(cfg, v.ctx, { active: "premium", title: "Premium", lead, path, body });
   }
   return shell(cfg, {
     title: `Premium, ${v.guild.name}`,
     path,
-    body: `<div class="wrap m-wrap">${head("Premium", lead)}<main>${body}</main></div>${v.premium ? "" : scripts}`,
+    body: `<div class="wrap m-wrap">${head("Premium", lead)}<main>${body}</main></div>`,
     viewer: v.viewer,
   });
 }

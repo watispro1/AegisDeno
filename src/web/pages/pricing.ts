@@ -1,34 +1,41 @@
 /**
  * Public /pricing page: clear comparison between Free and Premium tiers,
- * limit comparison table, FAQ, and link to checkout and refund policies.
+ * limit comparison table, FAQ, and links to the refund policy. Premium is sold
+ * only as a Discord in-app subscription ("Subscribe in Discord"); there is no
+ * web checkout.
  */
 import { PREMIUM_LIMITS, PREMIUM_PRICE_LABEL } from "../../config/premium";
 import { SUPPORT_SERVER_INVITE } from "../layout";
 import { type SiteConfig, breadcrumb, escapeHtml as esc, faqBlock, page, safeUrl } from "./shared";
-import { BILLING_STATUS_HTML, DISCORD_BILLING_HTML } from "./billingCopy";
+import {
+  DISCORD_BILLING_HTML,
+  HOW_TO_SUBSCRIBE_HTML,
+  LOCAL_PRICE_TEXT,
+  billingStatusHtml,
+  discordCtaHtml,
+  earlierWebSubscriptionHtml,
+  type DiscordPremiumOffer,
+} from "./billingCopy";
 
-export function renderPricing(cfg: SiteConfig, offered: boolean): string {
-  const supportUrl = safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE);
+export function renderPricing(cfg: SiteConfig, offer: DiscordPremiumOffer | null): string {
+  const onSale = offer !== null;
+  const supportUrl = cfg.supportUrl || SUPPORT_SERVER_INVITE;
   const inviteUrl = safeUrl(cfg.inviteUrl);
 
   const limitRows = Object.values(PREMIUM_LIMITS)
     .map(l => `<tr><td>${esc(l.label)}</td><td>${l.free}</td><td><strong>${l.premium}</strong></td></tr>`)
     .join("\n          ");
 
-  const premiumCta = offered
-    ? `<div class="btn-row"><a class="btn" href="/dashboard">Upgrade on Dashboard</a><a class="btn ghost" href="/premium">Checkout details</a></div>
-       <p class="faint">Pick your server on the dashboard and open <strong>Premium</strong>, or run <code class="inline">/premium</code> in your Discord server.</p>`
-    : `<p class="notice"><strong>Not on sale yet.</strong> The $5/month Premium subscription is currently in development and not for sale. Everything Aegis does is 100% free in the meantime.</p>
-       <p class="faint">${BILLING_STATUS_HTML}</p>`;
+  const premiumCta = discordCtaHtml(offer);
 
   const faqs = [
     { q: "Is Aegis really free?", a: "<p>Yes. Every single moderation, automod, logging, verification, ticket, leveling, and utility command is 100% free and will always remain free. Premium only raises quantitative limits and adds a server badge.</p>" },
-    { q: "How much does Premium cost?", a: `<p>Aegis Premium is <strong>${esc(PREMIUM_PRICE_LABEL)}</strong> (USD) per Discord server. It is billed monthly and you can cancel anytime.</p>` },
-    { q: "Can anyone in the server buy Premium?", a: "<p>Yes. Any member of the server can subscribe to Premium on behalf of the server through the dashboard or, where it is offered, as a Discord in-app subscription from <code class=\"inline\">/premium</code>. The server enjoys the benefits, and the subscriber manages the billing.</p>" },
-    { q: "Who processes payments?", a: `<p>On the dashboard, Stripe securely processes payments, charges any sales tax or VAT, sends the receipt and handles customer portal billing. A Discord in-app subscription is billed by Discord under Discord's own terms. Aegis never sees or stores your payment card details. See our <a href="/terms#premium">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>.</p>` },
-    { q: "What is your refund policy?", a: `<p>We offer a <strong>full 14-day money-back guarantee</strong> on any payment made through Stripe on the dashboard. You can request a refund by contacting us on our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>. Discord in-app subscriptions follow Discord's own refund policy. Full details are on our <a href="/refunds">Refund Policy page</a>.</p>` },
+    { q: "How much does Premium cost?", a: `<p>Aegis Premium is <strong>${esc(PREMIUM_PRICE_LABEL)}</strong> (USD) per Discord server, billed monthly by Discord; cancel anytime. ${esc(LOCAL_PRICE_TEXT)}</p>` },
+    { q: "How do I subscribe?", a: `<p>${onSale ? "" : "Premium isn't on sale yet. When it is: "}${HOW_TO_SUBSCRIBE_HTML} Premium can't be bought on the Aegis website.</p>` },
+    { q: "Who processes payments?", a: `<p>Discord. Premium is a Discord in-app subscription, billed by Discord under Discord's own terms. Aegis never sees or stores your payment card details. See our <a href="/terms#premium">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>.</p>` },
+    { q: "What is your refund policy?", a: `<p>Refunds for Discord in-app subscriptions are handled by Discord under Discord's refund policy. ${earlierWebSubscriptionHtml(supportUrl)} Full details are on our <a href="/refunds">Refund Policy page</a>.</p>` },
     { q: "What happens if I cancel Premium?", a: "<p>Your subscription remains active until the end of the paid month. After that, nothing is deleted or disabled. Existing autoresponders, shop items, or snippets keep working; you just cannot create new ones beyond the free limits until you are below the free caps.</p>" },
-    { q: "Which payment methods are supported?", a: "<p>On the dashboard, Stripe accepts major credit and debit cards (Visa, MasterCard, American Express), Apple Pay, Google Pay, and supported regional payment methods depending on your location. A Discord in-app subscription uses the payment methods saved in your Discord account.</p>" },
+    { q: "Which payment methods are supported?", a: "<p>Whatever Discord accepts for in-app subscriptions in your region, using the payment methods saved in your Discord account.</p>" },
     { q: "What happens to my data when Premium ends?", a: "<p>Nothing is deleted. Your autoresponders, shop items, snippets and scheduled messages continue to work. You just cannot create new ones beyond the free tier limits until your usage drops below those limits naturally.</p>" },
   ];
 
@@ -70,11 +77,11 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
 
     <!-- Premium Tier Card -->
     <div class="pricing-card recommended">
-      <div class="pricing-tag">In Development</div>
+      <div class="pricing-tag">${onSale ? "On Discord" : "Coming soon on Discord"}</div>
       <div>
-        <span class="pill ok">✦ Premium</span> <span class="pill warn">In Development · Not for Sale</span>
+        <span class="pill ok">✦ Premium</span> <span class="pill${onSale ? "" : " warn"}">${onSale ? "Subscribe in Discord" : "Coming soon on Discord"}</span>
         <h2 class="pricing-price">${esc(PREMIUM_PRICE_LABEL)}</h2>
-        <p class="faint">For larger servers that need doubled limits and extra power (currently in development and not for sale).</p>
+        <p class="faint">For larger servers that need doubled limits and extra power. Sold only as a Discord in-app subscription${onSale ? "" : " (not on sale yet)"}.</p>
         <ul class="pricing-features">
           <li>&#10003; <strong>Everything in Free included</strong></li>
           <li>&#10003; <strong>100 Autoresponders</strong> (2&times; limit)</li>
@@ -84,8 +91,7 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
           <li>&#10003; <strong>50 Role panel choices</strong> (2&times; limit)</li>
           <li>&#10003; <strong>✦ Premium badge</strong> in <code class="inline">/help</code> and dashboard</li>
           <li>&#10003; <strong>Priority event &amp; webhook processing</strong></li>
-          <li>&#10003; <strong>Stripe Customer Portal</strong> for self-service invoices &amp; cancellation (or Discord's own subscription settings for in-app subscriptions)</li>
-          <li>&#10003; <strong>14-day money-back guarantee</strong></li>
+          <li>&#10003; <strong>Billed by Discord:</strong> manage or cancel from your Discord settings</li>
           <li>&#10003; Supports Aegis&#39;s hosting, uptime &amp; development</li>
         </ul>
       </div>
@@ -115,11 +121,6 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
             <td><strong>Yes</strong></td>
           </tr>
           <tr>
-            <td>Self-service invoice &amp; payment portal</td>
-            <td>&mdash;</td>
-            <td><strong>Yes</strong></td>
-          </tr>
-          <tr>
             <td>Priority infrastructure &amp; event handling</td>
             <td>Standard</td>
             <td><strong>High Priority</strong></td>
@@ -131,8 +132,9 @@ export function renderPricing(cfg: SiteConfig, offered: boolean): string {
 
   <section class="panel-card" aria-labelledby="billing-summary-h">
     <h2 id="billing-summary-h">Billing &amp; refund policy</h2>
-    <p class="refund-policy">Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.</p>
+    <p class="billing-status">${billingStatusHtml(onSale)}</p>
     <p>${DISCORD_BILLING_HTML}</p>
+    <p class="faint">${earlierWebSubscriptionHtml(supportUrl)}</p>
     <p class="faint">See our dedicated <a href="/refunds">Refund Policy</a> and <a href="/terms#premium">Terms of Service</a> for full details.</p>
   </section>
 

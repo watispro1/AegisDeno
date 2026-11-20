@@ -7,10 +7,10 @@
  * switched off); it just can't add more past the free cap until it is under it.
  */
 
-/** Shown on the dashboard, the public /premium page and /premium. Must match the Stripe price. */
+/** Shown on the dashboard, the public /premium page and /premium. Must match the Discord SKU's USD price (USD 5.00/month); Discord shows each buyer their local price. */
 export const PREMIUM_PRICE_LABEL = "$5 / month";
 
-/** Days a server keeps Premium after a renewal payment fails (Stripe status past_due). */
+/** Days a server keeps Premium after a renewal payment fails (Stripe status past_due; earlier website subscriptions only). */
 export const PREMIUM_GRACE_DAYS = 3;
 
 /** How long isPremium() trusts a cached answer, in milliseconds. */
@@ -46,7 +46,7 @@ export function premiumBenefitLines(): string[] {
     ...caps,
     "A Premium badge for your server in /help and on the dashboard",
     "Priority webhook & notification delivery",
-    "Customer portal for one-click invoice management and self-service cancellation",
+    "Manage or cancel any time from the Subscriptions section of your Discord settings",
     "Supports Aegis's hosting, high-availability infrastructure, and development",
   ];
 }

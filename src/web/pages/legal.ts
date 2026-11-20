@@ -1,6 +1,6 @@
 import { REPO_URL, SUPPORT_SERVER_INVITE } from "../layout";
 import { type SiteConfig, breadcrumb, escapeHtml, page, safeUrl } from "./shared";
-import { BILLING_STATUS_HTML, DISCORD_BILLING_HTML, DISCORD_PAID_SERVICES_TERMS_URL } from "./billingCopy";
+import { DISCORD_BILLING_HTML, DISCORD_PAID_SERVICES_TERMS_URL, billingStatusHtml, earlierWebSubscriptionHtml, type DiscordPremiumOffer } from "./billingCopy";
 
 /* Legal */
 
@@ -73,7 +73,9 @@ function legalPage(cfg: SiteConfig, o: {
   });
 }
 
-export function renderTerms(cfg: SiteConfig): string {
+export function renderTerms(cfg: SiteConfig, offer: DiscordPremiumOffer | null = null): string {
+  const onSale = offer !== null;
+  const support = cfg.supportUrl || SUPPORT_SERVER_INVITE;
   return legalPage(cfg, {
     crumb: "Terms",
     title: "Terms of Service",
@@ -83,7 +85,7 @@ export function renderTerms(cfg: SiteConfig): string {
     description: "The terms for using the Aegis Discord bot, its web dashboard and the aegisdeno.fly.dev website.",
     glance: [
       "Every Aegis feature is free. Aegis Premium is an optional subscription for a server that only raises a few limits and adds a badge; nothing free is locked behind it.",
-      `Premium is in development and not for sale yet. ${BILLING_STATUS_HTML} On the dashboard, Stripe will process the payment, charge any tax and handle invoices and refunds; a Discord in-app subscription is billed by Discord under Discord's terms (see <a href="#premium">Aegis Premium and payments</a>).`,
+      `${billingStatusHtml(onSale)} See <a href="#premium">Aegis Premium and payments</a>.`,
       "You must be old enough to use Discord, and you must follow Discord's own terms.",
       "Server staff decide how Aegis is used in their server and are responsible for the actions they take with it.",
       "Aegis is provided as is, without a guaranteed uptime.",
@@ -118,20 +120,18 @@ export function renderTerms(cfg: SiteConfig): string {
         id: "dashboard",
         title: "The web dashboard",
         html: `<p>You log in to the dashboard with Discord. It only lets you manage servers where you have the Manage Server or Administrator permission, and it re-reads your permissions from Discord while you use it. Changes you make there have the same effect as the matching slash command, and each one is recorded on that server's Activity page with your Discord user ID and username. Do not share your session or try to reach servers you do not manage.</p>
-      <p>One page is open to every member of a server, not only its staff: the server's Premium page, so anyone in the server can buy Premium for it. It shows only the server's Premium status; billing details are shown only to the person who bought the subscription.</p>`,
+      <p>One page is open to every member of a server, not only its staff: the server's Premium page. It shows the server's Premium status and how to subscribe in Discord; Premium can't be bought on the dashboard. For a subscription bought earlier on the website, billing controls are shown only to the person who bought it.</p>`,
       },
       {
         id: "premium",
         title: "Aegis Premium and payments",
         html: `<p>Aegis Premium is an optional monthly subscription for one Discord server. What it adds is listed on the <a href="/premium">Premium page</a> and <a href="/pricing">Pricing page</a>; it raises a few existing limits and adds a badge, and never locks a feature that is free.</p>
-      <p><strong>Not on sale yet.</strong> Premium is currently in development and not for sale. ${BILLING_STATUS_HTML} The terms in this section apply once it goes on sale.</p>
-      <p>Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.</p>
+      ${onSale ? "" : `<p><strong>Coming soon on Discord.</strong> Premium is not on sale yet. The terms in this section apply once it is.</p>`}
+      <p>${billingStatusHtml(onSale)}</p>
       <ul>
-        <li><strong>Billing.</strong> Premium renews every month until cancelled. The price is shown before you pay. Stripe may calculate and add sales tax or VAT where it applies. If we change the price, the new price applies from the next renewal after we announce it.</li>
-        <li><strong>Cancelling.</strong> You can cancel anytime from the dashboard Premium page (the person who bought Premium cancels there; it opens the Stripe customer portal). Premium stays active until the end of the paid period and is not renewed.</li>
-        <li><strong>Failed payments.</strong> If a renewal payment fails, Premium stays on for 3 days while Stripe retries the payment, then switches off until the payment goes through.</li>
-        <li><strong>Refunds.</strong> If you're not happy, request a full refund within 14 days of any payment through our <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe. See our full <a href="/refunds">Refund Policy</a>.</li>
-        <li><strong>Discord in-app subscriptions.</strong> ${DISCORD_BILLING_HTML}</li>
+        <li><strong>Sold through Discord only.</strong> Aegis Premium is $5 USD per month per server, sold only as a Discord in-app subscription. It can't be bought on the Aegis website or dashboard. Discord shows the price in your local currency and may add tax where it applies.</li>
+        <li><strong>Billing, cancelling and refunds.</strong> ${DISCORD_BILLING_HTML} Premium renews every month until cancelled and stays active until the end of the paid period after you cancel. If we change the price, the new price applies from the next renewal after we announce it.</li>
+        <li><strong>Earlier website subscriptions.</strong> ${earlierWebSubscriptionHtml(support)} If a renewal payment of one of those fails, Premium stays on for 3 days while Stripe retries it. See our full <a href="/refunds">Refund Policy</a>.</li>
         <li><strong>When Premium ends.</strong> Nothing a server made is deleted or switched off. It simply cannot add more past the free limits until it is back under them.</li>
         <li><strong>Per server.</strong> Premium belongs to the server it was bought for and cannot be moved to another server. If Aegis is removed from the server, or access is suspended under <a href="#ending">Stopping and suspension</a>, cancel the subscription to stop renewals.</li>
       </ul>`,
@@ -164,7 +164,7 @@ export function renderTerms(cfg: SiteConfig): string {
       {
         id: "third-parties",
         title: "Services Aegis relies on",
-        html: `<p>Aegis runs on Discord and depends on other providers to host it and store its data, such as Fly.io and a MongoDB database host, and on Stripe and Discord to process and bill Aegis Premium. Your use of Discord is covered by Discord's own terms. We are not responsible for the availability or practices of those services. The <a href="/privacy#sharing">Privacy Policy</a> lists what each one receives.</p>`,
+        html: `<p>Aegis runs on Discord and depends on other providers to host it and store its data, such as Fly.io and a MongoDB database host, and on Discord to process and bill Aegis Premium (and Stripe for subscriptions bought earlier on the website). Your use of Discord is covered by Discord's own terms. We are not responsible for the availability or practices of those services. The <a href="/privacy#sharing">Privacy Policy</a> lists what each one receives.</p>`,
       },
       {
         id: "disclaimer",
@@ -202,7 +202,8 @@ export function renderTerms(cfg: SiteConfig): string {
   });
 }
 
-export function renderPrivacy(cfg: SiteConfig): string {
+export function renderPrivacy(cfg: SiteConfig, offer: DiscordPremiumOffer | null = null): string {
+  const onSale = offer !== null;
   const row = (what: string, details: string, kept: string) =>
     `<tr><td><strong>${what}</strong></td><td>${details}</td><td>${kept}</td></tr>`;
 
@@ -218,7 +219,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
       "It does not sell data, show ads, build profiles or train models on your messages.",
       "Warnings, cases and staff notes are deleted automatically after one year; member activity counters and dashboard activity after 180 days; economy transactions, closed ModMail transcripts and Incident Mode reports after 90 days; dashboard sessions after 7 days.",
       "The public website has no analytics and no cookies, and the status badges have no tracking. Your theme is kept in your browser only. The dashboard sets two login cookies.",
-      "If a server buys Premium (not on sale yet), Stripe processes a dashboard payment and Discord processes an in-app subscription. Aegis never sees card details, names, emails or addresses; it stores only the subscription and customer IDs (Stripe's, or Discord's entitlement ID), the subscription status and renewal date, and the Discord IDs of the server and the buyer.",
+      `If a server buys Premium${onSale ? "" : " (coming soon on Discord, not on sale yet)"}, Discord processes it as an in-app subscription; it can't be bought on the website. Aegis never sees card details, names, emails or addresses; it stores only Discord's entitlement ID (or, for a subscription bought earlier on the website, Stripe's subscription and customer IDs), the subscription status and renewal date, and the Discord IDs of the server and the buyer.`,
       `You can ask for data to be deleted; see <a href="#deletion">how</a>.`,
     ],
     sections: [
@@ -293,7 +294,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
         <li><code class="inline">__Host-aegis_oauth</code> (<code class="inline">aegis_oauth</code> locally): protects the Discord login step against forgery and expires after 10 minutes.</li>
       </ul>
       <p>Both are needed for login to work, so there is no option to turn them off other than not using the dashboard.</p>
-      <p>The dashboard's Premium page, and only that page, loads Stripe.js from Stripe (<code class="inline">js.stripe.com</code>) to handle checkout redirects. Stripe's checkout runs under Stripe's privacy policy. No other page loads anything from Stripe.</p>`,
+      <p>No page loads anything from Stripe. For a subscription bought earlier on the website, the buyer's billing button on the dashboard's Premium page sends them to Stripe's billing portal, which runs under Stripe's privacy policy.</p>`,
       },
       {
         id: "discord-login",
@@ -320,9 +321,9 @@ export function renderPrivacy(cfg: SiteConfig): string {
         <li><strong>Discord</strong>, which Aegis runs on. Everything Aegis does in a server goes through Discord and is covered by <a href="https://discord.com/privacy" rel="noopener noreferrer">Discord's Privacy Policy</a>.</li>
         <li><strong>Fly.io</strong>, which hosts the bot and this website. The app's primary region is Dallas, United States.</li>
         <li><strong>Our MongoDB database host</strong>, which stores the records listed above.</li>
-        <li><strong>Discord</strong> also bills Aegis Premium when it is bought as a Discord in-app subscription. Discord tells Aegis only which server and user the subscription (entitlement) belongs to and whether it is active; the purchase is covered by Discord's <a href="${DISCORD_PAID_SERVICES_TERMS_URL}" rel="noopener noreferrer">Paid Services Terms</a> and Privacy Policy.</li>
+        <li><strong>Discord</strong> also sells and bills Aegis Premium, which is available only as a Discord in-app subscription. Discord tells Aegis only which server and user the subscription (entitlement) belongs to and whether it is active; the purchase is covered by Discord's <a href="${DISCORD_PAID_SERVICES_TERMS_URL}" rel="noopener noreferrer">Paid Services Terms</a> and Privacy Policy.</li>
         <li><strong>Top.gg</strong>, which receives only Aegis's total server count, when that integration is turned on.</li>
-        <li><strong>Stripe</strong> (Stripe, Inc. and its affiliates), which securely processes and bills Aegis Premium subscriptions. When you buy Premium you provide payment details directly to Stripe in its hosted checkout; Aegis sends Stripe only the server ID and your Discord user ID in checkout metadata, attached to the purchase so the subscription reaches the right server. Stripe's use of your data is covered by <a href="https://stripe.com/privacy" rel="noopener noreferrer">Stripe's Privacy Policy</a>.</li>
+        <li><strong>Stripe</strong> (Stripe, Inc. and its affiliates), only for Aegis Premium subscriptions bought earlier on the website, which Stripe still bills until they are cancelled. New subscriptions can't be bought through Stripe. For those earlier subscriptions Aegis sent Stripe only the server ID and the buyer's Discord user ID in checkout metadata, so the subscription reaches the right server. Stripe's use of your data is covered by <a href="https://stripe.com/privacy" rel="noopener noreferrer">Stripe's Privacy Policy</a>.</li>
         <li>Anyone we are legally required to disclose data to, or where disclosure is needed to protect people or Aegis from harm.</li>
       </ul>
       <p>Hosting providers process data on our behalf to run Aegis. Your data may be stored and processed in the United States or other countries where these providers operate.</p>`,

@@ -1,14 +1,23 @@
 /**
- * Dedicated /refunds page: complete Refund and Cancellation Policy for Aegis Premium.
- * Covers the 14-day refund guarantee, cancellation steps, Stripe
- * processing, and post-cancellation status.
+ * Dedicated /refunds page: Refund and Cancellation Policy for Aegis Premium.
+ * Premium is sold only as a Discord in-app subscription, so Discord handles
+ * billing, cancellation and refunds under Discord's terms. A short section
+ * covers subscriptions bought earlier on the website (Stripe).
  */
 import { SUPPORT_SERVER_INVITE } from "../layout";
 import { type SiteConfig, breadcrumb, escapeHtml as esc, page, safeUrl } from "./shared";
 import { LEGAL_LAST_UPDATED } from "./legal";
-import { BILLING_STATUS_HTML, DISCORD_BILLING_HTML } from "./billingCopy";
+import {
+  DISCORD_BILLING_HTML,
+  DISCORD_REFUND_POLICY_URL,
+  DISCORD_PAID_SERVICES_TERMS_URL,
+  billingStatusHtml,
+  earlierWebSubscriptionHtml,
+  type DiscordPremiumOffer,
+} from "./billingCopy";
 
-export function renderRefunds(cfg: SiteConfig): string {
+export function renderRefunds(cfg: SiteConfig, offer: DiscordPremiumOffer | null = null): string {
+  const onSale = offer !== null;
   const supportUrl = safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE);
   const email = cfg.contactEmail ? `<a href="mailto:${esc(cfg.contactEmail)}">${esc(cfg.contactEmail)}</a>` : "";
 
@@ -17,63 +26,37 @@ export function renderRefunds(cfg: SiteConfig): string {
   ${breadcrumb("Refund Policy")}
   <div class="page-head">
     <h1>Refund and Cancellation Policy</h1>
-    <p class="lead">Everything you need to know about refunds, cancelling subscriptions, and billing for Aegis Premium.</p>
+    <p class="lead">How refunds, cancelling and billing work for Aegis Premium.</p>
     <p class="faint">Last updated: ${esc(LEGAL_LAST_UPDATED)}</p>
   </div>
 
   <section class="panel-card" aria-labelledby="policy-summary-h">
     <h2 id="policy-summary-h">Policy summary</h2>
-    <p class="refund-policy">Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.</p>
+    <p class="billing-status">${billingStatusHtml(onSale)}</p>
     <p>${DISCORD_BILLING_HTML}</p>
-    <p class="notice"><strong>Not on sale yet.</strong> Aegis Premium is currently in development and not for sale. ${BILLING_STATUS_HTML} This policy applies once Premium goes on sale.</p>
+    ${onSale ? "" : `<p class="notice"><strong>Coming soon on Discord.</strong> Aegis Premium is not on sale yet. This policy applies once it is.</p>`}
   </section>
 
   <section class="panel-card" aria-labelledby="refund-guarantee-h">
-    <h2 id="refund-guarantee-h">1. 14-Day Money-Back Guarantee</h2>
-    <p>We want you to be completely satisfied with Aegis Premium. If for any reason Aegis Premium does not meet your expectations, you are entitled to a <strong>full refund within 14 days</strong> of your initial purchase or any renewal payment date. This guarantee covers payments made through Stripe on the dashboard; Discord in-app subscriptions follow Discord's refund policy (see the summary above).</p>
-    <ul>
-      <li><strong>Standard period:</strong> 14 calendar days from the moment of payment.</li>
-      <li><strong>No questions asked:</strong> Full refund provided for any request submitted within the 14-day window.</li>
-      <li><strong>After 14 days:</strong> Payments become non-refundable once the 14-day window has elapsed, except where required by applicable consumer protection laws in your jurisdiction (such as EU/UK statutory consumer regulations).</li>
-    </ul>
-  </section>
-
-  <section class="panel-card" aria-labelledby="request-refund-h">
-    <h2 id="request-refund-h">2. How to Request a Refund</h2>
-    <p>You can request a refund using either of the following methods:</p>
-    <div class="refund-grid">
-      <div class="refund-card">
-        <h3>Via Our Support Server</h3>
-        <p>Join our Discord support server and open a billing support ticket with our team:</p>
-        <p><a class="btn sm" href="${supportUrl}" rel="noopener noreferrer" target="_blank">Join Support Server &rarr;</a></p>
-        <p class="faint">Provide your Discord User ID, Server ID, and transaction date. Our staff will initiate the refund via Stripe on your behalf.</p>
-      </div>
-      <div class="refund-card">
-        <h3>Via Direct Email</h3>
-        <p>Alternatively, reach out directly with your payment receipt or customer email:</p>
-        <p>${email || `<a class="btn ghost sm" href="${supportUrl}">Join Support Server &rarr;</a>`}</p>
-        <p class="faint">Refunds are issued directly back to your original payment method via Stripe.</p>
-      </div>
-    </div>
+    <h2 id="refund-guarantee-h">1. Refunds</h2>
+    <p>Aegis Premium is a Discord in-app subscription, so Discord takes the payment and decides refunds under its own <a href="${DISCORD_REFUND_POLICY_URL}" rel="noopener noreferrer">Refund Policy</a> and <a href="${DISCORD_PAID_SERVICES_TERMS_URL}" rel="noopener noreferrer">Paid Services Terms</a>. Request a refund from Discord (Discord's support site or the Subscriptions section of your Discord settings). Aegis cannot issue or reverse refunds for Discord purchases.</p>
+    <p>Your rights under consumer protection laws where you live (such as EU/UK statutory rights) are not affected.</p>
   </section>
 
   <section class="panel-card" aria-labelledby="cancel-policy-h">
-    <h2 id="cancel-policy-h">3. Cancellation Policy</h2>
+    <h2 id="cancel-policy-h">2. Cancellation Policy</h2>
     <p>You may cancel your Aegis Premium subscription at any time without penalty or cancellation fees.</p>
     <h3>How to cancel:</h3>
     <ol>
-      <li>Log in to the Aegis dashboard at <a href="/dashboard">/dashboard</a>.</li>
-      <li>Select the Discord server that holds the Premium subscription.</li>
-      <li>Navigate to <strong>Premium</strong> in the sidebar (or run <code class="inline">/premium</code> inside your Discord server).</li>
-      <li>Click <strong>Cancel subscription</strong> to open Stripe&#39;s self-service customer portal.</li>
-      <li>Confirm cancellation. Your subscription will not renew at the end of the current billing cycle.</li>
+      <li>In Discord, open <strong>User Settings</strong>.</li>
+      <li>Go to <strong>Subscriptions</strong> and find Aegis Premium for your server.</li>
+      <li>Cancel it there. It will not renew at the end of the current billing period.</li>
     </ol>
-    <p>A Discord in-app subscription is cancelled in Discord instead: open the <strong>Subscriptions</strong> section of your Discord settings and cancel it there.</p>
-    <p><strong>Access remains active:</strong> When you cancel, Premium features and benefits remain active on your server until the end of the paid billing period. You will not be billed again.</p>
+    <p><strong>Access remains active:</strong> When you cancel, Premium stays on for your server until the end of the paid billing period. You will not be billed again.</p>
   </section>
 
   <section class="panel-card" aria-labelledby="what-happens-h">
-    <h2 id="what-happens-h">4. What Happens When Premium Ends (No Data Loss)</h2>
+    <h2 id="what-happens-h">3. What Happens When Premium Ends (No Data Loss)</h2>
     <p>We believe in treating your server and its members with respect. When Premium ends or lapses:</p>
     <ul>
       <li><strong>Nothing is deleted:</strong> We never delete or deactivate any autoresponders, economy shop items, modmail snippets, or custom configurations you set up during your subscription.</li>
@@ -83,21 +66,19 @@ export function renderRefunds(cfg: SiteConfig): string {
   </section>
 
   <section class="panel-card" aria-labelledby="merchant-record-h">
-    <h2 id="merchant-record-h">5. Secure Payment Processing</h2>
-    <p>Payments for Aegis Premium made on the dashboard are processed securely by <strong>Stripe, Inc.</strong> (Stripe). Stripe is responsible for:</p>
-    <ul>
-      <li>Secure payment transactions complying with PCI-DSS Level 1 standards.</li>
-      <li>Calculating, collecting, and remitting appropriate sales tax, VAT, and GST worldwide.</li>
-      <li>Delivering purchase receipts, VAT invoices, and renewal notifications.</li>
-      <li>Processing authorized refunds back to your original payment method.</li>
-    </ul>
-    <p>Discord in-app subscriptions are processed and billed by Discord under Discord&#39;s own terms.</p>
-    <p class="faint">Aegis never stores, transmits, or has access to your full credit card number, security code, or banking details.</p>
+    <h2 id="merchant-record-h">4. Payment Processing</h2>
+    <p>Discord processes and bills Aegis Premium under Discord&#39;s own terms, including any sales tax or VAT, receipts and renewal notices. Aegis Premium can&#39;t be bought on the Aegis website.</p>
+    <p class="faint">Aegis never stores, transmits, or has access to your card number, security code, or banking details.</p>
+  </section>
+
+  <section class="panel-card" aria-labelledby="earlier-web-h">
+    <h2 id="earlier-web-h">5. Subscriptions bought earlier on the website</h2>
+    <p>${earlierWebSubscriptionHtml(cfg.supportUrl || SUPPORT_SERVER_INVITE)} Those payments were processed by Stripe, Inc., and refunds of them go back to the original payment method through Stripe.</p>
   </section>
 
   <section class="panel-card" aria-labelledby="contact-h">
     <h2 id="contact-h">6. Need Help or Have Billing Questions?</h2>
-    <p>If you have questions about a charge or need assistance with your subscription, please contact us before initiating a bank dispute or chargeback:</p>
+    <p>For a charge or refund on a Discord subscription, contact Discord. For anything about Aegis itself, or a subscription bought earlier on the website, contact us:</p>
     <ul>
       <li><strong>Discord Support Server:</strong> <a href="${supportUrl}" rel="noopener noreferrer">${supportUrl}</a></li>
       ${email ? `<li><strong>Direct Email:</strong> ${email}</li>` : ""}
@@ -109,7 +90,7 @@ export function renderRefunds(cfg: SiteConfig): string {
 
   return page(cfg, {
     title: "Refund and Cancellation Policy | Aegis",
-    description: "Aegis Premium refund and cancellation policy: full 14-day refund window for Stripe payments, cancel anytime; Discord in-app subscriptions follow Discord's terms.",
+    description: "Aegis Premium refund and cancellation policy: Premium is a Discord in-app subscription, so Discord handles billing, cancellation and refunds under Discord's terms.",
     path: "/refunds",
     body,
   });

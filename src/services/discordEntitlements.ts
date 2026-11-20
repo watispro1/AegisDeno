@@ -26,9 +26,13 @@ export interface DiscordEntitlementLike {
   deleted?: boolean;
 }
 
-/** Check if an entitlement corresponds to our configured Premium SKU. */
+/**
+ * Whether an entitlement is for the Premium SKU. DISCORD_PREMIUM_SKU_ID is
+ * required: without it no SKU grants Premium, and an entitlement to any other
+ * SKU of the app never does.
+ */
 export function isPremiumSku(skuId: string, configuredId = discordSkuId()): boolean {
-  if (!configuredId) return true; // If no specific SKU is set, accept any configured subscription SKU
+  if (!configuredId) return false;
   return skuId === configuredId;
 }
 
@@ -45,8 +49,10 @@ export async function applyDiscordEntitlement(
   }
 
   const sku = discordSkuId();
-  if (sku && !isPremiumSku(entitlement.skuId, sku)) {
-    logger.debug(`Discord Entitlement ${entitlement.id} SKU ${entitlement.skuId} does not match configured ${sku}; skipping.`);
+  if (!isPremiumSku(entitlement.skuId, sku)) {
+    logger.debug(sku
+      ? `Discord Entitlement ${entitlement.id} SKU ${entitlement.skuId} does not match configured ${sku}; skipping.`
+      : `Discord Entitlement ${entitlement.id} ignored: DISCORD_PREMIUM_SKU_ID is not set, so no SKU grants Premium.`);
     return null;
   }
 
@@ -105,11 +111,10 @@ export async function removeDiscordEntitlement(
 /** Sync active Discord Entitlements from Discord REST API on startup. */
 export async function syncDiscordEntitlements(client: Client, s: PremiumStore = premiumStore()): Promise<number> {
   const sku = discordSkuId();
-  if (!client.application) return 0;
+  if (!sku || !client.application) return 0;
 
   try {
-    const fetchOptions = sku ? { skus: [sku] } : undefined;
-    const entitlements = await client.application.entitlements.fetch(fetchOptions);
+    const entitlements = await client.application.entitlements.fetch({ skus: [sku] });
     let count = 0;
     const now = new Date();
     for (const ent of entitlements.values()) {

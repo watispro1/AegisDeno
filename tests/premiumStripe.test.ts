@@ -7,7 +7,7 @@ import { applyStripeEvent, entitlementActive, graceEndsAt, parseStripeEvent, pri
 import { memoryPremiumStore } from "../src/services/premiumStore";
 import { handleStripeEvent, isPremium, premiumLimit, setPremiumStore } from "../src/services/premium";
 import { registerStripeWebhook, STRIPE_WEBHOOK_PATH } from "../src/web/stripeWebhook";
-import { readStripeConfig, missingStripeSettings, premiumOffered } from "../src/config/stripe";
+import { readStripeConfig, missingStripeSettings, premiumOffered, premiumPageAvailable, webCheckoutEnabled, WEB_CHECKOUT_ENABLED } from "../src/config/stripe";
 import { PREMIUM_GRACE_DAYS, PREMIUM_LIMITS, limitValue } from "../src/config/premium";
 
 const SECRET = "whsec_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -346,7 +346,9 @@ test("readStripeConfig needs every value and matching test/live keys", () => {
     STRIPE_WEBHOOK_SECRET: SECRET,
   };
   assert.equal(readStripeConfig(full)?.isLive, false);
-  assert.equal(premiumOffered(full), true);
+  // Stripe alone never puts Premium on sale: it is sold only through Discord.
+  assert.equal(premiumOffered(full), false);
+  assert.equal(premiumPageAvailable(full), true, "the page stays for earlier Stripe subscribers");
 
   // Mismatched test secret + live publishable key
   assert.equal(readStripeConfig({ ...full, STRIPE_PUBLISHABLE_KEY: "pk_live_51HtestPubKey0000000000" }), null);
@@ -362,6 +364,17 @@ test("readStripeConfig needs every value and matching test/live keys", () => {
   ]);
   const s = JSON.stringify(missingStripeSettings(full));
   assert.ok(!s.includes(SECRET), "never logs secrets");
+});
+
+test("web checkout is hard-disabled; Premium is offered only with the Discord SKU and application ID", () => {
+  assert.equal(WEB_CHECKOUT_ENABLED, false);
+  assert.equal(webCheckoutEnabled(), false);
+  const discord = { DISCORD_PREMIUM_SKU_ID: "123456789012345678", DISCORD_APPLICATION_ID: "223456789012345678" };
+  assert.equal(premiumOffered(discord), true);
+  assert.equal(premiumPageAvailable(discord), true);
+  assert.equal(premiumOffered({ DISCORD_PREMIUM_SKU_ID: "123456789012345678" }), false, "no store link without the app ID");
+  assert.equal(premiumOffered({ DISCORD_APPLICATION_ID: "223456789012345678" }), false, "no SKU, nothing to sell");
+  assert.equal(premiumPageAvailable({}), false);
 });
 
 /* Benefits reach the existing caps */
