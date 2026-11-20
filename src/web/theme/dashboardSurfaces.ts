@@ -85,6 +85,15 @@ export const cssDashboardSurfaces = String.raw`/* ── Dashboard 2.0: surfaces
 .app-body .empty-body { color: var(--muted); font-size: .92rem; }
 .app-body .empty-body > strong:first-child { color: var(--text); font-size: .98rem; }
 .app-body .panel-card .empty-state { margin: 0; }
+/* Dashboard pages outside the app shell (server list, sign-in) draw the same
+   empty state as inside it. Zero-specificity scope, so the per-theme icon
+   rules (Steel ring, Aurora and Glass tiles) still win. */
+:where(body:not(.app-body)) .empty-state:where(:has(> .empty-body)) { gap: .9rem; padding: 1.15rem 1.25rem; border-radius: 12px; }
+:where(body:not(.app-body)) .empty-icon { width: 2.4rem; height: 2.4rem; border: 0; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-size: 1.05rem; }
+:where(body:not(.app-body)) .empty-body { font-size: .92rem; }
+:where(body:not(.app-body)) .empty-body > strong:first-child { color: var(--text); font-size: .98rem; }
+:where([data-theme="steel"] body:not(.app-body)) .empty-state { border-radius: 6px; }
+:where([data-theme="aurora"] body:not(.app-body)) .empty-state { border-radius: 16px; }
 
 /* Module cards, Common settings tiles, chips */
 .app-body .mod-card { border-radius: var(--d-r-lg); box-shadow: var(--d-shadow); transition: border-color .15s var(--d-ease), box-shadow .15s var(--d-ease); }

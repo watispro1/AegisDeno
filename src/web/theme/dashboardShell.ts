@@ -121,7 +121,12 @@ export const cssDashboardShell = String.raw`/* ── Dashboard 2.0: shell ─�
 @media (max-width: 820px) {
   .app-body .app { display: block; }
   .app-body .app-top { flex-wrap: wrap; row-gap: .45rem; padding: .5rem 1rem; }
-  .app-body .side-collapse, .app-body .palette-btn, .app-body .shortcuts-btn { display: none; }
+  .app-body .side-collapse, .app-body .shortcuts-btn { display: none; }
+  /* Jump-to stays reachable by touch: an icon button, without the Ctrl K hint. */
+  .app-body .palette-btn { min-width: 38px; justify-content: center; padding: .25rem .5rem; }
+  .app-body .palette-kbd { display: none; }
+  /* 16px inputs so iOS does not zoom the page on focus. */
+  .app-body .top-search input, .app-body .side-filter-input, .app-body .table-search { font-size: 1rem; }
   .app-body .drawer-toggle { gap: .4rem; min-height: 38px; }
   .app-body .app-top-switcher { flex: 1 1 0; min-width: 0; max-width: none; }
   .app-body .top-switcher summary { width: 100%; }

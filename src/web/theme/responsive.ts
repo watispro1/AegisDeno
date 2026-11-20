@@ -31,7 +31,7 @@ export const cssResponsive = String.raw`/* ── Responsive ──────�
   .dc-embed { max-width: none; }
   .tabs { flex-wrap: nowrap; overflow-x: auto; margin-right: -1.25rem; padding-right: 1.25rem; padding-bottom: .25rem; }
   .tab { flex-shrink: 0; }
-  .prose code, .legal code, .callout code.inline { white-space: normal; overflow-wrap: anywhere; }
+  .prose code, .legal code, .callout code.inline, .detail-list code.inline, .field-help code.inline { white-space: normal; overflow-wrap: anywhere; }
   .table-wrap code { white-space: nowrap; }
 }
 

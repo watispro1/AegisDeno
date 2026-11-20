@@ -170,7 +170,7 @@ export const cssGlassDashboard = String.raw`
 [data-theme="glass"] .embed-preview, [data-theme="glass"] .panel-preview { border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), var(--shadow-float); }
 
 /* Empty states. */
-[data-theme="glass"] .empty-state { border-radius: var(--r-lg); border-color: rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .025); }
+[data-theme="glass"] .empty-state { border-radius: var(--d-r-lg, 18px); border-color: rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .025); }
 
 /* Overlays: solid by default (the fallback), frosted inside @supports below. */
 [data-theme="glass"] .toast { border: 1px solid var(--border-strong); border-left-width: 1px; border-radius: 16px; background-color: #151922; background-image: var(--glass-sheen); box-shadow: inset 3px 0 0 var(--ok), var(--glass-rim), var(--shadow-float); }

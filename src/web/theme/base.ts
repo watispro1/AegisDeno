@@ -138,7 +138,9 @@ table { width: 100%; border-collapse: collapse; font-size: .92rem; }
 th, td { text-align: left; vertical-align: top; padding: .55rem .75rem; border-bottom: 1px solid var(--border); }
 th { font-weight: 600; font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; background: var(--bg-sunk); }
 tbody tr:last-child td { border-bottom: 0; }
-.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r); margin: 0 0 1.5rem; background: var(--surface); }
+/* Positioned so absolutely placed descendants (visually-hidden labels) are
+   clipped by the scroller instead of widening the page on narrow screens. */
+.table-wrap { position: relative; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r); margin: 0 0 1.5rem; background: var(--surface); }
 .table-wrap td code { white-space: nowrap; }
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }

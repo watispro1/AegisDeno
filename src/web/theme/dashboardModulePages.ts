@@ -60,7 +60,8 @@ tr[data-chip-out], tr[data-paged-out] { display: none; }
 .section-jump ul { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0; padding: 0; list-style: none; }
 .section-jump a { display: inline-block; padding: .2rem .65rem; font: 500 .8rem var(--mono); color: var(--muted); text-decoration: none; border: 1px solid var(--border); border-radius: var(--r); }
 .section-jump a:hover { color: var(--accent); border-color: var(--accent); }
-.panel-card[id], section[id] { scroll-margin-top: calc(var(--nav-h, 3.5rem) + 1rem); }
+/* Dashboard only: a bare section[id] rule would outrank the site's .cmd-sub offset. */
+.app-body .panel-card[id], .app-body section[id] { scroll-margin-top: calc(var(--nav-h, 3.5rem) + 1rem); }
 
 /* Section header with actions on the right */
 .section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem 1rem; }
