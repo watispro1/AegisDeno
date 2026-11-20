@@ -311,17 +311,20 @@ test("dashboard 1.8.0 checklist, activity and site round 3: released 2026-11-14"
   assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
 
-test("dashboard 2.1.0: newest dashboard release, the Premium page moves to Stripe", () => {
+test("dashboard 2.1.0: newest dashboard release, Premium sold only through Discord", () => {
   const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
   assert.equal(dash[0].version, "2.1.0");
   assert.equal(dash[0].date, "2026-11-20");
   assert.equal(DASHBOARD_VERSION, "2.1.0");
   const notes = dash[0].notes.join(" ");
   assert.ok(notes.includes("3.15.0"), "names the bot release it shipped with");
-  assert.ok(/not for sale/.test(notes), "keeps Premium's not-for-sale status");
-  assert.deepEqual(dash[0].sections.map((s) => s.title), ["Changed"]);
+  assert.ok(/not for sale/.test(notes), "says Premium is not for sale until the SKU is configured");
+  for (const env of ["DASHBOARD_SESSION_SECRET", "RATE_LIMIT_STORE=mongo"]) assert.ok(notes.includes(env), `upgrade notes name ${env}`);
+  assert.deepEqual(dash[0].sections.map((s) => s.title), ["Added", "Changed", "Fixed", "Removed", "Security"]);
   const text = dash[0].sections.flatMap((s) => s.items).join(" ");
-  for (const needle of ["Stripe Checkout", "customer portal", "Stripe.js", "content security policy"]) assert.ok(text.includes(needle), `2.1.0 mentions ${needle}`);
+  for (const needle of ["Subscribe in Discord", "Stripe Checkout", "customer portal", "Stripe.js", "content security policy", "private, no-store", "Sec-Fetch-Site", "Aurora", "/assets/premium.js"]) assert.ok(text.includes(needle), `2.1.0 mentions ${needle}`);
+  const items = dash[0].sections.flatMap((s) => s.items);
+  assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
 
 test("dashboard 2.0.0: the redesign, Glass GA and Aurora beta", () => {
@@ -406,18 +409,21 @@ test("3.13.0: records the trust bar, the licence change and the legal updates", 
   assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
 
-test("3.15.0: newest bot release, Stripe billing and Discord in-app subscriptions", () => {
+test("3.15.0: newest bot release, Premium sold only through Discord, and everything else that shipped", () => {
   const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
   assert.equal(bot[0].version, "3.15.0");
   assert.equal(bot[0].date, "2026-11-20");
   assert.equal(VERSION, "3.15.0");
   const notes = bot[0].notes.join(" ");
   assert.ok(notes.includes("2.1.0"), "names the dashboard release");
-  assert.ok(/not for sale/.test(notes), "keeps Premium's not-for-sale status");
-  for (const env of ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "STRIPE_PRICE_ID", "STRIPE_WEBHOOK_SECRET", "DISCORD_PREMIUM_SKU_ID"]) assert.ok(notes.includes(env), `upgrade notes name ${env}`);
-  assert.deepEqual(bot[0].sections.map((s) => s.title), ["Added", "Changed", "Removed"]);
+  assert.ok(/not for sale/.test(notes), "says Premium is not for sale until the SKU is configured");
+  assert.ok(notes.includes("aegis-discord-bot"), "notes the repository rename");
+  for (const env of ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "STRIPE_PRICE_ID", "STRIPE_WEBHOOK_SECRET", "DISCORD_PREMIUM_SKU_ID", "SITE_URL", "DASHBOARD_SESSION_SECRET", "AEGIS_BACKEND_URL", "RATE_LIMIT_STORE=mongo", "BOT_OWNER_IDS"]) assert.ok(notes.includes(env), `upgrade notes name ${env}`);
+  assert.deepEqual(bot[0].sections.map((s) => s.title), ["Added", "Changed", "Fixed", "Removed", "Security"]);
   const text = bot[0].sections.flatMap((s) => s.items).join(" ");
-  for (const needle of ["Stripe Billing", "Discord native in-app subscriptions", "/api/stripe/webhook", "/premium", "Paddle billing"]) assert.ok(text.includes(needle), `3.15.0 mentions ${needle}`);
+  for (const needle of ["Stripe Billing", "Discord native in-app subscriptions", "/api/stripe/webhook", "/premium", "Paddle billing", "WEB_CHECKOUT_ENABLED", "crates/aegis-db", "O(1)", "LOG_FORMAT=json", "Sec-Fetch-Site", "aegisDbMirror", "check:versions", "Aurora"]) assert.ok(text.includes(needle), `3.15.0 mentions ${needle}`);
+  const items = bot[0].sections.flatMap((s) => s.items);
+  assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
 
 test("3.14.1: the website and dashboard redesign release", () => {

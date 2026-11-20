@@ -53,7 +53,7 @@ test("404 page renders suggestions escaped, a command search form and no canonic
 test("security.txt has RFC 9116 Contact and a future Expires", () => {
   const now = Date.UTC(2026, 9, 30);
   const txt = securityTxt("https://aegis.example", now);
-  assert.match(txt, /^Contact: https:\/\/github\.com\/watispro1\/AegisDeno\/security\/advisories\/new$/m);
+  assert.match(txt, /^Contact: https:\/\/github\.com\/watispro1\/aegis-discord-bot\/security\/advisories\/new$/m);
   const expires = txt.match(/^Expires: (.+)$/m);
   assert.ok(expires);
   const when = Date.parse(expires[1]);
@@ -99,7 +99,7 @@ test("security page names the supported versions and private reporting", () => {
 
 test("footer links legal pages, security, the source and the release notes", () => {
   const html = layout({ title: "t", description: "d", path: "/", body: "", inviteUrl: "#", supportUrl: "", version: "9.9.9" });
-  for (const href of ["/terms", "/privacy", "/security", "https://github.com/watispro1/AegisDeno", "https://github.com/watispro1/AegisDeno/issues", "/changelog#v9.9.9", "/dashboard/changelog"]) {
+  for (const href of ["/terms", "/privacy", "/security", "https://github.com/watispro1/aegis-discord-bot", "https://github.com/watispro1/aegis-discord-bot/issues", "/changelog#v9.9.9", "/dashboard/changelog"]) {
     assert.ok(html.includes(`href="${href}"`), href);
   }
 });

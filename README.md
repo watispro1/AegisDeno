@@ -1,6 +1,6 @@
 # Aegis
 
-> **Node.js, not Deno:** despite the repository name, Aegis is a Node.js 22 app (TypeScript, discord.js v14, Express, MongoDB).
+> **Node.js, not Deno:** despite the old `AegisDeno` name (still the Fly app and package name), Aegis is a Node.js 22 app (TypeScript, discord.js v14, Express, MongoDB).
 
 Aegis is a moderation bot for Discord, run from slash commands. It handles
 warnings, timeouts, bans and the case log behind them, plus automod, Incident
@@ -196,8 +196,8 @@ permission, you need:
   requests all three.
 
 ```bash
-git clone https://github.com/watispro1/AegisDeno.git
-cd AegisDeno
+git clone https://github.com/watispro1/aegis-discord-bot.git
+cd aegis-discord-bot
 npm ci
 cp .env.example .env
 ```

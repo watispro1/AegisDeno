@@ -10,20 +10,58 @@ page.
 
 ## [2.1.0] - 2026-11-20
 
-Dashboard 2.1.0. The Premium page moves from Paddle to Stripe. Premium is
-still in development and not for sale, and the page stays hidden until every
-Stripe setting is in place. Released alongside bot version 3.15.0. New
-environment variables are listed in that release; no new OAuth scopes.
+Dashboard 2.1.0. The Premium page sends people to Discord: Premium is sold
+only as a Discord in-app subscription, web checkout is turned off, and
+Premium is not for sale until the Discord SKU is configured. Also a private,
+faster dashboard, a theme polish pass and mobile fixes. Released alongside
+bot version 3.15.0. With `DISCORD_CLIENT_SECRET` set, `DASHBOARD_SESSION_SECRET`
+must now be at least 32 characters or startup fails, and
+`RATE_LIMIT_STORE=mongo` is needed to share rate limits across instances.
+No new OAuth scopes.
+
+### Added
+- Premium page: Subscribe in Discord, linking to the Discord store page for
+  the configured SKU, with how to subscribe from Aegis's profile or with
+  `/premium` in a server. Without the SKU the page says "Coming soon on
+  Discord" and shows no price button.
 
 ### Changed
-- Premium page: Subscribe posts to the dashboard, which starts a Stripe
-  Checkout session and redirects to it, instead of opening Paddle's overlay.
-  Manage billing, Update payment method and Cancel subscription open Stripe's
-  customer portal for the buyer only.
-- Premium page: Stripe.js is loaded only on that page, and only while the
-  server does not have Premium. Its content security policy allows Stripe's
-  checkout and portal hosts instead of Paddle's.
-- Notices after checkout and when the billing portal cannot open name Stripe.
+- Premium page: no Subscribe button, no Stripe Checkout and no Stripe.js;
+  starting a checkout answers 403. Paddle's overlay is gone. Manage billing
+  opens Stripe's customer portal only for a Stripe subscription, never for
+  a Discord one.
+- Premium page: its content security policy drops Stripe's scripts, frames
+  and the payment feature, keeping only the billing portal.
+- Every dashboard response is `Cache-Control: private, no-store` with
+  `Vary: Cookie`, including the cases CSV export.
+- Server details, hidden channels and Aegis's missing permissions are cached
+  for 30 seconds and dropped after every successful save for that server.
+- Rate limits are counted in memory by default; `RATE_LIMIT_STORE=mongo`
+  shares them across instances.
+- Cases, appeals and panels use the same headed card sections as the rest
+  of the dashboard, with labelled headings.
+- Themes: contrast tokens and hover, pressed, disabled and focus states in
+  every theme, a highlighted current theme in the picker, and a Steel, Glass
+  and Aurora polish pass.
+- Empty states: the overview's Open tickets card, the server list and the
+  sign-in page use the same empty state as the other cards.
+
+### Fixed
+- Overview: the Open tickets card no longer says "No open tickets" next to a
+  non-zero count when the list could not be read.
+- ModMail: errors show a proper error page instead of a bare failure.
+- Aurora: status and case action tags keep their colours instead of all
+  turning indigo.
+- Phones: tables no longer overflow at 360 to 414 px, case IDs wrap, Jump to
+  stays as an icon button, and search inputs are 16 px so iOS does not zoom.
+
+### Removed
+- `/assets/premium.js` and 19 unused CSS classes, with a test that fails on
+  any new class nothing renders.
+
+### Security
+- State-changing requests are rejected when `Sec-Fetch-Site` says they are
+  cross-site, before the CSRF token check.
 
 ## [2.0.0] - 2026-11-18
 

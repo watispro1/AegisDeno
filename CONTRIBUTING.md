@@ -28,8 +28,8 @@ maintainer's written permission (see [`LICENSE`](./LICENSE)), so ask in an
 issue or the support server before you set one up.
 
 ```bash
-git clone https://github.com/watispro1/AegisDeno.git
-cd AegisDeno
+git clone https://github.com/watispro1/aegis-discord-bot.git
+cd aegis-discord-bot
 npm ci
 cp .env.example .env   # only needed to run the bot; see the README for each variable
 npm run dev

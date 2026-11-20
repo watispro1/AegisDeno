@@ -11,51 +11,149 @@ separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 
 ## [3.15.0] - 2026-11-20
 
-Aegis Premium billing moves from Paddle to Stripe, and Premium can also be
-bought as a Discord native in-app subscription. Premium is still in
-development and not for sale: it stays hidden until every Stripe setting is
-in place, and the website says billing is being set up through Stripe and
-Discord and is not yet available. No slash command definitions changed, so no
-re-deploy of commands is needed, and no new bot permissions. Upgrade notes:
-the `PADDLE_*` environment variables and the `/api/paddle/webhook` route are
-gone. Premium now needs `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
-`STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET`, plus the optional
-`DISCORD_PREMIUM_SKU_ID` (see `DEPLOYMENT.md`). Premium was never on sale, so
-there are no Paddle subscriptions to migrate. Released alongside dashboard
-2.1.0; the details are in `DASHBOARD_CHANGELOG.md`.
+Premium billing moves from Paddle to Stripe and then to Discord: Aegis
+Premium ($5 a month) is sold only as a Discord native in-app subscription,
+and web checkout is turned off. Premium stays not for sale ("Coming soon on
+Discord") until `DISCORD_PREMIUM_SKU_ID` and `DISCORD_APPLICATION_ID` are set.
+This release also removes the Rust AegisDB crate, hardens the bot's startup,
+shutdown and scheduler, speeds up the website, and polishes all five themes.
+The repository is renamed from `AegisDeno` to `aegis-discord-bot`. No slash
+command definitions changed, so no re-deploy of commands is needed, and no
+new bot permissions. Upgrade notes: the `PADDLE_*` environment variables and
+`/api/paddle/webhook` are gone. `DISCORD_PREMIUM_SKU_ID` is now required for
+Premium to be granted at all. `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
+`STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` only keep the webhook and
+billing portal working for a Stripe subscription; with any of the first three
+set, `SITE_URL` is now required. With `DISCORD_CLIENT_SECRET` set,
+`DASHBOARD_SESSION_SECRET` must be at least 32 characters, and outside
+development `AEGIS_BACKEND_SECRET` is required; a missing value now stops
+startup with one error listing every problem. Set `AEGIS_BACKEND_URL` only to
+use an external AegisDB store, and `RATE_LIMIT_STORE=mongo` when running more
+than one instance. Owner IDs come from `BOT_OWNER_IDS`. See `DEPLOYMENT.md`.
+Released alongside dashboard 2.1.0; the details are in
+`DASHBOARD_CHANGELOG.md`.
 
 ### Added
-- Premium: Stripe Billing. The dashboard starts a Stripe Checkout session, the
-  buyer manages billing in Stripe's customer portal, and a signed webhook at
-  `/api/stripe/webhook` (503 until `STRIPE_WEBHOOK_SECRET` is set) applies
-  subscription, checkout and invoice events once each.
-- Premium: Discord native in-app subscriptions. With `DISCORD_PREMIUM_SKU_ID`
-  set, `/premium` shows Discord's own Subscribe button next to the dashboard
-  link, and the bot applies entitlement create, update and delete events and
-  syncs entitlements on startup.
-- Tooling: ESLint (type-aware typescript-eslint) and Prettier configs, with
+- Premium: Discord native in-app subscriptions. `/premium`, `/pricing` and
+  the dashboard Premium page show Subscribe in Discord, linking to the
+  Discord store page for `DISCORD_PREMIUM_SKU_ID`, with how-to copy; the
+  `/premium` command shows Discord's own Premium button. The bot applies
+  entitlement create, update and delete events and syncs entitlements on
+  startup. Without the SKU, every surface says "Coming soon on Discord".
+- Premium: Stripe Billing replaces Paddle, with a signed webhook at
+  `/api/stripe/webhook` (503 until `STRIPE_WEBHOOK_SECRET` is set) and
+  Stripe's customer portal, kept for any Stripe subscription. Stripe and
+  Discord entitlements share one record per subscription.
+- Startup: a declarative environment schema checks every variable at once
+  and fails with one error that lists each problem without its value.
+  `dotenv` loads only outside production.
+- Logging: `LOG_FORMAT=json` writes one JSON object per line (the default in
+  production), `LOG_LEVEL` is a real threshold, and command and component
+  errors carry an `errorId`.
+- Owners: `BOT_OWNER_IDS` (a comma list) sets who may run `/developer` and
+  `/sync`; the legacy `DISCORD_OWNER_ID` still works, and the built-in
+  fallback ID is used only when both are unset.
+- `/health` reports the AegisDB write-mirror queue as `aegisDbMirror`: pending,
+  in flight, dropped and superseded jobs and the age of the oldest pending
+  one, as counts only. `/developer stats` adds the mirror's last failure.
+- Tooling: ESLint (type-aware typescript-eslint) and Prettier configs with
   `npm run lint` and `npm run format:check`; `npm run test:coverage` with a
   coverage summary in CI; and `npm run check:versions`, which fails CI when
   `package.json`, `src/version.ts`, the README and the two changelogs
-  disagree.
+  disagree. CI runs the version check, lint, typecheck, unit tests with
+  coverage, build and web smoke test.
 
 ### Changed
-- Premium: Stripe and Discord entitlements share one record per subscription,
-  so a server has Premium when either one is active. Handled Stripe event IDs
-  replace Paddle's and are still kept for 30 days.
+- Premium is sold only through Discord. Web checkout is hard-disabled in code
+  (`WEB_CHECKOUT_ENABLED = false`, not an environment variable), and
+  `POST /dashboard/:id/premium/checkout` answers 403 even with every Stripe
+  setting in place. Only an entitlement to the configured
+  `DISCORD_PREMIUM_SKU_ID` grants Premium: any other SKU, or no SKU
+  configured, never does, and startup sync is skipped without it.
 - Website: the Premium, Pricing, Refund Policy, Terms, Privacy Policy,
-  Roadmap and Security pages name Stripe instead of Paddle, say that Discord
-  in-app subscriptions follow Discord's own terms and refund policy, and say
-  billing is not yet available. The Terms and Privacy Policy are dated
-  November 20, 2026.
-- Security headers: the dashboard Premium page's content security policy
-  allows Stripe's checkout and portal hosts instead of Paddle's.
-- README: the summary table shows the current bot and dashboard versions, and
-  the "Node.js, not Deno" note is one line at the top.
+  Roadmap and Security pages say Premium is sold through Discord in-app
+  subscriptions, with billing, cancellation and refunds handled by Discord
+  under its terms. The Terms and Privacy Policy are dated November 20, 2026.
+- Repository renamed from `watispro1/AegisDeno` to
+  `watispro1/aegis-discord-bot`. The README, contributing and security
+  guides, the website's source links and this changelog's compare links
+  point at the new name.
+- AegisDB: MongoDB is the authoritative store and AegisDB (the TypeScript
+  engine) the secondary one; the bot keeps working when AegisDB is down. The
+  bot calls the engine in-process instead of over loopback HTTP, and HTTP is
+  used only for an external store at `AEGIS_BACKEND_URL`. If the engine's
+  optional 127.0.0.1 port is taken it runs embedded.
+- AegisDB: case ids come from a per-guild counter and references from an
+  index, so creating and looking up a case is O(1) instead of a scan. Data
+  from earlier versions is backfilled once per guild on first use.
+- Crashes: an uncaught exception or unhandled rejection now runs the normal
+  shutdown and exits with code 1, so Fly restarts a clean process.
+- Scheduler: tasks are restored per type. Overdue unbans, temporary role
+  removals and slowmode reverts always run, whatever their age, and do not
+  count against the restore cap; anything left unloaded by the cap is logged
+  by type.
+- Scheduled posts and guild logs accept announcement channels and threads
+  instead of dropping them.
+- Deferrals: ticket claim defers before database work, poll votes are
+  deferred, and the verify button answers in text instead of expiring when
+  its configuration read takes more than two seconds.
+- Website: static assets are gzipped once at boot and served with a
+  content-hash ETag (304 on revalidation), and are cached for a year only
+  when `?v` matches the current build. Public pages are cached for 45
+  seconds (`X-Page-Cache` shows hit, miss or bypass); `/status` and the
+  dashboard never are. Dynamic gzip runs off the main thread and skips
+  responses under 1 KB.
+- Dashboard rate limiting keeps its counters in memory by default;
+  `RATE_LIMIT_STORE=mongo` shares them across instances.
+- `/status`: periods with no samples say Not recorded instead of counting as
+  up, the page says when monitoring history starts, and AegisDB is a
+  non-critical component that cannot mark the whole service down.
+- Themes: contrast tokens and hover, pressed, disabled and focus states
+  across Light, Dark, Steel, Glass and Aurora, with a Steel, Glass and Aurora
+  polish pass.
+- Mongoose updates use `returnDocument` instead of the deprecated `new`
+  option.
+
+### Fixed
+- AegisDB mirror: a write never overtakes an earlier write for the same key
+  that is still in flight, a newer settings snapshot replaces older queued
+  ones, and the shutdown drain has a time budget so a down store cannot use
+  up the whole shutdown deadline.
+- Polls and suggestions: vote message edits are serialized and re-read the
+  latest state, so a late edit no longer reopens a closed poll or a reviewed
+  suggestion.
+- Giveaways: a late entry edit no longer puts back the running embed on an
+  ended or cancelled giveaway.
+- Role panels: a stale or malformed panel button gets an answer instead of
+  failing silently.
+- Automod: threads inside a safe-listed channel are exempt, and the
+  duplicate and penalty trackers sweep idle members instead of only being
+  size-capped.
+- Database: added indexes for suggestions and role panels by guild and for
+  the giveaway restore at startup.
+- Website: the Aurora theme keeps the status and action colours on tags;
+  tables no longer overflow on 360 to 414 px screens; `/commands` subcommand
+  links land below the sticky toolbar.
 
 ### Removed
 - Paddle billing: its configuration, API client, IP allowlist, signature
   check, webhook and settings.
+- Web checkout for Premium: the Subscribe button, Stripe.js and
+  `/assets/premium.js`.
+- The Rust AegisDB crate (`crates/aegis-db`), the `backend:*` npm scripts and
+  the cargo steps in CI.
+- 19 CSS classes nothing rendered, with a test that fails when the stylesheet
+  defines a class no source file uses.
+
+### Security
+- Dashboard: state-changing requests are rejected when `Sec-Fetch-Site` says
+  they are cross-site, before the CSRF token check.
+- Dashboard: every response is `Cache-Control: private, no-store` with
+  `Vary: Cookie`, including the cases CSV export.
+- The Premium page's content security policy no longer allows Stripe's
+  scripts, frames or the payment feature; only the billing portal stays
+  reachable.
+- `/health` exposes only mirror queue counts, never job names or error text.
 
 ## [3.14.1] - 2026-11-18
 
@@ -1873,19 +1971,19 @@ First version.
 - MongoDB storage (the SQLite dependency was dropped the same day).
 - Express website and Fly.io config.
 
-[3.6.2]: https://github.com/watispro1/AegisDeno/compare/18611d0...main
-[3.6.1]: https://github.com/watispro1/AegisDeno/compare/b292b9f...18611d0
-[3.6.0]: https://github.com/watispro1/AegisDeno/compare/87e33cb...b292b9f
-[3.5.0]: https://github.com/watispro1/AegisDeno/compare/6f05a0d...87e33cb
-[3.4.0]: https://github.com/watispro1/AegisDeno/compare/4c2a46a...6f05a0d
-[3.3.3]: https://github.com/watispro1/AegisDeno/compare/c87cfd5...4c2a46a
-[3.3.2]: https://github.com/watispro1/AegisDeno/compare/5d357ba...c87cfd5
-[3.3.0]: https://github.com/watispro1/AegisDeno/compare/09f9b81...5d357ba
-[3.2.0]: https://github.com/watispro1/AegisDeno/compare/c7e8dc6...09f9b81
-[3.1.0]: https://github.com/watispro1/AegisDeno/compare/ae88f40...c7e8dc6
-[3.0.0]: https://github.com/watispro1/AegisDeno/compare/b6aa280...ae88f40
-[2.1.0]: https://github.com/watispro1/AegisDeno/compare/87d3b15...b6aa280
-[2.0.0]: https://github.com/watispro1/AegisDeno/compare/96fac06...87d3b15
-[1.2.0]: https://github.com/watispro1/AegisDeno/compare/da6d893...96fac06
-[1.0.1]: https://github.com/watispro1/AegisDeno/compare/be095b7...da6d893
-[1.0.0]: https://github.com/watispro1/AegisDeno/commits/be095b7
+[3.6.2]: https://github.com/watispro1/aegis-discord-bot/compare/18611d0...main
+[3.6.1]: https://github.com/watispro1/aegis-discord-bot/compare/b292b9f...18611d0
+[3.6.0]: https://github.com/watispro1/aegis-discord-bot/compare/87e33cb...b292b9f
+[3.5.0]: https://github.com/watispro1/aegis-discord-bot/compare/6f05a0d...87e33cb
+[3.4.0]: https://github.com/watispro1/aegis-discord-bot/compare/4c2a46a...6f05a0d
+[3.3.3]: https://github.com/watispro1/aegis-discord-bot/compare/c87cfd5...4c2a46a
+[3.3.2]: https://github.com/watispro1/aegis-discord-bot/compare/5d357ba...c87cfd5
+[3.3.0]: https://github.com/watispro1/aegis-discord-bot/compare/09f9b81...5d357ba
+[3.2.0]: https://github.com/watispro1/aegis-discord-bot/compare/c7e8dc6...09f9b81
+[3.1.0]: https://github.com/watispro1/aegis-discord-bot/compare/ae88f40...c7e8dc6
+[3.0.0]: https://github.com/watispro1/aegis-discord-bot/compare/b6aa280...ae88f40
+[2.1.0]: https://github.com/watispro1/aegis-discord-bot/compare/87d3b15...b6aa280
+[2.0.0]: https://github.com/watispro1/aegis-discord-bot/compare/96fac06...87d3b15
+[1.2.0]: https://github.com/watispro1/aegis-discord-bot/compare/da6d893...96fac06
+[1.0.1]: https://github.com/watispro1/aegis-discord-bot/compare/be095b7...da6d893
+[1.0.0]: https://github.com/watispro1/aegis-discord-bot/commits/be095b7

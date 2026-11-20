@@ -254,11 +254,11 @@ export function renderDocs(cfg: SiteConfig): string {
       ${docHeading("self-hosting", "Self-hosting")}
       <p>The source is on <a href="${REPO_URL}">GitHub</a>. It is readable, but it is not open source: the licence is proprietary and all rights are reserved, so running your own copy, public or private, needs written permission from the maintainer (see the <a href="/terms#source">terms</a>). If you have the go-ahead, this is what it takes.</p>
       <ul>
-        <li>Node.js 22 or newer (CI and the Docker image use 22) and a MongoDB database. Despite the repository name, it does not run on Deno.</li>
+        <li>Node.js 22 or newer (CI and the Docker image use 22) and a MongoDB database. Despite the old AegisDeno name, it does not run on Deno.</li>
         <li>A Discord application with a bot user. Copy its token and application ID, and turn on the Server Members, Message Content and Presence intents under <strong>Bot</strong> in the Developer Portal; the bot asks for all three when it connects.</li>
       </ul>
       ${cmdBlock(`git clone ${REPO_URL}.git
-cd AegisDeno
+cd aegis-discord-bot
 npm ci
 cp .env.example .env    # set DISCORD_TOKEN, DISCORD_APPLICATION_ID, MONGO_URI
 npm run dev             # or: npm run build && npm start`)}
