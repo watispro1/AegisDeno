@@ -12,7 +12,6 @@ export async function withinDeadline<T>(promise: Promise<T>, ms: number): Promis
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<DeadlineResult<T>>((resolve) => {
     timer = setTimeout(() => resolve({ ok: false }), ms);
-    timer.unref?.();
   });
   try {
     return await Promise.race([promise.then((value): DeadlineResult<T> => ({ ok: true, value })), timeout]);

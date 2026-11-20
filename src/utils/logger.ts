@@ -12,8 +12,9 @@ import { inspect } from "node:util";
  * LOG_LEVEL (debug|info|warn|error, default info) drops lines below it.
  * Every line, in both formats, goes through redactSecrets().
  *
- * setupLogger() re-reads the settings; main() calls it once the environment
- * is loaded. Until then the settings come from process.env at import.
+ * setupLogger() re-reads the format; main() calls it once the environment is
+ * loaded. Until then it comes from process.env at import. LOG_LEVEL is read on
+ * every line.
  */
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
@@ -137,7 +138,8 @@ const SINK: Record<LogLevel, (...a: unknown[]) => void> = {
 };
 
 function write(level: LogLevel, fields: LogFields, msg: string, args: unknown[]): void {
-  if (LEVEL_RANK[level] < LEVEL_RANK[settings.level]) return;
+  // LOG_LEVEL is read live (as before), so it can be changed at runtime and in tests.
+  if (LEVEL_RANK[level] < LEVEL_RANK[resolveLogLevel()]) return;
   if (settings.format === "json") {
     const stream = level === "warn" || level === "error" ? process.stderr : process.stdout;
     stream.write(formatJsonLine(level, msg, args, fields) + "\n");
