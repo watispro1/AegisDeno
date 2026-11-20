@@ -393,7 +393,6 @@ const LegacyPluginSettingsSchema = new mongoose.Schema({
 }, { collection: "pluginconfigs", autoIndex: false, autoCreate: false });
 export const LegacyPluginSettingsModel = mongoose.model("LegacyPluginSettings", LegacyPluginSettingsSchema);
 
-// Starboard, watchlist, appeals, automod hits and activity (extraModels.ts) and the
-// web dashboard models (dashboardModels.ts) are re-exported so existing imports keep working.
+// extraModels.ts (starboard, watchlist, appeals, automod, activity) and dashboardModels.ts, re-exported for existing imports.
 export * from "./extraModels";
 export * from "./dashboardModels";
