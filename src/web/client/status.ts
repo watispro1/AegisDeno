@@ -29,7 +29,7 @@ export const statusScript = String.raw`
   function qa(sel) { return Array.prototype.slice.call(root.querySelectorAll(sel)); }
   function text(el, value) { if (el) el.textContent = value; }
   function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
-  function pct(v) { return v === null || v === undefined ? 'No data' : (Math.floor(v * 10000) / 100).toFixed(2) + '%'; }
+  function pct(v) { return v === null || v === undefined ? 'Not recorded' : (Math.floor(v * 10000) / 100).toFixed(2) + '%'; }
   function level(v) { return v === null || v === undefined ? 'none' : v >= 0.999 ? 'ok' : v >= 0.95 ? 'warn' : 'bad'; }
   function pingLevel(ms) { return !ms || ms <= 0 ? 'none' : ms < 300 ? 'ok' : ms < 1000 ? 'warn' : 'bad'; }
   function local(iso) {
@@ -118,7 +118,7 @@ export const statusScript = String.raw`
       r.setAttribute('height', String(h));
       r.setAttribute('rx', '1');
       var t = document.createElementNS(SVGNS, 'title');
-      t.textContent = local(b.start) + ': ' + (v === null ? 'no data' : v + ' ms average');
+      t.textContent = local(b.start) + ': ' + (v === null ? 'not recorded' : v + ' ms average');
       r.appendChild(t);
       svg.appendChild(r);
     }
@@ -154,9 +154,9 @@ export const statusScript = String.raw`
     var ping = q('[data-status-ping]');
     if (ping) { ping.className = 'latency-value lv-' + pingLevel(m.pingMs); ping.textContent = m.pingMs > 0 ? m.pingMs + ' ms' : 'No reading'; }
     var avgDay = q('[data-status-ping-avg="day"]');
-    text(avgDay, s.history.day.pingMs === null || s.history.day.pingMs === undefined ? 'No data' : s.history.day.pingMs + ' ms');
+    text(avgDay, s.history.day.pingMs === null || s.history.day.pingMs === undefined ? 'Not recorded' : s.history.day.pingMs + ' ms');
     var avgWeek = q('[data-status-ping-avg="week"]');
-    text(avgWeek, s.history.week.pingMs === null || s.history.week.pingMs === undefined ? 'no data' : s.history.week.pingMs + ' ms');
+    text(avgWeek, s.history.week.pingMs === null || s.history.week.pingMs === undefined ? 'not recorded' : s.history.week.pingMs + ' ms');
     latency('day', s.history.day);
     text(q('[data-status-metric="uptime"]'), uptime(m.uptimeSeconds));
     text(q('[data-status-metric="ping"]'), m.pingMs + ' ms');
@@ -166,6 +166,8 @@ export const statusScript = String.raw`
     text(q('[data-status-metric="commands"]'), String(m.commands));
     bars('day', s.history.day);
     bars('week', s.history.week);
+    var hs = q('[data-status-history-start]');
+    if (hs && s.historyStartsAt) text(hs, 'Monitoring history starts ' + local(s.historyStartsAt) + '. Bars before that, and any time the bot or its monitor was not running, are Not recorded: there are no checks for them, so they count toward no percentage.');
     localizeTimes();
     var stale = q('[data-status-stale]');
     if (stale) stale.hidden = true;

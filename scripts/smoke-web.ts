@@ -118,7 +118,7 @@ async function main() {
   const dashHtml = await dash.text();
   check("/dashboard 200 when not configured", dash.status === 200, String(dash.status));
   check("/dashboard says not configured", dashHtml.includes("not configured"));
-  check("/dashboard no-store", dash.headers.get("cache-control") === "no-store", dash.headers.get("cache-control") ?? "");
+  check("/dashboard private, no-store", dash.headers.get("cache-control") === "private, no-store", dash.headers.get("cache-control") ?? "");
   check("/dashboard noindex", (dash.headers.get("x-robots-tag") ?? "").includes("noindex"));
   check("/dashboard sets no cookie", dash.headers.get("set-cookie") === null);
   check("/dashboard has no login link", !dashHtml.includes("/dashboard/login"));
@@ -187,6 +187,16 @@ async function main() {
   check("versioned asset immutable", (css.headers.get("cache-control") ?? "").includes("immutable"), linkedCss);
   const bareCss = await fetch(origin + "/assets/site.css");
   check("unversioned asset not immutable", !(bareCss.headers.get("cache-control") ?? "").includes("immutable"), bareCss.headers.get("cache-control") ?? "");
+  // Precompressed at boot: gzip with a strong ETag, and a 304 on revalidation.
+  const etag = css.headers.get("etag") ?? "";
+  check("asset has strong ETag", /^"[^"]+"$/.test(etag), etag);
+  check("asset served gzipped", css.headers.get("content-encoding") === "gzip", css.headers.get("content-encoding") ?? "");
+  const revalidated = await fetch(origin + linkedCss, { headers: { "If-None-Match": etag } });
+  check("asset 304 on matching ETag", revalidated.status === 304, String(revalidated.status));
+  // Public pages are reused from the short HTML cache; /status never is.
+  await fetch(origin + "/features");
+  check("public page served from HTML cache", (await fetch(origin + "/features")).headers.get("x-page-cache") === "hit");
+  check("status bypasses HTML cache", (await fetch(origin + "/status")).headers.get("x-page-cache") === "bypass");
   const apiStats = await fetch(origin + "/api/stats");
   check("api stats no-store", apiStats.headers.get("cache-control") === "no-store");
 

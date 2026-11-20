@@ -241,7 +241,7 @@ test("logged-out landing page and guild pages", async () => {
   jar = {};
   const landing = await get("/dashboard");
   assert.equal(landing.status, 200);
-  assert.equal(landing.headers.get("cache-control"), "no-store");
+  assert.equal(landing.headers.get("cache-control"), "private, no-store");
   assert.match(await landing.text(), /Log in with Discord/);
   const guild = await get(`/dashboard/${GUILD_OK}`);
   assert.equal(guild.status, 302);

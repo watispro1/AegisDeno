@@ -266,6 +266,7 @@ A `.env` file is read only when `NODE_ENV` is not `production`; the Docker image
 | `DISCORD_CLIENT_SECRET`   | Dashboard | OAuth2 client secret; the dashboard is off without it          |
 | `DASHBOARD_SESSION_SECRET`| Dashboard | Signs session cookies and CSRF tokens; 32+ characters          |
 | `DASHBOARD_REDIRECT_URI`  | Optional | OAuth2 redirect (default: `https://aegisdeno.fly.dev/dashboard/callback`) |
+| `RATE_LIMIT_STORE`        | Optional | Dashboard rate-limit counters: `memory` (default) or `mongo` (shared across instances) |
 | `TOPGG_TOKEN`             | Optional | Posts the server count to Top.gg every 30 minutes               |
 | `TOPGG_WEBHOOK_AUTH`      | Optional | Shared secret for the Top.gg vote webhook                       |
 | `AEGIS_BACKEND_SECRET`    | Production | Secret for AegisDB's HTTP API; AegisDB (secondary store) does not start without it outside development |
@@ -331,13 +332,18 @@ URL as a redirect in the portal. The two must match character for character.
 - Changes made in the dashboard are also kept per server in the
   `dashboardaudits` collection (TTL 180 days) and shown on its Activity page.
 - Rate limits per client IP (from `Fly-Client-IP`): 20 login requests, 30 form
-  posts and 240 page views per minute. Counters live in the
-  `dashboardratelimits` collection (one document per client and minute, keyed
-  by a hash of the IP, removed by a TTL index), so they are shared by every
-  machine and survive restarts. If MongoDB is unreachable they fall back to
-  in-memory counts.
-- Both collections and their TTL indexes are created by Mongoose on start; no
-  new environment variables, scopes or gateway intents are needed.
+  posts and 240 page views per minute. By default the counters live in memory
+  in each process: no database round trip per request, and they reset on
+  restart. That is correct for the usual single Fly machine.
+- Running more than one machine? Set `RATE_LIMIT_STORE=mongo`
+  (`fly secrets set RATE_LIMIT_STORE=mongo -a aegisdeno`) so every machine
+  shares one count. Counters then live in the `dashboardratelimits` collection
+  (one document per client and minute, keyed by a hash of the IP, removed by a
+  TTL index) and survive restarts; if MongoDB is unreachable they fall back to
+  in-memory counts. Without it, each machine enforces the limits on its own, so
+  a client spread across N machines gets up to N times the limit.
+- The collections and their TTL indexes are created by Mongoose on start; no
+  scopes or gateway intents beyond the above are needed.
 - Appeal reviews, unbans and posting panels from the dashboard need the same
   member permission as their slash command (Ban Members, Manage Channels or
   Manage Roles), and the bot needs Ban Members, Manage Roles, Send Messages,

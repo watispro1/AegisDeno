@@ -115,6 +115,12 @@ export interface BotView {
   botMissingPermissions?(guildId: string): string[];
   /** Bot websocket ping in ms, or null if uninitialized / unavailable. */
   pingMs?(): number | null;
+  /**
+   * Drop every cached lookup for one server (cachedBotView). Called after a
+   * dashboard write, so the next page reads fresh data. Optional: uncached
+   * views have nothing to drop.
+   */
+  invalidate?(guildId: string): void;
 }
 
 /**
@@ -279,53 +285,108 @@ export function rolePickable(role: RoleOption): boolean {
   return role.assignable && !role.aboveViewer;
 }
 
+/** How long the per-navigation guild lookups (summary, hidden channels, missing permissions) are reused. */
+export const GUILD_LOOKUP_TTL_MS = 30_000;
+
 /**
  * Wraps a BotView with short-lived TTL caches for channel lists, role lists,
- * viewer role limits, and member management/permission checks. Prevents
- * repeated expensive guild lookups and API fetches across fast tab switches.
+ * viewer role limits, member management/permission checks, and the guild
+ * summary / hidden-channel / missing-permission lookups every dashboard
+ * navigation repeats. Prevents repeated expensive guild lookups and API
+ * fetches across fast tab switches.
+ *
+ * invalidate(guildId) drops everything cached for that server, the same way
+ * the guild config cache deletes its key on save. Keys carry a per-guild
+ * generation, so entries keyed by user are dropped too without scanning.
  */
-export function cachedBotView(inner: BotView, ttlMs = 15_000): BotView {
+export function cachedBotView(inner: BotView, ttlMs = 15_000, lookupTtlMs = GUILD_LOOKUP_TTL_MS): BotView {
   const manageCache = new TtlCache<boolean>(ttlMs);
   const permCache = new TtlCache<boolean>(ttlMs);
   const channelCache = new TtlCache<ChannelOption[]>(ttlMs);
   const roleCache = new TtlCache<RoleOption[]>(ttlMs);
   const viewerRolesCache = new TtlCache<ViewerRoleLimit>(ttlMs);
   const viewerChannelsCache = new TtlCache<ReadonlySet<string>>(ttlMs);
+  const summaryCache = new TtlCache<{ value: GuildSummary | null }>(lookupTtlMs);
+  const hiddenCache = new TtlCache<ReadonlySet<string>>(lookupTtlMs);
+  const missingCache = new TtlCache<string[]>(lookupTtlMs);
+  const generations = new Map<string, number>();
+  const k = (guildId: string, rest = "") => `${guildId}#${generations.get(guildId) ?? 0}${rest ? `:${rest}` : ""}`;
 
   return {
     ...inner,
 
+    guild(guildId) {
+      const key = k(guildId);
+      const cached = summaryCache.get(key);
+      if (cached) return cached.value;
+      const value = inner.guild(guildId);
+      // A miss (bot not in the server) is not cached, so adding Aegis shows up at once.
+      if (value) summaryCache.set(key, { value });
+      return value;
+    },
+
+    hiddenChannelIds(guildId) {
+      const key = k(guildId);
+      const cached = hiddenCache.get(key);
+      if (cached) return cached;
+      const res = inner.hiddenChannelIds(guildId);
+      hiddenCache.set(key, res);
+      return res;
+    },
+
+    ...(inner.botMissingPermissions ? {
+      botMissingPermissions(guildId: string) {
+        const key = k(guildId);
+        const cached = missingCache.get(key);
+        if (cached) return cached;
+        const res = inner.botMissingPermissions!(guildId);
+        missingCache.set(key, res);
+        return res;
+      },
+    } : {}),
+
     async memberCanManage(guildId, userId) {
-      return manageCache.getOrLoad(`${guildId}:${userId}`, () => inner.memberCanManage(guildId, userId));
+      return manageCache.getOrLoad(k(guildId, userId), () => inner.memberCanManage(guildId, userId));
     },
 
     async memberHasPermission(guildId, userId, permission) {
-      return permCache.getOrLoad(`${guildId}:${userId}:${permission}`, () => inner.memberHasPermission(guildId, userId, permission));
+      return permCache.getOrLoad(k(guildId, `${userId}:${permission}`), () => inner.memberHasPermission(guildId, userId, permission));
     },
 
     textChannels(guildId) {
-      const cached = channelCache.get(guildId);
+      const key = k(guildId);
+      const cached = channelCache.get(key);
       if (cached) return cached;
       const res = inner.textChannels(guildId);
-      channelCache.set(guildId, res);
+      channelCache.set(key, res);
       return res;
     },
 
     roles(guildId) {
-      const cached = roleCache.get(guildId);
+      const key = k(guildId);
+      const cached = roleCache.get(key);
       if (cached) return cached;
       const res = inner.roles(guildId);
-      roleCache.set(guildId, res);
+      roleCache.set(key, res);
       return res;
     },
 
     async viewerRoleLimit(guildId, userId) {
-      return viewerRolesCache.getOrLoad(`${guildId}:${userId}`, () => inner.viewerRoleLimit(guildId, userId));
+      return viewerRolesCache.getOrLoad(k(guildId, userId), () => inner.viewerRoleLimit(guildId, userId));
     },
 
     async viewerChannelIds(guildId, userId) {
       if (!inner.viewerChannelIds) return new Set<string>();
-      return viewerChannelsCache.getOrLoad(`${guildId}:${userId}`, () => inner.viewerChannelIds!(guildId, userId));
+      return viewerChannelsCache.getOrLoad(k(guildId, userId), () => inner.viewerChannelIds!(guildId, userId));
+    },
+
+    invalidate(guildId) {
+      // Drop the unkeyed-by-user entries outright, then move the guild to a
+      // new generation so user-keyed entries (and loads in flight) are orphaned.
+      const key = k(guildId);
+      for (const cache of [summaryCache, hiddenCache, missingCache, channelCache, roleCache] as Array<TtlCache<unknown>>) cache.delete(key);
+      generations.set(guildId, (generations.get(guildId) ?? 0) + 1);
+      inner.invalidate?.(guildId);
     },
   };
 }

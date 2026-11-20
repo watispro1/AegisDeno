@@ -42,6 +42,12 @@ export interface StatusPayload {
   components: StatusComponent[];
   metrics: { uptimeSeconds: number; pingMs: number; guilds: number; shards: number; memoryMb: number; version: string; lastDeploy: string; commands: number };
   history: { day: HistoryWindow; week: HistoryWindow };
+  /**
+   * When the oldest recorded heartbeat sample was taken (ISO), or null when
+   * none has been recorded yet. Periods before it, and gaps while the bot was
+   * not running, have no samples and are shown as "Not recorded".
+   */
+  historyStartsAt: string | null;
   notices: Array<{ title: string; body: string; kind: string; severity: string; startsAt: string; endsAt: string | null; resolvedAt: string | null; open: boolean }>;
 }
 
@@ -116,6 +122,13 @@ function windowOf(label: string, samples: readonly HeartbeatSample[], nowMs: num
   };
 }
 
+/** The oldest sample at or before now, as ISO, or null when nothing has been recorded. */
+export function historyStart(samples: readonly HeartbeatSample[], nowMs: number): string | null {
+  let first = Infinity;
+  for (const s of samples) if (s.at <= nowMs && s.at < first) first = s.at;
+  return Number.isFinite(first) ? new Date(first).toISOString() : null;
+}
+
 export function aegisDbState(healthy: boolean): StatusComponent {
   if (healthy) return { id: "aegisdb", name: "AegisDB backend", state: "operational", detail: "AegisDB (secondary store) responding normally" };
   return { id: "aegisdb", name: "AegisDB backend", state: "degraded", detail: "AegisDB (secondary store) not responding; MongoDB, the primary store, keeps serving" };
@@ -164,6 +177,7 @@ export function buildStatusPayload(input: StatusInput & { aegisDbHealthy?: boole
       day: windowOf("Last 24 hours", input.samples, input.nowMs, 86_400_000, 24),
       week: windowOf("Last 7 days", input.samples, input.nowMs, 7 * 86_400_000, 28),
     },
+    historyStartsAt: historyStart(input.samples, input.nowMs),
     notices: input.notices.map(n => ({
       title: n.title, body: n.body, kind: n.kind, severity: n.severity,
       startsAt: n.startsAt.toISOString(), endsAt: n.endsAt?.toISOString() ?? null, resolvedAt: n.resolvedAt?.toISOString() ?? null,
