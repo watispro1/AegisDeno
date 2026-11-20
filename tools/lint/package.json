@@ -1,0 +1,12 @@
+{
+  "name": "aegis-lint-tooling",
+  "private": true,
+  "description": "ESLint and Prettier for the repo root. Kept out of the root package because typescript-eslint needs the TypeScript 6 JS API, while the app builds with TypeScript 7 (which has no JS API). Install with `npm run lint:install` from the repo root.",
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "prettier": "^3.10.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.73.0"
+  }
+}

@@ -27,7 +27,7 @@ export const ROADMAP: RoadmapGroup[] = [
     title: "Premium (In Development)",
     items: [
       { title: "Aegis Premium subscription", text: "The $5/month per-server subscription is in active development. It raises quantitative limits (autoresponders, shop items, ModMail snippets, scheduled messages, role panel choices) and adds a Premium badge in /help and the dashboard." },
-      { title: "Stripe billing integration", text: "Payments, cancellation and the customer portal are handled securely via Stripe. No card details are stored by Aegis." },
+      { title: "Stripe and Discord billing", text: "Billing is being set up through Stripe (checkout and the customer portal on the dashboard) and Discord's in-app subscriptions (from /premium in Discord), and is not yet available. No card details are stored by Aegis." },
     ],
   },
   {

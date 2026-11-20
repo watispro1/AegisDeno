@@ -9,6 +9,54 @@ Earlier drafts of this file also listed 2.1.1, 3.1.1 and 3.3.1; those were never
 separate bumps, so their changes are folded into 3.0.0, 3.1.0 and 3.3.2.
 3.1.0 was only ever set in `src/version.ts`, not in `package.json`.
 
+## [3.15.0] - 2026-11-20
+
+Aegis Premium billing moves from Paddle to Stripe, and Premium can also be
+bought as a Discord native in-app subscription. Premium is still in
+development and not for sale: it stays hidden until every Stripe setting is
+in place, and the website says billing is being set up through Stripe and
+Discord and is not yet available. No slash command definitions changed, so no
+re-deploy of commands is needed, and no new bot permissions. Upgrade notes:
+the `PADDLE_*` environment variables and the `/api/paddle/webhook` route are
+gone. Premium now needs `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
+`STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET`, plus the optional
+`DISCORD_PREMIUM_SKU_ID` (see `DEPLOYMENT.md`). Premium was never on sale, so
+there are no Paddle subscriptions to migrate. Released alongside dashboard
+2.1.0; the details are in `DASHBOARD_CHANGELOG.md`.
+
+### Added
+- Premium: Stripe Billing. The dashboard starts a Stripe Checkout session, the
+  buyer manages billing in Stripe's customer portal, and a signed webhook at
+  `/api/stripe/webhook` (503 until `STRIPE_WEBHOOK_SECRET` is set) applies
+  subscription, checkout and invoice events once each.
+- Premium: Discord native in-app subscriptions. With `DISCORD_PREMIUM_SKU_ID`
+  set, `/premium` shows Discord's own Subscribe button next to the dashboard
+  link, and the bot applies entitlement create, update and delete events and
+  syncs entitlements on startup.
+- Tooling: ESLint (type-aware typescript-eslint) and Prettier configs, with
+  `npm run lint` and `npm run format:check`; `npm run test:coverage` with a
+  coverage summary in CI; and `npm run check:versions`, which fails CI when
+  `package.json`, `src/version.ts`, the README and the two changelogs
+  disagree.
+
+### Changed
+- Premium: Stripe and Discord entitlements share one record per subscription,
+  so a server has Premium when either one is active. Handled Stripe event IDs
+  replace Paddle's and are still kept for 30 days.
+- Website: the Premium, Pricing, Refund Policy, Terms, Privacy Policy,
+  Roadmap and Security pages name Stripe instead of Paddle, say that Discord
+  in-app subscriptions follow Discord's own terms and refund policy, and say
+  billing is not yet available. The Terms and Privacy Policy are dated
+  November 20, 2026.
+- Security headers: the dashboard Premium page's content security policy
+  allows Stripe's checkout and portal hosts instead of Paddle's.
+- README: the summary table shows the current bot and dashboard versions, and
+  the "Node.js, not Deno" note is one line at the top.
+
+### Removed
+- Paddle billing: its configuration, API client, IP allowlist, signature
+  check, webhook and settings.
+
 ## [3.14.1] - 2026-11-18
 
 Website and dashboard release: the redesigned dashboard 2.0.0, the Glass

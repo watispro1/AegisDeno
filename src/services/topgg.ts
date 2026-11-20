@@ -39,7 +39,7 @@ export function initTopGG(client: Client): void {
     }
   };
 
-  postStats();
+  void postStats();
 
   const timer = setInterval(postStats, POST_INTERVAL_MS);
   timer.unref?.();

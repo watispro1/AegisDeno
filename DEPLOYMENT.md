@@ -356,6 +356,8 @@ URL as a redirect in the portal. The two must match character for character.
 
 Aegis supports **both** Discord native in-app subscriptions (via Discord SKUs) and web dashboard checkout (via Stripe). A server unlocks Premium if it has an active entitlement from either provider.
 
+Premium is currently in development and not for sale. The public pages say billing is being set up through Stripe and Discord and is not yet available; that wording lives in `src/web/pages/billingCopy.ts`. Changing whether Premium is for sale is the owner's decision.
+
 ### 1. Discord Native In-App Subscriptions (Discord SKU)
 
 Allows members to subscribe directly inside Discord through the native in-app modal on `/premium`.
@@ -373,7 +375,9 @@ Allows members to subscribe directly inside Discord through the native in-app mo
 
 Premium is $5/month per server, billed securely via Stripe. It stays hidden (no dashboard page, no sidebar link, `/premium` says it isn't offered, the webhook answers 503) until all four secrets below are set. Benefits live in `src/config/premium.ts`.
 
-Billing and refund policy (shown in the Terms "Aegis Premium and payments" section and on the public `/premium` page; keep all in sync): Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our support server; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.
+Billing and refund policy (shown in the Terms "Aegis Premium and payments" section and on the public `/premium`, `/pricing` and `/refunds` pages; keep all in sync): Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our support server; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.
+
+A Discord in-app subscription is billed by Discord instead: Discord's Paid Services Terms and Refund Policy apply, and the buyer cancels it from the Subscriptions section of their Discord settings. The pages say this too (`DISCORD_BILLING_HTML` in `src/web/pages/billingCopy.ts`).
 
 1. In Stripe Dashboard (start in test mode): **Product catalog**: create "Aegis Premium" with a recurring price of USD 5.00 / month. Copy the price ID (`price_...`).
 2. **Developers > API keys**: copy your Secret key (`sk_test_...` or `sk_live_...`) and Publishable key (`pk_test_...` or `pk_live_...`).
@@ -403,7 +407,7 @@ fly secrets set \
 
 ## Automatic deploys from GitHub
 
-Every push to `main` runs the CI checks (typecheck + tests). If they pass, the
+Every push to `main` runs the CI checks (version lockstep check, lint, typecheck, tests with a coverage summary, and the web smoke test). If they pass, the
 `deploy` job runs `flyctl deploy --remote-only`.
 
 One-time setup:

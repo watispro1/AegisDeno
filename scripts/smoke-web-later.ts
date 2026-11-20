@@ -23,7 +23,7 @@ export async function smokeLaterSections({ origin, csp, dashHtml, homeHtml, feed
   const termsHtml = await (await fetch(origin + "/terms")).text();
   const privacyHtml = await (await fetch(origin + "/privacy")).text();
   for (const [name, html] of [["terms", termsHtml], ["privacy", privacyHtml]] as [string, string][]) {
-    check(`${name} last updated November 15, 2026`, html.includes("Last updated: <time datetime=\"2026-11-15\">November 15, 2026</time>"));
+    check(`${name} last updated November 20, 2026`, html.includes("Last updated: <time datetime=\"2026-11-20\">November 20, 2026</time>"));
     check(`${name} uses CONTACT_EMAIL when set`, html.includes("mailto:legal@example.com"));
     check(`${name} has no invented fly.dev inbox`, !html.includes("support@aegisdeno.fly.dev"));
   }
@@ -91,7 +91,7 @@ export async function smokeLaterSections({ origin, csp, dashHtml, homeHtml, feed
   const clientText = await (await fetch(origin + "/assets/site.js")).text();
   let clientParses = true;
   try {
-    // eslint-disable-next-line no-new-func
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     new Function(clientText);
   } catch {
     clientParses = false;

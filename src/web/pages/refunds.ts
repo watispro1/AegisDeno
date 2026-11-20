@@ -6,6 +6,7 @@
 import { SUPPORT_SERVER_INVITE } from "../layout";
 import { type SiteConfig, breadcrumb, escapeHtml as esc, page, safeUrl } from "./shared";
 import { LEGAL_LAST_UPDATED } from "./legal";
+import { BILLING_STATUS_HTML, DISCORD_BILLING_HTML } from "./billingCopy";
 
 export function renderRefunds(cfg: SiteConfig): string {
   const supportUrl = safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE);
@@ -23,11 +24,13 @@ export function renderRefunds(cfg: SiteConfig): string {
   <section class="panel-card" aria-labelledby="policy-summary-h">
     <h2 id="policy-summary-h">Policy summary</h2>
     <p class="refund-policy">Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.</p>
+    <p>${DISCORD_BILLING_HTML}</p>
+    <p class="notice"><strong>Not on sale yet.</strong> Aegis Premium is currently in development and not for sale. ${BILLING_STATUS_HTML} This policy applies once Premium goes on sale.</p>
   </section>
 
   <section class="panel-card" aria-labelledby="refund-guarantee-h">
     <h2 id="refund-guarantee-h">1. 14-Day Money-Back Guarantee</h2>
-    <p>We want you to be completely satisfied with Aegis Premium. If for any reason Aegis Premium does not meet your expectations, you are entitled to a <strong>full refund within 14 days</strong> of your initial purchase or any renewal payment date.</p>
+    <p>We want you to be completely satisfied with Aegis Premium. If for any reason Aegis Premium does not meet your expectations, you are entitled to a <strong>full refund within 14 days</strong> of your initial purchase or any renewal payment date. This guarantee covers payments made through Stripe on the dashboard; Discord in-app subscriptions follow Discord's refund policy (see the summary above).</p>
     <ul>
       <li><strong>Standard period:</strong> 14 calendar days from the moment of payment.</li>
       <li><strong>No questions asked:</strong> Full refund provided for any request submitted within the 14-day window.</li>
@@ -65,6 +68,7 @@ export function renderRefunds(cfg: SiteConfig): string {
       <li>Click <strong>Cancel subscription</strong> to open Stripe&#39;s self-service customer portal.</li>
       <li>Confirm cancellation. Your subscription will not renew at the end of the current billing cycle.</li>
     </ol>
+    <p>A Discord in-app subscription is cancelled in Discord instead: open the <strong>Subscriptions</strong> section of your Discord settings and cancel it there.</p>
     <p><strong>Access remains active:</strong> When you cancel, Premium features and benefits remain active on your server until the end of the paid billing period. You will not be billed again.</p>
   </section>
 
@@ -80,13 +84,14 @@ export function renderRefunds(cfg: SiteConfig): string {
 
   <section class="panel-card" aria-labelledby="merchant-record-h">
     <h2 id="merchant-record-h">5. Secure Payment Processing</h2>
-    <p>All payments for Aegis Premium are processed securely by <strong>Stripe, Inc.</strong> (Stripe). Stripe is responsible for:</p>
+    <p>Payments for Aegis Premium made on the dashboard are processed securely by <strong>Stripe, Inc.</strong> (Stripe). Stripe is responsible for:</p>
     <ul>
       <li>Secure payment transactions complying with PCI-DSS Level 1 standards.</li>
       <li>Calculating, collecting, and remitting appropriate sales tax, VAT, and GST worldwide.</li>
       <li>Delivering purchase receipts, VAT invoices, and renewal notifications.</li>
       <li>Processing authorized refunds back to your original payment method.</li>
     </ul>
+    <p>Discord in-app subscriptions are processed and billed by Discord under Discord&#39;s own terms.</p>
     <p class="faint">Aegis never stores, transmits, or has access to your full credit card number, security code, or banking details.</p>
   </section>
 
@@ -104,7 +109,7 @@ export function renderRefunds(cfg: SiteConfig): string {
 
   return page(cfg, {
     title: "Refund and Cancellation Policy | Aegis",
-    description: "Aegis Premium refund and cancellation policy: full 14-day refund window, cancel anytime, processed securely via Stripe.",
+    description: "Aegis Premium refund and cancellation policy: full 14-day refund window for Stripe payments, cancel anytime; Discord in-app subscriptions follow Discord's terms.",
     path: "/refunds",
     body,
   });

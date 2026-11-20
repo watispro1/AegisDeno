@@ -21,10 +21,34 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tools/lint/package-lock.json
 
       - run: npm ci
+
+      - name: Version lockstep check
+        run: npm run check:versions
+
+      # ESLint lives in tools/lint (own lockfile): typescript-eslint needs the
+      # TypeScript 6 API, the app builds with TypeScript 7.
+      - name: Install lint tooling
+        run: npm run lint:install
+
+      - name: Lint
+        run: npm run lint
+
       - run: npm run typecheck
-      - run: npm test
+
+      # Same as `npm test` (unit tests, build, web smoke test), with coverage.
+      # The coverage summary goes to the job summary; there is no threshold.
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+
+      - run: npm run build
+
+      - name: Smoke test web routes
+        run: npx tsx scripts/smoke-web.ts
 
   deploy:
     name: Deploy to Fly.io
