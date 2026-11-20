@@ -1,4 +1,4 @@
-import type { SendableChannels } from "discord.js";
+import { ChannelType, type NewsChannel, type SendableChannels, type TextChannel, type ThreadChannel } from "discord.js";
 
 /**
  * Discord's CHANNEL_OBFUSCATED channel flag (1 << 17). Set on channels that
@@ -81,4 +81,24 @@ export function isSendableChannel(channel: unknown): channel is SendableChannels
     typeof (channel as { send?: unknown }).send === "function" &&
     !isObfuscatedChannel(channel)
   );
+}
+
+/** Guild channel types a scheduled post or a log entry can go to. */
+const GUILD_POST_TYPES: ReadonlySet<number> = new Set([
+  ChannelType.GuildText,
+  ChannelType.GuildAnnouncement,
+  ChannelType.PublicThread,
+  ChannelType.PrivateThread,
+  ChannelType.AnnouncementThread,
+]);
+
+/**
+ * True for a guild text, announcement (news) or thread channel with `send()`.
+ * `instanceof TextChannel` used to reject announcement channels and threads,
+ * so scheduled posts there were deleted and log entries silently skipped.
+ */
+export function isGuildPostChannel(channel: unknown): channel is TextChannel | NewsChannel | ThreadChannel {
+  if (typeof channel !== "object" || channel === null) return false;
+  const c = channel as { type?: unknown; send?: unknown };
+  return typeof c.type === "number" && GUILD_POST_TYPES.has(c.type) && typeof c.send === "function";
 }

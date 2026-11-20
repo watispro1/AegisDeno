@@ -15,6 +15,8 @@ import {
 } from "../../services/ticketService";
 import { hiddenChannelMessage, isObfuscatedChannel } from "../../utils/channels";
 import { ticketCreationFailureMessage } from "../../services/ticketPermissions";
+import { describeCommandError, newErrorId } from "../../utils/errorReport";
+import { logger } from "../../utils/logger";
 
 export const ticketRoutes: ComponentRoute[] = [
   {
@@ -51,22 +53,35 @@ export const ticketRoutes: ComponentRoute[] = [
     async handle(interaction, match) {
       if (!interaction.isButton() || !interaction.guild || !interaction.channel) return;
       const ticketId = match?.[1] ?? "";
+      // Acknowledge first: the claim reads and writes the database and checks
+      // permissions, which can take longer than Discord's 3-second window.
+      await interaction.deferUpdate();
 
-      const result = await claimTicket(interaction.guild, interaction.channelId, interaction.user.id);
+      let result: Awaited<ReturnType<typeof claimTicket>>;
+      try {
+        result = await claimTicket(interaction.guild, interaction.channelId, interaction.user.id);
+      } catch (err) {
+        // Answer here: after deferUpdate the router's editReply would overwrite the ticket message.
+        const errorId = newErrorId();
+        logger.child({ errorId, component: "ticket-claim" }).error(`[${errorId}] Ticket claim failed in ${interaction.channelId}:`, err);
+        const report = describeCommandError(err, "Claim ticket", errorId);
+        if (!report.silent) await interaction.followUp({ content: report.message, flags: MessageFlags.Ephemeral }).catch(() => null);
+        return;
+      }
       if (result.status === "forbidden") {
-        await interaction.reply({ content: "❌ Only support staff can claim tickets.", flags: MessageFlags.Ephemeral });
+        await interaction.followUp({ content: "❌ Only support staff can claim tickets.", flags: MessageFlags.Ephemeral });
         return;
       }
       if (result.status === "not_ticket") {
-        await interaction.reply({ content: "❌ This ticket is no longer open.", flags: MessageFlags.Ephemeral });
+        await interaction.followUp({ content: "❌ This ticket is no longer open.", flags: MessageFlags.Ephemeral });
         return;
       }
       if (result.status === "already") {
-        await interaction.reply({ content: `ℹ️ This ticket is already claimed by <@${result.claimedBy}>.`, flags: MessageFlags.Ephemeral });
+        await interaction.followUp({ content: `ℹ️ This ticket is already claimed by <@${result.claimedBy}>.`, flags: MessageFlags.Ephemeral });
         return;
       }
 
-      await interaction.update({ components: [buildTicketControls(ticketId, interaction.user.tag ?? interaction.user.username)] });
+      await interaction.editReply({ components: [buildTicketControls(ticketId, interaction.user.tag ?? interaction.user.username)] });
       if ("send" in interaction.channel) {
         await interaction.channel.send({
           embeds: [

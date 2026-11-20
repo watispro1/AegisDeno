@@ -1,6 +1,7 @@
 /**
  * In-memory rate state for automod: the message-rate (spam) counter and the
- * per-member penalty cooldown. Both are bounded and sweep themselves.
+ * per-member penalty cooldown. Both are bounded by size and sweep idle
+ * members out over time.
  */
 
 /**
@@ -77,10 +78,18 @@ export interface PenaltyDecision {
  */
 export class PenaltyCooldown {
   private readonly state = new Map<string, { until: number; suppressed: number }>();
+  private lastSweep = 0;
 
-  constructor(private readonly cooldownMs = AUTOMOD_PENALTY_COOLDOWN_MS, private readonly maxKeys = 10_000) {}
+  constructor(
+    private readonly cooldownMs = AUTOMOD_PENALTY_COOLDOWN_MS,
+    private readonly maxKeys = 10_000,
+    private readonly sweepEveryMs = 60_000,
+    /** How long after its cooldown ended an entry is kept (to fold suppressed hits into the next log entry). */
+    private readonly idleMs = 10 * 60_000,
+  ) {}
 
   decide(key: string, now = Date.now()): PenaltyDecision {
+    this.sweep(now);
     const prev = this.state.get(key);
     if (prev && now < prev.until) {
       prev.suppressed++;
@@ -99,5 +108,15 @@ export class PenaltyCooldown {
 
   get size(): number {
     return this.state.size;
+  }
+
+  /** Drop members whose cooldown ended more than `idleMs` ago, at most once per `sweepEveryMs`. */
+  private sweep(now: number): void {
+    if (now - this.lastSweep < this.sweepEveryMs) return;
+    this.lastSweep = now;
+    const cutoff = now - this.idleMs;
+    for (const [key, entry] of this.state) {
+      if (entry.until <= cutoff) this.state.delete(key);
+    }
   }
 }

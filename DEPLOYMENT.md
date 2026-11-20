@@ -229,6 +229,20 @@ Questions go to the support server: https://discord.gg/HwTbCYC4PM.
 
 ## Environment Variables Reference
 
+At startup the bot checks every variable below in one pass (`src/config/env.ts`).
+If anything is missing or malformed it logs **one** error listing every problem
+and exits with code 1, so fix the whole list before redeploying. Conditionally
+required variables:
+
+- `AEGIS_BACKEND_SECRET`: required unless `BOT_ENV`/`NODE_ENV` is `development` or `test`.
+- `DASHBOARD_SESSION_SECRET` (32+ characters): required once `DISCORD_CLIENT_SECRET` is set.
+- `SITE_URL` and all four `STRIPE_*` checkout values: required once any of
+  `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` or `STRIPE_PRICE_ID` is set (Stripe premium
+  sales on). `STRIPE_WEBHOOK_SECRET` alone is allowed.
+
+A `.env` file is read only when `NODE_ENV` is not `production`; the Docker image sets
+`NODE_ENV=production`, so on Fly only `fly secrets` count.
+
 | Variable                  | Required | Description                                                     |
 | ------------------------- | -------- | --------------------------------------------------------------- |
 | `DISCORD_TOKEN`           | ✅       | Bot token from Discord Developer Portal                         |
@@ -238,8 +252,12 @@ Questions go to the support server: https://discord.gg/HwTbCYC4PM.
 | `DISCORD_CLEAR_GUILD_IDS` | Optional | Comma-separated guild IDs to clear stale guild commands on boot |
 | `BOT_ENV`                 | Optional | `development` or `production` (default: `development`)          |
 | `LOG_LEVEL`               | Optional | `debug`, `info`, `warn`, `error` (default: `info`)              |
+| `LOG_FORMAT`              | Optional | `json` or `pretty` (default: `json` when `NODE_ENV=production`, else `pretty`) |
+| `BOT_OWNER_IDS`           | Optional | Comma-separated owner user IDs for `/developer` and `/sync`. Fallback when unset (and `DISCORD_OWNER_ID` unset): `1320058519642177668` |
+| `DISCORD_OWNER_ID`        | Optional | Legacy single owner ID, added to `BOT_OWNER_IDS`                |
+| `AEGIS_BACKEND_SECRET`    | Production | AegisDB shared secret; required outside development/test      |
 | `PORT`                    | Optional | HTTP port for web server (default: `3000`)                      |
-| `SITE_URL`                | Optional | Public site URL, used for SEO and canonical links               |
+| `SITE_URL`                | Stripe   | Public site URL, used for SEO and canonical links; required when Stripe premium sales are on |
 | `BOT_INVITE_URL`          | Optional | Custom OAuth2 invite URL                                        |
 | `SUPPORT_SERVER_URL`      | Optional | Discord support server invite (default: `https://discord.gg/HwTbCYC4PM`) |
 | `JOIN_WELCOME`            | Optional | `off` disables the one-time welcome posted on server join     |

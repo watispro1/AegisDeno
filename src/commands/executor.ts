@@ -198,8 +198,9 @@ async function run(
     const errorId = newErrorId();
     const report = describeCommandError(err, label, errorId);
     const where = `${label} by ${interaction.user.tag} (${interaction.user.id}) in guild ${interaction.guildId ?? "DM"} after ${Date.now() - startedAt}ms`;
-    if (report.expected) logger.warn(`[${errorId}] Discord refused ${where}:`, err);
-    else logger.error(`[${errorId}] Unhandled error in ${where}:`, err);
+    const log = logger.child({ errorId, command: label, guildId: interaction.guildId ?? "DM", userId: interaction.user.id });
+    if (report.expected) log.warn(`[${errorId}] Discord refused ${where}:`, err);
+    else log.error(`[${errorId}] Unhandled error in ${where}:`, err);
     if (!report.silent) await replyError(interaction, report.message);
   } finally {
     stopSlowGuard();

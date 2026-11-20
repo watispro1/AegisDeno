@@ -11,6 +11,8 @@
  * from Discord so no new events arrive, flush buffers, close the database).
  * A failing step is logged and the rest still run.
  */
+import { logger } from "./logger";
+
 export interface ShutdownStep {
   name: string;
   run(): unknown | Promise<unknown>;
@@ -34,7 +36,7 @@ export type ShutdownResult = "clean" | "errors" | "timeout";
  */
 export function createShutdown(options: ShutdownOptions): (signal: string) => Promise<ShutdownResult> {
   const exit = options.exit ?? ((code: number) => process.exit(code));
-  const log = options.log ?? console;
+  const log = options.log ?? logger;
   const timeoutMs = options.timeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;
   let running: Promise<ShutdownResult> | null = null;
 
