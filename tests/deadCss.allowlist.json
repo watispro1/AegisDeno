@@ -1,0 +1,4 @@
+{
+  "_comment": "CSS classes tests/deadCss.test.ts may not prove used. Map each class to a reason; remove an entry once markup uses the class or its rule is deleted.",
+  "classes": {}
+}

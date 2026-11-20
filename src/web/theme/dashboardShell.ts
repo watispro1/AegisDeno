@@ -44,18 +44,18 @@ export const cssDashboardShell = String.raw`/* ── Dashboard 2.0: shell ─�
 .side-logo-tag { padding: .05rem .45rem; border: 1px solid var(--border); border-radius: 999px; font: 500 .66rem/1.5 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .side-server { margin: 0; }
 .app-body .side-brand { display: flex; align-items: center; gap: .65rem; min-height: 52px; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: var(--d-r-lg); background-color: var(--bg); color: var(--text); text-decoration: none; transition: border-color .15s var(--d-ease), background-color .15s var(--d-ease); }
-.app-body .side-brand:hover { border-color: var(--border-strong); background: var(--bg-sunk); }
+.app-body .side-brand:hover { border-color: var(--border-strong); background: var(--hover); }
 .app-body .side-brand:hover .side-brand-name { color: var(--text); }
 .side-brand-text { display: grid; min-width: 0; line-height: 1.3; }
 .side-brand-meta { overflow: hidden; font-size: .78rem; font-weight: 400; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
 .app-body .side-filter { margin: 0; }
 .app-body .side-filter-input { width: 100%; min-height: 36px; padding: .3rem .65rem; border-radius: var(--d-r); font-size: .86rem; }
-.side-scroll { flex: 1 1 auto; min-height: 0; margin: 0 -.4rem; padding: 0 .4rem .5rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.side-scroll { flex: 1 1 auto; min-height: 0; margin: 0 -.4rem; padding: 0 .4rem .5rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
 .app-body .nav-group { margin: 0 0 .55rem; }
 .app-body .nav-group-details summary { min-height: 30px; padding: .2rem .55rem; border-radius: var(--d-r); }
 .app-body .nav-group-title { font: 600 .68rem/1.4 var(--sans); letter-spacing: .08em; color: var(--faint); }
 .app-body .side-link { position: relative; gap: .6rem; min-height: 36px; padding: .3rem .6rem; border-radius: var(--d-r); font-size: .89rem; font-weight: 500; color: var(--text-2); box-shadow: none; }
-.app-body .side-link:hover { background: var(--bg-sunk); color: var(--text); }
+.app-body .side-link:hover { background: var(--hover); color: var(--text); }
 .app-body .side-link[aria-current="page"] { background: var(--accent-soft); color: var(--text); font-weight: 600; box-shadow: none; }
 .app-body .side-link[aria-current="page"]::before { content: ""; position: absolute; left: -.4rem; top: 22%; bottom: 22%; width: 3px; border-radius: 3px; background: var(--accent); }
 .app-body .side-icon { display: inline-grid; place-items: center; flex: none; width: 1.25rem; color: var(--muted); }
@@ -84,7 +84,7 @@ export const cssDashboardShell = String.raw`/* ── Dashboard 2.0: shell ─�
 .palette-btn .ico, .shortcuts-btn .ico, .side-collapse .ico, .drawer-toggle .ico { width: 17px; height: 17px; }
 .palette-kbd { padding: .05rem .35rem; border: 1px solid var(--border); border-radius: 4px; font: 500 .68rem/1.4 var(--mono); color: var(--muted); }
 .app-body .shortcuts-btn, .app-body .side-collapse { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border: 1px solid transparent; border-radius: var(--d-r); background: transparent; color: var(--muted); cursor: pointer; }
-.app-body .shortcuts-btn:hover, .app-body .side-collapse:hover { border-color: var(--border); background: var(--bg-sunk); color: var(--text); }
+.app-body .shortcuts-btn:hover, .app-body .side-collapse:hover { border-color: var(--border); background: var(--hover); color: var(--text); }
 .app-body .side-collapse[aria-pressed="true"] .ico { transform: scaleX(-1); }
 .app-body .user-menu summary { min-height: 38px; padding: .2rem .45rem .2rem .2rem; }
 .app-body .avatar { width: 1.9rem; height: 1.9rem; font-size: .8rem; }
@@ -121,7 +121,12 @@ export const cssDashboardShell = String.raw`/* ── Dashboard 2.0: shell ─�
 @media (max-width: 820px) {
   .app-body .app { display: block; }
   .app-body .app-top { flex-wrap: wrap; row-gap: .45rem; padding: .5rem 1rem; }
-  .app-body .side-collapse, .app-body .palette-btn, .app-body .shortcuts-btn { display: none; }
+  .app-body .side-collapse, .app-body .shortcuts-btn { display: none; }
+  /* Jump-to stays reachable by touch: an icon button, without the Ctrl K hint. */
+  .app-body .palette-btn { min-width: 38px; justify-content: center; padding: .25rem .5rem; }
+  .app-body .palette-kbd { display: none; }
+  /* 16px inputs so iOS does not zoom the page on focus. */
+  .app-body .top-search input, .app-body .side-filter-input, .app-body .table-search { font-size: 1rem; }
   .app-body .drawer-toggle { gap: .4rem; min-height: 38px; }
   .app-body .app-top-switcher { flex: 1 1 0; min-width: 0; max-width: none; }
   .app-body .top-switcher summary { width: 100%; }

@@ -54,7 +54,7 @@ function ratio(a: [number, number, number], b: [number, number, number]): number
 }
 
 const TEXT = ["--text", "--text-2", "--muted", "--faint", "--link", "--ok", "--warn", "--danger"];
-const BACKGROUNDS = ["--bg", "--bg-sunk", "--surface", "--code-bg"];
+const BACKGROUNDS = ["--bg", "--bg-sunk", "--surface", "--code-bg", "--hover"];
 const AA = 4.5;
 
 function resolve(t: Tokens, v: string): string {
@@ -66,7 +66,7 @@ test("themes: every theme has a token block and a browser colour", () => {
   assert.deepEqual([...THEME_IDS], ["light", "dark", "steel", "glass", "aurora"]);
   for (const id of THEME_IDS) {
     const t = theme(id);
-    for (const k of [...TEXT, ...BACKGROUNDS, "--accent", "--accent-ink", "--border"]) assert.ok(t[k], `${id}: ${k} defined`);
+    for (const k of [...TEXT, ...BACKGROUNDS, "--accent", "--accent-ink", "--border", "--on-fill", "--selection", "--selection-ink", "--scroll-thumb", "--focus"]) assert.ok(t[k], `${id}: ${k} defined`);
     assert.equal(resolve(t, t["--bg"]), THEME_COLORS[id], `${id}: theme-color matches --bg`);
   }
 });
@@ -84,13 +84,30 @@ for (const id of THEME_IDS) {
     }
     const btn = ratio(rgb(resolve(t, t["--accent-ink"])).slice(0, 3) as [number, number, number], rgb(resolve(t, t["--accent"])).slice(0, 3) as [number, number, number]);
     if (btn < AA) failures.push(`--accent-ink on --accent: ${btn.toFixed(2)}`);
-    /* Danger buttons, required-option pills and check icons put text on a status fill:
-       white in light themes, the page ink in dark ones (see themes.ts). */
-    const onFill = id === "dark" || id === "steel" || id === "glass" ? resolve(t, t["--bg"]) : "#ffffff"; // light and aurora: white
-    for (const fill of ["--danger", "--warn", "--accent"]) {
+    /* Danger buttons, required-option pills and check icons put --on-fill text on a
+       status fill: white in light themes, the page ink in dark ones. */
+    const expectedOnFill = id === "dark" || id === "steel" || id === "glass" ? resolve(t, t["--bg"]) : "#ffffff";
+    assert.equal(resolve(t, t["--on-fill"]).toLowerCase(), expectedOnFill.toLowerCase(), `${id}: --on-fill`);
+    const onFill = resolve(t, t["--on-fill"]);
+    for (const fill of ["--danger", "--warn", "--accent", "--ok"]) {
       const r = ratio(over(onFill, "#000000"), over(resolve(t, t[fill]), "#000000"));
       if (r < AA) failures.push(`on-fill text on ${fill}: ${r.toFixed(2)}`);
     }
+    /* Selected text, and the active sidebar row (text on --accent-soft). */
+    const sel = ratio(over(resolve(t, t["--selection-ink"]), "#000000"), over(resolve(t, t["--selection"]), "#000000"));
+    if (sel < AA) failures.push(`--selection-ink on --selection: ${sel.toFixed(2)}`);
+    for (const fg of ["--text", "--text-2"]) {
+      const r = ratio(over(resolve(t, t[fg]), "#000000"), over(resolve(t, t["--accent-soft"]), resolve(t, t["--bg"])));
+      if (r < AA) failures.push(`${fg} on --accent-soft: ${r.toFixed(2)}`);
+    }
+    /* The focus ring and the accent are non-text UI: 3:1 against the page (WCAG 1.4.11). */
+    for (const ui of ["--focus", "--accent"]) {
+      const r = ratio(over(resolve(t, t[ui]), "#000000"), over(resolve(t, t["--bg"]), "#000000"));
+      if (r < 3) failures.push(`${ui} on --bg: ${r.toFixed(2)}`);
+    }
+    /* The selection must be visible on the page, not a near-match of it. */
+    const selBg = ratio(over(resolve(t, t["--selection"]), "#000000"), over(resolve(t, t["--bg"]), "#000000"));
+    if (selBg < 1.25) failures.push(`--selection barely differs from --bg: ${selBg.toFixed(2)}`);
     assert.deepEqual(failures, [], `${id} contrast failures`);
   });
 }
@@ -242,4 +259,38 @@ test("brand: shield mark, favicon and a 1200x630 PNG social preview", () => {
   assert.equal(ogImagePng.readUInt32BE(16), 1200);
   assert.equal(ogImagePng.readUInt32BE(20), 630);
   assert.ok(html.includes('content="/assets/og.png"'));
+});
+
+test("tokens: hard-coded white is gone from status fills; every fill uses --on-fill or --accent-ink", () => {
+  for (const sel of [".btn.danger {", ".opt-req {", ".check-icon {"]) {
+    const i = styles.indexOf(sel);
+    assert.ok(i >= 0, `${sel} present`);
+    const body = styles.slice(i, styles.indexOf("}", i));
+    assert.match(body, /color: var\(--on-fill\)/, `${sel} uses --on-fill`);
+  }
+  assert.match(styles, /\.pricing-tag\{[^}]*color:var\(--accent-ink/, "pricing tag text follows the accent ink (it was white on light accents)");
+});
+
+test("hover fill: every theme's hover is visibly different from the surface it sits on", () => {
+  for (const id of THEME_IDS) {
+    const t = theme(id);
+    const r = ratio(over(resolve(t, t["--hover"]), "#000000"), over(resolve(t, t["--surface"]), resolve(t, t["--bg"])));
+    assert.ok(r >= 1.05, `${id}: --hover vs --surface ${r.toFixed(3)}`);
+  }
+});
+
+test("header: nav labels never wrap and the spacing is tight above the fold point", () => {
+  assert.match(styles, /\.nav-link, \.site-search-trigger kbd \{ white-space: nowrap; \}/);
+  assert.match(styles, /@media \(min-width: 1041px\) \{\s*\.nav-inner \{ gap: 1rem; \}/);
+});
+
+test("picker: the chosen theme is highlighted, swatches survive forced colours, focus uses the theme ring", () => {
+  assert.match(styles, /\.theme-opt\[aria-pressed="true"\] \{[^}]*background: var\(--accent-soft\)/);
+  assert.match(styles, /\.theme-swatch \{[^}]*forced-color-adjust: none/);
+  assert.match(styles, /@media \(forced-colors: active\) \{\s*\.theme-opt\[aria-pressed="true"\] \{ outline: 2px solid Highlight/);
+  for (const id of THEME_IDS) assert.match(styles, new RegExp(`\\.theme-swatch\\[data-swatch="${id}"\\]`), `swatch for ${id}`);
+});
+
+test("glass: glow layers go in forced colours, like Aurora's wash", () => {
+  assert.match(styles, /@media \(forced-colors: active\) \{\s*\[data-theme="glass"\] body::before, \[data-theme="glass"\] body::after \{ display: none; \}/);
 });

@@ -39,14 +39,21 @@ html:not([data-theme-setting]) .theme-toggle .icon-sun { display: block; }
 html:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 html:not([data-theme-setting])[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
 
-/* Seven nav links plus the theme picker, search and CTA need ~975px once the
-   spacing is tightened (1041-1200px; measured headless at 1040-1200px), so
-   the header only folds into the menu button below 1040px. */
-@media (min-width: 1041px) and (max-width: 1200px) {
+/* Eight nav links plus the theme picker, search and CTA. Labels never wrap
+   ("Why Aegis" used to break onto two lines at 1280-1440px), so the spacing
+   is tight from 1041px up and the search shortcut hint goes below 1141px;
+   measured headless in every theme at 1041-1440px. Below 1040px the header
+   folds into the menu button. */
+.nav-link, .site-search-trigger kbd { white-space: nowrap; }
+@media (min-width: 1041px) {
   .nav-inner { gap: 1rem; }
   .nav-links { gap: 0; }
   .nav-link { padding: 0 .5rem; }
   .nav-actions .btn { margin-left: .25rem; }
+}
+@media (min-width: 1041px) and (max-width: 1140px) {
+  .site-search-trigger { width: 44px; padding: 0; }
+  .site-search-trigger kbd { display: none; }
 }
 @media (max-width: 1040px) {
   .nav-toggle { display: inline-flex; }

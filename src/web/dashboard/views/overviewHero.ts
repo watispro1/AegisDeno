@@ -6,7 +6,7 @@
  */
 import { escapeHtml as esc } from "../../pages";
 import type { OverviewData } from "../data";
-import { type GuildContext, copyId, person, personId, relTime } from "./layout";
+import { type GuildContext, copyId, emptyState, person, personId, relTime } from "./layout";
 import { icon } from "./icons";
 import type { CheckItem } from "./overviewParts";
 import { type ModuleCard, type OverviewModel, moduleTotals } from "./overviewModules";
@@ -98,7 +98,7 @@ export function ticketsCard(ctx: GuildContext, data: OverviewData): string {
     : data.openTicketCount > 0
       // The count and the list are separate reads; never claim "none" next to a non-zero count.
       ? `<p class="muted">${data.openTicketCount.toLocaleString("en-US")} open ticket${data.openTicketCount === 1 ? "" : "s"}, but none could be listed just now. Reload to try again, or see them in Discord.</p>`
-      : `<p class="muted">No open tickets.</p>`;
+      : emptyState("No open tickets.", "New tickets show up here as members open them.", undefined, { icon: "✉" });
   return `<section class="panel-card" aria-labelledby="tickets-h">
     <div class="card-head"><h2 id="tickets-h">Open tickets</h2><span class="count-badge">${data.openTicketCount.toLocaleString("en-US")}</span></div>
     ${body}

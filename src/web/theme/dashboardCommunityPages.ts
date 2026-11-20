@@ -19,7 +19,6 @@ html:not(.js) .card-tools { display: none; }
 .poll-lead { display: inline-flex; margin-left: .35rem; }
 
 /* Section headings with a count */
-.community-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin: 1.5rem 0 .5rem; }
 
 /* Starboard top: rank badges for the podium */
 .rank-badge { display: inline-block; min-width: 1.6rem; padding: 0 .3rem; text-align: center; font: 600 .8rem/1.6 var(--mono); border: 1px solid var(--border-strong); border-radius: 999px; }

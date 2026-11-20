@@ -146,7 +146,7 @@ async function main() {
   /* Every class used in markup must have a CSS rule. Compound selectors such
      as `.pill.danger` define both parts, so index on the full rule text. */
   const cssClasses = new Set<string>();
-  for (const rule of styles.split("{")) {
+  for (const rule of styles.replace(/\/\*[\s\S]*?\*\//g, "").split("{")) {
     const selector = rule.split("}").pop() ?? rule;
     for (const part of selector.split(",")) {
       for (const m of part.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) cssClasses.add(m[1]);

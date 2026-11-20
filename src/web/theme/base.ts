@@ -21,6 +21,15 @@ export const cssBase = String.raw`
   --danger: #b3261e;
   --code-bg: #f1efea;
   --mark: #fde9a6;
+  /* Text on a solid status or accent fill (danger buttons, required pills,
+     check icons, the pricing tag): white in light themes, ink in dark ones. */
+  --on-fill: #ffffff;
+  --selection: #cfe5de;
+  --selection-ink: #1b1b19;
+  --focus: var(--accent);
+  --scroll-thumb: #c9c6be;
+  /* Row, menu-item and ghost-button hover fill; tested for AA text. */
+  --hover: #f1efea;
 
   /* Discord mock colours: these imitate the Discord client, not the site. */
   --dc-bg: #313338;
@@ -60,6 +69,11 @@ export const cssBase = String.raw`
   --danger: #f2837b;
   --code-bg: #232523;
   --mark: #5a4a12;
+  --on-fill: #161716;
+  --selection: #2d5a4e;
+  --selection-ink: #f4f3ef;
+  --scroll-thumb: #4a4b47;
+  --hover: #282a28;
   color-scheme: dark;
 }
 
@@ -124,11 +138,19 @@ table { width: 100%; border-collapse: collapse; font-size: .92rem; }
 th, td { text-align: left; vertical-align: top; padding: .55rem .75rem; border-bottom: 1px solid var(--border); }
 th { font-weight: 600; font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; background: var(--bg-sunk); }
 tbody tr:last-child td { border-bottom: 0; }
-.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r); margin: 0 0 1.5rem; background: var(--surface); }
+/* Positioned so absolutely placed descendants (visually-hidden labels) are
+   clipped by the scroller instead of widening the page on narrow screens. */
+.table-wrap { position: relative; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r); margin: 0 0 1.5rem; background: var(--surface); }
 .table-wrap td code { white-space: nowrap; }
 
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
-::selection { background: var(--accent-soft); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+::selection { background: var(--selection); color: var(--selection-ink); }
+html { scrollbar-color: var(--scroll-thumb) var(--bg); }
+.table-wrap, pre.block, .side-scroll { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--muted); }
 
 .visually-hidden {
   position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -156,9 +178,13 @@ tbody tr:last-child td { border-bottom: 0; }
   border: 1px solid var(--accent); border-radius: var(--r);
   text-decoration: none; cursor: pointer; white-space: nowrap;
 }
+.btn { transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease; }
 .btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-ink); }
+.btn:active { transform: translateY(1px); }
 .btn.ghost { background: transparent; color: var(--text); border-color: var(--border-strong); }
-.btn.ghost:hover { background: var(--bg-sunk); color: var(--text); border-color: var(--border-strong); }
+.btn.ghost:hover { background: var(--hover); color: var(--text); border-color: var(--muted); }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; transform: none; }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:active { transform: none; } }
 .btn.sm { min-height: 40px; padding: .3rem .75rem; font-size: .85rem; }
 .btn.block { display: flex; width: 100%; }
 .btn-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
@@ -174,7 +200,7 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 .site-search-trigger { width: auto; gap: .45rem; padding: 0 .55rem; border-color: var(--border); }
 .site-search-trigger kbd { font-size: .7rem; }
-.icon-btn:hover { color: var(--text); border-color: var(--border); background: var(--bg-sunk); }
+.icon-btn:hover { color: var(--text); border-color: var(--border); background: var(--hover); }
 
 .tag {
   display: inline-block;

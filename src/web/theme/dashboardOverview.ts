@@ -8,6 +8,8 @@ export const cssDashboardOverview = String.raw`/* ── Dashboard 2.0: overview
   position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 1rem 1.25rem;
   margin: 0 0 var(--d-gap); padding: 1.15rem 1.35rem 1.15rem 1.5rem; overflow: hidden;
   border: 1px solid var(--border); border-radius: var(--d-r-lg); background-color: var(--surface); box-shadow: var(--d-shadow);
+  /* A faint wash of the health tone from the stripe in. */
+  background-image: linear-gradient(100deg, color-mix(in srgb, var(--tone) 7%, transparent), transparent 48%);
   --tone: var(--ok);
 }
 .ov-health[data-health="attention"] { --tone: var(--warn); }
@@ -38,7 +40,7 @@ export const cssDashboardOverview = String.raw`/* ── Dashboard 2.0: overview
 .qa-list { display: grid; gap: .25rem; margin: 0; padding: 0; list-style: none; }
 .qa-list li { margin: 0; }
 .qa-item { display: flex; align-items: center; gap: .75rem; min-height: 50px; padding: .45rem .55rem; border: 1px solid transparent; border-radius: var(--d-r); color: var(--text); text-decoration: none; transition: background-color .15s var(--d-ease), border-color .15s var(--d-ease); }
-.qa-item:hover { border-color: var(--border); background: var(--bg-sunk); color: var(--text); }
+.qa-item:hover { border-color: var(--border); background: var(--hover); color: var(--text); }
 .qa-ico { display: grid; place-items: center; flex: none; width: 2.2rem; height: 2.2rem; border-radius: var(--d-r); background: var(--accent-soft); color: var(--accent); }
 .qa-ico .ico { width: 17px; height: 17px; }
 .qa-text { display: grid; flex: 1; min-width: 0; line-height: 1.3; }

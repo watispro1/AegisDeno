@@ -72,8 +72,8 @@ a.guild-item:hover { border-color: var(--accent); color: var(--text); box-shadow
 .detail-list { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: .6rem 1.25rem; margin: 0 0 2rem; }
 .detail-list dt { color: var(--muted); font-size: .9rem; font-weight: 500; }
 .detail-list dd { margin: 0; overflow-wrap: anywhere; }
-.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
-.btn.danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; filter: brightness(.92); }
+.btn.danger { background: var(--danger); border-color: var(--danger); color: var(--on-fill); }
+.btn.danger:hover { background: var(--danger); border-color: var(--danger); color: var(--on-fill); filter: brightness(.92); }
 /* Disabled controls look disabled: greyed-out role panels, the busy state while a form is sending, unused timeout fields. */
 .btn:disabled, .btn:disabled:hover { opacity: .55; cursor: not-allowed; filter: none; }
 form[aria-busy="true"] .btn:disabled { cursor: progress; }

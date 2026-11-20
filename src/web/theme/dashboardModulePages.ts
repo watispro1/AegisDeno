@@ -31,7 +31,7 @@ export const cssDashboardModulePages = `
 .chip-row { display: flex; flex-wrap: wrap; gap: .35rem; flex: 1 0 100%; }
 .chip { display: inline-flex; align-items: center; gap: .35rem; min-height: 32px; padding: .2rem .7rem; font: 500 .82rem var(--sans); color: var(--muted); background: transparent; border: 1px solid var(--border-strong); border-radius: 999px; cursor: pointer; }
 .chip:hover { color: var(--text); border-color: var(--text); }
-.chip[aria-pressed="true"] { color: var(--accent-ink, var(--text)); background: var(--accent-soft); border-color: var(--accent); }
+.chip[aria-pressed="true"] { color: var(--text); background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
 .chip-count { font: 600 .72rem var(--mono); color: var(--faint); }
 .chip[aria-pressed="true"] .chip-count { color: inherit; }
 html:not(.js) .chip-row, html:not(.js) .list-sort { display: none; }
@@ -40,7 +40,6 @@ tr[data-chip-out], tr[data-paged-out] { display: none; }
 .list-more[hidden], .list-empty[hidden] { display: none; }
 
 /* Cells: a main line and a faint second line */
-.cell-sub { display: block; margin-top: .1rem; font-size: .8rem; color: var(--faint); }
 .cell-actions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
 .cell-actions .inline-form { margin: 0; }
 
@@ -61,7 +60,8 @@ tr[data-chip-out], tr[data-paged-out] { display: none; }
 .section-jump ul { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0; padding: 0; list-style: none; }
 .section-jump a { display: inline-block; padding: .2rem .65rem; font: 500 .8rem var(--mono); color: var(--muted); text-decoration: none; border: 1px solid var(--border); border-radius: var(--r); }
 .section-jump a:hover { color: var(--accent); border-color: var(--accent); }
-.panel-card[id], section[id] { scroll-margin-top: calc(var(--nav-h, 3.5rem) + 1rem); }
+/* Dashboard only: a bare section[id] rule would outrank the site's .cmd-sub offset. */
+.app-body .panel-card[id], .app-body section[id] { scroll-margin-top: calc(var(--nav-h, 3.5rem) + 1rem); }
 
 /* Section header with actions on the right */
 .section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem 1rem; }
@@ -77,7 +77,6 @@ tr[data-chip-out], tr[data-paged-out] { display: none; }
 .quote-block { margin: 0; padding: .75rem 1rem; border-left: 3px solid var(--border-strong); background: var(--bg-sunk, var(--surface)); border-radius: 0 var(--r) var(--r) 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Collapsible filter form on small screens */
-.filter-toggle > summary { cursor: pointer; font-weight: 600; margin: 0 0 .5rem; }
 
 /* Panels: form beside a Discord-style preview */
 .panel-compose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem); gap: 1.25rem; align-items: start; margin-bottom: 1.5rem; }
