@@ -1,4 +1,5 @@
-import "dotenv/config";
+// First import: loads .env (outside production) before any module reads process.env.
+import { validateEnv, EnvValidationError } from "./config/env";
 import { Events, REST, Routes } from "discord.js";
 import { loadCommands, commands } from "./commands/loader";
 import { commandRegistrationData } from "./commands/registration";
@@ -7,21 +8,18 @@ import { initScheduler, shutdownScheduler } from "./services/schedulerRunner";
 import { connectDatabase, closeDatabase } from "./database/mongo";
 import { startAegisBackend, stopAegisBackend } from "./database/aegisDb";
 import { drainMirrorQueue } from "./services/aegisMirror";
-import { logger } from "./utils/logger";
+import { logger, setupLogger } from "./utils/logger";
 import { startWebServer } from "./web/server";
 import { flushMemberActivity } from "./services/memberActivity";
 import { statusMonitor } from "./services/statusMonitor";
 import { createShutdown } from "./utils/shutdown";
 import { shutdownGiveawayTimers } from "./services/giveawayService";
+import { createFatalHandler, effectiveExitCode } from "./utils/fatal";
 
-const TOKEN           = process.env.DISCORD_TOKEN!;
-const APPLICATION_ID  = process.env.DISCORD_APPLICATION_ID!;
-const TEST_GUILD_ID   = process.env.DISCORD_TEST_GUILD_ID;
-
-if (!TOKEN || !APPLICATION_ID) {
-  logger.error("Missing DISCORD_TOKEN or DISCORD_APPLICATION_ID in .env");
-  process.exit(1);
-}
+// Set by main() once the environment has been validated.
+let TOKEN = "";
+let APPLICATION_ID = "";
+let TEST_GUILD_ID = "";
 
 /**
  * Register slash commands in exactly one scope.
@@ -65,6 +63,14 @@ async function registerCommands(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  setupLogger();
+  // Throws one EnvValidationError listing every missing or invalid variable;
+  // the catch at the bottom logs it and exits.
+  const env = validateEnv();
+  TOKEN = env.DISCORD_TOKEN;
+  APPLICATION_ID = env.DISCORD_APPLICATION_ID;
+  TEST_GUILD_ID = env.DISCORD_TEST_GUILD_ID;
+
   logger.info("starting aegis");
 
   await connectDatabase();
@@ -117,6 +123,8 @@ async function main(): Promise<void> {
   // Discord so no more events arrive, then flush buffered writes and close Mongo.
   const shutdown = createShutdown({
     log: logger,
+    // Exit 1 when a fatal error started (or joined) the shutdown, so Fly sees a crash.
+    exit: (code) => process.exit(effectiveExitCode(code, process.exitCode)),
     steps: [
       { name: "scheduler", run: () => shutdownScheduler() },
       { name: "giveaway timers", run: () => shutdownGiveawayTimers() },
@@ -133,13 +141,16 @@ async function main(): Promise<void> {
 
   process.on("SIGINT",  () => { void shutdown("SIGINT"); });
   process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
-  process.on("uncaughtException",  err => logger.error("Uncaught Exception:", err));
-  process.on("unhandledRejection", err => logger.error("Unhandled Rejection:", err));
+  // Log, mark the exit as a failure and shut down cleanly; Fly restarts the machine.
+  const onFatal = createFatalHandler({ shutdown, log: logger });
+  process.on("uncaughtException",  err => onFatal("uncaughtException", err));
+  process.on("unhandledRejection", err => onFatal("unhandledRejection", err));
 
   await client.login(TOKEN);
 }
 
 main().catch(err => {
-  logger.error("Fatal startup error:", err);
+  if (err instanceof EnvValidationError) logger.error(err.message);
+  else logger.error("Fatal startup error:", err);
   process.exit(1);
 });
