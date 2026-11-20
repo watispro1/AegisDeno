@@ -124,13 +124,25 @@ export function duplicateKey(content: string): string {
 /**
  * Counts identical messages per member inside a sliding window. Kept in
  * memory and bounded; a restart simply starts the count again.
+ *
+ * Bounded two ways: the map never holds more than `maxKeys` members (least
+ * recently used dropped first), and at most once per `sweepEveryMs` every
+ * member whose last message is older than `maxWindowMs` (the longest window
+ * `/automod duplicates` accepts, 600 s) is dropped, so members who stop
+ * talking do not sit in memory until the size cap pushes them out.
  */
 export class DuplicateTracker {
   private readonly seen = new Map<string, { text: string; times: number[] }>();
-  constructor(private readonly maxKeys = 5000) {}
+  private lastSweep = 0;
+  constructor(
+    private readonly maxKeys = 5000,
+    private readonly sweepEveryMs = 60_000,
+    private readonly maxWindowMs = 10 * 60_000,
+  ) {}
 
   /** Record a message and return how many times this exact text was sent inside the window (including this one). */
   record(memberKey: string, content: string, windowMs: number, now = Date.now()): number {
+    this.sweep(now);
     const text = duplicateKey(content);
     if (!text) return 0;
     const prev = this.seen.get(memberKey);
@@ -138,11 +150,26 @@ export class DuplicateTracker {
     times.push(now);
     this.seen.delete(memberKey);
     this.seen.set(memberKey, { text, times });
-    if (this.seen.size > this.maxKeys) {
+    while (this.seen.size > this.maxKeys) {
       const oldest = this.seen.keys().next().value;
-      if (oldest !== undefined) this.seen.delete(oldest);
+      if (oldest === undefined) break;
+      this.seen.delete(oldest);
     }
     return times.length;
+  }
+
+  get size(): number {
+    return this.seen.size;
+  }
+
+  private sweep(now: number): void {
+    if (now - this.lastSweep < this.sweepEveryMs) return;
+    this.lastSweep = now;
+    const cutoff = now - this.maxWindowMs;
+    for (const [key, entry] of this.seen) {
+      const last = entry.times[entry.times.length - 1];
+      if (last === undefined || last <= cutoff) this.seen.delete(key);
+    }
   }
 }
 
