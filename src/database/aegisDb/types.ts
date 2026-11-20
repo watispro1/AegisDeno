@@ -53,7 +53,11 @@ export type CollectionName =
   | "economy"
   | "starboard"
   | "tickets"
-  | "reminders";
+  | "reminders"
+  /** Per-guild sequence numbers, e.g. `case:{guildId}` → last case id. */
+  | "counters"
+  /** Secondary index `case_ref:{guildId}:{ref}` → numeric case id. */
+  | "case_refs";
 
 export interface WalEntry {
   ts: number;

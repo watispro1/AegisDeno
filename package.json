@@ -17,10 +17,7 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck",
     "deploy": "tsx scripts/deploy-commands.ts",
-    "deploy:clean-guilds": "tsx scripts/deploy-commands.ts --clean-guilds",
-    "backend:build": "cargo build --manifest-path crates/aegis-db/Cargo.toml",
-    "backend:test": "cargo test --manifest-path crates/aegis-db/Cargo.toml",
-    "backend:start": "cargo run --manifest-path crates/aegis-db/Cargo.toml"
+    "deploy:clean-guilds": "tsx scripts/deploy-commands.ts --clean-guilds"
   },
   "keywords": [],
   "author": "",

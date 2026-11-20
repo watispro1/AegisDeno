@@ -117,8 +117,8 @@ function windowOf(label: string, samples: readonly HeartbeatSample[], nowMs: num
 }
 
 export function aegisDbState(healthy: boolean): StatusComponent {
-  if (healthy) return { id: "aegisdb", name: "AegisDB backend", state: "operational", detail: "Custom Rust database responding normally" };
-  return { id: "aegisdb", name: "AegisDB backend", state: "degraded", detail: "Custom Rust database not responding (falling back to primary store)" };
+  if (healthy) return { id: "aegisdb", name: "AegisDB backend", state: "operational", detail: "AegisDB (secondary store) responding normally" };
+  return { id: "aegisdb", name: "AegisDB backend", state: "degraded", detail: "AegisDB (secondary store) not responding; MongoDB, the primary store, keeps serving" };
 }
 
 export function overallState(components: readonly StatusComponent[], notices: readonly StatusNotice[], nowMs: number): OverallState {

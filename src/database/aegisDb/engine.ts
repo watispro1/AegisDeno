@@ -14,6 +14,8 @@ const VALID_COLLECTIONS: CollectionName[] = [
   "starboard",
   "tickets",
   "reminders",
+  "counters",
+  "case_refs",
 ];
 
 export class AegisDbEngine {
@@ -93,6 +95,18 @@ export class AegisDbEngine {
     col.set(key, val);
     const entry: WalEntry = { ts: Date.now(), op: "put", col: colName, key, val };
     this.wal.append(entry);
+  }
+
+  /**
+   * Atomically adds `by` to a numeric value (missing counts as 0), logs the
+   * new value to the WAL, and returns it. Atomic because the engine is
+   * single-writer (the data-directory lock) and this runs without yielding.
+   */
+  increment(colName: CollectionName, key: string, by = 1): number {
+    const current = this.get(colName, key);
+    const next = (typeof current === "number" && Number.isFinite(current) ? current : 0) + by;
+    this.put(colName, key, next);
+    return next;
   }
 
   delete(colName: CollectionName, key: string): boolean {

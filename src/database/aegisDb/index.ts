@@ -11,14 +11,21 @@ export * from "./server";
 
 let defaultServer: AegisDbServer | null = null;
 
+/** The external AegisDB the bot should use over HTTP, or "" to use the in-process engine. */
+export function externalBackendUrl(env: NodeJS.ProcessEnv = process.env): string {
+  return (env.AEGIS_BACKEND_URL ?? "").trim();
+}
+
 /**
- * Starts the embedded AegisDB once per process. Binds the port first and opens
- * the data directory only if the port was free; if another instance already
- * serves it, this process attaches over HTTP instead. Throws (and stays
- * stopped) when the secret is missing outside development or the data
- * directory is locked by another process.
+ * Opens the in-process AegisDB engine once per process (plus its optional HTTP
+ * listener for outside tools). Skipped, returning null, when AEGIS_BACKEND_URL
+ * points the bot at an external AegisDB and no explicit config is given.
+ * Throws (and stays stopped) when the secret is missing outside development or
+ * the data directory is locked by another process; the bot keeps running on
+ * MongoDB either way.
  */
-export async function startAegisBackend(config?: Partial<AegisDbConfig>): Promise<AegisDbServer> {
+export async function startAegisBackend(config?: Partial<AegisDbConfig>): Promise<AegisDbServer | null> {
+  if (!config && externalBackendUrl()) return null;
   if (!defaultServer) {
     const server = new AegisDbServer(config);
     await server.start();

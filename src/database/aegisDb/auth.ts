@@ -1,7 +1,6 @@
 /**
  * Shared-secret checks for AegisDB and the backend stats endpoint.
- * One variable, AEGIS_BACKEND_SECRET, is used by the bot, this engine, and the
- * Rust service.
+ * One variable, AEGIS_BACKEND_SECRET, is used by the bot and this engine.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { IncomingHttpHeaders } from "node:http";

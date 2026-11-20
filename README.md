@@ -242,6 +242,20 @@ npm run build && npm start  # compiled
 Slash commands are registered every time the bot starts. The website and the
 dashboard are served by the same process.
 
+## Data storage
+
+**MongoDB is the authoritative store** in production: everything the bot and the
+dashboard read and write lives there.
+
+**AegisDB** (`src/database/aegisDb`, a TypeScript key-value engine with a
+write-ahead log) is a secondary store. It runs inside the bot process, and the
+bot mirrors moderation cases, warnings and config snapshots into it after each
+MongoDB write succeeds, calling it directly rather than over HTTP. If AegisDB is
+unavailable the bot keeps working: mirror writes are retried briefly and then
+dropped, MongoDB still has everything, and the status page shows AegisDB as
+degraded. Its data directory is `AEGIS_DB_PATH` (default `./data/aegis-db`); see
+[`DEPLOYMENT.md`](./DEPLOYMENT.md) for its settings and backups.
+
 ## Deploying to Fly.io
 
 `fly.toml` and the `Dockerfile` are set up for Fly.io (app `aegisdeno`, primary

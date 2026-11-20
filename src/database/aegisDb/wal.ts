@@ -1,9 +1,8 @@
 /**
  * Write-Ahead Log (WAL) and snapshot persistence for AegisDB.
  *
- * Files use `ts-` names so this engine can never interleave with the Rust
- * service's binary `wal.log` / `snapshot.json` if both are pointed at one
- * directory. Appends are fsynced in small batches; snapshots are written to a
+ * Files use `ts-` names (kept for compatibility with existing data
+ * directories). Appends are fsynced in small batches; snapshots are written to a
  * temp file, fsynced, renamed, and the directory fsynced before the WAL is cut.
  */
 import fs from "node:fs";
