@@ -23,8 +23,8 @@ new bot permissions. Upgrade notes: the `PADDLE_*` environment variables and
 `/api/paddle/webhook` are gone. `DISCORD_PREMIUM_SKU_ID` is now required for
 Premium to be granted at all. `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
 `STRIPE_PRICE_ID` and `STRIPE_WEBHOOK_SECRET` only keep the webhook and
-billing portal working for a Stripe subscription; with any of the first three
-set, `SITE_URL` is now required. With `DISCORD_CLIENT_SECRET` set,
+billing portal working for a Stripe subscription, and leftover values never
+stop startup while web checkout is off. With `DISCORD_CLIENT_SECRET` set,
 `DASHBOARD_SESSION_SECRET` must be at least 32 characters, and outside
 development `AEGIS_BACKEND_SECRET` is required; a missing value now stops
 startup with one error listing every problem. Set `AEGIS_BACKEND_URL` only to
