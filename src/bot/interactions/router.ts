@@ -89,7 +89,7 @@ export class InteractionRouter {
       await hit.route.handle(interaction as unknown as ComponentInteraction, hit.match);
     } catch (err) {
       const errorId = newErrorId();
-      logger.error(`[${errorId}] Component handler "${hit.route.name}" failed for customId "${customId}":`, err);
+      logger.child({ errorId, component: hit.route.name }).error(`[${errorId}] Component handler "${hit.route.name}" failed for customId "${customId}":`, err);
       const message = componentFailureMessage(err, hit.route.name, errorId);
       if (!message) return true;
       if (!interaction.replied && !interaction.deferred) {
