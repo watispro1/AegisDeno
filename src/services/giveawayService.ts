@@ -1,6 +1,7 @@
 /** Giveaway engine: timers, the Enter button, ending and rerolling (split from commands/community/giveaway.ts). */
 import { moduleEnabled, moduleOffMessage } from "../services/moduleSwitches";
 import { logger } from "../utils/logger";
+import { runLatest } from "../utils/latestOnly";
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -223,28 +224,37 @@ export async function handleGiveawayButton(interaction: ButtonInteraction): Prom
   });
   if (outcome !== "entered" || entrantCount === null) return;
 
-  const embed = interaction.message.embeds[0];
-  if (embed) {
-    const fields = embed.fields ?? [];
-    const index = fields.findIndex(f => f.name === "📊 Entries");
-    const refreshed = EmbedBuilder.from(embed).spliceFields(index >= 0 ? index : 3, 1, {
-      name: "📊 Entries",
-      value: `**${entrantCount}** entered`,
-      inline: true,
-    });
-    await interaction.message.edit({ embeds: [refreshed] }).catch(() => null);
-  }
+  // Entry edits run one at a time per message with the highest count seen, and
+  // skip once the giveaway ended: a late entry edit used to put the running
+  // embed back over the "GIVEAWAY ENDED" one (or show a lower, stale count).
+  const message = interaction.message;
+  shownEntrants.set(message.id, Math.max(shownEntrants.get(message.id) ?? 0, entrantCount));
+  await runLatest(giveawayEditKey(message.id), async () => {
+    const count = shownEntrants.get(message.id) ?? entrantCount;
+    shownEntrants.delete(message.id);
+    const embed = message.embeds[0];
+    const open = await GiveawayModel.exists({ guildId: giveaway.guildId, messageId: message.id, ended: false }).catch(() => null);
+    if (!embed || !open) return;
+    const index = (embed.fields ?? []).findIndex(f => f.name === "📊 Entries");
+    const refreshed = EmbedBuilder.from(embed).spliceFields(index >= 0 ? index : 3, 1, { name: "📊 Entries", value: `**${count}** entered`, inline: true });
+    await message.edit({ embeds: [refreshed] }).catch(() => null);
+  });
 }
+
+/** Highest entrant count not yet shown, per giveaway message (read by the queued edit). */
+const shownEntrants = new Map<string, number>();
+/** Per-message queue shared by entry-count edits and the end/cancel edits. */
+const giveawayEditKey = (messageId: string): string => `giveaway:${messageId}`;
 
 /** Mongo-backed store for the end/reroll transitions. */
 const giveawayTransitionStore: GiveawayTransitionStore = {
-  update: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { new: true }).lean() as Promise<TransitionGiveaway | null>,
+  update: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { returnDocument: "after" }).lean() as Promise<TransitionGiveaway | null>,
   find: (filter) => GiveawayModel.findOne(filter).lean() as Promise<TransitionGiveaway | null>,
 };
 
 /** Mongo-backed store for enterGiveaway. */
 const giveawayEntryStore: GiveawayEntryStore = {
-  enter: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { new: true }).lean() as Promise<{ entrants?: string[] | null } | null>,
+  enter: (filter, update) => GiveawayModel.findOneAndUpdate(filter, update, { returnDocument: "after" }).lean() as Promise<{ entrants?: string[] | null } | null>,
   exists: async (filter) => (await GiveawayModel.exists(filter)) !== null,
 };
 
@@ -290,9 +300,7 @@ async function announceEnd(client: Client, doc: TransitionGiveaway, winners: str
 
     try {
       const msg = await channel.messages.fetch(messageId).catch(() => null);
-      if (msg) {
-        await msg.edit({ embeds: [endedEmbed], components: [rerollRow()] });
-      }
+      if (msg) await runLatest(giveawayEditKey(messageId), async () => { await msg.edit({ embeds: [endedEmbed], components: [rerollRow()] }); }, { coalesce: false });
       await channel.send({
         content: `🎉 **Giveaway Ended!** Congratulations to ${winnerMentions}!\n\nPrize: **${giveaway.prize}**`,
       });
@@ -362,14 +370,15 @@ export async function cancelGiveaway(
     ?? await client.channels.fetch(giveaway.channelId).catch(() => null)) as TextChannel | null;
   if (channel && !isObfuscatedChannel(channel)) {
     const msg = await channel.messages.fetch(messageId).catch(() => null);
-    await msg?.edit({
-      embeds: [new EmbedBuilder()
-        .setColor(0x95A5A6)
-        .setTitle(giveawayTitle("🚫 GIVEAWAY CANCELLED", giveaway.prize))
-        .setDescription(`This giveaway was cancelled. No winners were drawn.\n\n**Entries:** ${giveaway.entrants?.length ?? 0}`)
-        .setTimestamp()],
-      components: [],
-    }).catch(err => logger.warn(`Could not edit cancelled giveaway ${messageId}`, err));
+    const cancelled = new EmbedBuilder()
+      .setColor(0x95A5A6)
+      .setTitle(giveawayTitle("🚫 GIVEAWAY CANCELLED", giveaway.prize))
+      .setDescription(`This giveaway was cancelled. No winners were drawn.\n\n**Entries:** ${giveaway.entrants?.length ?? 0}`)
+      .setTimestamp();
+    await runLatest(giveawayEditKey(messageId), async () => {
+      await msg?.edit({ embeds: [cancelled], components: [] })
+        .catch(err => logger.warn(`Could not edit cancelled giveaway ${messageId}`, err));
+    }, { coalesce: false });
   }
   await sendGuildLog(client, guildId, {
     title: "🚫 Giveaway Cancelled",

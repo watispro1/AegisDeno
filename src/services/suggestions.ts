@@ -54,7 +54,7 @@ export async function voteOnSuggestion(
   const updated = await SuggestionModel.findOneAndUpdate(
     { guildId, id, status: { $in: ["pending", "considered"] } },
     { $pull: { [removeField]: userId }, $addToSet: { [addField]: userId } },
-    { new: true },
+    { returnDocument: "after" },
   );
   return updated ? updated.toObject() as Suggestion : null;
 }
@@ -73,7 +73,7 @@ export async function reviewSuggestion(
   const updated = await SuggestionModel.findOneAndUpdate(
     { guildId, id, status: { $in: ["pending", "considered"] } },
     { $set: { status, reviewedBy: reviewerId, reviewReason: reason, reviewedAt: new Date() } },
-    { new: true },
+    { returnDocument: "after" },
   );
   return updated ? updated.toObject() as Suggestion : null;
 }

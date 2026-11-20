@@ -147,14 +147,14 @@ export function mongoIncidentStore(): IncidentStore {
       return fromDoc(await lean(IncidentModel.findOneAndUpdate(
         { _id: id, $or: [{ status: "active" }, { status: "ending", endingSince: { $lte: stale } }] },
         { $set: { status: "ending", endingSince: now } },
-        { new: true },
+        { returnDocument: "after" },
       )));
     },
     async finish(id, patch) {
       return fromDoc(await lean(IncidentModel.findOneAndUpdate(
         { _id: id, status: "ending" },
         { $set: { status: "ended", endedAt: patch.endedAt, endedBy: patch.endedBy, endReason: patch.endReason, endingSince: null }, $push: { timeline: patch.event } },
-        { new: true },
+        { returnDocument: "after" },
       )));
     },
     async listDue(now) {

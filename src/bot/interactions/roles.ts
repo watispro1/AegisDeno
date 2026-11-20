@@ -7,6 +7,8 @@ import { MessageFlags } from "discord.js";
 import type { ComponentRoute } from "./router";
 import { applyRolePanelPick, describePanelChange } from "../../services/rolePanelService";
 
+const STALE_PANEL = "❌ This role panel button is out of date. Ask staff to re-post the panel.";
+
 function errorText(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
 }
@@ -20,7 +22,11 @@ export const roleRoutes: ComponentRoute[] = [
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const parts = interaction.customId.match(/^rolepanel_([^_]+)_(.+)$/);
-      if (!parts) return;
+      // Already deferred: a bare return left the member on "thinking…" forever.
+      if (!parts) {
+        await interaction.editReply({ content: STALE_PANEL });
+        return;
+      }
       const [, panelId, roleId] = parts;
       const member = await interaction.guild.members.fetch(interaction.user.id);
 
@@ -40,7 +46,10 @@ export const roleRoutes: ComponentRoute[] = [
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const panelId = match?.[1];
-      if (!panelId) return;
+      if (!panelId) {
+        await interaction.editReply({ content: STALE_PANEL });
+        return;
+      }
       const member = await interaction.guild.members.fetch(interaction.user.id);
 
       try {
