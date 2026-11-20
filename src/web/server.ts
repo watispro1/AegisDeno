@@ -41,7 +41,7 @@ import { discordBotView, cachedBotView } from "./dashboard/botView";
 import { mongoDashboardData } from "./dashboard/data";
 import { mongoModuleData } from "./dashboard/moduleData";
 import { mongoSessionStore } from "./dashboard/sessions";
-import { mongoRateLimitStore } from "./dashboard/rateLimitStore";
+import { rateLimitStoreFromEnv } from "./dashboard/rateLimitStore";
 import { mongoAuditStore } from "./dashboard/audit";
 import { mongoDashboardExtras } from "./dashboard/extrasMongo";
 import { dashboardScript } from "./dashboard/client";
@@ -52,7 +52,7 @@ import { backendHealthy, registerApiRoutes, startBackendProbe } from "./apiRoute
 import { registerStripeWebhook } from "./stripeWebhook";
 import { missingStripeSettings, premiumOffered, readStripeConfig } from "../config/stripe";
 import { registerSiteRoutes } from "./siteRoutes";
-import { apiRateLimit, assetCacheControl, compression, siteErrorHandler } from "./serverMiddleware";
+import { apiRateLimit, assetCacheControl, compression, GZIP_MIN_BYTES, gzipAsync, HtmlCache, htmlCacheKey, prepareAsset, sendAsset, siteErrorHandler, type StaticAsset } from "./serverMiddleware";
 
 export { siteErrorHandler };
 
@@ -60,6 +60,8 @@ export { siteErrorHandler };
 const MAX_REQUEST_BYTES = 600 * 1024;
 
 const SITE_VERSION = VERSION;
+/** How long a rendered public page is reused (live stats on it may be this stale). */
+export const PUBLIC_HTML_TTL_MS = 45_000;
 const STARTED_AT = Date.now();
 
 /** Cache-busting token derived from asset contents, so deploys invalidate caches. */
@@ -201,24 +203,26 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
     online, stats: () => collectStats(client), client, version: SITE_VERSION, startedAt: STARTED_AT, aegisDbHealthy: backendHealthy,
   });
 
-  // Year-long immutable caching only for ?v=<current build>; see assetCacheControl.
-  const asset = (req: Request, res: Response, type: string, body: string | Buffer, maxAge = 3600) => {
-    res.setHeader("Cache-Control", assetCacheControl(req.query.v, ASSET_VERSION, maxAge));
-    res.type(type).send(body);
-  };
+  // Static assets are built from TS strings, so they are gzipped once here at
+  // boot (never per request) and served with a content-hash ETag. Year-long
+  // immutable caching only for ?v=<current build>; see assetCacheControl.
   const YEAR = 31536000;
-
-  app.get("/assets/site.css", (req, res) => asset(req, res, "text/css", styles, YEAR));
-  app.get("/assets/site.js", (req, res) => asset(req, res, "text/javascript", clientScript, YEAR));
-  app.get("/assets/dashboard.js", (req, res) => asset(req, res, "text/javascript", dashboardScript, YEAR));
-  app.get("/assets/premium.js", (req, res) => asset(req, res, "text/javascript", premiumScript, YEAR));
-  app.get("/assets/status.js", (req, res) => asset(req, res, "text/javascript", statusScript, YEAR));
-  app.get("/assets/theme-init.js", (req, res) => asset(req, res, "text/javascript", themeInitScript, YEAR));
-  app.get("/assets/favicon.svg", (req, res) => asset(req, res, "image/svg+xml", faviconSvg, YEAR));
-  app.get("/assets/mark.svg", (req, res) => asset(req, res, "image/svg+xml", markSvg, 86400));
-  app.get("/assets/og.svg", (req, res) => asset(req, res, "image/svg+xml", ogImageSvg, YEAR));
-  app.get("/assets/og.png", (req, res) => asset(req, res, "image/png", ogImagePng, YEAR));
-  app.get("/manifest.webmanifest", (req, res) => asset(req, res, "application/manifest+json", manifest, 3600));
+  const staticAssets: Array<[string, StaticAsset, number]> = [
+    ["/assets/site.css", prepareAsset("text/css", styles), YEAR],
+    ["/assets/site.js", prepareAsset("text/javascript", clientScript), YEAR],
+    ["/assets/dashboard.js", prepareAsset("text/javascript", dashboardScript), YEAR],
+    ["/assets/premium.js", prepareAsset("text/javascript", premiumScript), YEAR],
+    ["/assets/status.js", prepareAsset("text/javascript", statusScript), YEAR],
+    ["/assets/theme-init.js", prepareAsset("text/javascript", themeInitScript), YEAR],
+    ["/assets/favicon.svg", prepareAsset("image/svg+xml", faviconSvg), YEAR],
+    ["/assets/mark.svg", prepareAsset("image/svg+xml", markSvg), 86400],
+    ["/assets/og.svg", prepareAsset("image/svg+xml", ogImageSvg), YEAR],
+    ["/assets/og.png", prepareAsset("image/png", ogImagePng), YEAR],
+    ["/manifest.webmanifest", prepareAsset("application/manifest+json", manifest), 3600],
+  ];
+  for (const [path, prepared, maxAge] of staticAssets) {
+    app.get(path, (req, res) => sendAsset(req, res, prepared, assetCacheControl(req.query.v, ASSET_VERSION, maxAge)));
+  }
 
   registerApiRoutes(app, {
     online, databaseReady: opts.databaseReady ?? databaseConnected, stats: () => collectStats(client), version: SITE_VERSION, startedAt: STARTED_AT,
@@ -236,17 +240,45 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
     res.status(code).type("html").send(html);
   };
 
+  // Rendered public pages are cached briefly, keyed by everything that changes
+  // the markup: path, query string, whether the bot is online and whether
+  // Premium is offered. The theme is applied client-side (localStorage), so it
+  // is not an input. Live stats on the home page may be up to the TTL stale.
+  // /status stays uncached; the dashboard never passes through here.
+  const htmlCache = new HtmlCache(PUBLIC_HTML_TTL_MS);
   for (const route of ROUTES) {
+    const cacheable = route.path !== "/status";
     app.get(route.path, async (req, res, next) => {
       try {
-        const ctx: RenderContext = {
-          stats: collectStats(client),
-          online: online(),
-          startedAt: STARTED_AT,
-          status: statusPayload,
-          query: (req.query ?? {}) as Record<string, unknown>,
-        };
-        send(res, await route.render(cfg, ctx), 200, route.live ? "no-cache" : undefined);
+        const query = (req.query ?? {}) as Record<string, unknown>;
+        const isOnline = online();
+        const key = cacheable ? htmlCacheKey(route.path, query, [isOnline, premiumOffered()]) : "";
+        let html = cacheable ? htmlCache.get(key) : undefined;
+        res.setHeader("X-Page-Cache", html !== undefined ? "hit" : cacheable ? "miss" : "bypass");
+        if (html === undefined) {
+          const ctx: RenderContext = {
+            stats: collectStats(client),
+            online: isOnline,
+            startedAt: STARTED_AT,
+            status: statusPayload,
+            query,
+          };
+          html = await route.render(cfg, ctx);
+          if (cacheable) htmlCache.set(key, html);
+        }
+        // A cached page is gzipped once (async) and the bytes reused until it expires.
+        if (cacheable && /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? "")) && Buffer.byteLength(html, "utf8") >= GZIP_MIN_BYTES) {
+          let gz = htmlCache.getGzip(key);
+          if (!gz) {
+            gz = await gzipAsync(Buffer.from(html, "utf8"));
+            htmlCache.setGzip(key, html, gz);
+          }
+          res.setHeader("Content-Encoding", "gzip");
+          res.setHeader("Cache-Control", route.live ? "no-cache" : "public, max-age=300, stale-while-revalidate=86400");
+          res.status(200).type("html").send(gz);
+          return;
+        }
+        send(res, html, 200, route.live ? "no-cache" : undefined);
       } catch (err) {
         next(err);
       }
@@ -266,7 +298,8 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
     data: mongoDashboardData(client),
     modules: mongoModuleData(client),
     sessions: mongoSessionStore(),
-    rateLimits: mongoRateLimitStore(),
+    // In-memory by default; RATE_LIMIT_STORE=mongo shares counts across instances.
+    rateLimits: rateLimitStoreFromEnv(),
     audit: mongoAuditStore(),
     extras: mongoDashboardExtras(client),
   }));

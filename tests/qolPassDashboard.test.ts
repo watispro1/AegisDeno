@@ -200,7 +200,7 @@ test("cases: date filter reaches the data layer; CSV export downloads the filter
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type")!, /^text\/csv; charset=utf-8/);
   assert.match(res.headers.get("content-disposition")!, /^attachment; filename="aegis-cases-800000000000000001-\d{4}-\d{2}-\d{2}\.csv"$/);
-  assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.equal(res.headers.get("cache-control"), "private, no-store");
   const csv = await res.text();
   assert.ok(csv.includes(`"'=cmd|' /C calc'!A0"`), "formula neutralised");
   assert.equal(caseFilters.at(-1)!.type, "ban");

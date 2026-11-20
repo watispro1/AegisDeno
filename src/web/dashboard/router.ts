@@ -39,12 +39,16 @@ export {
   type DashboardDeps,
 } from "./routes/context";
 
+/** Cache-Control on every /dashboard response (pages, redirects, errors, CSV). */
+export const DASHBOARD_CACHE_CONTROL = "private, no-store";
+
 export function createDashboardRouter(deps: DashboardDeps): Router {
   const router = express.Router();
 
   // Nothing under /dashboard may be cached or indexed: pages carry per-user data.
+  // "private" keeps shared caches (CDNs, proxies) out even if no-store is ignored.
   router.use((_req, res, next) => {
-    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Cache-Control", DASHBOARD_CACHE_CONTROL);
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
     res.setHeader("Vary", "Cookie, Accept-Encoding");
     next();

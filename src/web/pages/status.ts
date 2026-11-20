@@ -22,8 +22,20 @@ export const COMPONENT_ABOUT: Record<string, string> = {
 /** Seconds between automatic checks while the page is open (the client script uses the same value). */
 export const STATUS_REFRESH_SECONDS = 30;
 
+/** What a period without any heartbeat sample is called (the client script uses the same words). */
+export const NOT_RECORDED = "Not recorded";
+
+/**
+ * The legend line under the uptime grids: when monitoring history starts, or
+ * that nothing has been recorded yet, so grey bars are never mistaken for data.
+ */
+export function historyStartLine(startsAt: string | null): string {
+  if (!startsAt) return "No checks have been recorded yet, so every bar is Not recorded. History fills in as the monitor runs.";
+  return `Monitoring history starts ${startsAt.replace("T", " ").slice(0, 16)} UTC. Bars before that, and any time the bot or its monitor was not running, are Not recorded: there are no checks for them, so they count toward no percentage.`;
+}
+
 function pct(v: number | null): string {
-  return v === null ? "No data" : `${(Math.floor(v * 10000) / 100).toFixed(2)}%`;
+  return v === null ? NOT_RECORDED : `${(Math.floor(v * 10000) / 100).toFixed(2)}%`;
 }
 
 /** Level class for one uptime bar (CSS colours it; no inline styles under the CSP). */
@@ -67,7 +79,7 @@ export function latencyChart(w: HistoryWindow, id: string): string {
   const values = w.buckets.map(b => b.pingMs).filter((v): v is number => v !== null);
   const max = Math.max(300, ...values);
   const rects = w.buckets.map((b, i) => {
-    const label = `${b.start.replace("T", " ").slice(0, 16)} UTC: ${b.pingMs === null ? "no data" : `${b.pingMs} ms average`}`;
+    const label = `${b.start.replace("T", " ").slice(0, 16)} UTC: ${b.pingMs === null ? "not recorded" : `${b.pingMs} ms average`}`;
     const h = b.pingMs === null ? 2 : Math.max(3, Math.round((b.pingMs / max) * H));
     return `<rect class="lb lb-${pingLevel(b.pingMs)}" x="${i * 10 + 1}" y="${H - h}" width="8" height="${h}" rx="1"><title>${escapeHtml(label)}</title></rect>`;
   }).join("");
@@ -134,7 +146,7 @@ export function renderStatus(cfg: SiteConfig, s: StatusPayload): string {
   <div class="page-head">
     <span class="eyebrow">System status</span>
     <h1>Aegis status</h1>
-    <p class="lead">Live from the running bot: the Discord connection, the database and this website. Every number on this page is measured, not estimated.</p>
+    <p class="lead">Live from the running bot: the Discord connection, the database and this website. Current states are checked when the page loads; uptime and latency history come from checks recorded about once a minute, and periods with no recorded checks are marked Not recorded rather than counted as up.</p>
   </div>
 
   <section class="status-banner ${cls}" data-status-banner aria-labelledby="status-headline">
@@ -196,8 +208,8 @@ export function renderStatus(cfg: SiteConfig, s: StatusPayload): string {
       </div>
       <div class="latency-now">
         <span class="metric-label">24-hour average</span>
-        <strong class="latency-value" data-status-ping-avg="day">${day.pingMs === null ? "No data" : `${day.pingMs} ms`}</strong>
-        <span class="metric-hint">7 days: <span data-status-ping-avg="week">${s.history.week.pingMs === null ? "no data" : `${s.history.week.pingMs} ms`}</span></span>
+        <strong class="latency-value" data-status-ping-avg="day">${day.pingMs === null ? NOT_RECORDED : `${day.pingMs} ms`}</strong>
+        <span class="metric-hint">7 days: <span data-status-ping-avg="week">${s.history.week.pingMs === null ? "not recorded" : `${s.history.week.pingMs} ms`}</span></span>
       </div>
       <figure class="latency-figure">
         ${latencyChart(day, "day")}
@@ -208,14 +220,15 @@ export function renderStatus(cfg: SiteConfig, s: StatusPayload): string {
 
   <section class="st-section" aria-labelledby="history-h">
     <h2 id="history-h">Uptime history</h2>
-    <p class="muted st-explain">A bar is green when the gateway and database were both up for every check in it, amber below 99.9%, red below 95%. Grey means no data: the bot was not running, or history is still filling in.</p>
+    <p class="muted st-explain">A bar is green when the gateway and database were both up for every check in it, amber below 99.9%, red below 95%. Grey means Not recorded: no checks exist for that period.</p>
     <div class="uptime-grid">${history("day", s.history.day)}${history("week", s.history.week)}</div>
     <ul class="ub-legend faint" aria-hidden="true">
       <li><span class="ub ub-ok"></span>Fully up</li>
       <li><span class="ub ub-warn"></span>Some failed checks</li>
       <li><span class="ub ub-bad"></span>Mostly down</li>
-      <li><span class="ub ub-none"></span>No data</li>
+      <li><span class="ub ub-none"></span>${NOT_RECORDED}</li>
     </ul>
+    <p class="muted st-explain" data-status-history-start>${escapeHtml(historyStartLine(s.historyStartsAt ?? null))}</p>
   </section>
 
   <section class="st-section" aria-labelledby="metrics-h">

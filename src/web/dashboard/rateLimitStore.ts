@@ -1,7 +1,8 @@
 /**
- * Where dashboard rate-limit counters live. Production uses Mongo
- * (DashboardRateLimitModel) so every process and restart shares one count;
- * tests and the fallback path use the in-memory RateLimiter.
+ * Where dashboard rate-limit counters live. The default is the in-memory
+ * RateLimiter: one process, no database round trip on every dashboard
+ * request. Set RATE_LIMIT_STORE=mongo when running several instances so they
+ * share one count (DashboardRateLimitModel, with an in-memory fallback).
  *
  * Windows are fixed and aligned to the clock (floor(now / window)), so two
  * processes agree on which window a request belongs to without talking to
@@ -88,4 +89,21 @@ export function mongoRateLimitStore(): RateLimitStore {
       }
     },
   };
+}
+
+export type RateLimitStoreKind = "memory" | "mongo";
+
+/** RATE_LIMIT_STORE: "mongo" opts in to shared counters; anything else (or unset) is memory. */
+export function rateLimitStoreKind(env: NodeJS.ProcessEnv = process.env): RateLimitStoreKind {
+  return env.RATE_LIMIT_STORE?.trim().toLowerCase() === "mongo" ? "mongo" : "memory";
+}
+
+/** The dashboard's rate-limit store for this deployment. Memory unless RATE_LIMIT_STORE=mongo. */
+export function rateLimitStoreFromEnv(env: NodeJS.ProcessEnv = process.env): RateLimitStore {
+  const kind = rateLimitStoreKind(env);
+  if (kind === "mongo") {
+    logger.info("Dashboard rate limits: shared Mongo counters (RATE_LIMIT_STORE=mongo)");
+    return mongoRateLimitStore();
+  }
+  return memoryRateLimitStore();
 }

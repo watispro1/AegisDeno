@@ -4,6 +4,7 @@ import { logger } from "../utils/logger";
 import { buildCatalog, catalogStats, getCommand } from "./catalog";
 import { secretMatches } from "./securityHeaders";
 import { createHealthCheck } from "./health";
+import { mirrorQueueStats } from "../services/aegisMirror";
 import { getRustClient } from "../database/rustClient";
 import { getAegisDbEngine } from "../database/aegisDb";
 import { isAuthorized } from "../database/aegisDb/auth";
@@ -64,6 +65,8 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
       users: stats.users,
       commands: stats.commands,
       gatewayPing: stats.ping,
+      // AegisDB write-mirror backlog: counts only. Mongo stays the source of truth.
+      aegisDbMirror: mirrorQueueStats(),
     });
   });
 

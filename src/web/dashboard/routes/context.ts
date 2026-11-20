@@ -284,6 +284,11 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
       const servers = partitionGuilds(authed.session.guilds ?? [], (id) => deps.bot.hasGuild(id)).manageable.map(s => ({ id: s.id, name: s.name, iconUrl: guildIconUrl(s.id, s.icon) }));
       const ctx: GuildContext = { guild, viewer: authed.viewer, nameOf: (id) => deps.bot.userName(id), roleLimit, servers, premium: await premiumFlag(guildId) };
       res.locals.dash = { ...authed, ctx } satisfies GuildLocals;
+      // A successful write (POST that did not fail) drops the cached guild
+      // lookups, so the page it redirects to reads fresh data.
+      if (req.method === "POST" && deps.bot.invalidate) {
+        res.once("finish", () => { if (res.statusCode < 400) deps.bot.invalidate?.(guildId); });
+      }
       // Remember the last server opened, so the picker can offer it first. Only an ID, never trusted for access.
       if (req.method === "GET") res.append("Set-Cookie", serializeCookie(LAST_GUILD_COOKIE, guildId, { maxAgeSeconds: 30 * 86_400, secure: cfg.secureCookies, path: "/dashboard" }));
       next();

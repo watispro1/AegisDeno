@@ -214,7 +214,7 @@ test("modules & backup: switches save, export downloads JSON, import validates c
   const exp = await get(`/dashboard/${GUILD}/tools/export`);
   assert.equal(exp.status, 200);
   assert.match(exp.headers.get("content-disposition") ?? "", /attachment; filename="aegis-settings-800000000000000001\.json"/);
-  assert.equal(exp.headers.get("cache-control"), "no-store");
+  assert.equal(exp.headers.get("cache-control"), "private, no-store");
   const file = await exp.json() as Record<string, unknown>;
   assert.equal(file.format, "aegis-settings");
   assert.deepEqual(file.economy, DEFAULT_ECONOMY_CONFIG, "economy settings are in the export");

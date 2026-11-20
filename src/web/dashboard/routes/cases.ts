@@ -79,7 +79,7 @@ export function registerCaseRoutes(router: Router, k: RouteKit): void {
       res.status(200)
         .type("text/csv; charset=utf-8")
         .setHeader("Content-Disposition", `attachment; filename="aegis-cases-${ctx.guild.id}-${day}.csv"`)
-        .setHeader("Cache-Control", "no-store")
+        .setHeader("Cache-Control", "private, no-store")
         .send(casesToCsv(result.items));
     } catch (err) {
       next(err);
