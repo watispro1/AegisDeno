@@ -225,7 +225,8 @@ html:not(.js) .theme-picker { display: none; }
 [data-theme="aurora"] a:focus-visible { outline-color: var(--accent); outline-offset: 3px; }
 [data-theme="aurora"] .home-step-n { box-shadow: 0 0 10px rgba(52, 211, 153, .18); }
 [data-theme="aurora"] .callout { box-shadow: inset 0 0 0 0 transparent, 0 0 8px rgba(52, 211, 153, .1); }
-[data-theme="aurora"] .tag { background: rgba(52, 211, 153, .12); border-color: rgba(52, 211, 153, .25); color: var(--accent); }
+/* Neutral tags take the mint tint; status and action tags keep their meaning colours. */
+[data-theme="aurora"] .tag:not(.ok):not(.warn):not(.danger):not(.ban):not(.kick):not(.timeout):not(.softban):not(.warning):not(.note) { background: rgba(52, 211, 153, .12); border-color: rgba(52, 211, 153, .25); color: var(--accent); }
 
 /* ── Steel surface polish ───────────────────────────────────────────────── */
 [data-theme="steel"] .live-pill { border-color: var(--border-strong); background: var(--bg-sunk); }
