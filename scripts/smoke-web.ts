@@ -129,7 +129,7 @@ async function main() {
   const dashJs = await (await fetch(origin + "/assets/dashboard.js")).text();
   let dashJsParses = true;
   try {
-    // eslint-disable-next-line no-new-func
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     new Function(dashJs);
   } catch {
     dashJsParses = false;

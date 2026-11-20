@@ -63,7 +63,7 @@ export async function loadCommands(): Promise<void> {
       try {
         // The project compiles to CommonJS, so keep loading aligned with tsconfig.
         // tsx handles .ts files during development and Node handles compiled .js files.
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const module = require(filePath) as Record<string, unknown>;
         const candidate = module.command ?? module.default;
 

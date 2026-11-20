@@ -57,5 +57,5 @@ test("roleinfo: member list puts humans first, alphabetically, and marks bots", 
   ]);
   assert.deepEqual(sorted.map(m => m.id), ["3", "1", "2"]);
   assert.match(memberLine(sorted[2], 2), /<@2> · Bot 🤖$/);
-  assert.match(memberLine(sorted[0], 0), /^`  1` <@3>/);
+  assert.match(memberLine(sorted[0], 0), /^` {2}1` <@3>/);
 });

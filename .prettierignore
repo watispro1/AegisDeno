@@ -1,0 +1,13 @@
+# The codebase has not been mass-formatted with Prettier (it would conflict
+# with every open branch). `npm run format:check` reports drift; format files
+# you touch with `npx --prefix tools/lint prettier --write <file>`.
+dist/
+coverage/
+node_modules/
+tools/lint/node_modules/
+crates/
+target/
+package-lock.json
+tools/lint/package-lock.json
+*.md
+tests/*.snapshot.json

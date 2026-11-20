@@ -311,11 +311,24 @@ test("dashboard 1.8.0 checklist, activity and site round 3: released 2026-11-14"
   assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
 
-test("dashboard 2.0.0: newest dashboard release, the redesign, Glass GA and Aurora beta", () => {
+test("dashboard 2.1.0: newest dashboard release, the Premium page moves to Stripe", () => {
   const dash = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
-  assert.equal(dash[0].version, "2.0.0");
+  assert.equal(dash[0].version, "2.1.0");
+  assert.equal(dash[0].date, "2026-11-20");
+  assert.equal(DASHBOARD_VERSION, "2.1.0");
+  const notes = dash[0].notes.join(" ");
+  assert.ok(notes.includes("3.15.0"), "names the bot release it shipped with");
+  assert.ok(/not for sale/.test(notes), "keeps Premium's not-for-sale status");
+  assert.deepEqual(dash[0].sections.map((s) => s.title), ["Changed"]);
+  const text = dash[0].sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["Stripe Checkout", "customer portal", "Stripe.js", "content security policy"]) assert.ok(text.includes(needle), `2.1.0 mentions ${needle}`);
+});
+
+test("dashboard 2.0.0: the redesign, Glass GA and Aurora beta", () => {
+  const all = readChangelogFile(join(__dirname, "..", "DASHBOARD_CHANGELOG.md")).releases;
+  const dash = [all.find((x) => x.version === "2.0.0")!];
+  assert.ok(dash[0], "2.0.0 is still listed");
   assert.equal(dash[0].date, "2026-11-18");
-  assert.equal(DASHBOARD_VERSION, "2.0.0");
   const notes = dash[0].notes.join(" ");
   assert.ok(notes.includes("3.14.1"), "names the bot release it shipped with");
   assert.ok(/presentation rewrite/.test(notes), "says nothing behind the pages changed");
@@ -393,11 +406,25 @@ test("3.13.0: records the trust bar, the licence change and the legal updates", 
   assert.equal(new Set(items).size, items.length, "no duplicate entries");
 });
 
-test("3.14.1: newest bot release, the website and dashboard redesign release", () => {
+test("3.15.0: newest bot release, Stripe billing and Discord in-app subscriptions", () => {
   const bot = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
-  assert.equal(bot[0].version, "3.14.1");
+  assert.equal(bot[0].version, "3.15.0");
+  assert.equal(bot[0].date, "2026-11-20");
+  assert.equal(VERSION, "3.15.0");
+  const notes = bot[0].notes.join(" ");
+  assert.ok(notes.includes("2.1.0"), "names the dashboard release");
+  assert.ok(/not for sale/.test(notes), "keeps Premium's not-for-sale status");
+  for (const env of ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "STRIPE_PRICE_ID", "STRIPE_WEBHOOK_SECRET", "DISCORD_PREMIUM_SKU_ID"]) assert.ok(notes.includes(env), `upgrade notes name ${env}`);
+  assert.deepEqual(bot[0].sections.map((s) => s.title), ["Added", "Changed", "Removed"]);
+  const text = bot[0].sections.flatMap((s) => s.items).join(" ");
+  for (const needle of ["Stripe Billing", "Discord native in-app subscriptions", "/api/stripe/webhook", "/premium", "Paddle billing"]) assert.ok(text.includes(needle), `3.15.0 mentions ${needle}`);
+});
+
+test("3.14.1: the website and dashboard redesign release", () => {
+  const all = parseChangelog(readFileSync(join(__dirname, "..", "CHANGELOG.md"), "utf8")).releases;
+  const bot = [all.find((x) => x.version === "3.14.1")!];
+  assert.ok(bot[0], "3.14.1 is still listed");
   assert.equal(bot[0].date, "2026-11-18");
-  assert.equal(VERSION, "3.14.1");
   const notes = bot[0].notes.join(" ");
   assert.ok(notes.includes("2.0.0"), "names the dashboard release");
   assert.ok(notes.includes("DASHBOARD_CHANGELOG.md"), "points at the dashboard changelog");
@@ -441,7 +468,7 @@ test("3.13.0 legal pages: updated 2026-11-14, licence and contact wording, new p
   const terms = renderTerms(cfg);
   const privacy = renderPrivacy(cfg);
   for (const html of [terms, privacy]) {
-    assert.match(html, /datetime="2026-11-1[45]">November 1[45], 2026/);
+    assert.match(html, /datetime="2026-11-(1[45]|20)">November (1[45]|20), 2026/);
     assert.ok(html.includes('href="https://discord.gg/HwTbCYC4PM"'), "support server contact, even without SUPPORT_SERVER_URL");
     assert.ok(html.includes('href="/security"'));
   }

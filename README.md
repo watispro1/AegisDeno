@@ -1,5 +1,7 @@
 # Aegis
 
+> **Node.js, not Deno:** despite the repository name, Aegis is a Node.js 22 app (TypeScript, discord.js v14, Express, MongoDB).
+
 Aegis is a moderation bot for Discord, run from slash commands. It handles
 warnings, timeouts, bans and the case log behind them, plus automod, Incident
 Mode for raids, ban appeals, ModMail, tickets, verification, logging, a staff
@@ -18,7 +20,7 @@ review cases and change settings in a web dashboard.
 | Roadmap | https://aegisdeno.fly.dev/roadmap |
 | Support server | https://discord.gg/HwTbCYC4PM |
 | Security | https://aegisdeno.fly.dev/security (report privately, see [`SECURITY.md`](./SECURITY.md)) |
-| Current version | bot 3.14.0, dashboard 1.9.0 |
+| Current version | bot 3.15.0, dashboard 2.1.0 |
 
 > **Self-hosting and the source.** The source code is public so it can be read
 > and reviewed. It is not open source: copying, modifying, redistributing or
@@ -27,9 +29,6 @@ review cases and change settings in a web dashboard.
 > section "Source code and licence" of the
 > [Terms](https://aegisdeno.fly.dev/terms#source)). Using the bot in your server
 > does not give you any rights to the code, name or branding.
-
-Despite the repository name, Aegis is a **Node.js** app (TypeScript,
-discord.js v14, Mongoose/MongoDB, Express). It does not run on Deno.
 
 ## Contents
 
@@ -277,14 +276,21 @@ fly deploy
 ```bash
 npm run typecheck              # tsc --noEmit
 npm run test:unit              # unit tests only (node:test via tsx)
+npm run test:coverage          # unit tests with a coverage report (coverage/lcov.info + summary)
 npm test                       # unit tests, build, then a smoke test of every web route
+npm run check:versions         # package.json, src/version.ts, README and changelogs agree
+npm run lint:install           # once: install ESLint/Prettier into tools/lint
+npm run lint                   # ESLint (type-aware typescript-eslint)
+npm run format:check           # Prettier check (the codebase is not mass-formatted yet)
 npx tsx scripts/smoke-web.ts   # the smoke test on its own (after a build)
 npx tsx scripts/audit-site.ts  # links, ids, heading count, unstyled classes, dead CSS
 npm run preview:site           # static copy of the site in dist/site
 ```
 
-CI runs `npm ci`, the typecheck and `npm test` on Node 22 for every push and
-pull request. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening a pull
+CI runs `npm ci`, the version check, lint, the typecheck, `npm test` and the
+coverage summary on Node 22 for every push and pull request. Lint lives in
+`tools/lint` with its own lockfile because typescript-eslint needs the
+TypeScript 6 API and the app builds with TypeScript 7. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening a pull
 request: commits need a `Signed-off-by:` line, and user-facing changes need a
 changelog entry.
 

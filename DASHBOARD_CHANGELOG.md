@@ -8,6 +8,23 @@ The dashboard has its own version numbers, separate from the bot's. The first
 release is 1.2.0. The running version is shown at the bottom of every dashboard
 page.
 
+## [2.1.0] - 2026-11-20
+
+Dashboard 2.1.0. The Premium page moves from Paddle to Stripe. Premium is
+still in development and not for sale, and the page stays hidden until every
+Stripe setting is in place. Released alongside bot version 3.15.0. New
+environment variables are listed in that release; no new OAuth scopes.
+
+### Changed
+- Premium page: Subscribe posts to the dashboard, which starts a Stripe
+  Checkout session and redirects to it, instead of opening Paddle's overlay.
+  Manage billing, Update payment method and Cancel subscription open Stripe's
+  customer portal for the buyer only.
+- Premium page: Stripe.js is loaded only on that page, and only while the
+  server does not have Premium. Its content security policy allows Stripe's
+  checkout and portal hosts instead of Paddle's.
+- Notices after checkout and when the billing portal cannot open name Stripe.
+
 ## [2.0.0] - 2026-11-18
 
 Dashboard 2.0.0. A redesigned dashboard, Glass out of beta, and a new Aurora
