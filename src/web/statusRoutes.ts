@@ -10,7 +10,7 @@ import { registerBadgeRoutes } from "./badges";
 import { databaseConnected, statusMonitor } from "../services/statusMonitor";
 import type { Stats } from "./pages";
 
-export function registerStatusRoutes(app: Express, o: { online: () => boolean; stats: () => Stats; client: Client | undefined; version: string; startedAt: number }): () => Promise<StatusPayload> {
+export function registerStatusRoutes(app: Express, o: { online: () => boolean; stats: () => Stats; client: Client | undefined; version: string; startedAt: number; aegisDbHealthy?: () => boolean }): () => Promise<StatusPayload> {
   const { client, online } = o;
   const collectStats = (_c: unknown) => o.stats();
   const SITE_VERSION = o.version;
@@ -35,6 +35,8 @@ export function registerStatusRoutes(app: Express, o: { online: () => boolean; s
       registration: monitor.registration(),
       samples: monitor.samples(),
       notices: await loadNotices().catch(() => []),
+      // The second store (AegisDB) next to MongoDB; non-critical, so it never changes the overall state.
+      ...(o.aegisDbHealthy ? { aegisDbHealthy: o.aegisDbHealthy() } : {}),
     });
   };
 

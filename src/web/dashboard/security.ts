@@ -104,6 +104,17 @@ export function originAllowed(originHeader: string | undefined, allowedOrigin: s
   return originHeader === allowedOrigin;
 }
 
+/**
+ * Fetch Metadata check for state-changing requests. Browsers that send
+ * Sec-Fetch-Site always mark a request from another site as "cross-site"
+ * (even when a privacy setting strips Origin), so that value is refused.
+ * Missing (older browsers, scripts) falls back to Origin and the CSRF token.
+ */
+export function fetchSiteAllowed(secFetchSite: string | undefined): boolean {
+  if (!secFetchSite) return true;
+  return secFetchSite !== "cross-site";
+}
+
 /* OAuth state */
 
 /**

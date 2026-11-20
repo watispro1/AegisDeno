@@ -95,28 +95,30 @@ export function renderAppeal(
   const action = `/dashboard/${esc(g.id)}/appeals/${esc(appeal.code)}`;
   const errors = o.errors ?? {};
   const review = appeal.status === "pending"
-    ? `<h2>Review</h2>
+    ? `<section class="panel-card" aria-labelledby="appeal-review-h"><h2 id="appeal-review-h">Review</h2>
   ${errorSummary(errors)}
   <form class="dash-form" method="post" action="${action}/review" novalidate>
     ${csrfField(ctx.viewer)}
     <div class="field">
       <label for="f-note">Note to the member (optional)</label>
-      <textarea id="f-note" name="note" maxlength="${APPEAL_REVIEW_NOTE_MAX}"${errors.note ? ' aria-invalid="true" aria-describedby="note-error"' : ""}>${esc(o.noteValue ?? "")}</textarea>
+      <textarea id="f-note" name="note" maxlength="${APPEAL_REVIEW_NOTE_MAX}" data-count-max="${APPEAL_REVIEW_NOTE_MAX}"${errors.note ? ' aria-invalid="true"' : ""} aria-describedby="${errors.note ? "note-error " : ""}note-help">${esc(o.noteValue ?? "")}</textarea>
       ${errors.note ? `<span class="field-error" id="note-error">${esc(errors.note)}</span>` : ""}
-      <span class="field-help">Up to ${APPEAL_REVIEW_NOTE_MAX} characters. Sent to them by DM with the decision, and posted to your log channel.</span>
+      <span class="field-help" id="note-help">Up to ${APPEAL_REVIEW_NOTE_MAX} characters. Sent to them by DM with the decision, and posted to your log channel.</span>
     </div>
     <div class="btn-row review-buttons" id="f-decision">
       <button class="btn" type="submit" name="decision" value="approved" data-confirm-button="Approve and unban this member?">Approve and unban</button>
       <button class="btn danger" type="submit" name="decision" value="denied" data-confirm-button="Deny this appeal? The ban stays.">Deny</button>
     </div>
-  </form>`
-    : `<h2>Decision</h2>
+  </form>
+  </section>`
+    : `<section class="panel-card" aria-labelledby="appeal-decision-h"><h2 id="appeal-decision-h">Decision</h2>
   <dl class="detail-list">
     <dt>Status</dt><dd>${appealTag(appeal.status)}</dd>
     ${appeal.reviewedBy ? `<dt>Reviewed by</dt><dd>${person(ctx, appeal.reviewedBy)}</dd>` : ""}
     ${appeal.reviewedAt ? `<dt>Reviewed</dt><dd>${relTime(appeal.reviewedAt)}</dd>` : ""}
     <dt>Note</dt><dd>${appeal.reviewNote ? esc(appeal.reviewNote) : `<span class="faint">None</span>`}</dd>
-  </dl>`;
+  </dl>
+  </section>`;
 
   return shell(cfg, {
     title: `Appeal ${appeal.code}`,
@@ -132,6 +134,7 @@ export function renderAppeal(
     { label: "Member's history", value: "Open cases", href: `/dashboard/${g.id}/cases?user=${appeal.userId}` },
     { label: "Statement", value: appeal.appealText ? "Sent" : "Not yet", tone: appeal.appealText ? "ok" : "off" },
   ], "Appeal summary")}
+  <section class="panel-card" aria-labelledby="appeal-details-h"><h2 id="appeal-details-h">Details</h2>
   <dl class="detail-list">
     <dt>Code</dt><dd>${idCode(appeal.code, "Copy appeal code")} ${appealTag(appeal.status)}</dd>
     <dt>Member</dt><dd>${personId(ctx, appeal.userId)} <a class="text-link" href="/dashboard/${esc(g.id)}/cases?user=${esc(appeal.userId)}">Their history</a></dd>
@@ -139,8 +142,10 @@ export function renderAppeal(
     <dt>Filed</dt><dd>${relTime(appeal.createdAt)}</dd>
     <dt>Ban reason</dt><dd>${esc(appeal.banReason)}</dd>
   </dl>
-  <h2>Their statement</h2>
+  </section>
+  <section class="panel-card" aria-labelledby="appeal-statement-h"><h2 id="appeal-statement-h">Their statement</h2>
   ${appeal.appealText ? `<blockquote class="quote-block">${esc(appeal.appealText)}</blockquote>` : emptyState("Not submitted yet.", "They send it with <code class=\"inline\">/appeal submit</code>. You can still decide without it.")}
+  </section>
   ${review}`,
   });
 }

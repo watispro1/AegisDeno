@@ -9,6 +9,23 @@ import { clientIp } from "./securityHeaders";
 
 const COMPRESSIBLE = /^(text\/|application\/(json|xml|manifest\+json|atom\+xml|rss\+xml)|image\/svg)/;
 /**
+ * Bodies smaller than this are sent as they are: gzip's header and the CPU
+ * cost outweigh the saving, and tiny bodies can even grow.
+ */
+export const GZIP_MIN_BYTES = 1024;
+
+/**
+ * Cache-Control for a static asset. Pages link assets with ?v=<content hash>,
+ * so a request carrying the current hash may be cached for a year as
+ * immutable. Anything else (no ?v=, or a hash from an older deploy, which now
+ * gets the new content) is cached briefly, so a deploy is never hidden
+ * behind a year-long cache entry under the wrong key.
+ */
+export function assetCacheControl(requestedVersion: unknown, currentVersion: string, maxAgeSeconds: number): string {
+  if (typeof requestedVersion === "string" && requestedVersion === currentVersion) return `public, max-age=${maxAgeSeconds}, immutable`;
+  return `public, max-age=${Math.min(maxAgeSeconds, 3600)}`;
+}
+/**
  * Final Express error handler: logs the error server-side and answers with a
  * generic message (JSON under /api, plain text elsewhere). Never echoes the
  * error, its message or a stack trace.
@@ -82,6 +99,9 @@ export function compression(req: Request, res: Response, next: NextFunction): vo
       return original(body);
     }
     if (!COMPRESSIBLE.test(String(this.getHeader("Content-Type") ?? ""))) {
+      return original(body);
+    }
+    if (Buffer.byteLength(body, "utf8") < GZIP_MIN_BYTES) {
       return original(body);
     }
 

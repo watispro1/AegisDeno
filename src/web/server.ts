@@ -48,11 +48,11 @@ import { dashboardScript } from "./dashboard/client";
 import { premiumScript } from "./dashboard/clientPremium";
 import { securityHeaders } from "./securityHeaders";
 import { databaseConnected } from "../services/statusMonitor";
-import { registerApiRoutes, startBackendProbe } from "./apiRoutes";
+import { backendHealthy, registerApiRoutes, startBackendProbe } from "./apiRoutes";
 import { registerStripeWebhook } from "./stripeWebhook";
 import { missingStripeSettings, premiumOffered, readStripeConfig } from "../config/stripe";
 import { registerSiteRoutes } from "./siteRoutes";
-import { apiRateLimit, compression, siteErrorHandler } from "./serverMiddleware";
+import { apiRateLimit, assetCacheControl, compression, siteErrorHandler } from "./serverMiddleware";
 
 export { siteErrorHandler };
 
@@ -198,25 +198,27 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
 
   // Heartbeat samples, the public status payload and /api/status (statusRoutes.ts).
   const statusPayload = registerStatusRoutes(app, {
-    online, stats: () => collectStats(client), client, version: SITE_VERSION, startedAt: STARTED_AT,
+    online, stats: () => collectStats(client), client, version: SITE_VERSION, startedAt: STARTED_AT, aegisDbHealthy: backendHealthy,
   });
 
-  const asset = (res: Response, type: string, body: string | Buffer, maxAge = 3600) => {
-    res.setHeader("Cache-Control", `public, max-age=${maxAge}, immutable`);
+  // Year-long immutable caching only for ?v=<current build>; see assetCacheControl.
+  const asset = (req: Request, res: Response, type: string, body: string | Buffer, maxAge = 3600) => {
+    res.setHeader("Cache-Control", assetCacheControl(req.query.v, ASSET_VERSION, maxAge));
     res.type(type).send(body);
   };
+  const YEAR = 31536000;
 
-  app.get("/assets/site.css", (_req, res) => asset(res, "text/css", styles, 31536000));
-  app.get("/assets/site.js", (_req, res) => asset(res, "text/javascript", clientScript, 31536000));
-  app.get("/assets/dashboard.js", (_req, res) => asset(res, "text/javascript", dashboardScript, 31536000));
-  app.get("/assets/premium.js", (_req, res) => asset(res, "text/javascript", premiumScript, 31536000));
-  app.get("/assets/status.js", (_req, res) => asset(res, "text/javascript", statusScript, 31536000));
-  app.get("/assets/theme-init.js", (_req, res) => asset(res, "text/javascript", themeInitScript, 31536000));
-  app.get("/assets/favicon.svg", (_req, res) => asset(res, "image/svg+xml", faviconSvg, 31536000));
-  app.get("/assets/mark.svg", (_req, res) => asset(res, "image/svg+xml", markSvg, 86400));
-  app.get("/assets/og.svg", (_req, res) => asset(res, "image/svg+xml", ogImageSvg, 31536000));
-  app.get("/assets/og.png", (_req, res) => asset(res, "image/png", ogImagePng, 31536000));
-  app.get("/manifest.webmanifest", (_req, res) => asset(res, "application/manifest+json", manifest, 3600));
+  app.get("/assets/site.css", (req, res) => asset(req, res, "text/css", styles, YEAR));
+  app.get("/assets/site.js", (req, res) => asset(req, res, "text/javascript", clientScript, YEAR));
+  app.get("/assets/dashboard.js", (req, res) => asset(req, res, "text/javascript", dashboardScript, YEAR));
+  app.get("/assets/premium.js", (req, res) => asset(req, res, "text/javascript", premiumScript, YEAR));
+  app.get("/assets/status.js", (req, res) => asset(req, res, "text/javascript", statusScript, YEAR));
+  app.get("/assets/theme-init.js", (req, res) => asset(req, res, "text/javascript", themeInitScript, YEAR));
+  app.get("/assets/favicon.svg", (req, res) => asset(req, res, "image/svg+xml", faviconSvg, YEAR));
+  app.get("/assets/mark.svg", (req, res) => asset(req, res, "image/svg+xml", markSvg, 86400));
+  app.get("/assets/og.svg", (req, res) => asset(req, res, "image/svg+xml", ogImageSvg, YEAR));
+  app.get("/assets/og.png", (req, res) => asset(req, res, "image/png", ogImagePng, YEAR));
+  app.get("/manifest.webmanifest", (req, res) => asset(req, res, "application/manifest+json", manifest, 3600));
 
   registerApiRoutes(app, {
     online, databaseReady: opts.databaseReady ?? databaseConnected, stats: () => collectStats(client), version: SITE_VERSION, startedAt: STARTED_AT,

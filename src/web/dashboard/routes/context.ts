@@ -14,7 +14,7 @@ import { guildInviteUrl, isSnowflake, partitionGuilds } from "../permissions";
 import type { ModuleData } from "../moduleData";
 import { memoryModuleData } from "../moduleDataMemory";
 import { memoryDashboardExtras, type DashboardExtras } from "../extras";
-import { SESSION_COOKIE, SESSION_TTL_MS, cookieNames, csrfToken, originAllowed, parseCookies, serializeCookie, verifyCsrf, verifySessionCookie } from "../security";
+import { SESSION_COOKIE, SESSION_TTL_MS, cookieNames, csrfToken, fetchSiteAllowed, originAllowed, parseCookies, serializeCookie, verifyCsrf, verifySessionCookie } from "../security";
 import { hasOperatorKeys } from "../../../utils/mongoSafe";
 import { guildIconUrl, userAvatarUrl } from "../cdn";
 import type { SessionData, SessionStore } from "../sessions";
@@ -237,7 +237,7 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
     }
   };
 
-  /** POST guard: same-origin Origin header (when sent) and a valid CSRF token for this session. */
+  /** POST guard: not cross-site (Sec-Fetch-Site, when sent), same-origin Origin header (when sent) and a valid CSRF token for this session. */
   const requireCsrf = (req: Request, res: Response, next: NextFunction) => {
     const authed = res.locals.dash as Authed;
     const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;
@@ -245,7 +245,8 @@ export function createRouteKit(deps: DashboardDeps, cfg: DashboardConfig) {
     if (hasOperatorKeys(req.body)) {
       return fail(res, 400, "Bad request", "That form contained characters the dashboard does not accept.", authed.viewer);
     }
-    if (!originAllowed(origin, cfg.origin) || !verifyCsrf(secret, authed.sessionId, body._csrf)) {
+    const fetchSite = typeof req.headers["sec-fetch-site"] === "string" ? req.headers["sec-fetch-site"] : undefined;
+    if (!fetchSiteAllowed(fetchSite) || !originAllowed(origin, cfg.origin) || !verifyCsrf(secret, authed.sessionId, body._csrf)) {
       logger.warn(`Dashboard: CSRF/origin check failed for ${req.method} ${req.path} (user ${authed.session.userId})`);
       return fail(res, 403, "Form expired", "That form was opened in another session or has expired. Reload the page and try again.", authed.viewer);
     }

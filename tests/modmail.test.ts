@@ -208,3 +208,28 @@ test("dashboard: block/unblock validate IDs and refuse self-block", async () => 
   assert.equal((await post(`/dashboard/${GUILD}/modmail/unblock`, { userId: B })).status, 303);
   assert.ok(!mm.saved.at(-1)!.blockedUserIds.includes(B));
 });
+
+test("dashboard: ModMail errors keep the signed-in bar and say nothing changed", async () => {
+  const missing = await get(`/dashboard/${GUILD}/modmail/${"b".repeat(24)}`);
+  assert.equal(missing.status, 404);
+  assert.match(await missing.text(), /Signed in as/);
+  const self = await post(`/dashboard/${GUILD}/modmail/block`, { userId: USER });
+  assert.equal(self.status, 400);
+  const html = await self.text();
+  assert.match(html, /Signed in as/);
+  assert.match(html, /Nothing was changed/);
+  const bad = await post(`/dashboard/${GUILD}/modmail/block`, { userId: "nope" });
+  assert.match(await bad.text(), /Signed in as/);
+});
+
+test("dashboard: a cross-site POST is refused even with a valid CSRF token", async () => {
+  const before = mm.saved.length;
+  const body = new URLSearchParams({ _csrf: csrf, userId: B }).toString();
+  const headers = { Cookie: cookie, "Content-Type": "application/x-www-form-urlencoded" };
+  const cross = await fetch(`${url}/dashboard/${GUILD}/modmail/block`, { method: "POST", redirect: "manual", headers: { ...headers, "Sec-Fetch-Site": "cross-site" }, body });
+  assert.equal(cross.status, 403);
+  assert.equal(mm.saved.length, before, "nothing saved");
+  const same = await fetch(`${url}/dashboard/${GUILD}/modmail/block`, { method: "POST", redirect: "manual", headers: { ...headers, "Sec-Fetch-Site": "same-origin" }, body });
+  assert.equal(same.status, 303);
+  await post(`/dashboard/${GUILD}/modmail/unblock`, { userId: B });
+});

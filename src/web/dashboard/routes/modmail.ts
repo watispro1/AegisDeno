@@ -23,7 +23,7 @@ export function registerModmailRoutes(router: Router, k: RouteKit): void {
       const ctx = locals(res);
       const id = String(req.params.ticketId ?? "");
       const t = /^[0-9a-f]{24}$/i.test(id) ? await extras.modmail.transcript(ctx.guild.id, id) : null;
-      if (!t) return fail(res, 404, "Transcript not found", "It may have been deleted (transcripts are kept for 90 days), or the link is wrong.");
+      if (!t) return fail(res, 404, "Transcript not found", "It may have been deleted (transcripts are kept for 90 days), or the link is wrong.", ctx.viewer);
       send(res, renderTranscript(deps.site, ctx, t));
     } catch (err) { next(err); }
   });
@@ -50,8 +50,8 @@ export function registerModmailRoutes(router: Router, k: RouteKit): void {
         const ctx = locals(res);
         const overview = await extras.modmail.overview(ctx.guild.id);
         const parsed = parseModmailBlock((req.body ?? {}) as FormBody, overview.config, action === "block");
-        if (!parsed.ok) return fail(res, 400, "Not a user ID", Object.values(parsed.errors)[0] ?? "Enter a Discord user ID.");
-        if (action === "block" && parsed.value.userId === ctx.viewer.userId) return fail(res, 400, "Can't block yourself", "Pick someone else.");
+        if (!parsed.ok) return fail(res, 400, "Not a user ID", `${Object.values(parsed.errors)[0] ?? "Enter a Discord user ID."} Nothing was changed.`, ctx.viewer);
+        if (action === "block" && parsed.value.userId === ctx.viewer.userId) return fail(res, 400, "Can't block yourself", "Pick someone else. Nothing was changed.", ctx.viewer);
         await extras.modmail.saveConfig(ctx.guild.id, parsed.value.config);
         await logAudit(ctx, `modmail.${action}`, parsed.value.userId, `${action}ed ${parsed.value.userId}`);
         res.redirect(303, `/dashboard/${ctx.guild.id}/modmail?notice=modmail-${action}ed`);
