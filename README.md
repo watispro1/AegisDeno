@@ -207,14 +207,16 @@ Fill in `.env`. Every variable the code reads:
 
 | Variable | Required | What it does |
 | --- | --- | --- |
-| `DISCORD_TOKEN` | yes | Bot token. The bot exits at startup without it. |
+| `DISCORD_TOKEN` | yes | Bot token. At startup every variable is checked and the bot exits with one error listing everything missing or invalid. |
 | `DISCORD_APPLICATION_ID` | yes | Application (client) ID. Also used to build the invite link and as the dashboard's OAuth client ID. |
 | `MONGO_URI` | yes | MongoDB connection string, e.g. `mongodb+srv://user:password@cluster/db`. |
 | `DISCORD_TEST_GUILD_ID` | no | Register commands to one server only (instant, for testing). Leave empty for global commands. |
 | `DISCORD_CLEAR_GUILD_IDS` | no | Comma-separated server IDs whose guild-scoped commands are cleared at startup, so a command does not appear twice after testing. |
-| `DISCORD_OWNER_ID` | no | Your user ID, for the developer commands. |
+| `BOT_OWNER_IDS` | no | Comma-separated user IDs allowed to run `/developer` and `/sync`. When neither this nor `DISCORD_OWNER_ID` is set, the original owner ID `1320058519642177668` is used. |
+| `DISCORD_OWNER_ID` | no | Legacy single owner ID; added to `BOT_OWNER_IDS`. |
 | `BOT_ENV` | no | Read into the config but not used by any feature yet. |
-| `LOG_LEVEL` | no | `info` (default) or `debug`. |
+| `LOG_LEVEL` | no | `debug`, `info` (default), `warn` or `error`. |
+| `LOG_FORMAT` | no | `json` (one JSON object per line, no colours) or `pretty`. Defaults to `json` when `NODE_ENV=production`, else `pretty`. |
 | `SITE_URL` | in production | Public origin of the website, no trailing slash. Used for canonical URLs, Open Graph tags, `sitemap.xml` and `security.txt`. |
 | `PORT` | no | Website port. Defaults to 3000, which is what `fly.toml` exposes. |
 | `BOT_INVITE_URL` | no | Base invite URL (must be an https discord.com link, otherwise it is ignored); the client ID, computed permissions, scopes and `integration_type=0` are added to it. |
