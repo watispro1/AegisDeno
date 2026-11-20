@@ -95,7 +95,10 @@ export function ticketsCard(ctx: GuildContext, data: OverviewData): string {
           t.claimedBy ? `, claimed by ${person(ctx, t.claimedBy)}` : ", unclaimed"
         }</li>`)
         .join("")}</ul>${data.openTicketCount > data.openTickets.length ? `<p class="muted">Showing the newest ${data.openTickets.length} of ${data.openTicketCount}.</p>` : ""}`
-    : `<p class="muted">No open tickets.</p>`;
+    : data.openTicketCount > 0
+      // The count and the list are separate reads; never claim "none" next to a non-zero count.
+      ? `<p class="muted">${data.openTicketCount.toLocaleString("en-US")} open ticket${data.openTicketCount === 1 ? "" : "s"}, but none could be listed just now. Reload to try again, or see them in Discord.</p>`
+      : `<p class="muted">No open tickets.</p>`;
   return `<section class="panel-card" aria-labelledby="tickets-h">
     <div class="card-head"><h2 id="tickets-h">Open tickets</h2><span class="count-badge">${data.openTicketCount.toLocaleString("en-US")}</span></div>
     ${body}

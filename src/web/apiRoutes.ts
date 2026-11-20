@@ -40,7 +40,8 @@ export function stopBackendProbe(): void {
   rustProbeTimer = null;
 }
 
-function backendHealthy(): boolean {
+/** Whether the AegisDB store answers: the embedded engine is open, or the last probe of the remote one succeeded. */
+export function backendHealthy(): boolean {
   return rustBackendUp || getAegisDbEngine() !== null;
 }
 

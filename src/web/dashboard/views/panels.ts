@@ -99,7 +99,7 @@ export function renderPanels(
   ], "Panels summary")}
   ${sectionJump([["tickets", "Ticket panel"], ["verification", "Verification panel"], ["roles", "Role panels"]])}
   ${channelPickerEmptyNote(o.channels, hidden)}
-  <h2 id="tickets">Ticket panel</h2>
+  <section class="panel-card" id="tickets" aria-labelledby="tickets-h"><h2 id="tickets-h">Ticket panel</h2>
   <p class="muted">Same as <code class="inline">/ticket setup</code>. Earlier Aegis ticket panels in the channel are removed first.</p>
   ${permissionNote(o.missing.tickets)}
   ${summaryFor("ticket")}
@@ -116,8 +116,9 @@ export function renderPanels(
   </form>
   ${panelPreview("ticket", valuesFor("ticket"))}
   </div>
+  </section>
 
-  <h2 id="verification">Verification panel</h2>
+  <section class="panel-card" id="verification" aria-labelledby="verification-h"><h2 id="verification-h">Verification panel</h2>
   <p class="muted">Same as <code class="inline">/verify setup</code>. ${o.verificationSetUp
     ? "Verification is set up; posting again moves the panel or changes its text and turns verification on."
     : "<strong>Verification is not set up yet.</strong> Posting the panel turns it on."} Earlier Aegis verification panels in the channel are removed first.</p>
@@ -147,10 +148,12 @@ export function renderPanels(
   </form>
   ${panelPreview("verification", { type: "button", ...valuesFor("verification") })}
   </div>
+  </section>
 
-  <h2 id="roles">Role panels</h2>
+  <section class="panel-card" id="roles" aria-labelledby="roles-h"><h2 id="roles-h">Role panels</h2>
   <p class="muted">Re-post a panel made with <code class="inline">/rolepanel create</code>, in the same channel or another one. The new message replaces the old one; the roles and options stay the same.</p>
   ${permissionNote(o.missing.roles)}
-  ${rolePanels}`,
+  ${rolePanels}
+  </section>`,
   });
 }

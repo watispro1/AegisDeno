@@ -5,6 +5,7 @@ import { CASE_EXPORT_MAX } from "../casesCsv";
 import { type GuildContext, csrfField, emptyState, head, idCode, notice, person, personId, relTime, shell } from "./layout";
 import { caseTable } from "./overview";
 import { pill, summaryStrip } from "./moduleKit";
+import { errorSummary } from "./parts";
 
 /* Cases */
 
@@ -131,6 +132,7 @@ export function renderCase(
     { label: "Status", value: "", html: record.revoked ? pill("Revoked", "off") : pill("Counting", "ok") },
     { label: "When", value: "", html: relTime(record.createdAt) },
   ], `${kind} summary`)}
+  <section class="panel-card" aria-labelledby="case-details-h"><h2 id="case-details-h">Details</h2>
   <dl class="detail-list">
     <dt>ID</dt><dd>${idCode(record.id, "Copy case ID")}</dd>
     <dt>Action</dt><dd>${esc(record.action)}${record.revoked ? ' <span class="tag warn">revoked</span>' : ""}</dd>
@@ -141,18 +143,22 @@ export function renderCase(
     ${record.details ? `<dt>Details</dt><dd>${esc(record.details)}</dd>` : ""}
     ${record.proofUrl && /^https:\/\//i.test(record.proofUrl) ? `<dt>Proof</dt><dd><a href="${esc(record.proofUrl)}" rel="noopener noreferrer nofollow">Open attachment</a></dd>` : ""}
   </dl>
-  <h2>Edit the reason</h2>
+  </section>
+  <section class="panel-card" aria-labelledby="case-reason-h"><h2 id="case-reason-h">Edit the reason</h2>
+  ${errorSummary(o.reasonError ? { reason: o.reasonError } : {})}
   <form class="dash-form" method="post" action="${action}/reason" novalidate>
     ${csrfField(ctx.viewer)}
     <div class="field">
       <label for="f-reason">Reason</label>
-      <textarea id="f-reason" name="reason" maxlength="${CASE_REASON_MAX}" required${o.reasonError ? ' aria-invalid="true" aria-describedby="reason-error"' : ""}>${esc(reasonValue)}</textarea>
+      <textarea id="f-reason" name="reason" maxlength="${CASE_REASON_MAX}" required aria-required="true"${o.reasonError ? ' aria-invalid="true"' : ""} aria-describedby="${o.reasonError ? "reason-error " : ""}reason-help" data-count-max="${CASE_REASON_MAX}">${esc(reasonValue)}</textarea>
       ${err}
-      <span class="field-help">Up to ${CASE_REASON_MAX} characters. Same as <code class="inline">/case edit</code>; the change is logged with your name.</span>
+      <span class="field-help" id="reason-help">Up to ${CASE_REASON_MAX} characters. Same as <code class="inline">/case edit</code>; the change is logged with your name.</span>
     </div>
     <button class="btn" type="submit">Save reason</button>
   </form>
-  <h2>Revoke</h2>
-  ${revoke}`,
+  </section>
+  <section class="panel-card" aria-labelledby="case-revoke-h"><h2 id="case-revoke-h">Revoke</h2>
+  ${revoke}
+  </section>`,
   });
 }

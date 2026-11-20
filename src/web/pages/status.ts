@@ -16,6 +16,7 @@ export const COMPONENT_ABOUT: Record<string, string> = {
   database: "Where server settings, cases, warnings and reminders are stored.",
   latency: "How long Discord takes to answer the bot's heartbeat. High values make commands feel slow.",
   commands: "Whether the slash commands were registered with Discord after the last restart.",
+  aegisdb: "The second data store (AegisDB) that keeps a copy of moderation, economy and server data. MongoDB stays the source of truth, so Aegis keeps working if this is down.",
 };
 
 /** Seconds between automatic checks while the page is open (the client script uses the same value). */

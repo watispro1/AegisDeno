@@ -128,7 +128,13 @@ export function dashboardAuditPages(cfg: SiteConfig): [string, string][] {
   }, 50)]);
   pages.push(["/dashboard/:id/activity (empty)", renderActivity(cfg, ctx, 1, { items: [], total: 0 }, 50)]);
   const extras = { casesPerDay: Array.from({ length: 30 }, (_, i) => i % 6), activeGiveaways: 1, automodHits7: 14, openSuggestions: 3, autoresponders: 2, scheduled: 1 };
-  const overview = { cases7: 1, cases30: 4, warnings7: 2, warnings30: 9, recentCases: [record], openTicketCount: 12, openTickets: [], pendingAppeals: 2 };
+  // The count and the list must agree: 12 open, the newest three listed ("Showing the newest 3 of 12").
+  const openTickets = [
+    { id: "T-12", channelId: "700000000000000001", userId: "500000000000000001", category: "general", claimedBy: viewer.userId, createdAt: new Date("Sat 2026-10-03 7:00 PM CDT (UTC-05:00)") },
+    { id: "T-11", channelId: "700000000000000002", userId: "500000000000000002", category: "report", claimedBy: null, createdAt: new Date("Sat 2026-10-03 9:00 AM CDT (UTC-05:00)") },
+    { id: "T-10", channelId: "700000000000000001", userId: "500000000000000003", category: "general", claimedBy: null, createdAt: new Date("Fri 2026-10-02 7:00 PM CDT (UTC-05:00)") },
+  ];
+  const overview = { cases7: 1, cases30: 4, warnings7: 2, warnings30: 9, recentCases: [record], openTicketCount: 12, openTickets, pendingAppeals: 2 };
   pages.push(["/dashboard/:id (full overview)", renderOverview(cfg, { ...ctx, servers: [{ id: GUILD, name: "Test Server" }, { id: "800000000000000002", name: "Other" }] }, overview, {
     extras, snapshot, rolePanels: 2, hidden: new Set(["700000000000000009"]), missingBotPermissions: ["Manage Roles"],
   })]);

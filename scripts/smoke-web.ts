@@ -181,8 +181,12 @@ async function main() {
   check("static page cached", (staticPage.headers.get("cache-control") ?? "").includes("max-age=300"));
   const notFound = await fetch(origin + "/nope");
   check("404 no-store", notFound.headers.get("cache-control") === "no-store", notFound.headers.get("cache-control") ?? "");
-  const css = await fetch(origin + "/assets/site.css");
-  check("asset immutable", (css.headers.get("cache-control") ?? "").includes("immutable"));
+  // Pages link assets with ?v=<build hash>; only that exact URL is cached as immutable.
+  const linkedCss = (await (await fetch(origin + "/docs")).text()).match(/\/assets\/site\.css\?v=[0-9a-f]+/)?.[0] ?? "/assets/site.css";
+  const css = await fetch(origin + linkedCss);
+  check("versioned asset immutable", (css.headers.get("cache-control") ?? "").includes("immutable"), linkedCss);
+  const bareCss = await fetch(origin + "/assets/site.css");
+  check("unversioned asset not immutable", !(bareCss.headers.get("cache-control") ?? "").includes("immutable"), bareCss.headers.get("cache-control") ?? "");
   const apiStats = await fetch(origin + "/api/stats");
   check("api stats no-store", apiStats.headers.get("cache-control") === "no-store");
 
@@ -199,10 +203,12 @@ async function main() {
   const statusRes = await fetch(origin + "/api/status");
   const statusText = await statusRes.text();
   const statusJson = JSON.parse(statusText);
-  check("status api has components", Array.isArray(statusJson.components) && statusJson.components.length === 5);
+  check("status api has components", Array.isArray(statusJson.components) && statusJson.components.length === 6);
+  check("status api reports the AegisDB store", statusJson.components?.some((c: { id?: string }) => c.id === "aegisdb"));
   check("status api has history", statusJson.history?.day?.buckets?.length === 24 && statusJson.history?.week?.buckets?.length === 28);
   check("status api short public cache", (statusRes.headers.get("cache-control") ?? "").includes("max-age=15"));
-  check("status api leaks no hosts or env", !/127\.0\.0\.1|localhost|mongodb|fly\.dev|MONGO|TOKEN|SECRET/i.test(statusText));
+  // "MongoDB" as a product name is fine in component details; connection strings and env names are not.
+  check("status api leaks no hosts or env", !/127\.0\.0\.1|localhost|mongodb(\+srv)?:\/\/|fly\.dev|TOKEN|SECRET/i.test(statusText) && !/MONGO_|MONGODB_URI/.test(statusText));
 
   const commandsJson = await (await fetch(origin + "/api/commands")).json();
   check("commands api returns array", Array.isArray(commandsJson.commands));
