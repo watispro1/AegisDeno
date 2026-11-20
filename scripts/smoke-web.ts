@@ -207,7 +207,8 @@ async function main() {
   check("status api reports the AegisDB store", statusJson.components?.some((c: { id?: string }) => c.id === "aegisdb"));
   check("status api has history", statusJson.history?.day?.buckets?.length === 24 && statusJson.history?.week?.buckets?.length === 28);
   check("status api short public cache", (statusRes.headers.get("cache-control") ?? "").includes("max-age=15"));
-  check("status api leaks no hosts or env", !/127\.0\.0\.1|localhost|mongodb|fly\.dev|MONGO|TOKEN|SECRET/i.test(statusText));
+  // "MongoDB" as a product name is fine in component details; connection strings and env names are not.
+  check("status api leaks no hosts or env", !/127\.0\.0\.1|localhost|mongodb(\+srv)?:\/\/|fly\.dev|TOKEN|SECRET/i.test(statusText) && !/MONGO_|MONGODB_URI/.test(statusText));
 
   const commandsJson = await (await fetch(origin + "/api/commands")).json();
   check("commands api returns array", Array.isArray(commandsJson.commands));
