@@ -49,8 +49,8 @@ import { premiumScript } from "./dashboard/clientPremium";
 import { securityHeaders } from "./securityHeaders";
 import { databaseConnected } from "../services/statusMonitor";
 import { registerApiRoutes, startBackendProbe } from "./apiRoutes";
-import { registerPaddleWebhook } from "./paddleWebhook";
-import { missingPaddleSettings, premiumOffered, readPaddleConfig } from "../config/paddle";
+import { registerStripeWebhook } from "./stripeWebhook";
+import { missingStripeSettings, premiumOffered, readStripeConfig } from "../config/stripe";
 import { registerSiteRoutes } from "./siteRoutes";
 import { apiRateLimit, compression, siteErrorHandler } from "./serverMiddleware";
 
@@ -221,9 +221,9 @@ export function startWebServer(client: Client, opts: WebServerOptions = {}) {
   registerApiRoutes(app, {
     online, databaseReady: opts.databaseReady ?? databaseConnected, stats: () => collectStats(client), version: SITE_VERSION, startedAt: STARTED_AT,
   });
-  // Aegis Premium (Paddle Billing). Raw body, verified signature; 503 until PADDLE_WEBHOOK_SECRET is set.
-  registerPaddleWebhook(app);
-  if (!readPaddleConfig()) logger.info(`Aegis Premium hidden; Paddle settings missing: ${missingPaddleSettings().join(", ")}`);
+  // Aegis Premium (Stripe Billing). Raw body, verified signature; 503 until STRIPE_WEBHOOK_SECRET is set.
+  registerStripeWebhook(app);
+  if (!readStripeConfig()) logger.info(`Aegis Premium hidden; Stripe settings missing: ${missingStripeSettings().join(", ")}`);
   registerSiteRoutes(app, { origin, inviteUrl: cfg.inviteUrl, startedAt: STARTED_AT, sitemap: ROUTES });
 
   const send = (res: Response, html: string, code = 200, cacheControl?: string) => {

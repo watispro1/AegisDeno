@@ -13,8 +13,8 @@ export const SECRET_ENV_KEYS = [
   "MONGO_URI",
   "TOPGG_TOKEN",
   "TOPGG_WEBHOOK_AUTH",
-  "PADDLE_API_KEY",
-  "PADDLE_WEBHOOK_SECRET",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
 ] as const;
 
 const PATTERNS: Array<[RegExp, string]> = [

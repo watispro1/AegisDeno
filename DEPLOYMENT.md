@@ -244,6 +244,7 @@ Questions go to the support server: https://discord.gg/HwTbCYC4PM.
 | `SUPPORT_SERVER_URL`      | Optional | Discord support server invite (default: `https://discord.gg/HwTbCYC4PM`) |
 | `JOIN_WELCOME`            | Optional | `off` disables the one-time welcome posted on server join     |
 | `CONTACT_EMAIL`           | Optional | Contact email shown on the terms and privacy pages              |
+| `DISCORD_PREMIUM_SKU_ID`  | Optional | Discord Monetization Subscription SKU ID for native in-app buy  |
 | `DISCORD_CLIENT_SECRET`   | Dashboard | OAuth2 client secret; the dashboard is off without it          |
 | `DASHBOARD_SESSION_SECRET`| Dashboard | Signs session cookies and CSRF tokens; 32+ characters          |
 | `DASHBOARD_REDIRECT_URI`  | Optional | OAuth2 redirect (default: `https://aegisdeno.fly.dev/dashboard/callback`) |
@@ -326,28 +327,54 @@ URL as a redirect in the portal. The two must match character for character.
   add that redirect in the portal, and run `npm run dev`. Cookies drop the
   `Secure` flag only when the redirect URI is plain `http`.
 
-## Aegis Premium (Paddle Billing)
+## Aegis Premium (Discord In-App Subscriptions & Stripe Billing)
 
-Premium is $5/month per server, sold through Paddle as merchant of record. It stays hidden (no dashboard page, no sidebar link, `/premium` says it isn't offered, the webhook answers 503) until all five secrets below are set. Benefits live in `src/config/premium.ts`.
+Aegis supports **both** Discord native in-app subscriptions (via Discord SKUs) and web dashboard checkout (via Stripe). A server unlocks Premium if it has an active entitlement from either provider.
 
-Billing and refund policy (shown in the Terms "Aegis Premium and payments" section and on the public `/premium` page; keep all three in sync): Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (paddle.net) or our support server; refunds after 14 days are not given except where required by law. Paddle processes all refunds.
+### 1. Discord Native In-App Subscriptions (Discord SKU)
 
-1. In Paddle (start in a sandbox account): **Catalog > Products**: create "Aegis Premium" (tax category: standard/SaaS) with a recurring price of USD 5.00 every 1 month. Copy the price ID (`pri_...`).
-2. **Developer tools > Authentication**: create a client-side token (`test_...` in sandbox, `live_...` in production) and an API key with at least `customer_portal_session.write`.
-3. **Developer tools > Notifications > New destination**: URL `https://aegisdeno.fly.dev/api/paddle/webhook`, type webhook, events `subscription.created`, `subscription.updated`, `subscription.activated`, `subscription.canceled`, `subscription.past_due`, `subscription.paused`, `subscription.resumed`, `subscription.trialing`, `transaction.completed`. Copy the destination's secret key (`pdl_ntfset_...`).
-4. **Checkout > Checkout settings**: set the default payment link to `https://aegisdeno.fly.dev/premium`. For live, submit `aegisdeno.fly.dev` under **Website approval** (Paddle reviews the pricing, terms, privacy and refund information on the site).
-5. Set the secrets (this restarts the app):
+Allows members to subscribe directly inside Discord through the native in-app modal on `/premium`.
+
+1. Open https://discord.com/developers/applications and select your Aegis application.
+2. Go to **Monetization → SKUs**.
+3. Create a **Guild Subscription** SKU (e.g. "Aegis Premium Server Subscription" at $4.99/mo).
+4. Copy the SKU ID (a snowflake number) and set it as an environment variable or Fly secret:
+   ```bash
+   fly secrets set DISCORD_PREMIUM_SKU_ID="your-sku-id" -a aegisdeno
+   ```
+5. When set, `/premium` displays Discord's native in-app "Subscribe" button, and the bot listens for `entitlementCreate`, `entitlementUpdate`, and `entitlementDelete` events to automatically activate and deactivate Premium.
+
+### 2. Stripe Web Billing (Web Dashboard)
+
+Premium is $5/month per server, billed securely via Stripe. It stays hidden (no dashboard page, no sidebar link, `/premium` says it isn't offered, the webhook answers 503) until all four secrets below are set. Benefits live in `src/config/premium.ts`.
+
+Billing and refund policy (shown in the Terms "Aegis Premium and payments" section and on the public `/premium` page; keep all in sync): Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our support server; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.
+
+1. In Stripe Dashboard (start in test mode): **Product catalog**: create "Aegis Premium" with a recurring price of USD 5.00 / month. Copy the price ID (`price_...`).
+2. **Developers > API keys**: copy your Secret key (`sk_test_...` or `sk_live_...`) and Publishable key (`pk_test_...` or `pk_live_...`).
+3. **Developers > Webhooks**: add an endpoint with URL `https://aegisdeno.fly.dev/api/stripe/webhook` and events:
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `customer.subscription.paused`
+   - `customer.subscription.resumed`
+   - `checkout.session.completed`
+   - `invoice.payment_succeeded`
+   - `invoice.payment_failed`
+   Copy the signing secret (`whsec_...`).
+4. Set the secrets (this restarts the app):
 
 ```bash
 fly secrets set \
-  PADDLE_ENV=sandbox \
-  PADDLE_CLIENT_TOKEN=test_... \
-  PADDLE_PRICE_ID=pri_... \
-  PADDLE_API_KEY=... \
-  PADDLE_WEBHOOK_SECRET=pdl_ntfset_...
+  STRIPE_SECRET_KEY=sk_... \
+  STRIPE_PUBLISHABLE_KEY=pk_... \
+  STRIPE_PRICE_ID=price_... \
+  STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
-6. Test with Paddle's webhook simulator and a sandbox checkout (card 4242 4242 4242 4242), then repeat steps 1–5 in the live account with `PADDLE_ENV=production`.
+5. Test locally using Stripe CLI:
+   `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+   and verify test checkouts and portal flows before switching to live mode keys.
 
 ## Automatic deploys from GitHub
 

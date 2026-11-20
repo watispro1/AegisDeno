@@ -4,12 +4,12 @@
  * members on a plain page. Billing controls show only for the buyer.
  *
  * No inline scripts or styles. The checkout settings ride on data-* attributes
- * and /assets/premium.js opens Paddle's overlay from them.
+ * and Stripe handles secure checkout and customer portal management.
  */
 import { escapeHtml as esc, type SiteConfig } from "../../pages";
 import type { GuildSummary } from "../botView";
 import { PREMIUM_BADGE, PREMIUM_GRACE_DAYS, PREMIUM_LIMITS, PREMIUM_PRICE_LABEL } from "../../../config/premium";
-import type { PaddleConfig } from "../../../config/paddle";
+import type { StripeConfig } from "../../../config/stripe";
 import { graceEndsAt, type Entitlement } from "../../../services/premiumState";
 import { type GuildContext, type Viewer, csrfField, fmtDate, head, notice, shell } from "./layout";
 import { modulePage } from "./parts";
@@ -22,8 +22,8 @@ export interface PremiumView {
   ctx?: GuildContext;
   premium: boolean;
   entitlement: Entitlement | null;
-  paddle: Pick<PaddleConfig, "environment" | "clientToken" | "priceId">;
-  /** Absolute URL Paddle sends the buyer back to after paying. */
+  stripe: Pick<StripeConfig, "publishableKey" | "priceId" | "isLive">;
+  /** Absolute URL Stripe sends the buyer back to after paying. */
   successUrl: string;
   /** Display name of the buyer, if the bot knows them. */
   buyerName: string | null;
@@ -44,7 +44,7 @@ function statusText(v: PremiumView): string {
   if (!e) return "This server doesn't have Premium yet.";
   if (v.premium && e.status === "past_due") {
     const end = graceEndsAt(e);
-    return `The last renewal payment failed. Premium stays on until ${end ? fmtDate(end) : `${PREMIUM_GRACE_DAYS} days after it failed`} while Paddle retries it. The buyer can update the payment method below.`;
+    return `The last renewal payment failed. Premium stays on until ${end ? fmtDate(end) : `${PREMIUM_GRACE_DAYS} days after it failed`} while Stripe retries it. The buyer can update the payment method below.`;
   }
   if (v.premium && e.cancelAt) return `Cancelled. Premium stays on until ${fmtDate(e.cancelAt)}, then ends.`;
   if (v.premium) return e.currentPeriodEnd ? `Active. Renews ${fmtDate(e.currentPeriodEnd)}.` : "Active.";
@@ -67,20 +67,21 @@ function actions(v: PremiumView): string {
       const portal = (action: string, label: string, cls: string, confirm?: string) => `<form class="inline-form" method="post" action="${base}/portal"${confirm ? ` data-confirm="${esc(confirm)}"` : ""}>
         ${csrfField(v.viewer)}<input type="hidden" name="action" value="${action}"><button class="btn ${cls}" type="submit">${esc(label)}</button></form>`;
       return `<div class="btn-row">${portal("overview", "Manage billing", "")}${e?.status === "past_due" ? portal("payment", "Update payment method", "ghost") : ""}${e?.cancelAt ? "" : portal("cancel", "Cancel subscription", "ghost danger", "Cancel Premium for this server? It stays on until the end of the month already paid for.")}</div>
-      <p class="faint">These open Paddle's customer portal, where you can see invoices, change your card or cancel.</p>`;
+      <p class="faint">These open Stripe's customer portal, where you can see invoices, change your card or cancel.</p>`;
     }
     return `<p class="muted">Bought by ${v.buyerName ? `<strong>${esc(v.buyerName)}</strong>` : "another member"}. Only they can manage or cancel the subscription.</p>`;
   }
-  const d = v.paddle;
+  const d = v.stripe;
   const customerId = v.entitlement?.customerId ?? "";
   const custAttr = customerId ? ` data-customer="${esc(customerId)}"` : "";
-  return `<div class="premium-checkout" data-premium-checkout data-env="${esc(d.environment)}" data-token="${esc(d.clientToken)}" data-price="${esc(d.priceId)}" data-guild="${esc(v.guild.id)}" data-user="${esc(v.viewer.userId)}"${custAttr} data-success="${esc(v.successUrl)}">
-      <p class="notice"><strong>In development &middot; Not for sale yet.</strong> Aegis Premium subscriptions are currently in active development and not open for live checkout. All core moderation and protection features remain 100% free.</p>
-      <button class="btn" type="button" data-premium-subscribe disabled>Subscribe for ${esc(PREMIUM_PRICE_LABEL)}</button>
-      <p class="faint" data-premium-status role="status" aria-live="polite">Loading the secure checkout…</p>
-      <noscript><p class="notice bad">The checkout needs JavaScript. Turn it on for this page, or run /premium in the server for help.</p></noscript>
+  return `<div class="premium-checkout" data-premium-checkout data-price="${esc(d.priceId)}" data-guild="${esc(v.guild.id)}" data-user="${esc(v.viewer.userId)}"${custAttr} data-success="${esc(v.successUrl)}">
+      <form method="post" action="${base}/checkout">
+        ${csrfField(v.viewer)}
+        <button class="btn" type="submit" data-premium-subscribe>Subscribe for ${esc(PREMIUM_PRICE_LABEL)}</button>
+      </form>
+      <p class="faint" data-premium-status role="status" aria-live="polite"></p>
     </div>
-    <p class="faint">Payments are processed by Paddle, our merchant of record. Aegis never sees your card or email. By subscribing you agree to the <a href="/terms#premium">terms</a>.</p>`;
+    <p class="faint">Payments are securely processed by Stripe. Aegis never sees your card details. By subscribing you agree to the <a href="/terms#premium">terms</a>.</p>`;
 }
 
 export function renderPremiumPage(cfg: SiteConfig, v: PremiumView): string {
@@ -99,7 +100,7 @@ export function renderPremiumPage(cfg: SiteConfig, v: PremiumView): string {
     ${benefitsTable()}
     <p class="faint">Every feature stays free; Premium only raises these limits. If it ends, nothing is deleted. <a href="/premium">More about Premium</a>.</p>
   </section>`;
-  const scripts = `<script src="https://cdn.paddle.com/paddle/v2/paddle.js" defer></script><script src="/assets/premium.js${cfg.assetVersion ? `?v=${encodeURIComponent(cfg.assetVersion)}` : ""}" defer></script>`;
+  const scripts = `<script src="https://js.stripe.com/v3/" defer></script><script src="/assets/premium.js${cfg.assetVersion ? `?v=${encodeURIComponent(cfg.assetVersion)}` : ""}" defer></script>`;
   const lead = "Aegis Premium for this server: higher limits and a badge. Anyone in the server can buy it.";
   const path = `/dashboard/${v.guild.id}/premium`;
   if (v.ctx) {
@@ -108,8 +109,7 @@ export function renderPremiumPage(cfg: SiteConfig, v: PremiumView): string {
   return shell(cfg, {
     title: `Premium, ${v.guild.name}`,
     path,
+    body: `<div class="wrap m-wrap">${head("Premium", lead)}<main>${body}</main></div>${v.premium ? "" : scripts}`,
     viewer: v.viewer,
-    extraScripts: v.premium ? "" : scripts,
-    body: `${head("Premium", lead, [["Servers", "/dashboard"], [v.guild.name, null], ["Premium", null]], { eyebrow: v.guild.name })}${body}`,
   });
 }

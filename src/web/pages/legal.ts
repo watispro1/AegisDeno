@@ -82,7 +82,7 @@ export function renderTerms(cfg: SiteConfig): string {
     description: "The terms for using the Aegis Discord bot, its web dashboard and the aegisdeno.fly.dev website.",
     glance: [
       "Every Aegis feature is free. Aegis Premium is an optional subscription for a server that only raises a few limits and adds a badge; nothing free is locked behind it.",
-      `Premium is sold and billed by Paddle, our merchant of record. Paddle processes the payment, charges any tax and handles invoices and refunds (see <a href="#premium">Aegis Premium and payments</a>).`,
+      `Premium is billed securely via Stripe. Stripe processes the payment, charges any tax and handles invoices and refunds (see <a href="#premium">Aegis Premium and payments</a>).`,
       "You must be old enough to use Discord, and you must follow Discord's own terms.",
       "Server staff decide how Aegis is used in their server and are responsible for the actions they take with it.",
       "Aegis is provided as is, without a guaranteed uptime.",
@@ -123,13 +123,12 @@ export function renderTerms(cfg: SiteConfig): string {
         id: "premium",
         title: "Aegis Premium and payments",
         html: `<p>Aegis Premium is an optional monthly subscription for one Discord server. What it adds is listed on the <a href="/premium">Premium page</a> and <a href="/pricing">Pricing page</a>; it raises a few existing limits and adds a badge, and never locks a feature that is free.</p>
-      <p>Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. Paddle processes all refunds.</p>
+      <p>Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.</p>
       <ul>
-        <li><strong>Merchant of record.</strong> Our order process is conducted by our online reseller Paddle.com. Paddle.com is the merchant of record for all our orders. Paddle provides all customer service inquiries and handles returns. Paddle's <a href="https://www.paddle.com/legal/checkout-buyer-terms" rel="noopener noreferrer">buyer terms</a> apply to the purchase, alongside these terms.</li>
-        <li><strong>Billing.</strong> Premium renews every month until cancelled. The price is shown before you pay. Paddle may add sales tax or VAT where it applies. If we change the price, the new price applies from the next renewal after we announce it.</li>
-        <li><strong>Cancelling.</strong> You can cancel anytime from the dashboard Premium page (the person who bought Premium cancels there; it opens Paddle's customer portal). Premium stays active until the end of the paid period and is not renewed.</li>
-        <li><strong>Failed payments.</strong> If a renewal payment fails, Premium stays on for 3 days while Paddle retries the payment, then switches off until the payment goes through.</li>
-        <li><strong>Refunds.</strong> If you're not happy, request a full refund within 14 days of any payment through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. Paddle processes all refunds. See our full <a href="/refunds">Refund Policy</a>.</li>
+        <li><strong>Billing.</strong> Premium renews every month until cancelled. The price is shown before you pay. Stripe may calculate and add sales tax or VAT where it applies. If we change the price, the new price applies from the next renewal after we announce it.</li>
+        <li><strong>Cancelling.</strong> You can cancel anytime from the dashboard Premium page (the person who bought Premium cancels there; it opens the Stripe customer portal). Premium stays active until the end of the paid period and is not renewed.</li>
+        <li><strong>Failed payments.</strong> If a renewal payment fails, Premium stays on for 3 days while Stripe retries the payment, then switches off until the payment goes through.</li>
+        <li><strong>Refunds.</strong> If you're not happy, request a full refund within 14 days of any payment through our <a href="${safeUrl(cfg.supportUrl || SUPPORT_SERVER_INVITE)}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe. See our full <a href="/refunds">Refund Policy</a>.</li>
         <li><strong>When Premium ends.</strong> Nothing a server made is deleted or switched off. It simply cannot add more past the free limits until it is back under them.</li>
         <li><strong>Per server.</strong> Premium belongs to the server it was bought for and cannot be moved to another server. If Aegis is removed from the server, or access is suspended under <a href="#ending">Stopping and suspension</a>, cancel the subscription to stop renewals.</li>
       </ul>`,
@@ -162,7 +161,7 @@ export function renderTerms(cfg: SiteConfig): string {
       {
         id: "third-parties",
         title: "Services Aegis relies on",
-        html: `<p>Aegis runs on Discord and depends on other providers to host it and store its data, such as Fly.io and a MongoDB database host, and on Paddle to sell and bill Aegis Premium. Your use of Discord is covered by Discord's own terms. We are not responsible for the availability or practices of those services. The <a href="/privacy#sharing">Privacy Policy</a> lists what each one receives.</p>`,
+        html: `<p>Aegis runs on Discord and depends on other providers to host it and store its data, such as Fly.io and a MongoDB database host, and on Stripe to process and bill Aegis Premium. Your use of Discord is covered by Discord's own terms. We are not responsible for the availability or practices of those services. The <a href="/privacy#sharing">Privacy Policy</a> lists what each one receives.</p>`,
       },
       {
         id: "disclaimer",
@@ -216,7 +215,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
       "It does not sell data, show ads, build profiles or train models on your messages.",
       "Warnings, cases and staff notes are deleted automatically after one year; member activity counters and dashboard activity after 180 days; economy transactions, closed ModMail transcripts and Incident Mode reports after 90 days; dashboard sessions after 7 days.",
       "The public website has no analytics and no cookies, and the status badges have no tracking. Your theme is kept in your browser only. The dashboard sets two login cookies.",
-      "If a server buys Premium, Paddle processes the payment as merchant of record. Aegis never sees card details, names, emails or addresses; it stores only Paddle's subscription and customer IDs, the subscription status and renewal date, and the Discord IDs of the server and the buyer.",
+      "If a server buys Premium, Stripe processes the payment securely. Aegis never sees card details, names, emails or addresses; it stores only Stripe's subscription and customer IDs, the subscription status and renewal date, and the Discord IDs of the server and the buyer.",
       `You can ask for data to be deleted; see <a href="#deletion">how</a>.`,
     ],
     sections: [
@@ -265,7 +264,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
           ${row("Join and leave counts", "Per server and UTC day: how many members joined and left. No user IDs. Used for the dashboard's analytics.", "Deleted automatically after 120 days.")}
           ${row("Dashboard sessions", "Your Discord user ID, username, display name, the Discord access token for this login, and your server list with your permissions in each. Only a hash of the session ID is stored.", "7 days after login, or when you log out.")}
           ${row("Dashboard activity", "Server ID, your user ID and username, what you changed, and when. Shown on the server's Activity page and in the Recent activity card on the overview.", "Deleted automatically after 180 days.")}
-          ${row("Aegis Premium (only if someone buys it)", "The server ID, the buyer's Discord user ID, Paddle's subscription ID and customer ID, the subscription status (active, past due, paused or cancelled), the end of the current billing period, any scheduled cancellation date, and when Paddle last updated it. Also the IDs of Paddle notifications already handled, so none is applied twice. No names, emails, addresses or payment details: those stay with Paddle.", "Subscription records: until deletion is requested (kept after cancellation so a resubscribe or dispute can be matched). Handled notification IDs: deleted automatically after 30 days.")}
+          ${row("Aegis Premium (only if someone buys it)", "The server ID, the buyer's Discord user ID, Stripe's subscription ID and customer ID, the subscription status (active, past due, paused or canceled), the end of the current billing period, any scheduled cancellation date, and when Stripe last updated it. Also the IDs of Stripe events already handled, so none is applied twice. No card details or banking credentials are stored by Aegis.", "Subscription records: until deletion is requested (kept after cancellation so a resubscribe or dispute can be matched). Handled event IDs: deleted automatically after 30 days.")}
           ${row("Dashboard rate limits", "A SHA-256 hash of your IP address and a request count for a one-minute window. The address itself is not stored.", "Deleted about a minute after the window ends.")}
         </tbody>
       </table>
@@ -291,7 +290,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
         <li><code class="inline">__Host-aegis_oauth</code> (<code class="inline">aegis_oauth</code> locally): protects the Discord login step against forgery and expires after 10 minutes.</li>
       </ul>
       <p>Both are needed for login to work, so there is no option to turn them off other than not using the dashboard.</p>
-      <p>The dashboard's Premium page, and only that page, loads Paddle.js from Paddle (<code class="inline">cdn.paddle.com</code>) to show the checkout. Paddle's checkout runs in a frame served by Paddle and may set its own cookies, under Paddle's privacy policy. No other page loads anything from Paddle.</p>`,
+      <p>The dashboard's Premium page, and only that page, loads Stripe.js from Stripe (<code class="inline">js.stripe.com</code>) to handle checkout redirects. Stripe's checkout runs under Stripe's privacy policy. No other page loads anything from Stripe.</p>`,
       },
       {
         id: "discord-login",
@@ -319,7 +318,7 @@ export function renderPrivacy(cfg: SiteConfig): string {
         <li><strong>Fly.io</strong>, which hosts the bot and this website. The app's primary region is Dallas, United States.</li>
         <li><strong>Our MongoDB database host</strong>, which stores the records listed above.</li>
         <li><strong>Top.gg</strong>, which receives only Aegis's total server count, when that integration is turned on.</li>
-        <li><strong>Paddle</strong> (Paddle.com Market Ltd and its affiliates), which sells and bills Aegis Premium as merchant of record. When you buy Premium you give your email, payment and billing details to Paddle directly in its checkout; Aegis sends Paddle only the server ID and your Discord user ID, attached to the purchase so the subscription reaches the right server. Paddle's use of your data is covered by <a href="https://www.paddle.com/legal/privacy" rel="noopener noreferrer">Paddle's Privacy Policy</a>.</li>
+        <li><strong>Stripe</strong> (Stripe, Inc. and its affiliates), which securely processes and bills Aegis Premium subscriptions. When you buy Premium you provide payment details directly to Stripe in its hosted checkout; Aegis sends Stripe only the server ID and your Discord user ID in checkout metadata, attached to the purchase so the subscription reaches the right server. Stripe's use of your data is covered by <a href="https://stripe.com/privacy" rel="noopener noreferrer">Stripe's Privacy Policy</a>.</li>
         <li>Anyone we are legally required to disclose data to, or where disclosure is needed to protect people or Aegis from harm.</li>
       </ul>
       <p>Hosting providers process data on our behalf to run Aegis. Your data may be stored and processed in the United States or other countries where these providers operate.</p>`,

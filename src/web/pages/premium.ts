@@ -1,8 +1,7 @@
 /**
  * Public /premium page: the price, what Aegis Premium adds (from
  * src/config/premium.ts), what stays free, and how to buy it. Shown even before
- * Paddle is configured, because Paddle's website review needs a public pricing
- * page; until then the call to action says it is not on sale yet.
+ * Stripe is configured; until then the call to action says it is not on sale yet.
  */
 import { PREMIUM_GRACE_DAYS, PREMIUM_LIMITS, PREMIUM_PRICE_LABEL } from "../../config/premium";
 import { SUPPORT_SERVER_INVITE } from "../layout";
@@ -20,10 +19,10 @@ export function renderPremium(cfg: SiteConfig, offered: boolean): string {
   const faqs = [
     { q: "Is anything free being moved behind Premium?", a: "<p>No. Every command and feature stays free. Premium only raises a few limits that already exist and adds a badge.</p>" },
     { q: "Who can buy it?", a: "<p>Anyone in the server, from the server's Premium page on the dashboard. It applies to that one server.</p>" },
-    { q: "Who handles the payment?", a: `<p>Paddle, our merchant of record. Paddle processes the payment, charges any sales tax or VAT, sends the receipt and handles refunds. Aegis never sees your card or email; it stores only Paddle's subscription ID and its status. See the <a href="/terms#premium">terms</a> and <a href="/privacy#sharing">privacy policy</a>.</p>` },
-    { q: "How do I cancel?", a: "<p>Whoever bought it opens the server's Premium page on the dashboard and chooses <strong>Cancel subscription</strong>, which opens Paddle's customer portal. Premium stays active until the end of the paid period and is not renewed.</p>" },
-    { q: "Can I get a refund?", a: `<p>Yes, within 14 days of any payment. Request a full refund through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>. Refunds after 14 days are not given except where required by law. Paddle processes all refunds.</p>` },
-    { q: "What if a payment fails?", a: `<p>Premium stays on for ${PREMIUM_GRACE_DAYS} days while Paddle retries the payment.</p>` },
+    { q: "Who handles the payment?", a: `<p>Stripe processes the payment, charges any sales tax or VAT, sends the receipt and handles billing portal sessions and refunds. Aegis never sees your card or email; it stores only Stripe's subscription ID and its status. See the <a href="/terms#premium">terms</a> and <a href="/privacy#sharing">privacy policy</a>.</p>` },
+    { q: "How do I cancel?", a: "<p>Whoever bought it opens the server's Premium page on the dashboard and chooses <strong>Cancel subscription</strong>, which opens Stripe's customer portal. Premium stays active until the end of the paid period and is not renewed.</p>" },
+    { q: "Can I get a refund?", a: `<p>Yes, within 14 days of any payment. Request a full refund through our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>. Refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.</p>` },
+    { q: "What if a payment fails?", a: `<p>Premium stays on for ${PREMIUM_GRACE_DAYS} days while Stripe retries the payment.</p>` },
     { q: "What happens when Premium ends?", a: "<p>Nothing is deleted or switched off. The server just can't add more autoresponders, shop items or snippets past the free limits until it is back under them.</p>" },
   ];
   const body = `
@@ -35,11 +34,11 @@ export function renderPremium(cfg: SiteConfig, offered: boolean): string {
   </div>
   <section class="panel-card premium-price" aria-labelledby="price-h">
     <h2 id="price-h">${esc(PREMIUM_PRICE_LABEL)} per server</h2>
-    <p>Billed monthly by Paddle. Cancel any time; it runs to the end of the paid month.</p>
+    <p>Billed monthly via Stripe. Cancel any time; it runs to the end of the paid month.</p>
   </section>
   <section aria-labelledby="refunds-h">
     <h2 id="refunds-h">Billing, cancelling and refunds</h2>
-    <p class="refund-policy">Aegis Premium is $5 USD per month per server, billed by Paddle as merchant of record. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through Paddle (<a href="https://paddle.net" rel="noopener noreferrer">paddle.net</a>) or our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. Paddle processes all refunds.</p>
+    <p class="refund-policy">Aegis Premium is $5 USD per month per server, billed monthly via Stripe. You can cancel anytime from the dashboard Premium page; Premium stays active until the end of the paid period and is not renewed. If you're not happy, request a full refund within 14 days of any payment through our <a href="${supportUrl}" rel="noopener noreferrer">support server</a>; refunds after 14 days are not given except where required by law. All refunds are processed securely via Stripe.</p>
     <p class="faint">Full details are in our <a href="/refunds">refund policy</a>, <a href="/pricing">pricing overview</a>, and <a href="/terms#premium">terms</a>.</p>
     ${cta}
   </section>

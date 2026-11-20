@@ -1,16 +1,5 @@
 import { applyLowTrustRole, purgeGuildTrustData } from "../services/trustService";
-import {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  Collection,
-  Events,
-  GuildMember,
-  Message,
-  TextChannel,
-  ActivityType,
-  PresenceUpdateStatus,
-} from "discord.js";
+import { Client, GatewayIntentBits, Partials, Collection, Events, GuildMember, Message, TextChannel, ActivityType, PresenceUpdateStatus } from "discord.js";
 import "../types/augmentation"; // Ensure augmentation is loaded
 import { logger } from "../utils/logger";
 import { commands } from "../commands/loader";
@@ -52,6 +41,7 @@ import { handleGuildEntryHelp, sendJoinWelcome } from "../services/entryPoint";
 import { softFail } from "../utils/softFail";
 import { registerClientDiagnostics } from "./clientDiagnostics";
 import { logMemberJoin } from "./events/memberJoinLog";
+import { registerDiscordEntitlementEvents, syncDiscordEntitlements } from "../services/discordEntitlements";
 
 /** Discord expects a presence update at least this often. */
 const PRESENCE_REFRESH_MS = 5 * 60 * 1000;
@@ -97,6 +87,7 @@ export function setupEvents(client: Client): void {
   registerClientDiagnostics(client);
   registerStarboardEvents(client);
   registerServerLogs(client);
+  registerDiscordEntitlementEvents(client);
 
   // Ready
   client.once(Events.ClientReady, (c) => {
@@ -105,6 +96,7 @@ export function setupEvents(client: Client): void {
 
     applyPresence(c);
     startWatchlistSync();
+    syncDiscordEntitlements(c).catch(err => logger.warn("Discord Entitlements sync failed:", err));
     // Restores incidents that ended while the bot was down and resumes expiry checks.
     incidentService(c).boot().catch(err => logger.error("Incident Mode boot failed:", err));
     // After the scheduler has restored saved tasks, recreate any weekly digest task that went missing.

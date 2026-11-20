@@ -1,10 +1,10 @@
 /**
- * Premium entitlements and how Paddle webhook events change them. Pure: no
+ * Premium entitlements and how Stripe webhook events change them. Pure: no
  * database, no clock, so every transition is unit-tested.
  *
- * One entitlement per Paddle subscription, attributed to a server through the
- * checkout's custom_data {guildId, userId}. A server has Premium while any of
- * its entitlements is active (see entitlementActive).
+ * One entitlement per Stripe subscription, attributed to a server through the
+ * checkout session or subscription metadata {guildId, userId}. A server has Premium
+ * while any of its entitlements is active (see entitlementActive).
  */
 import { PREMIUM_GRACE_DAYS } from "../config/premium";
 
@@ -13,7 +13,7 @@ export type PremiumStatus = (typeof PREMIUM_STATUSES)[number];
 
 export interface Entitlement {
   guildId: string;
-  /** Who started the checkout; only they may open the Paddle customer portal from Aegis. */
+  /** Who started the checkout; only they may open the Stripe customer portal from Aegis. */
   userId: string | null;
   subscriptionId: string;
   customerId: string | null;
@@ -21,7 +21,7 @@ export interface Entitlement {
   currentPeriodEnd: Date | null;
   /** When the subscription first went past_due in its current run; starts the grace period. */
   pastDueSince: Date | null;
-  /** A cancellation scheduled for the end of the period (Paddle keeps the status active until then). */
+  /** A cancellation scheduled for the end of the period. */
   cancelAt: Date | null;
   /** occurred_at of the newest event applied; older events arriving late are ignored. */
   lastEventAt: Date;
@@ -29,7 +29,7 @@ export interface Entitlement {
   updatedAt: Date;
 }
 
-export interface PaddleEvent {
+export interface StripeEvent {
   eventId: string;
   eventType: string;
   occurredAt: Date;
@@ -37,56 +37,94 @@ export interface PaddleEvent {
 }
 
 const SNOWFLAKE = /^\d{17,20}$/;
-const EVENT_ID = /^evt_[a-z\d]{26}$/;
-const SUB_ID = /^sub_[a-z\d]{26}$/;
-const CUSTOMER_ID = /^ctm_[a-z\d]{26}$/;
+const EVENT_ID = /^evt_[A-Za-z0-9]+$/;
+const SUB_ID = /^sub_[A-Za-z0-9]+$/;
+const CUSTOMER_ID = /^cus_[A-Za-z0-9]+$/;
 
 export const SUBSCRIPTION_EVENTS = new Set([
-  "subscription.created", "subscription.updated", "subscription.activated", "subscription.canceled",
-  "subscription.past_due", "subscription.paused", "subscription.resumed", "subscription.trialing",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "customer.subscription.paused",
+  "customer.subscription.resumed",
 ]);
-export const HANDLED_EVENTS = new Set([...SUBSCRIPTION_EVENTS, "transaction.completed"]);
+
+export const HANDLED_EVENTS = new Set([
+  ...SUBSCRIPTION_EVENTS,
+  "checkout.session.completed",
+  "invoice.payment_succeeded",
+  "invoice.payment_failed",
+]);
 
 function obj(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
 
-function date(v: unknown): Date | null {
-  if (typeof v !== "string" || v.length > 40) return null;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? null : d;
+function dateFromSeconds(v: unknown): Date | null {
+  if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+    return new Date(v * 1000);
+  }
+  if (typeof v === "string" && /^\d+$/.test(v)) {
+    return new Date(Number(v) * 1000);
+  }
+  if (typeof v === "string") {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
 }
 
 function pick(v: unknown, re: RegExp): string | null {
   return typeof v === "string" && re.test(v) ? v : null;
 }
 
-/** The webhook envelope, or null when it is not a Paddle Billing event. */
-export function parsePaddleEvent(json: unknown): PaddleEvent | null {
+/** The webhook envelope, or null when it is not a Stripe event. */
+export function parseStripeEvent(json: unknown): StripeEvent | null {
   const o = obj(json);
   if (!o) return null;
-  const eventId = pick(o.event_id, EVENT_ID);
-  const eventType = typeof o.event_type === "string" && /^[a-z_]+\.[a-z_]+$/.test(o.event_type) ? o.event_type : null;
-  const occurredAt = date(o.occurred_at);
-  const data = obj(o.data);
+  const eventId = pick(o.id, EVENT_ID);
+  const eventType = typeof o.type === "string" && /^[a-z_]+\.[a-z_]+(?:\.[a-z_]+)?$/.test(o.type) ? o.type : null;
+  const occurredAt = dateFromSeconds(o.created);
+  const dataObj = obj(o.data);
+  const data = obj(dataObj?.object);
   if (!eventId || !eventType || !occurredAt || !data) return null;
   return { eventId, eventType, occurredAt, data };
 }
 
-/** The guild and buyer from custom_data, when both look like Discord IDs. */
-export function customDataOf(data: Record<string, unknown>): { guildId: string | null; userId: string | null } {
-  const c = obj(data.custom_data);
-  return { guildId: pick(c?.guildId, SNOWFLAKE), userId: pick(c?.userId, SNOWFLAKE) };
+/** The guild and buyer from metadata or client_reference_id. */
+export function metadataOf(data: Record<string, unknown>): { guildId: string | null; userId: string | null } {
+  const meta = obj(data.metadata);
+  const guildFromMeta = pick(meta?.guildId, SNOWFLAKE);
+  const guildFromRef = pick(data.client_reference_id, SNOWFLAKE);
+  const userFromMeta = pick(meta?.userId, SNOWFLAKE);
+  return {
+    guildId: guildFromMeta ?? guildFromRef,
+    userId: userFromMeta,
+  };
 }
 
 function statusOf(v: unknown): PremiumStatus | null {
-  return typeof v === "string" && (PREMIUM_STATUSES as readonly string[]).includes(v) ? (v as PremiumStatus) : null;
+  if (typeof v !== "string") return null;
+  const val = v.toLowerCase();
+  if (val === "active") return "active";
+  if (val === "trialing") return "trialing";
+  if (val === "past_due") return "past_due";
+  if (val === "paused") return "paused";
+  if (val === "canceled" || val === "unpaid" || val === "incomplete_expired") return "canceled";
+  return null;
 }
 
 /** The subscription a webhook is about, or null when it is not one we track. */
-export function subscriptionIdOf(event: PaddleEvent): string | null {
-  if (SUBSCRIPTION_EVENTS.has(event.eventType)) return pick(event.data.id, SUB_ID);
-  if (event.eventType === "transaction.completed") return pick(event.data.subscription_id, SUB_ID);
+export function subscriptionIdOf(event: StripeEvent): string | null {
+  if (SUBSCRIPTION_EVENTS.has(event.eventType)) {
+    return pick(event.data.id, SUB_ID) ?? pick(event.data.subscription, SUB_ID);
+  }
+  if (event.eventType === "checkout.session.completed") {
+    return pick(event.data.subscription, SUB_ID);
+  }
+  if (event.eventType === "invoice.payment_succeeded" || event.eventType === "invoice.payment_failed") {
+    return pick(event.data.subscription, SUB_ID);
+  }
   return null;
 }
 
@@ -98,21 +136,21 @@ export type Transition =
  * What one event does to the entitlement it is about. `existing` is the stored
  * entitlement for the same subscription, if any.
  */
-export function applyPaddleEvent(existing: Entitlement | null, event: PaddleEvent, now: Date): Transition {
+export function applyStripeEvent(existing: Entitlement | null, event: StripeEvent, now: Date): Transition {
   if (!HANDLED_EVENTS.has(event.eventType)) return { kind: "ignore", reason: "unhandled" };
   const subscriptionId = subscriptionIdOf(event);
   if (!subscriptionId) return { kind: "ignore", reason: "no-subscription" };
   if (existing && existing.lastEventAt.getTime() > event.occurredAt.getTime()) return { kind: "ignore", reason: "stale" };
 
   const d = event.data;
-  const custom = customDataOf(d);
-  // The guild is fixed by the first event that names it; later custom_data edits can't move Premium.
-  const guildId = existing?.guildId ?? custom.guildId;
+  const meta = metadataOf(d);
+  // The guild is fixed by the first event that names it; later metadata edits can't move Premium.
+  const guildId = existing?.guildId ?? meta.guildId;
   if (!guildId) return { kind: "ignore", reason: "no-guild" };
-  const customerId = pick(d.customer_id, CUSTOMER_ID) ?? existing?.customerId ?? null;
+  const customerId = pick(d.customer, CUSTOMER_ID) ?? existing?.customerId ?? null;
   const base = {
     guildId,
-    userId: existing?.userId ?? custom.userId,
+    userId: existing?.userId ?? meta.userId,
     subscriptionId,
     customerId,
     createdAt: existing?.createdAt ?? now,
@@ -120,18 +158,46 @@ export function applyPaddleEvent(existing: Entitlement | null, event: PaddleEven
     lastEventAt: event.occurredAt,
   };
 
-  if (event.eventType === "transaction.completed") {
-    // A paid renewal or first payment. It clears past_due; it never revives a paused or canceled subscription.
+  if (event.eventType === "checkout.session.completed") {
+    return {
+      kind: "apply",
+      entitlement: {
+        ...base,
+        status: "active",
+        currentPeriodEnd: existing?.currentPeriodEnd ?? null,
+        pastDueSince: null,
+        cancelAt: null,
+      },
+    };
+  }
+
+  if (event.eventType === "invoice.payment_succeeded") {
     const prior = existing?.status ?? "active";
     const status: PremiumStatus = prior === "past_due" ? "active" : prior;
-    const period = obj(d.billing_period);
+    const lines = obj(d.lines);
+    const lineData = Array.isArray(lines?.data) ? (lines!.data as Array<Record<string, unknown>>) : [];
+    const firstPeriod = obj(lineData[0]?.period);
+    const periodEnd = dateFromSeconds(firstPeriod?.end) ?? existing?.currentPeriodEnd ?? null;
     return {
       kind: "apply",
       entitlement: {
         ...base,
         status,
-        currentPeriodEnd: date(period?.ends_at) ?? existing?.currentPeriodEnd ?? null,
+        currentPeriodEnd: periodEnd,
         pastDueSince: null,
+        cancelAt: existing?.cancelAt ?? null,
+      },
+    };
+  }
+
+  if (event.eventType === "invoice.payment_failed") {
+    return {
+      kind: "apply",
+      entitlement: {
+        ...base,
+        status: "past_due",
+        currentPeriodEnd: existing?.currentPeriodEnd ?? null,
+        pastDueSince: existing?.pastDueSince ?? event.occurredAt,
         cancelAt: existing?.cancelAt ?? null,
       },
     };
@@ -139,15 +205,15 @@ export function applyPaddleEvent(existing: Entitlement | null, event: PaddleEven
 
   const status = statusOf(d.status);
   if (!status) return { kind: "ignore", reason: "bad-status" };
-  const period = obj(d.current_billing_period);
-  const change = obj(d.scheduled_change);
-  const cancelAt = change?.action === "cancel" ? date(change.effective_at) : null;
+  const periodEnd = status === "canceled" ? null : (dateFromSeconds(d.current_period_end) ?? (status === "paused" ? null : existing?.currentPeriodEnd ?? null));
+  const cancelAt = dateFromSeconds(d.cancel_at) ?? (d.cancel_at_period_end ? periodEnd : null);
+
   return {
     kind: "apply",
     entitlement: {
       ...base,
       status,
-      currentPeriodEnd: date(period?.ends_at) ?? (status === "canceled" || status === "paused" ? null : existing?.currentPeriodEnd ?? null),
+      currentPeriodEnd: periodEnd,
       pastDueSince: status === "past_due" ? (existing?.status === "past_due" ? existing.pastDueSince : null) ?? event.occurredAt : null,
       cancelAt: status === "canceled" ? null : cancelAt,
     },
@@ -158,8 +224,7 @@ const DAY_MS = 86_400_000;
 
 /**
  * Whether an entitlement grants Premium right now.
- * - active / trialing: yes, until PREMIUM_GRACE_DAYS after the period end (a
- *   safety net if a renewal or cancellation webhook never arrives).
+ * - active / trialing: yes, until PREMIUM_GRACE_DAYS after the period end.
  * - past_due: yes for PREMIUM_GRACE_DAYS after it first went past due.
  * - paused / canceled: no.
  */

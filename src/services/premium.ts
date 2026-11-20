@@ -1,5 +1,5 @@
 /**
- * isPremium(guildId) and friends, plus handling a verified Paddle event.
+ * isPremium(guildId) and friends, plus handling a verified Stripe event.
  *
  * Answers are cached per server for PREMIUM_CACHE_MS; a webhook that changes a
  * server clears its entry at once. Any lookup error answers "not premium" for
@@ -8,7 +8,7 @@
 import { PREMIUM_CACHE_MS, limitValue, type PremiumLimitKey } from "../config/premium";
 import mongoose from "mongoose";
 import { logger } from "../utils/logger";
-import { applyPaddleEvent, entitlementActive, primaryEntitlement, subscriptionIdOf, type Entitlement, type PaddleEvent } from "./premiumState";
+import { applyStripeEvent, entitlementActive, primaryEntitlement, subscriptionIdOf, type Entitlement, type StripeEvent } from "./premiumState";
 import { mongoPremiumStore, type PremiumStore } from "./premiumStore";
 
 let store: PremiumStore | null = null;
@@ -74,16 +74,16 @@ export async function premiumSummary(guildId: string, nowMs = Date.now()): Promi
 export type EventOutcome = "duplicate" | "applied" | "ignored";
 
 /**
- * Apply one verified event. Idempotent by event ID: a redelivery returns
+ * Apply one verified Stripe event. Idempotent by event ID: a redelivery returns
  * "duplicate" without touching anything. The event is recorded only after it
- * was applied, so a failure part-way lets Paddle's retry try again.
+ * was applied, so a failure part-way lets Stripe's retry try again.
  */
-export async function handlePaddleEvent(event: PaddleEvent, s: PremiumStore = premiumStore(), nowMs = Date.now()): Promise<{ outcome: EventOutcome; reason?: string; guildId?: string }> {
+export async function handleStripeEvent(event: StripeEvent, s: PremiumStore = premiumStore(), nowMs = Date.now()): Promise<{ outcome: EventOutcome; reason?: string; guildId?: string }> {
   if (await s.hasEvent(event.eventId)) return { outcome: "duplicate" };
   const subId = subscriptionIdOf(event);
   const existing = subId ? await s.bySubscription(subId) : null;
   const now = new Date(nowMs);
-  const t = applyPaddleEvent(existing, event, now);
+  const t = applyStripeEvent(existing, event, now);
   if (t.kind === "ignore") {
     await s.recordEvent(event.eventId, event.eventType, now);
     return { outcome: "ignored", reason: t.reason };

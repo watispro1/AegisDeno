@@ -1,7 +1,7 @@
 /**
  * /premium: this server's Aegis Premium status, what it adds, and the link to
  * subscribe or manage it on the dashboard. Anyone in the server may run it;
- * the reply is private. Without Paddle configured it says Premium isn't offered.
+ * the reply is private. Without Stripe configured it says Premium isn't offered.
  */
 import {
   ActionRowBuilder,
@@ -16,7 +16,9 @@ import {
 import type { Command } from "../../types/discord";
 import { COLORS, footer } from "../../utils/embedStyle";
 import { siteUrl } from "../../config/links";
-import { premiumOffered } from "../../config/paddle";
+import { premiumOffered } from "../../config/stripe";
+import { discordSkuId } from "../../config/discordSku";
+import { applyDiscordEntitlement } from "../../services/discordEntitlements";
 import { PREMIUM_BADGE, PREMIUM_GRACE_DAYS, PREMIUM_PRICE_LABEL, premiumBenefitLines } from "../../config/premium";
 import { premiumSummary, type PremiumSummary } from "../../services/premium";
 import { graceEndsAt } from "../../services/premiumState";
@@ -57,19 +59,33 @@ export const command: Command = {
       return;
     }
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const sku = discordSkuId();
+    if (interaction.entitlements && interaction.entitlements.size > 0) {
+      for (const ent of interaction.entitlements.values()) {
+        if (ent.guildId === interaction.guildId) {
+          await applyDiscordEntitlement(ent).catch(() => null);
+        }
+      }
+    }
     const summary = await premiumSummary(interaction.guildId).catch(() => null);
     const embed = new EmbedBuilder()
       .setColor(COLORS.brand)
       .setTitle(summary?.premium ? `${PREMIUM_BADGE} · ${interaction.guild?.name ?? "This server"}` : "Aegis Premium")
       .setDescription(`${summary ? premiumStatusLine(summary) : "I couldn't read this server's Premium status just now."}\n\n` +
-        `**${PREMIUM_PRICE_LABEL} per server.** Anyone in the server can buy it on the dashboard. Payments are handled by Paddle.`)
+        `**${PREMIUM_PRICE_LABEL} per server.** Anyone in the server can buy it via Discord or on the dashboard.`)
       .addFields({ name: "What Premium adds", value: premiumBenefitLines().map(l => `• ${l}`).join("\n").slice(0, 1024) },
         { name: "Nothing free changes", value: "Every feature stays free. If Premium ends, nothing you made is deleted; you just can't add more past the free limits.", inline: false })
       .setFooter(footer("Premium is per server"));
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setLabel(summary?.premium ? "Manage on dashboard" : "Get Premium").setStyle(ButtonStyle.Link).setURL(premiumDashboardUrl(interaction.guildId)),
+
+    const buttons: ButtonBuilder[] = [];
+    if (sku && !summary?.premium) {
+      buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Premium).setSKUId(sku));
+    }
+    buttons.push(
+      new ButtonBuilder().setLabel(summary?.premium ? "Manage on dashboard" : "Web Dashboard").setStyle(ButtonStyle.Link).setURL(premiumDashboardUrl(interaction.guildId)),
       new ButtonBuilder().setLabel("About Premium").setStyle(ButtonStyle.Link).setURL(siteUrl("/premium")),
     );
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
     await interaction.editReply({ embeds: [embed], components: [row] });
   },
 };

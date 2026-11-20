@@ -27,39 +27,34 @@ export const CONTENT_SECURITY_POLICY = [
 ].join("; ");
 
 /**
- * The dashboard's Premium page (and its portal form) only: the same policy
- * plus exactly what Paddle.js needs for the overlay checkout. Still no
- * 'unsafe-inline' anywhere. Paddle.js tries to set inline style attributes on
- * its overlay frame; those are refused, and site.css positions the frame
- * instead (theme/premium.ts).
+ * The dashboard's Premium page (and its checkout/portal forms) only: the same policy
+ * plus what Stripe.js needs for secure checkout. Still no 'unsafe-inline' anywhere.
  */
 export const PREMIUM_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' https://cdn.paddle.com",
-  "style-src 'self' https://cdn.paddle.com https://sandbox-cdn.paddle.com",
-  "img-src 'self' data: https://cdn.discordapp.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+  "script-src 'self' https://js.stripe.com",
+  "style-src 'self'",
+  "img-src 'self' data: https://cdn.discordapp.com https://*.stripe.com",
   "font-src 'self'",
-  "connect-src 'self' https://*.paddle.com",
+  "connect-src 'self' https://api.stripe.com https://maps.googleapis.com",
   "manifest-src 'self'",
   "media-src 'none'",
   "worker-src 'none'",
   "object-src 'none'",
-  // The checkout frame, and Paddle's error page if the checkout cannot load.
-  "frame-src https://buy.paddle.com https://sandbox-buy.paddle.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+  "frame-src https://js.stripe.com https://checkout.stripe.com",
   "base-uri 'none'",
-  // The portal form posts here and is redirected to Paddle's customer portal.
-  "form-action 'self' https://customer-portal.paddle.com https://sandbox-customer-portal.paddle.com",
+  "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
   "frame-ancestors 'none'",
 ].join("; ");
 
-/** /dashboard/<server ID>/premium and /dashboard/<server ID>/premium/portal. */
+/** /dashboard/<server ID>/premium, checkout, and portal. */
 export function isPremiumCheckoutPath(path: string): boolean {
-  return /^\/dashboard\/\d{17,20}\/premium(\/portal)?\/?$/.test(path);
+  return /^\/dashboard\/\d{17,20}\/premium(\/(checkout|portal))?\/?$/.test(path);
 }
 
 const PERMISSIONS_POLICY = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=()";
-/** Apple Pay and Google Pay inside Paddle's checkout frame need the payment feature delegated to it. */
-const PREMIUM_PERMISSIONS_POLICY = PERMISSIONS_POLICY.replace("payment=()", 'payment=(self "https://buy.paddle.com" "https://sandbox-buy.paddle.com")');
+/** Apple Pay and Google Pay inside Stripe's checkout need the payment feature delegated to it. */
+const PREMIUM_PERMISSIONS_POLICY = PERMISSIONS_POLICY.replace("payment=()", 'payment=(self "https://checkout.stripe.com")');
 
 /** Paths other sites may legitimately embed or fetch (share images, status badges, the public JSON API). */
 export function isCrossOriginResource(path: string): boolean {

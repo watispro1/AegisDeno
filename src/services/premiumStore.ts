@@ -1,9 +1,9 @@
 /**
- * Where Premium entitlements and handled Paddle event IDs live. Production uses
+ * Where Premium entitlements and handled Stripe event IDs live. Production uses
  * Mongo; tests and a database-less dev run use the in-memory store.
  */
 import type { Entitlement } from "./premiumState";
-import { PaddleEventModel, PremiumEntitlementModel } from "../database/premiumModels";
+import { StripeEventModel, PremiumEntitlementModel } from "../database/premiumModels";
 
 export interface PremiumStore {
   bySubscription(subscriptionId: string): Promise<Entitlement | null>;
@@ -64,10 +64,10 @@ export function mongoPremiumStore(): PremiumStore {
       await PremiumEntitlementModel.updateOne({ subscriptionId: e.subscriptionId }, { $set: { ...e } }, { upsert: true });
     },
     async hasEvent(id) {
-      return (await PaddleEventModel.exists({ eventId: String(id) })) !== null;
+      return (await StripeEventModel.exists({ eventId: String(id) })) !== null;
     },
     async recordEvent(id, type, at) {
-      await PaddleEventModel.updateOne({ eventId: String(id) }, { $setOnInsert: { eventId: String(id), eventType: type, processedAt: at } }, { upsert: true });
+      await StripeEventModel.updateOne({ eventId: String(id) }, { $setOnInsert: { eventId: String(id), eventType: type, processedAt: at } }, { upsert: true });
     },
   };
 }

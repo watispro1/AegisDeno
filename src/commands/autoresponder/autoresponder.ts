@@ -12,7 +12,7 @@ import { replyPagedList } from "../../utils/listPager";
 import { dashboardRow } from "../config/kit/setupKit";
 import { premiumLimit } from "../../services/premium";
 import { PREMIUM_LIMITS } from "../../config/premium";
-import { premiumOffered } from "../../config/paddle";
+import { premiumOffered } from "../../config/stripe";
 
 export const MAX_TRIGGER_LENGTH = 100;
 /** Discord's message limit; a longer response could never be sent. */

@@ -62,7 +62,7 @@ export interface DashboardDeps {
   modules?: ModuleData;
   /** Members, search, analytics, Incident Mode and settings transfer. Defaults to in-memory; production passes the Mongo version. */
   extras?: DashboardExtras;
-  /** Aegis Premium: entitlement store, Paddle settings and API fetch. Defaults to Mongo and the environment. */
+  /** Aegis Premium: entitlement store, Stripe settings and API fetch. Defaults to Mongo and the environment. */
   premium?: PremiumDeps;
 }
 

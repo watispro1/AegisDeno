@@ -27,7 +27,7 @@ export const ROADMAP: RoadmapGroup[] = [
     title: "Premium (In Development)",
     items: [
       { title: "Aegis Premium subscription", text: "The $5/month per-server subscription is in active development. It raises quantitative limits (autoresponders, shop items, ModMail snippets, scheduled messages, role panel choices) and adds a Premium badge in /help and the dashboard." },
-      { title: "Paddle billing integration", text: "Payments, cancellation and the customer portal are handled by Paddle as merchant of record. No card details are stored by Aegis." },
+      { title: "Stripe billing integration", text: "Payments, cancellation and the customer portal are handled securely via Stripe. No card details are stored by Aegis." },
     ],
   },
   {

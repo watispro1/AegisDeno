@@ -7,10 +7,10 @@
  * switched off); it just can't add more past the free cap until it is under it.
  */
 
-/** Shown on the dashboard, the public /premium page and /premium. Must match the Paddle price. */
+/** Shown on the dashboard, the public /premium page and /premium. Must match the Stripe price. */
 export const PREMIUM_PRICE_LABEL = "$5 / month";
 
-/** Days a server keeps Premium after a renewal payment fails (Paddle status past_due). */
+/** Days a server keeps Premium after a renewal payment fails (Stripe status past_due). */
 export const PREMIUM_GRACE_DAYS = 3;
 
 /** How long isPremium() trusts a cached answer, in milliseconds. */

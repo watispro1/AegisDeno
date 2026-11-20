@@ -6,7 +6,7 @@ import type { GuildSummary, ViewerRoleLimit } from "../botView";
 import { DASHBOARD_VERSION } from "../../../version";
 import { NOTICES } from "./notices";
 import { isDiscordCdnUrl } from "../cdn";
-import { premiumOffered } from "../../../config/paddle";
+import { premiumOffered } from "../../../config/stripe";
 import { PREMIUM_BADGE } from "../../../config/premium";
 
 export interface Viewer {
@@ -130,7 +130,7 @@ export function memberLabel(n: number): string {
   return `${v.toLocaleString("en-US")} member${v === 1 ? "" : "s"}`;
 }
 
-/** Shown at the end of General only when Paddle is configured (Premium is hidden otherwise). */
+/** Shown at the end of General only when Stripe is configured (Premium is hidden otherwise). */
 export const PREMIUM_NAV_ITEM: NavItem = { key: "premium", label: "Premium", href: "/premium", icon: "✦" };
 
 function sidebar(ctx: GuildContext, active: GuildSection): string {
