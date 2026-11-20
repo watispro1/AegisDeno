@@ -302,9 +302,9 @@ test("/health reports the AegisDB mirror queue (counts only)", async () => {
   });
   const { server, base } = await listen(app);
   try {
-    const body = await (await fetch(`${base}/health`)).json() as { aegisDbMirror?: { pending: number; dropped: number } };
-    assert.equal(typeof body.aegisDbMirror?.pending, "number");
-    assert.equal(typeof body.aegisDbMirror?.dropped, "number");
+    const body = await (await fetch(`${base}/health`)).json() as { aegisDbMirror?: Record<string, unknown> };
+    assert.deepEqual(Object.keys(body.aegisDbMirror ?? {}).sort(), ["dropped", "inFlight", "oldestPendingMs", "pending", "superseded"]);
+    for (const value of Object.values(body.aegisDbMirror ?? {})) assert.equal(typeof value, "number");
   } finally {
     server.close();
   }

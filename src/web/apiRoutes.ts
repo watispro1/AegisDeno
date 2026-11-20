@@ -46,6 +46,12 @@ export function backendHealthy(): boolean {
   return rustBackendUp || getAegisDbEngine() !== null;
 }
 
+/** The public /health view of the mirror queue: numbers only, no job labels or error text. */
+export function publicMirrorStats(): { pending: number; inFlight: number; dropped: number; superseded: number; oldestPendingMs: number } {
+  const { pending, inFlight, dropped, superseded, oldestPendingMs } = mirrorQueueStats();
+  return { pending, inFlight, dropped, superseded, oldestPendingMs };
+}
+
 export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
   const health = createHealthCheck({ startedAt: deps.startedAt });
 
@@ -65,8 +71,8 @@ export function registerApiRoutes(app: Express, deps: ApiRouteDeps): void {
       users: stats.users,
       commands: stats.commands,
       gatewayPing: stats.ping,
-      // AegisDB write-mirror backlog: counts only. Mongo stays the source of truth.
-      aegisDbMirror: mirrorQueueStats(),
+      // AegisDB write-mirror backlog: counts only (failure text stays in /developer stats).
+      aegisDbMirror: publicMirrorStats(),
     });
   });
 
