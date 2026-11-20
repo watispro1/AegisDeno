@@ -1,7 +1,18 @@
 /**
- * Client for Aegis's database & backend service (AegisDB).
- * Communicates over high-performance HTTP REST with Write-Ahead Log (WAL) durability.
+ * Client for AegisDB, the bot's secondary store (MongoDB is authoritative).
+ *
+ * Two transports, chosen per call:
+ * - In process (the normal case): when this process owns the AegisDB engine
+ *   (getAegisDbEngine() !== null) and no external URL is configured, calls go
+ *   straight to the same functions the REST routes use. No loopback HTTP.
+ * - HTTP: only for an external AegisDB, named by `baseUrl` or AEGIS_BACKEND_URL.
+ *
+ * With neither, calls throw "AegisDB unavailable"; the mirror queue retries
+ * and the bot keeps working on MongoDB.
  */
+import { externalBackendUrl, getAegisDbEngine } from "./aegisDb";
+import type { AegisDbEngine } from "./aegisDb/engine";
+import * as ops from "./aegisDb/operations";
 
 export interface RustClientConfig {
   baseUrl?: string;
@@ -47,15 +58,50 @@ export interface RustEconomyRecord {
   last_rob?: number;
 }
 
+/** Copies a value the way a JSON round trip would, so callers never share objects with the store. */
+function jsonCopy<T>(value: T): T {
+  return value === undefined ? value : (JSON.parse(JSON.stringify(value)) as T);
+}
+
 export class AegisRustClient {
+  /** "" when no external backend is configured: in-process engine only. */
   private baseUrl: string;
   private secret: string;
   private timeoutMs: number;
 
   constructor(config: RustClientConfig = {}) {
-    this.baseUrl = (config.baseUrl ?? process.env.AEGIS_BACKEND_URL ?? "http://127.0.0.1:4000").replace(/\/+$/, "");
+    this.baseUrl = (config.baseUrl ?? externalBackendUrl()).replace(/\/+$/, "");
     this.secret = config.secret ?? process.env.AEGIS_BACKEND_SECRET ?? "";
     this.timeoutMs = config.timeoutMs ?? 5000;
+  }
+
+  /** Which transport the next call uses. */
+  transport(): "in-process" | "http" | "unavailable" {
+    if (this.baseUrl) return "http";
+    return getAegisDbEngine() ? "in-process" : "unavailable";
+  }
+
+  /** The in-process engine to call directly, or null to use HTTP. Throws when neither exists. */
+  private local(): AegisDbEngine | null {
+    if (this.baseUrl) return null;
+    const engine = getAegisDbEngine();
+    if (!engine) throw new Error("AegisDB unavailable: in-process engine not running and AEGIS_BACKEND_URL not set");
+    return engine;
+  }
+
+  /** Same contract as `request`: 404 → null, any other error status throws. */
+  private direct<T>(run: (db: AegisDbEngine) => ops.OpResult, engine: AegisDbEngine): T {
+    const r = run(engine);
+    if (r.status === 404) return null as unknown as T;
+    if (r.status >= 400) throw new Error(`AegisDB ${r.status}: ${JSON.stringify(r.body)}`);
+    return jsonCopy(r.body) as T;
+  }
+
+  /** Runs `run` on the in-process engine when there is one, else sends the HTTP request. */
+  private async call<T>(run: (db: AegisDbEngine) => ops.OpResult, path: string, options: RequestInit = {}): Promise<T> {
+    const engine = this.local();
+    if (engine) return this.direct<T>(run, engine);
+    return this.request<T>(path, options);
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -95,27 +141,30 @@ export class AegisRustClient {
 
   /** Health probe */
   async health(): Promise<RustHealthResponse> {
-    return this.request<RustHealthResponse>("/health");
+    return this.call<RustHealthResponse>((db) => ops.health(db), "/health");
   }
 
   /** Database telemetry & collection metrics */
   async stats(): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>("/api/db/stats");
+    return this.call<Record<string, unknown>>((db) => ops.stats(db), "/api/db/stats");
   }
 
   /** Trigger compaction & checkpoint */
   async compact(): Promise<{ status: string; message: string }> {
-    return this.request<{ status: string; message: string }>("/api/db/compact", { method: "POST" });
+    return this.call<{ status: string; message: string }>((db) => ops.compact(db), "/api/db/compact", { method: "POST" });
   }
 
   /** Fetch guild config */
   async getGuildConfig(guildId: string): Promise<Record<string, unknown> | null> {
-    return this.request<Record<string, unknown> | null>(`/api/guilds/${encodeURIComponent(guildId)}/config`);
+    return this.call<Record<string, unknown> | null>(
+      (db) => ops.getGuildConfig(db, guildId),
+      `/api/guilds/${encodeURIComponent(guildId)}/config`,
+    );
   }
 
   /** Save guild config */
   async saveGuildConfig(guildId: string, config: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/api/guilds/${encodeURIComponent(guildId)}/config`, {
+    return this.call<Record<string, unknown>>((db) => ops.putGuildConfig(db, guildId, jsonCopy(config)), `/api/guilds/${encodeURIComponent(guildId)}/config`, {
       method: "PUT",
       body: JSON.stringify(config),
     });
@@ -133,7 +182,15 @@ export class AegisRustClient {
     if (options.skip !== undefined) params.set("skip", String(options.skip));
 
     const qs = params.toString() ? `?${params.toString()}` : "";
-    return this.request(`/api/guilds/${encodeURIComponent(guildId)}/cases${qs}`);
+    return this.call(
+      (db) => ops.listCases(db, guildId, {
+        user_id: params.get("user_id"),
+        action: params.get("action"),
+        skip: params.get("skip"),
+        limit: params.get("limit"),
+      }),
+      `/api/guilds/${encodeURIComponent(guildId)}/cases${qs}`,
+    );
   }
 
   /** Record a moderation case */
@@ -151,7 +208,7 @@ export class AegisRustClient {
       duration_ms?: number;
     },
   ): Promise<RustCaseRecord> {
-    return this.request<RustCaseRecord>(`/api/guilds/${encodeURIComponent(guildId)}/cases`, {
+    return this.call<RustCaseRecord>((db) => ops.createCase(db, guildId, jsonCopy(data)), `/api/guilds/${encodeURIComponent(guildId)}/cases`, {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -159,7 +216,8 @@ export class AegisRustClient {
 
   /** Fetch economy account */
   async getEconomy(guildId: string, userId: string): Promise<RustEconomyRecord> {
-    return this.request<RustEconomyRecord>(
+    return this.call<RustEconomyRecord>(
+      (db) => ops.getEconomy(db, guildId, userId),
       `/api/guilds/${encodeURIComponent(guildId)}/economy/${encodeURIComponent(userId)}`,
     );
   }
@@ -170,7 +228,8 @@ export class AegisRustClient {
     userId: string,
     payload: { kind: string; amount: number; description?: string },
   ): Promise<RustEconomyRecord> {
-    return this.request<RustEconomyRecord>(
+    return this.call<RustEconomyRecord>(
+      (db) => ops.transactEconomy(db, guildId, userId, jsonCopy(payload)),
       `/api/guilds/${encodeURIComponent(guildId)}/economy/${encodeURIComponent(userId)}/transact`,
       {
         method: "POST",
@@ -184,7 +243,10 @@ export class AegisRustClient {
     guildId: string,
     limit = 10,
   ): Promise<{ guild_id: string; count: number; leaderboard: Array<{ rank: number; user_id: string; wallet: number; bank: number; net_worth: number }> }> {
-    return this.request(`/api/guilds/${encodeURIComponent(guildId)}/economy/leaderboard?limit=${limit}`);
+    return this.call(
+      (db) => ops.leaderboard(db, guildId, String(limit)),
+      `/api/guilds/${encodeURIComponent(guildId)}/economy/leaderboard?limit=${limit}`,
+    );
   }
 
   /** Create a warning record */
@@ -199,7 +261,7 @@ export class AegisRustClient {
       proof_url?: string | null;
     },
   ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/api/guilds/${encodeURIComponent(guildId)}/warnings`, {
+    return this.call<Record<string, unknown>>((db) => ops.createWarning(db, guildId, jsonCopy(data)), `/api/guilds/${encodeURIComponent(guildId)}/warnings`, {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -211,14 +273,15 @@ export class AegisRustClient {
     caseId: string,
     payload: Record<string, unknown>,
   ): Promise<RustCaseRecord | null> {
-    return this.request<RustCaseRecord | null>(
+    return this.call<RustCaseRecord | null>(
+      (db) => ops.patchCase(db, guildId, caseId, jsonCopy(payload)),
       `/api/guilds/${encodeURIComponent(guildId)}/cases/${encodeURIComponent(caseId)}`,
       { method: "PATCH", body: JSON.stringify(payload) },
     );
   }
 
   /**
-   * Ping AegisDB: true if `/health` answers, false otherwise. Side-effect free;
+   * Ping AegisDB: true if the engine (in process) or `/health` (external) answers, false otherwise. Side-effect free;
    * starting the embedded backend is main()'s job, not a health probe's.
    */
   async ping(): Promise<boolean> {

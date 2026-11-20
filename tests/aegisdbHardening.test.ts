@@ -109,13 +109,15 @@ test("a stale lock left by a dead process is taken over", () => {
   e.close();
 });
 
-test("port already in use: the second server attaches and never opens the data dir", async () => {
+test("port already in use: the engine still opens and runs without an HTTP listener", async () => {
   const first = await serve(tmpDir("owner"));
-  const otherDir = path.join(tmpDir("attacher"), "data");
+  const otherDir = path.join(tmpDir("embedded"), "data");
   const second = await serve(otherDir, first.port());
-  assert.equal(second.getMode(), "attached");
-  assert.equal(second.getEngine(), null);
-  assert.ok(!fs.existsSync(otherDir), "no files created in the attaching process's data dir");
+  assert.equal(second.getMode(), "embedded");
+  assert.equal(second.isListening(), false);
+  assert.ok(second.getEngine(), "the in-process engine does not depend on the port");
+  second.getEngine()!.put("economy", "k", { wallet: 1 });
+  assert.deepEqual(second.getEngine()!.get("economy", "k"), { wallet: 1 });
 });
 
 test("compaction racing writes loses nothing", async () => {

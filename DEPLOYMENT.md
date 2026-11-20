@@ -182,27 +182,27 @@ fly scale show        # View current machine resources
 fly secrets list      # List set secret names (values are hidden)
 ```
 
-### AegisDB (Rust service)
+### Data stores: MongoDB and AegisDB
 
-These apply to the standalone Rust service in `crates/aegis-db` only; the Docker image runs the
-embedded TypeScript engine, which ignores them. Set them in the service's environment (or with
-`fly secrets set` if you run it on Fly):
-
-| Variable | Default | Description |
-| -------- | ------- | ----------- |
-| `AEGIS_DB_AUTO_COMPACT_SECS` | `300` | Compaction timer in seconds; `0` turns the timer off |
-| `AEGIS_DB_COMPACT_WAL_BYTES` | `67108864` (64 MiB) | Compact once the WAL reaches this size; `0` disables |
-| `AEGIS_DB_SNAPSHOT_ZSTD` | `true` | zstd-compress snapshots; legacy JSON snapshots still load |
-
-- **Upgrading**: an existing plain-JSON `snapshot.json` loads as-is and is rewritten as zstd on the
-  next compaction. Setting `AEGIS_DB_SNAPSHOT_ZSTD=false` later is safe too; zstd snapshots still load.
-- **Backups**: pull a consistent copy on a schedule and keep it off the machine:
-  `curl -fsS -H "x-aegis-secret: $AEGIS_BACKEND_SECRET" -o aegis-db-$(date +%F).json.zst http://127.0.0.1:4000/api/db/snapshot/export`.
-  There is no import endpoint; restore by stopping the service and placing the file as
-  `snapshot.json` in an empty data directory.
-- **Watch** `wal_bytes`, `snapshot_bytes` and `last_compaction` (time, duration, trigger) in
-  `GET /api/db/stats`. A `last_compaction` that stops advancing, or a `wal_bytes` that keeps growing
-  past `compact_wal_bytes`, means compaction is failing: check the logs for `Background compaction`.
+- **MongoDB is the authoritative store.** Every command, the dashboard and the
+  schedulers read and write MongoDB. Back it up (see below); it is the data that matters.
+- **AegisDB is a secondary store**: the TypeScript engine in `src/database/aegisDb`, run
+  inside the bot process. After a MongoDB write succeeds, the bot mirrors moderation cases,
+  warnings and config snapshots into it. The bot calls the engine in process, not over HTTP.
+- **If AegisDB is unavailable** (data directory locked by another process, disk full, missing
+  `AEGIS_BACKEND_SECRET` outside development) the bot keeps working on MongoDB: mirror writes
+  are retried from a small in-memory queue and dropped after a few attempts, and `/status`
+  shows AegisDB as degraded while the bot stays operational. Nothing is lost from MongoDB.
+- **Storage**: write-ahead log `ts-wal.jsonl` and snapshot `ts-snapshot.json` in
+  `AEGIS_DB_PATH` (`/data/aegis-db` on the Fly volume). The engine compacts every 5 minutes
+  and on shutdown. To back it up, copy `ts-snapshot.json` (and `ts-wal.jsonl`) off the volume;
+  restore by stopping the bot and placing them in an empty data directory.
+- **HTTP API**: the engine also listens on `127.0.0.1:$AEGIS_DB_PORT` (default 4000) for
+  outside tools, protected by `AEGIS_BACKEND_SECRET`. If that port is taken the engine still
+  runs; only the listener is skipped. `GET /api/db/stats` (with the secret) reports document
+  counts and WAL size.
+- **External AegisDB**: set `AEGIS_BACKEND_URL` only to point the bot at an AegisDB in another
+  process; the bot then talks HTTP to it and does not open a local engine.
 
 ### MongoDB Atlas
 
@@ -268,9 +268,10 @@ A `.env` file is read only when `NODE_ENV` is not `production`; the Docker image
 | `DASHBOARD_REDIRECT_URI`  | Optional | OAuth2 redirect (default: `https://aegisdeno.fly.dev/dashboard/callback`) |
 | `TOPGG_TOKEN`             | Optional | Posts the server count to Top.gg every 30 minutes               |
 | `TOPGG_WEBHOOK_AUTH`      | Optional | Shared secret for the Top.gg vote webhook                       |
-| `AEGIS_DB_AUTO_COMPACT_SECS` | Optional | Rust AegisDB: compaction timer in seconds (default `300`, `0` = off) |
-| `AEGIS_DB_COMPACT_WAL_BYTES` | Optional | Rust AegisDB: compact when the WAL reaches this size (default 64 MiB, `0` = off) |
-| `AEGIS_DB_SNAPSHOT_ZSTD`  | Optional | Rust AegisDB: zstd-compress snapshots (default `true`) |
+| `AEGIS_BACKEND_SECRET`    | Production | Secret for AegisDB's HTTP API; AegisDB (secondary store) does not start without it outside development |
+| `AEGIS_DB_PATH`           | Optional | AegisDB data directory (default `./data/aegis-db`; Docker image: `/data/aegis-db`) |
+| `AEGIS_DB_PORT`           | Optional | Port of AegisDB's local HTTP API for outside tools (default `4000`) |
+| `AEGIS_BACKEND_URL`       | Optional | Use an external AegisDB over HTTP instead of the in-process engine (normally unset) |
 
 ## Web dashboard
 
